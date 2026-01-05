@@ -1,5 +1,5 @@
 {
-  "originHash" : "30bd33da9a1770267e3e8e84c7aee8dee2de36c9c96cdc39877785fa2a82f859",
+  "originHash" : "72a9d3672d0cf2e12a73f7c6fc21f01b2857bc4059ddc6ff192b9838a51b65fc",
   "pins" : [
     {
       "identity" : "grdb.swift",
@@ -17,6 +17,15 @@
       "state" : {
         "revision" : "d6c16af9a8bf5a096c5eaca1fd4dac845242ef87",
         "version" : "3.1.0"
+      }
+    },
+    {
+      "identity" : "rrulekit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kubens/RRuleKit",
+      "state" : {
+        "branch" : "main",
+        "revision" : "98f254d81d7ddad1258e798c9f4410f31fc3771a"
       }
     },
     {

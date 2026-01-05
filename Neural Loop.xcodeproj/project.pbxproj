@@ -10,6 +10,7 @@
 		34237FEA2F0AFD1E002E0D02 /* Libsql in Frameworks */ = {isa = PBXBuildFile; productRef = 34237FE92F0AFD1E002E0D02 /* Libsql */; };
 		342380082F0B0709002E0D02 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 342380072F0B0709002E0D02 /* GRDB */; };
 		346ACED12F0C1B0D008187C1 /* SQLite in Frameworks */ = {isa = PBXBuildFile; productRef = 346ACED02F0C1B0D008187C1 /* SQLite */; };
+		346ACF072F0C75C3008187C1 /* RRuleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 346ACF062F0C75C3008187C1 /* RRuleKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -44,6 +45,7 @@
 			files = (
 				346ACED12F0C1B0D008187C1 /* SQLite in Frameworks */,
 				34237FEA2F0AFD1E002E0D02 /* Libsql in Frameworks */,
+				346ACF072F0C75C3008187C1 /* RRuleKit in Frameworks */,
 				342380082F0B0709002E0D02 /* GRDB in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -91,6 +93,7 @@
 				34237FE92F0AFD1E002E0D02 /* Libsql */,
 				342380072F0B0709002E0D02 /* GRDB */,
 				346ACED02F0C1B0D008187C1 /* SQLite */,
+				346ACF062F0C75C3008187C1 /* RRuleKit */,
 			);
 			productName = "Neural Loop";
 			productReference = 34237FBE2F0AF4CA002E0D02 /* Neural Loop.app */;
@@ -124,6 +127,7 @@
 				34237FE82F0AFD1E002E0D02 /* XCRemoteSwiftPackageReference "libsql-swift" */,
 				342380062F0B0709002E0D02 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
 				346ACECF2F0C1B0D008187C1 /* XCRemoteSwiftPackageReference "SQLite" */,
+				346ACF052F0C75C3008187C1 /* XCRemoteSwiftPackageReference "RRuleKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 34237FBF2F0AF4CA002E0D02 /* Products */;
@@ -391,6 +395,14 @@
 				minimumVersion = 0.15.4;
 			};
 		};
+		346ACF052F0C75C3008187C1 /* XCRemoteSwiftPackageReference "RRuleKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kubens/RRuleKit";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -408,6 +420,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 346ACECF2F0C1B0D008187C1 /* XCRemoteSwiftPackageReference "SQLite" */;
 			productName = SQLite;
+		};
+		346ACF062F0C75C3008187C1 /* RRuleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 346ACF052F0C75C3008187C1 /* XCRemoteSwiftPackageReference "RRuleKit" */;
+			productName = RRuleKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
