@@ -14,6 +14,7 @@
 //
 
 import SwiftUI
+import RRuleKit
 
 struct TodoView: View {
 
@@ -131,13 +132,23 @@ struct TodoView: View {
             )
             let manager = try DBManager.newInstance()
             
+            var rule = task_input.schedule!.recurrence!
+            let formatter = RecurrenceRuleRFC5545FormatStyle(calendar: .current)
+            let rruleString = formatter.format(rule)
+            
             let task = Tasks(
                 
                 id: nil,
                 title: task_input.title,
                 description: task_input.description,
                 priority: task_input.priority,
-                is_completed: false
+                is_completed: false,
+                is_deadline: task_input.is_deadline,
+                recursion_rule: rruleString,
+                start_date: task_input.schedule?.timing?.start,
+                duration: task_input.schedule?.timing?.duration,
+                
+                
             )
             
             let savedTask = try manager.addTask(
@@ -157,14 +168,28 @@ struct TodoView: View {
             if task_input.schedule != nil {
                 if task_input.schedule!.timing != nil && task_input.schedule!.recurrence != nil {
                     do {
+                        var rule = task_input.schedule!.recurrence!
+                        let formatter = RecurrenceRuleRFC5545FormatStyle(calendar: .current)
+                        let rruleString = formatter.format(rule)
+                        
+                        print("RRule :", rruleString)
+                        
+                        let parser = RecurrenceRuleRFC5545FormatStyle(calendar: .current)
+                        
+                        rule = try parser.parse(rruleString)
                         try NeuralLoopCalendarService.shared
                             .addRecurringEvent(
                                 taskId: Int(savedTask.id!) ,
                                 title: task.title,
                                 timing: task_input.schedule!.timing!,
-                                recurrenceRule: task_input.schedule!.recurrence!,
+                                recurrenceRule: rule,
                                 notes: task.description,
                             )
+                        if let next = nextOccurrence(of: rule) {
+                            print("Next occurrence:", next)
+                        } else {
+                                print("No next occurrence found")
+                            }
                     } catch {
                         print(
                             "❌ Calendar preview failed:",

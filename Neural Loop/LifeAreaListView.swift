@@ -36,7 +36,7 @@ struct LifeAreaListView: View {
             .onAppear {
                 print("Goals Tab Loading!")
                 loadLifeAreas()
-            }
+            }.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 

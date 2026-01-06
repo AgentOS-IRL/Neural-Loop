@@ -15,8 +15,10 @@ struct AddTodoView: View {
     @State private var title = ""
     @State private var description = ""
     @State private var priority: Int = 0
+    @State private var isDeadline: Bool = false
     
-    @State private var showScheduleSheet = false
+    @State private var showScheduleSheet = false   // circlepath (time + recurrence)
+    @State private var showTimeSheet = false       // clock (time only)
     @State private var scheduleDraft: TaskScheduleDraft?
 
     let onSave: (TaskInput) -> Void
@@ -74,7 +76,14 @@ struct AddTodoView: View {
                     Spacer()
 
                     Image(systemName: "clock")
-                    Image(systemName: "flag")
+                        .onTapGesture {
+                            showTimeSheet = true
+                        }
+                    Image(systemName: isDeadline ? "flag.fill" : "flag")
+                        .foregroundColor(isDeadline ? .red : .secondary)
+                        .onTapGesture {
+                            isDeadline.toggle()
+                        }
                     Image(systemName: "tag")
                         .background(
                             RoundedRectangle(cornerRadius: 20)
@@ -88,10 +97,11 @@ struct AddTodoView: View {
                         .onTapGesture {
                             priority = (priority + 1) % 4
                         }
-                    Image(systemName: "arrow.2.circlepath").onTapGesture {
-                        scheduleDraft = nil
-                        showScheduleSheet = true
-                    }
+                    Image(systemName: "arrow.2.circlepath")
+                        .onTapGesture {
+                            scheduleDraft = nil
+                            showScheduleSheet = true
+                        }
 
                 }
                 .font(.system(size: 16))
@@ -102,20 +112,14 @@ struct AddTodoView: View {
                         print("📅 TaskScheduleDraft returned:")
                         print("Summary:", draft.timing?.summary() ?? "All Day")
                         print("Summary:", draft.recurrence?.summary() ?? "No Recurrence")
-//                        
-//                        if draft.timing != nil && draft.recurrence != nil {
-//                            do {
-//                                    try NeuralLoopCalendarService.shared.addRecurringEvent(
-//                                        taskId: 1,
-//                                        title: "testing",
-//                                        timing: draft.timing!,
-//                                        recurrenceRule: draft.recurrence!
-//                                    )
-//                                } catch {
-//                                    print("❌ Calendar preview failed:", error)
-//                                }
-//                        }
-                               
+                    }
+                }
+                .sheet(isPresented: $showTimeSheet) {
+                    TimeRuleSheet { timing in
+                        scheduleDraft = TaskScheduleDraft(
+                            timing: timing,
+                            recurrence: nil
+                        )
                     }
                 }
             }
@@ -137,7 +141,8 @@ struct AddTodoView: View {
                             title: title,
                             description: description.isEmpty ? nil : description,
                             priority: priority,
-                            schedule: scheduleDraft
+                            schedule: scheduleDraft,
+                            is_deadline: isDeadline
                         )
                     )
                     dismiss()
