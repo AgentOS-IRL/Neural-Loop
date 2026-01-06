@@ -61,6 +61,7 @@ extension DBManager {
     // MARK: - Create
 
     func addTask(_ task: Tasks) throws -> Tasks {
+        print("Add Task")
         let insert = tasksTable.insert(
             title <- task.title,
             description <- task.description,
@@ -75,6 +76,7 @@ extension DBManager {
 
         var newTask = task
         newTask.id = rowId
+        print("Done adding Task")
         return newTask
     }
 
