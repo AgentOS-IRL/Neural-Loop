@@ -5,6 +5,7 @@
 //  Created by Sanjeev Hayal on 05/01/2026.
 //
 
+
 import Foundation
 import EventKit
 
@@ -55,9 +56,9 @@ final class NeuralLoopCalendarService {
     // MARK: - Add Event
 
     func addEvent(
+        taskId: Int,
         title: String,
-        start: Date,
-        end: Date,
+        timing: TaskTiming,
         notes: String? = nil
     ) throws {
 
@@ -66,9 +67,10 @@ final class NeuralLoopCalendarService {
         let event = EKEvent(eventStore: eventStore)
         event.calendar = calendar
         event.title = title
-        event.startDate = start
-        event.endDate = end
+        event.startDate = timing.start
+        event.endDate = timing.start.addingTimeInterval(timing.duration)
         event.notes = notes
+        event.url = URL(string: "neuralloop://task/\(taskId)")
 
         try eventStore.save(event, span: .thisEvent)
     }
@@ -76,9 +78,8 @@ final class NeuralLoopCalendarService {
     func addRecurringEvent(
         taskId: Int,
         title: String,
-        start: Date,
-        duration: Double=15,
-        recurrenceRule: EKRecurrenceRule,
+        timing: TaskTiming,
+        recurrenceRule: Calendar.RecurrenceRule,
         notes: String? = nil
     ) throws {
 
@@ -87,13 +88,114 @@ final class NeuralLoopCalendarService {
         let event = EKEvent(eventStore: eventStore)
         event.calendar = calendar
         event.title = title
-        event.startDate = start
-        event.endDate = start.addingTimeInterval(60 * duration) // 15 min default
-        event.recurrenceRules = [recurrenceRule]
+        event.startDate = timing.start
+        event.endDate = timing.start.addingTimeInterval(timing.duration)
+
+        // Map weekday rules to EKRecurrenceDayOfWeek
+        let ekDaysOfTheWeek: [EKRecurrenceDayOfWeek] = recurrenceRule.weekdays.map { weekday in
+            switch weekday {
+            case .every(let localeDay):
+                let ekWeekday: EKWeekday = {
+                    switch localeDay {
+                    case .monday:    return .monday
+                    case .tuesday:   return .tuesday
+                    case .wednesday: return .wednesday
+                    case .thursday:  return .thursday
+                    case .friday:    return .friday
+                    case .saturday:  return .saturday
+                    case .sunday:    return .sunday
+                    }
+                }()
+                return EKRecurrenceDayOfWeek(ekWeekday)
+
+            case .nth(let n, let localeDay):
+                let ekWeekday: EKWeekday = {
+                    switch localeDay {
+                    case .monday:    return .monday
+                    case .tuesday:   return .tuesday
+                    case .wednesday: return .wednesday
+                    case .thursday:  return .thursday
+                    case .friday:    return .friday
+                    case .saturday:  return .saturday
+                    case .sunday:    return .sunday
+                    }
+                }()
+                return EKRecurrenceDayOfWeek(ekWeekday, weekNumber: n)
+            }
+        }
+        
+        // Build the end rule
+        var ekEnd: EKRecurrenceEnd? = nil
+        if recurrenceRule.end != .never {
+            if recurrenceRule.end.occurrences != nil {
+                ekEnd = EKRecurrenceEnd(
+                    occurrenceCount: recurrenceRule.end.occurrences!
+                )
+            }
+            else if recurrenceRule.end.date != nil {
+                ekEnd = EKRecurrenceEnd(end: recurrenceRule.end.date!)
+            }
+        }
+        
+        let ekFrequency: EKRecurrenceFrequency
+            switch recurrenceRule.frequency {
+            case .daily:
+                ekFrequency = .daily
+            case .weekly:
+                ekFrequency = .weekly
+            case .monthly:
+                ekFrequency = .monthly
+            case .yearly:
+                ekFrequency = .yearly
+            @unknown default:
+                fatalError("Unsupported recurrence frequency")
+            }
+
+      
+        
+        // Create the EKRecurrenceRule
+        let ekRule = EKRecurrenceRule(
+            recurrenceWith: ekFrequency,
+            interval: recurrenceRule.interval,
+            daysOfTheWeek: ekDaysOfTheWeek,
+            daysOfTheMonth: recurrenceRule.daysOfTheMonth as [NSNumber],
+            monthsOfTheYear: recurrenceRule.months.map { NSNumber(value: $0.index) },
+            weeksOfTheYear: recurrenceRule.weeks as [NSNumber],
+            daysOfTheYear: recurrenceRule.daysOfTheYear as [NSNumber],
+            setPositions: recurrenceRule.setPositions as [NSNumber],
+            end: ekEnd
+        )
+
+        event.recurrenceRules = [ekRule]  // compiler now has clear types
+
         event.url = URL(string: "neuralloop://task/\(taskId)")
         event.notes = notes
 
-        try eventStore.save(event, span: .thisEvent)
+        print("📅 [TEST MODE] Recurring Event Preview")
+        print("Title:", event.title ?? "nil")
+        print("Start:", event.startDate)
+        print("End:", event.endDate)
+        print("Notes:", event.notes ?? "nil")
+        print("URL:", event.url?.absoluteString ?? "nil")
+
+        if let rules = event.recurrenceRules {
+            for rule in rules {
+                print("— Recurrence Rule —")
+                print("Frequency:", rule.frequency)
+                print("Interval:", rule.interval)
+                print("Days of Week:", rule.daysOfTheWeek ?? [])
+                print("Days of Month:", rule.daysOfTheMonth ?? [])
+                print("Months of Year:", rule.monthsOfTheYear ?? [])
+                print("Weeks of Year:", rule.weeksOfTheYear ?? [])
+                print("Days of Year:", rule.daysOfTheYear ?? [])
+                print("Set Positions:", rule.setPositions ?? [])
+                print("End:", rule.recurrenceEnd?.description ?? "never")
+            }
+        } else {
+            print("No recurrence rules")
+        }
+         try eventStore.save(event, span: .thisEvent)
+        print("Saved to Calendar")
     }
     
     func fetchEvent(for taskId: Int) throws -> EKEvent? {
@@ -155,3 +257,4 @@ enum CalendarError: LocalizedError {
         }
     }
 }
+

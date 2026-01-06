@@ -2,13 +2,13 @@ import Foundation
 import SwiftUI
 import EventKit
 
-struct TaskScheduleTimeSheet: View {
+struct TimeRuleSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
     let onSave: (TaskTiming) -> Void
 
-    @State private var selectedTime: Date = Date()
+    @State private var selectedDateTime: Date = Date()
     @State private var isAnytime: Bool = false
     @State private var isDurationEnabled: Bool = true
 
@@ -29,13 +29,24 @@ struct TaskScheduleTimeSheet: View {
                             .foregroundStyle(.secondary)
                         Spacer()
                         if !isAnytime {
-                            Text(timeFormatter.string(from: selectedTime))
+                            Text(dateTimeFormatter.string(from: selectedDateTime))
                                 .foregroundStyle(.primary)
                         }
                     }
                     .padding()
 
                     Divider()
+
+                    if !isAnytime {
+                        DatePicker(
+                            "Select Date & Time",
+                            selection: $selectedDateTime,
+                            displayedComponents: [.date, .hourAndMinute]
+                        )
+                        .datePickerStyle(.wheel)
+                        .labelsHidden()
+                        .padding(.horizontal)
+                    }
 
                     Toggle("Anytime", isOn: $isAnytime)
                         .padding()
@@ -116,7 +127,7 @@ struct TaskScheduleTimeSheet: View {
                         let duration = TimeInterval((selectedHours * 3600) + (selectedMinutes * 60))
                         onSave(
                             TaskTiming(
-                                start: isAnytime ? Date.distantFuture : selectedTime,
+                                start: isAnytime ? Date.distantFuture : selectedDateTime,
                                 duration: isDurationEnabled ? duration : 0
                             )
                         )
@@ -138,8 +149,9 @@ struct TaskScheduleTimeSheet: View {
         }
     }
 
-    private var timeFormatter: DateFormatter {
+    private var dateTimeFormatter: DateFormatter {
         let df = DateFormatter()
+        df.dateStyle = .medium
         df.timeStyle = .short
         return df
     }
