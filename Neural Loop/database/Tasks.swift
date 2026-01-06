@@ -27,9 +27,19 @@ struct Tasks: Codable, Identifiable{
 
     /// 0 = false, 1 = true
     var is_completed: Bool
+    var is_deadline: Bool
 
     /// ISO-8601 datetime string
-    var completed_at: String?
+    var completed_at: Date?
+
+    /// Optional recurrence rule (RRULE / custom string)
+    var recursion_rule: String?
+
+    /// Start date for recurring tasks (stored as ISO-8601 TEXT in SQLite)
+    var start_date: Date?
+
+    /// Optional duration in seconds
+    var duration: Double?
 
     /// Auto-filled by DB (datetime('now'))
     var created_at: Date = Date()
@@ -53,7 +63,11 @@ extension DBManager {
     private var lifeAreaId: SQLite.Expression<Int64?> { Expression<Int64?>("lifearea_id") }
 
     private var isCompleted: SQLite.Expression<Bool> { Expression<Bool>("is_completed") }
+    private var isDeadline: SQLite.Expression<Bool> { Expression<Bool>("is_deadline") }
     private var completedAt: SQLite.Expression<String?> { Expression<String?>("completed_at") }
+    private var recursionRule: SQLite.Expression<String?> { Expression<String?>("recursion_rule") }
+    private var startDate: SQLite.Expression<String?> { Expression<String?>("start_date") }
+    private var durationColumn: SQLite.Expression<Double?> { Expression<Double?>("duration") }
 
     private var createdAt: SQLite.Expression<String> { Expression<String>("created_at") }
     private var updatedAt: SQLite.Expression<String> { Expression<String>("updated_at") }
@@ -68,8 +82,13 @@ extension DBManager {
             priority <- task.priority,
             goalId <- task.goal_id,
             lifeAreaId <- task.lifearea_id,
+            
             isCompleted <- task.is_completed,
-            completedAt <- task.completed_at
+            isDeadline <- task.is_deadline,
+            completedAt <- task.completed_at?.ISO8601Format(),
+            recursionRule <- task.recursion_rule,
+            startDate <- task.start_date?.ISO8601Format(),
+            durationColumn <- task.duration,
         )
 
         let rowId = try DBManager.sqliteDB!.run(insert)
@@ -92,7 +111,15 @@ extension DBManager {
                 goal_id: row[goalId],
                 lifearea_id: row[lifeAreaId],
                 is_completed: row[isCompleted],
-                completed_at: row[completedAt],
+                is_deadline: row[isDeadline],
+                completed_at: row[completedAt].flatMap {
+                    ISO8601DateFormatter().date(from: $0)
+                },
+                recursion_rule: row[recursionRule],
+                start_date: row[startDate].flatMap {
+                    ISO8601DateFormatter().date(from: $0)
+                },
+                duration: row[durationColumn],
                 created_at: Date(),
                 updated_at: Date()
             )
@@ -110,7 +137,15 @@ extension DBManager {
                 goal_id: row[goalId],
                 lifearea_id: row[lifeAreaId],
                 is_completed: row[isCompleted],
-                completed_at: row[completedAt],
+                is_deadline: row[isDeadline],
+                completed_at: row[completedAt].flatMap {
+                    ISO8601DateFormatter().date(from: $0)
+                },
+                recursion_rule: row[recursionRule],
+                start_date: row[startDate].flatMap {
+                    ISO8601DateFormatter().date(from: $0)
+                },
+                duration: row[durationColumn],
                 created_at: Date(),
                 updated_at: Date()
             )
@@ -128,7 +163,15 @@ extension DBManager {
                 goal_id: row[goalId],
                 lifearea_id: row[lifeAreaId],
                 is_completed: row[isCompleted],
-                completed_at: row[completedAt],
+                is_deadline: row[isDeadline],
+                completed_at: row[completedAt].flatMap {
+                    ISO8601DateFormatter().date(from: $0)
+                },
+                recursion_rule: row[recursionRule],
+                start_date: row[startDate].flatMap {
+                    ISO8601DateFormatter().date(from: $0)
+                },
+                duration: row[durationColumn],
                 created_at: Date(),
                 updated_at: Date()
             )
@@ -146,7 +189,15 @@ extension DBManager {
                 goal_id: row[goalId],
                 lifearea_id: row[lifeAreaId],
                 is_completed: row[isCompleted],
-                completed_at: row[completedAt],
+                is_deadline: row[isDeadline],
+                completed_at: row[completedAt].flatMap {
+                    ISO8601DateFormatter().date(from: $0)
+                },
+                recursion_rule: row[recursionRule],
+                start_date: row[startDate].flatMap {
+                    ISO8601DateFormatter().date(from: $0)
+                },
+                duration: row[durationColumn],
                 created_at: Date(),
                 updated_at: Date()
             )
@@ -164,7 +215,15 @@ extension DBManager {
                 goal_id: row[goalId],
                 lifearea_id: row[lifeAreaId],
                 is_completed: row[isCompleted],
-                completed_at: row[completedAt],
+                is_deadline: row[isDeadline],
+                completed_at: row[completedAt].flatMap {
+                    ISO8601DateFormatter().date(from: $0)
+                },
+                recursion_rule: row[recursionRule],
+                start_date: row[startDate].flatMap {
+                    ISO8601DateFormatter().date(from: $0)
+                },
+                duration: row[durationColumn],
                 created_at: Date(),
                 updated_at: Date()
             )
@@ -185,7 +244,11 @@ extension DBManager {
                 goalId <- task.goal_id,
                 lifeAreaId <- task.lifearea_id,
                 isCompleted <- task.is_completed,
-                completedAt <- task.completed_at,
+                isDeadline <- task.is_deadline,
+                completedAt <- task.completed_at?.ISO8601Format(),
+                recursionRule <- task.recursion_rule,
+                startDate <- task.start_date?.ISO8601Format(),
+                durationColumn <- task.duration,
                 updatedAt <- Date().ISO8601Format()
             )
         )

@@ -9,6 +9,8 @@ import Foundation
 import SwiftUI
 
 struct GlassTabItem: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let tab: AppTab
     let isSelected: Bool
     let action: () -> Void
@@ -23,16 +25,25 @@ struct GlassTabItem: View {
                     .font(.caption2)
                     .fontWeight(.medium)
             }
-            .foregroundStyle(isSelected ? .white : .white.opacity(0.8))
+            .foregroundStyle(
+                isSelected
+                    ? (colorScheme == .dark ? .white : .black)
+                    : (colorScheme == .dark ? .white.opacity(0.8) : .black.opacity(0.7))
+            )
             .padding(.vertical, 8)
             .padding(.horizontal, 14)
             .background {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(.thinMaterial)
+                        .fill(colorScheme == .dark ? .thinMaterial : .ultraThinMaterial)
                         .overlay(
                             RoundedRectangle(cornerRadius: 20)
-                                .stroke(Color.white.opacity(0.35), lineWidth: 0.8)
+                                .stroke(
+                                    colorScheme == .dark
+                                        ? Color.white.opacity(0.35)
+                                        : Color.black.opacity(0.2),
+                                    lineWidth: 0.8
+                                )
                         )
                 }
             }

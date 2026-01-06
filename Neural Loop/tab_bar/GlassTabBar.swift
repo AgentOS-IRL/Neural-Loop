@@ -7,6 +7,7 @@
 import SwiftUI
 
 struct GlassTabBar: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var selectedTab: AppTab
 
     var body: some View {
@@ -25,19 +26,23 @@ struct GlassTabBar: View {
         .padding(10)
         .background(
             ZStack {
-                // Glass blur
                 RoundedRectangle(cornerRadius: 30, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                    .fill(colorScheme == .dark ? .ultraThinMaterial : .thinMaterial)
 
-                // Inner light edge (glass rim)
                 RoundedRectangle(cornerRadius: 30, style: .continuous)
                     .stroke(
                         LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.6),
-                                Color.white.opacity(0.1),
-                                Color.clear
-                            ],
+                            colors: colorScheme == .dark
+                                ? [
+                                    Color.white.opacity(0.35),
+                                    Color.white.opacity(0.1),
+                                    Color.clear
+                                  ]
+                                : [
+                                    Color.black.opacity(0.25),
+                                    Color.black.opacity(0.05),
+                                    Color.clear
+                                  ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
@@ -45,7 +50,17 @@ struct GlassTabBar: View {
                     )
             }
         )
-        .shadow(color: .black.opacity(0.25), radius: 20, y: 10)
+        .shadow(
+            color: colorScheme == .dark
+                ? .black.opacity(0.35)
+                : .black.opacity(0.15),
+            radius: 20,
+            y: 10
+        )
         .padding(.horizontal, 16)
+        .background(
+            Color(.systemBackground)
+                .ignoresSafeArea(edges: .all)
+        )
     }
 }

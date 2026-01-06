@@ -71,8 +71,8 @@ final class NeuralLoopCalendarService {
         event.endDate = timing.start.addingTimeInterval(timing.duration)
         event.notes = notes
         event.url = URL(string: "neuralloop://task/\(taskId)")
-
-        try eventStore.save(event, span: .thisEvent)
+        // TODO: Save to calendar
+//        try eventStore.save(event, span: .thisEvent)
     }
     
     func addRecurringEvent(
@@ -194,7 +194,8 @@ final class NeuralLoopCalendarService {
         } else {
             print("No recurrence rules")
         }
-         try eventStore.save(event, span: .thisEvent)
+        // TODO: Save to calendar
+//         try eventStore.save(event, span: .thisEvent)
         print("Saved to Calendar")
     }
     

@@ -34,7 +34,11 @@ extension DBManager {
     private var taskGoalId: SQLite.Expression<Int64?> { SQLite.Expression<Int64?>("goal_id") }
     private var taskLifeAreaId: SQLite.Expression<Int64?> { SQLite.Expression<Int64?>("lifearea_id") }
     private var taskIsCompleted: SQLite.Expression<Bool> { SQLite.Expression<Bool>("is_completed") }
+    private var taskIsDeadline: SQLite.Expression<Bool> { SQLite.Expression<Bool>("is_deadline") }
     private var taskCompletedAt: SQLite.Expression<String?> { SQLite.Expression<String?>("completed_at") }
+    private var taskRecursionRule: SQLite.Expression<String?> { SQLite.Expression<String?>("recursion_rule") }
+    private var taskStartDate: SQLite.Expression<String?> { SQLite.Expression<String?>("start_date") }
+    private var taskDuration: SQLite.Expression<Double?> { SQLite.Expression<Double?>("duration") }
     private var taskCreatedAt: SQLite.Expression<String> { SQLite.Expression<String>("created_at") }
     private var taskUpdatedAt: SQLite.Expression<String> { SQLite.Expression<String>("updated_at") }
 
@@ -120,7 +124,15 @@ extension DBManager {
                 goal_id: row[taskGoalId],
                 lifearea_id: row[taskLifeAreaId],
                 is_completed: row[taskIsCompleted],
-                completed_at: row[taskCompletedAt],
+                is_deadline: row[taskIsDeadline],
+                completed_at: row[taskCompletedAt].flatMap {
+                    ISO8601DateFormatter().date(from: $0)
+                },
+                recursion_rule: row[taskRecursionRule],
+                start_date: row[taskStartDate].flatMap {
+                    ISO8601DateFormatter().date(from: $0)
+                },
+                duration: row[taskDuration],
                 created_at: Date(),
                 updated_at: Date()
             )
