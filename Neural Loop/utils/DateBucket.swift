@@ -8,6 +8,10 @@
 import Foundation
 import SwiftUI
 
+enum bucketType: String, CaseIterable {
+    case inbox, today, overdue, upcoming, completed
+    
+}
 
 struct DateBucket: Identifiable {
     let id = UUID()
@@ -15,6 +19,7 @@ struct DateBucket: Identifiable {
     let start: Date
     let end: Date
     var taskIds: [Int64] = []
+    let type: bucketType
 }
 
 extension Calendar {
@@ -78,26 +83,31 @@ func occursInBucket(
             and: bucket.end
         )
     } catch {
-        print("No rule in :", task.title ," \(task.start_date)",
-              "\(max(bucket.start, now)) to \(bucket.end)", task.start_date! >= max(bucket.start, now) && task.start_date! <= bucket.end)
-        return task.start_date! >= max(bucket.start, now) && task.start_date! <= bucket.end
+        
+        return false
     }
 }
 
-func attachTasksToBuckets(
-    tasks: [Tasks],
+func attachTaskToBuckets(
+    task: Tasks,
     buckets: [DateBucket]
 ) -> [DateBucket] {
 
     var result = buckets
 
-    for task in tasks {
-        guard let taskId = task.id else { continue }
+    guard let taskId = task.id else { return result }
+    
+    let now = Date()
 
-        for index in result.indices {
-            if occursInBucket(task: task, bucket: result[index]) {
-                result[index].taskIds.append(taskId)
-            }
+    for index in result.indices {
+        let bucket: DateBucket = result[index]
+        if occursInBucket(task: task, bucket: bucket) {
+            result[index].taskIds.append(taskId)
+        }
+        else if task.start_date! >= max(bucket.start, now) && task.start_date! <= bucket.end {
+            print("No rule in :", task.title ," \(task.start_date)",
+                  "\(max(bucket.start, now)) to \(bucket.end)", task.start_date! >= max(bucket.start, now) && task.start_date! <= bucket.end)
+            result[index].taskIds.append(taskId)
         }
     }
 
@@ -123,7 +133,8 @@ func buildDateBuckets(
                 .foregroundColor(.primary))
                 ,
             start: todayStart,
-            end: calendar.endOfDay(todayStart)
+            end: calendar.endOfDay(todayStart),
+            type: .today
         )
     )
 
@@ -135,7 +146,8 @@ func buildDateBuckets(
                     .font(.title3.weight(.semibold))
                 .foregroundColor(.primary)),
             start: tomorrow,
-            end: calendar.endOfDay(tomorrow)
+            end: calendar.endOfDay(tomorrow),
+            type: .upcoming
         )
     )
 
@@ -157,7 +169,8 @@ func buildDateBuckets(
                         .foregroundColor(.secondary)
                 }),
                 start: dayStart,
-                end: dayEnd
+                end: dayEnd,
+                type: .upcoming
             )
         )
     }
@@ -179,7 +192,8 @@ func buildDateBuckets(
                         .foregroundColor(.secondary)
                 }),
                 start: restOfMonthStart,
-                end: monthEnd
+                end: monthEnd,
+                type: .upcoming
             )
         )
     }
@@ -202,7 +216,8 @@ func buildDateBuckets(
                     .font(.title3.weight(.semibold))
                     .foregroundColor(.primary)),
                 start: monthStart,
-                end: monthEnd
+                end: monthEnd,
+                type: .upcoming
             )
         )
 
@@ -234,7 +249,8 @@ func buildDateBuckets(
                     minute: 59,
                     second: 59
                 )
-            )!
+            )!,
+            type: .upcoming
         )
     )
 

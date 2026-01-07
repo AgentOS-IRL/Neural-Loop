@@ -50,6 +50,8 @@ struct TodoView: View {
         case today
         case upcoming
         case all
+        case inbox
+        case completed
     }
     
     var filteredTasks: [Tasks] {
@@ -72,7 +74,7 @@ struct TodoView: View {
     private func upcomingTasks() -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                ForEach(dateBuckets) { bucket in
+                ForEach(getUpcomingBucket()) { bucket in
                     VStack(alignment: .leading, spacing: 8) {
                         
                         // Section header (Today, Tomorrow, Thu 8 Jan, etc.)
@@ -94,6 +96,7 @@ struct TodoView: View {
             .padding(.top)
         }
     }
+    
     @ViewBuilder
     private func taskView(task: Tasks) -> some View {
         HStack(alignment: .top, spacing: 12) {
@@ -150,28 +153,79 @@ struct TodoView: View {
         }
     }
     
+    private func getInboxBucket() -> DateBucket {
+        dateBuckets.first(where: { $0.type == .inbox })!
+    }
+    private func getCompletedBucket() -> DateBucket {
+        dateBuckets.first(where: { $0.type == .completed })!
+    }
+
+    @ViewBuilder
+    private func inboxView() -> some View {
+        let inboxBucket = getInboxBucket()
+
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                addTask()
+
+                ForEach(inboxBucket.taskIds, id: \.self) { taskId in
+                    if let task = tasksMapping[taskId] {
+                        taskView(task: task)
+                    }
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top)
+        }
+    }
+
+    @ViewBuilder
+    private func completedView() -> some View {
+        let completedBucket = getCompletedBucket()
+
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                ForEach(completedBucket.taskIds, id: \.self) { taskId in
+                    if let task = tasksMapping[taskId] {
+                        taskView(task: task)
+                    }
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top)
+        }
+    }
+    
+    private func getUpcomingBucket() -> [DateBucket] {
+        dateBuckets.filter({ $0.type == .upcoming || $0.type == .today})
+    }
+    
+    private func getTodaysBucket() -> DateBucket {
+        dateBuckets.first(where: { $0.type == .today })!
+    }
+    
     @ViewBuilder
     private func todayTasks() -> some View {
-        let todayBucket = dateBuckets.first
+        let todayBucket = getTodaysBucket()
         
-        let morningTasks = todayBucket?.taskIds.compactMap { tasksMapping[$0] }
+        let morningTasks = todayBucket.taskIds.compactMap { tasksMapping[$0] }
             .filter {
                 guard let start = $0.start_date else { return false }
                 return Calendar.current.component(.hour, from: start) < 12
-            } ?? []
+            }
         
-        let afternoonTasks = todayBucket?.taskIds.compactMap { tasksMapping[$0] }
+        let afternoonTasks = todayBucket.taskIds.compactMap { tasksMapping[$0] }
             .filter {
                 guard let start = $0.start_date else { return false }
                 let hour = Calendar.current.component(.hour, from: start)
                 return hour >= 12 && hour < 18
-            } ?? []
+            }
         
-        let eveningTasks = todayBucket?.taskIds.compactMap { tasksMapping[$0] }
+        let eveningTasks = todayBucket.taskIds.compactMap { tasksMapping[$0] }
             .filter {
                 guard let start = $0.start_date else { return false }
                 return Calendar.current.component(.hour, from: start) >= 18
-            } ?? []
+            }
         
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
@@ -210,40 +264,69 @@ struct TodoView: View {
     
     @ViewBuilder
     private func menuView() -> some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 16) {
+
             if searchText.isEmpty {
+
                 Button {
-                    viewMode = .today
+                    viewMode = .inbox
                 } label: {
-                    Text("Today")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.orange.opacity(0.1))
-                        .cornerRadius(12)
+                    menuRow(
+                        icon: "tray",
+                        title: "Inbox",
+                        showPlus: true
+                    )
                 }
-                
+
+                Divider()
+                    .padding(.leading, 56)
+                    .opacity(0.6)
+                VStack(spacing: 0) {
+
+                    Button {
+                        viewMode = .today
+                    } label: {
+                        menuRow(
+                            icon: "calendar",
+                            title: "Today",
+                            showPlus: true
+                        )
+                    }
+
+                    Divider().padding(.leading, 56)
+
+                    Button {
+                        viewMode = .upcoming
+                    } label: {
+                        menuRow(
+                            icon: "calendar.circle",
+                            title: "Upcoming"
+                        )
+                    }
+
+                    Divider().padding(.leading, 56)
+
+                    Button {
+                        viewMode = .all
+                    } label: {
+                        menuRow(
+                            icon: "list.bullet",
+                            title: "All tasks"
+                        )
+                    }
+                }
+                .background(Color(.secondarySystemBackground))
+                .cornerRadius(16)
+
                 Button {
-                    viewMode = .upcoming
+                    viewMode = .completed
                 } label: {
-                    Text("Upcoming Tasks")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(12)
+                    menuRow(
+                        icon: "checkmark.circle",
+                        title: "Completed"
+                    )
                 }
-                
-                Button {
-                    viewMode = .all
-                } label: {
-                    Text("All Tasks")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.green.opacity(0.1))
-                        .cornerRadius(12)
-                }
+
             } else {
                 ForEach(filteredTasks, id: \.id) { task in
                     taskView(task: task)
@@ -251,6 +334,35 @@ struct TodoView: View {
             }
         }
         .padding()
+    }
+
+    @ViewBuilder
+    private func menuRow(
+        icon: String,
+        title: String,
+        showPlus: Bool = false
+    ) -> some View {
+        HStack(spacing: 16) {
+            Image(systemName: icon)
+                .foregroundColor(.secondary)
+                .frame(width: 24)
+
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.primary)
+
+            Spacer()
+
+            if showPlus {
+                Image(systemName: "plus")
+                    .foregroundColor(.secondary).onTapGesture {
+                        showAddTask = true
+                    }
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(16)
     }
     
     @ViewBuilder
@@ -274,23 +386,29 @@ struct TodoView: View {
                 ScrollView {
                     VStack(spacing: 0) {
                         searchBar()
-                        
+
                         switch viewMode {
                         case .menu:
                             menuView()
-                            
+
                         case .today:
                             todayTasks()
-                            
+
                         case .upcoming:
                             upcomingTasks()
-                            
+
                         case .all:
                             taskListView()
+
+                        case .inbox:
+                            inboxView()
+
+                        case .completed:
+                            completedView()
                         }
                     }
                 }
-                
+
                 // Floating Add Button
                 if searchText.isEmpty {
                     VStack {
@@ -330,8 +448,11 @@ struct TodoView: View {
             }
             .navigationTitle(
                 viewMode == .menu ? "Todos" :
-                    viewMode == .upcoming ? "Upcoming Tasks" :
-                    "All Tasks"
+                viewMode == .inbox ? "Inbox" :
+                viewMode == .completed ? "Completed" :
+                viewMode == .upcoming ? "Upcoming Tasks" :
+                viewMode == .today ? "Today" :
+                "All Tasks"
             )
             .navigationBarBackButtonHidden(viewMode == .menu)
             .toolbar {
@@ -357,14 +478,44 @@ struct TodoView: View {
             }
             .onAppear {
                 loadTasks()
-                let _dateBuckets = buildDateBuckets()
-                dateBuckets = attachTasksToBuckets(tasks: tasks, buckets: _dateBuckets)
+                var _dateBuckets = buildDateBuckets()
+
+                var inbox_bucket = DateBucket(title: AnyView( Text("Inbox")
+                    .font(.title3.weight(.semibold))
+                    .foregroundColor(.primary)), start: .distantPast, end: .now, type: .inbox)
+
+                var overdue_bucket = DateBucket(title: AnyView( Text("Overdue")
+                    .font(.title3.weight(.semibold))
+                    .foregroundColor(.primary)), start: .distantPast, end: .now, type: .overdue)
+                var completed_bucket = DateBucket(title: AnyView( Text("Completed")
+                    .font(.title3.weight(.semibold))
+                    .foregroundColor(.primary)), start: .distantPast, end: .distantFuture, type: .completed)
+
+                for task in tasks {
+                    if task.start_date == nil {
+                        inbox_bucket.taskIds.append(task.id!)
+                    }
+                    else if task.is_completed {
+                        completed_bucket.taskIds.append(task.id!)
+                    }
+                    else if (task.recursion_rule == "" || task.recursion_rule == nil) && task.start_date != nil && task.start_date! < Date() {
+                            overdue_bucket.taskIds.append(task.id!)
+
+                    }
+                    else {
+                        _dateBuckets = attachTaskToBuckets(task: task, buckets: _dateBuckets)
+                    }
+                }
+
+
+                dateBuckets = [inbox_bucket, overdue_bucket, completed_bucket] + _dateBuckets
+
                 for dateBucket in dateBuckets {
                     print(
                         " \(dateBucket.start): \(dateBucket.end) -- \(dateBucket.taskIds.count) tasks"
                     )
                 }
-                
+
             }
         }
     }
