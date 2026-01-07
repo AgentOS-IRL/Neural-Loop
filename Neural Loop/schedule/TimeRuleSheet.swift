@@ -7,16 +7,49 @@ struct TimeRuleSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let onSave: (TaskTiming) -> Void
+    let initialTiming: TaskTiming?
 
-    @State private var selectedDateTime: Date = Date()
-    @State private var isAnytime: Bool = false
-    @State private var isDurationEnabled: Bool = true
+    @State private var selectedDateTime: Date
+    @State private var isAnytime: Bool
+    @State private var isDurationEnabled: Bool
 
-    @State private var selectedHours: Int = 0
-    @State private var selectedMinutes: Int = 15
+    @State private var selectedHours: Int
+    @State private var selectedMinutes: Int
 
     private let quickMinutes = [15, 30, 45]
     private let quickHours = [1, 2]
+
+    init(initialTiming: TaskTiming? = nil, onSave: @escaping (TaskTiming) -> Void) {
+        self.initialTiming = initialTiming
+        self.onSave = onSave
+
+        if let t = initialTiming {
+            if t.start == .distantFuture {
+                _isAnytime = State(initialValue: true)
+                _selectedDateTime = State(initialValue: Date())
+            } else {
+                _isAnytime = State(initialValue: false)
+                _selectedDateTime = State(initialValue: t.start)
+            }
+
+            if t.duration <= 0 {
+                _isDurationEnabled = State(initialValue: false)
+                _selectedHours = State(initialValue: 0)
+                _selectedMinutes = State(initialValue: 15)
+            } else {
+                let totalMins = Int(t.duration / 60)
+                _isDurationEnabled = State(initialValue: true)
+                _selectedHours = State(initialValue: totalMins / 60)
+                _selectedMinutes = State(initialValue: totalMins % 60)
+            }
+        } else {
+            _selectedDateTime = State(initialValue: Date())
+            _isAnytime = State(initialValue: false)
+            _isDurationEnabled = State(initialValue: true)
+            _selectedHours = State(initialValue: 0)
+            _selectedMinutes = State(initialValue: 15)
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -84,17 +117,13 @@ struct TimeRuleSheet: View {
                         // PICKER
                         HStack {
                             Picker("Hours", selection: $selectedHours) {
-                                ForEach(0..<6, id: \.self) {
-                                    Text("\($0) hr")
-                                }
+                                ForEach(0..<6, id: \.self) { Text("\($0) hr") }
                             }
                             .pickerStyle(.wheel)
                             .frame(maxWidth: .infinity)
 
                             Picker("Minutes", selection: $selectedMinutes) {
-                                ForEach(0..<60, id: \.self) {
-                                    Text("\($0) min")
-                                }
+                                ForEach(0..<60, id: \.self) { Text("\($0) min") }
                             }
                             .pickerStyle(.wheel)
                             .frame(maxWidth: .infinity)
@@ -115,11 +144,7 @@ struct TimeRuleSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                    }
+                    Button { dismiss() } label: { Image(systemName: "xmark") }
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -127,7 +152,7 @@ struct TimeRuleSheet: View {
                         let duration = TimeInterval((selectedHours * 3600) + (selectedMinutes * 60))
                         onSave(
                             TaskTiming(
-                                start: isAnytime ? Date.distantFuture : selectedDateTime,
+                                start: isAnytime ? .distantFuture : selectedDateTime,
                                 duration: isDurationEnabled ? duration : 0
                             )
                         )

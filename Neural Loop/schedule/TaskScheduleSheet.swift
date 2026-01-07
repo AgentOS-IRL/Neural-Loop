@@ -63,6 +63,8 @@ struct TaskScheduleSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    let initialTiming: TaskTiming?
+
     let onSave: (TaskScheduleDraft) -> Void
 
     @State private var timing: TaskTiming?
@@ -70,6 +72,15 @@ struct TaskScheduleSheet: View {
 
     @State private var showTimeSheet = false
     @State private var showRepeatSheet = false
+
+    init(
+        initialTiming: TaskTiming? = nil,
+        onSave: @escaping (TaskScheduleDraft) -> Void
+    ) {
+        self.initialTiming = initialTiming
+        self.onSave = onSave
+        _timing = State(initialValue: initialTiming)
+    }
 
     var body: some View {
         NavigationStack {
@@ -133,7 +144,7 @@ struct TaskScheduleSheet: View {
                 }
             }
             .sheet(isPresented: $showTimeSheet) {
-                TimeRuleSheet { result in
+                TimeRuleSheet(initialTiming: timing) { result in
                     timing = result
                 }
             }
@@ -155,5 +166,4 @@ struct TaskScheduleSheet: View {
         recurrenceRule?.summary() ?? "Never"
     }
 }
-
 

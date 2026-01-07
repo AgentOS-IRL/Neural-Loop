@@ -10,6 +10,8 @@ import EventKit
 
 struct AddTodoView: View {
 
+    let initialTiming: TaskTiming?
+
     @Environment(\.dismiss) private var dismiss
 
     @State private var title = ""
@@ -22,6 +24,22 @@ struct AddTodoView: View {
     @State private var scheduleDraft: TaskScheduleDraft?
 
     let onSave: (TaskInput) -> Void
+
+    init(
+        initialTiming: TaskTiming? = nil,
+        onSave: @escaping (TaskInput) -> Void
+    ) {
+        self.initialTiming = initialTiming
+        self.onSave = onSave
+        if let timing = initialTiming {
+            _scheduleDraft = State(
+                initialValue: TaskScheduleDraft(
+                    timing: timing,
+                    recurrence: nil
+                )
+            )
+        }
+    }
 
     private var priorityIcon: String {
         switch priority {
@@ -99,7 +117,6 @@ struct AddTodoView: View {
                         }
                     Image(systemName: "arrow.2.circlepath")
                         .onTapGesture {
-                            scheduleDraft = nil
                             showScheduleSheet = true
                         }
 
@@ -107,7 +124,7 @@ struct AddTodoView: View {
                 .font(.system(size: 16))
                 .foregroundColor(.secondary)
                 .sheet(isPresented: $showScheduleSheet) {
-                    TaskScheduleSheet { draft in
+                    TaskScheduleSheet(initialTiming: scheduleDraft?.timing) { draft in
                         scheduleDraft = draft
                         print("📅 TaskScheduleDraft returned:")
                         print("Summary:", draft.timing?.summary() ?? "All Day")
@@ -115,7 +132,7 @@ struct AddTodoView: View {
                     }
                 }
                 .sheet(isPresented: $showTimeSheet) {
-                    TimeRuleSheet { timing in
+                    TimeRuleSheet(initialTiming: scheduleDraft?.timing) { timing in
                         scheduleDraft = TaskScheduleDraft(
                             timing: timing,
                             recurrence: nil

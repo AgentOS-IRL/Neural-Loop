@@ -70,6 +70,11 @@ struct TodoView: View {
     @State private var dateBuckets: [DateBucket] = buildDateBuckets()
     @State private var searchText: String = ""
     
+    @State private var initializationTiming: TaskTiming = .init(
+        start: Date(),
+        duration: 900
+    )
+    
     @ViewBuilder
     private func upcomingTasks() -> some View {
         ScrollView {
@@ -88,7 +93,12 @@ struct TodoView: View {
                         }
                         
                         // Add task row
-                        addTask()
+                        addTask(initialTiming: .init(start: Calendar.current.date(
+                            bySettingHour: 9,
+                            minute: 0,
+                            second: 0,
+                            of: bucket.start
+                        )!, duration: 900))
                     }
                 }
             }
@@ -133,7 +143,7 @@ struct TodoView: View {
     }
     
     @ViewBuilder
-    private func addTask() -> some View {
+    private func addTask(initialTiming: TaskTiming) -> some View {
         HStack(spacing: 12) {
             Circle()
                 .stroke(
@@ -149,6 +159,7 @@ struct TodoView: View {
             Spacer()
         }
         .padding(.vertical, 8).onTapGesture {
+            initializationTiming = initialTiming
             showAddTask = true
         }
     }
@@ -166,7 +177,7 @@ struct TodoView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                addTask()
+                addTask(initialTiming: .init(start: .now, duration: 900))
 
                 ForEach(inboxBucket.taskIds, id: \.self) { taskId in
                     if let task = tasksMapping[taskId] {
@@ -230,9 +241,24 @@ struct TodoView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 
-                sectionView(title: "Morning", tasks: morningTasks)
-                sectionView(title: "Afternoon", tasks: afternoonTasks)
-                sectionView(title: "Evening", tasks: eveningTasks)
+                sectionView(title: "Morning", tasks: morningTasks, initialTiming: .init(start: Calendar.current.date(
+                    bySettingHour: 8,
+                    minute: 0,
+                    second: 0,
+                    of: Date()
+                )!, duration: 900))
+                sectionView(title: "Afternoon", tasks: afternoonTasks, initialTiming: .init(start: Calendar.current.date(
+                    bySettingHour: 12,
+                    minute: 0,
+                    second: 0,
+                    of: Date()
+                )!, duration: 900))
+                sectionView(title: "Evening", tasks: eveningTasks, initialTiming: .init(start: Calendar.current.date(
+                    bySettingHour: 18,
+                    minute: 0,
+                    second: 0,
+                    of: Date()
+                )!, duration: 900))
                 
             }
             .padding(.horizontal)
@@ -241,7 +267,7 @@ struct TodoView: View {
     }
     
     @ViewBuilder
-    private func sectionView(title: String, tasks: [Tasks]) -> some View {
+    private func sectionView(title: String, tasks: [Tasks], initialTiming: TaskTiming) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(title)
                 .font(.headline)
@@ -250,7 +276,7 @@ struct TodoView: View {
                 taskView(task: task)
             }
             // Add task row
-            addTask()
+            addTask(initialTiming:initialTiming)
         }
     }
     
@@ -369,7 +395,7 @@ struct TodoView: View {
     private func taskListView() -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                addTask()
+                addTask(initialTiming: .init(start: .now, duration: 900))
                 
                 ForEach(tasks, id: \.id) { task in
                     taskView(task: task)
@@ -470,7 +496,9 @@ struct TodoView: View {
             .sheet(
                 isPresented: $showAddTask
             ) {
-                AddTodoView { newTask in
+                AddTodoView(
+                    initialTiming: initializationTiming
+                ) { newTask in
                     addTask(
                         newTask
                     )
