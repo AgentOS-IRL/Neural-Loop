@@ -33,6 +33,8 @@ extension DBManager {
     private var taskPriority: SQLite.Expression<Int> { SQLite.Expression<Int>("priority") }
     private var taskGoalId: SQLite.Expression<Int64?> { SQLite.Expression<Int64?>("goal_id") }
     private var taskLifeAreaId: SQLite.Expression<Int64?> { SQLite.Expression<Int64?>("lifearea_id") }
+    private var taskTarget: SQLite.Expression<Int64?> { SQLite.Expression<Int64?>("target") }
+    private var taskLabel: SQLite.Expression<String?> { SQLite.Expression<String?>("label") }
     private var taskIsCompleted: SQLite.Expression<Bool> { SQLite.Expression<Bool>("is_completed") }
     private var taskIsDeadline: SQLite.Expression<Bool> { SQLite.Expression<Bool>("is_deadline") }
     private var taskCompletedAt: SQLite.Expression<String?> { SQLite.Expression<String?>("completed_at") }
@@ -123,6 +125,8 @@ extension DBManager {
                 priority: row[taskPriority],
                 goal_id: row[taskGoalId],
                 lifearea_id: row[taskLifeAreaId],
+                target: row[taskTarget],
+                label: row[taskLabel],
                 is_completed: row[taskIsCompleted],
                 is_deadline: row[taskIsDeadline],
                 completed_at: row[taskCompletedAt].flatMap {

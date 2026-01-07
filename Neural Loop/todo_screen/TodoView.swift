@@ -573,11 +573,14 @@ struct TodoView: View {
                 title: task_input.title,
                 description: task_input.description,
                 priority: task_input.priority,
+                target: task_input.target,
+                label: task_input.label,
                 is_completed: false,
                 is_deadline: task_input.is_deadline,
                 recursion_rule: rruleString,
                 start_date: task_input.schedule?.timing?.start,
                 duration: task_input.schedule?.timing?.duration,
+                
             )
             
             let savedTask = try manager.addTask(
