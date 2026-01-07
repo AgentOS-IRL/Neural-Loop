@@ -2,14 +2,14 @@
 //  TodoView.swift
 //  Neural Loop
 //
-//  Created by Sanjeev Hayal on 05/01/2026.
+//  Created by Sanjeev Hayal on 05/01/2026
 //
 
 //
 //  TodoView.swift
 //  Neural Loop
 //
-//  Created by Sanjeev Hayal on 05/01/2026.
+//  Created by Sanjeev Hayal on 05/01/2026
 //
 
 import SwiftUI
@@ -45,75 +45,48 @@ func parse_rrule(rruleString: String) throws -> Calendar.RecurrenceRule {
 
 
 struct TodoView: View {
-
+    enum ViewMode {
+        case menu
+        case today
+        case upcoming
+        case all
+    }
+    
+    var filteredTasks: [Tasks] {
+        guard !searchText.isEmpty else { return tasks }
+        return tasks.filter {
+            $0.title.localizedCaseInsensitiveContains(searchText) ||
+            ($0.description?.localizedCaseInsensitiveContains(searchText) ?? false)
+        }
+    }
+    
     @State private var tasks: [Tasks] = []
     @State private var tasksMapping: [Int64: Tasks] = [:]
     @State private var showAddTask = false
+    @State private var viewMode: ViewMode = .menu
     @State private var error: String?
     @State private var dateBuckets: [DateBucket] = buildDateBuckets()
+    @State private var searchText: String = ""
     
     @ViewBuilder
     private func upcomingTasks() -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 ForEach(dateBuckets) { bucket in
-                    VStack(alignment: .leading, spacing: 14) {
-
+                    VStack(alignment: .leading, spacing: 8) {
+                        
                         // Section header (Today, Tomorrow, Thu 8 Jan, etc.)
                         bucket.title
-
+                        
                         // Tasks for this date bucket
                         ForEach(bucket.taskIds, id: \.self) { taskId in
                             if let task = tasksMapping[taskId] {
-                                HStack(alignment: .top, spacing: 12) {
-
-                                    // Checkbox placeholder
-                                    Circle()
-                                        .stroke(Color.secondary, lineWidth: 2)
-                                        .frame(width: 22, height: 22)
-                                        .padding(.top, 2)
-
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(task.title)
-                                            .font(.body)
-                                            .foregroundColor(.primary)
-                                        
-                                        
-                                        let start = task.start_date!
-                                        let duration = task.duration!
-                                        let end = start.addingTimeInterval(duration)
-
-                                            Text(
-                                                "\(start.formatted(date: .omitted, time: .shortened))–\(end.formatted(date: .omitted, time: .shortened))"
-                                            )
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                        
-                                    }
-
-                                    Spacer()
-                                }
-                                .padding(.vertical, 8)
-                                .contentShape(Rectangle()) // future tap support
+                                taskView(task: task)
                             }
                         }
-
+                        
                         // Add task row
-                        HStack(spacing: 12) {
-                            Circle()
-                                .stroke(
-                                    style: StrokeStyle(lineWidth: 2, dash: [4])
-                                )
-                                .foregroundColor(.secondary)
-                                .frame(width: 22, height: 22)
-
-                            Text("Add task")
-                                .font(.body)
-                                .foregroundColor(.secondary)
-
-                            Spacer()
-                        }
-                        .padding(.vertical, 8)
+                        addTask()
                     }
                 }
             }
@@ -121,83 +94,258 @@ struct TodoView: View {
             .padding(.top)
         }
     }
-
     @ViewBuilder
-    private func taskListView() -> some View {
-        List(
-            tasks,
-            id: \.id
-        ) { task in
-            VStack(
-                alignment: .leading,
-                spacing: 4
-            ) {
-                Text(
-                    task.title
-                )
-                .font(
-                    .headline
-                )
+    private func taskView(task: Tasks) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            
+            // Checkbox placeholder
+            Circle()
+                .stroke(Color.secondary, lineWidth: 2)
+                .frame(width: 22, height: 22)
+                .padding(.top, 2)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(task.title)
+                    .font(.body)
+                    .foregroundColor(.primary)
                 
-                if let description = task.description, !description.isEmpty {
-                    Text(
-                        description
-                    )
-                    .font(
-                        .subheadline
-                    )
-                    .foregroundColor(
-                        .secondary
-                    )
+                
+                let start = task.start_date!
+                let duration = task.duration!
+                let end = start.addingTimeInterval(duration)
+                
+                Text(
+                    "\(start.formatted(date: .omitted, time: .shortened)) – \(end.formatted(date: .omitted, time: .shortened))"
+                )
+                .font(.caption)
+                .foregroundColor(.secondary)
+                
+            }
+            
+            Spacer()
+        }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle()) // future tap support
+        
+    }
+    
+    @ViewBuilder
+    private func addTask() -> some View {
+        HStack(spacing: 12) {
+            Circle()
+                .stroke(
+                    style: StrokeStyle(lineWidth: 2, dash: [4])
+                )
+                .foregroundColor(.secondary)
+                .frame(width: 18, height: 18)
+            
+            Text("Add task")
+                .font(.body)
+                .foregroundColor(.secondary)
+            
+            Spacer()
+        }
+        .padding(.vertical, 8).onTapGesture {
+            showAddTask = true
+        }
+    }
+    
+    @ViewBuilder
+    private func todayTasks() -> some View {
+        let todayBucket = dateBuckets.first
+        
+        let morningTasks = todayBucket?.taskIds.compactMap { tasksMapping[$0] }
+            .filter {
+                guard let start = $0.start_date else { return false }
+                return Calendar.current.component(.hour, from: start) < 12
+            } ?? []
+        
+        let afternoonTasks = todayBucket?.taskIds.compactMap { tasksMapping[$0] }
+            .filter {
+                guard let start = $0.start_date else { return false }
+                let hour = Calendar.current.component(.hour, from: start)
+                return hour >= 12 && hour < 18
+            } ?? []
+        
+        let eveningTasks = todayBucket?.taskIds.compactMap { tasksMapping[$0] }
+            .filter {
+                guard let start = $0.start_date else { return false }
+                return Calendar.current.component(.hour, from: start) >= 18
+            } ?? []
+        
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                
+                sectionView(title: "Morning", tasks: morningTasks)
+                sectionView(title: "Afternoon", tasks: afternoonTasks)
+                sectionView(title: "Evening", tasks: eveningTasks)
+                
+            }
+            .padding(.horizontal)
+            .padding(.top)
+        }
+    }
+    
+    @ViewBuilder
+    private func sectionView(title: String, tasks: [Tasks]) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(title)
+                .font(.headline)
+            
+            ForEach(tasks, id: \.id) { task in
+                taskView(task: task)
+            }
+            // Add task row
+            addTask()
+        }
+    }
+    
+    @ViewBuilder
+    private func searchBar() -> some View {
+        TextField("Search tasks…", text: $searchText)
+            .textFieldStyle(.roundedBorder)
+            .padding(.horizontal)
+            .padding(.top, 8)
+    }
+    
+    @ViewBuilder
+    private func menuView() -> some View {
+        VStack(spacing: 24) {
+            if searchText.isEmpty {
+                Button {
+                    viewMode = .today
+                } label: {
+                    Text("Today")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(12)
+                }
+                
+                Button {
+                    viewMode = .upcoming
+                } label: {
+                    Text("Upcoming Tasks")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(12)
+                }
+                
+                Button {
+                    viewMode = .all
+                } label: {
+                    Text("All Tasks")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(12)
+                }
+            } else {
+                ForEach(filteredTasks, id: \.id) { task in
+                    taskView(task: task)
                 }
             }
         }
+        .padding()
     }
-
+    
+    @ViewBuilder
+    private func taskListView() -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                addTask()
+                
+                ForEach(tasks, id: \.id) { task in
+                    taskView(task: task)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top)
+        }
+    }
+    
     var body: some View {
         NavigationView {
             ZStack {
-//                taskListView()
-                upcomingTasks()
+                ScrollView {
+                    VStack(spacing: 0) {
+                        searchBar()
+                        
+                        switch viewMode {
+                        case .menu:
+                            menuView()
+                            
+                        case .today:
+                            todayTasks()
+                            
+                        case .upcoming:
+                            upcomingTasks()
+                            
+                        case .all:
+                            taskListView()
+                        }
+                    }
+                }
                 
                 // Floating Add Button
-                VStack {
-                    Spacer()
-                    HStack {
+                if searchText.isEmpty {
+                    VStack {
                         Spacer()
-                        Button {
-                            showAddTask = true
-                        } label: {
-                            Image(
-                                systemName: "plus"
-                            )
-                            .font(
-                                .system(
-                                    size: 22,
-                                    weight: .bold
+                        HStack {
+                            Spacer()
+                            Button {
+                                showAddTask = true
+                            } label: {
+                                Image(
+                                    systemName: "plus"
                                 )
-                            )
-                            .foregroundColor(
-                                .black
-                            )
+                                .font(
+                                    .system(
+                                        size: 22,
+                                        weight: .bold
+                                    )
+                                )
+                                .foregroundColor(
+                                    .black
+                                )
+                                .padding()
+                                .background(
+                                    .white
+                                )
+                                .clipShape(
+                                    Circle()
+                                )
+                                .shadow(
+                                    radius: 8
+                                )
+                            }
                             .padding()
-                            .background(
-                                .white
-                            )
-                            .clipShape(
-                                Circle()
-                            )
-                            .shadow(
-                                radius: 8
-                            )
                         }
-                        .padding()
                     }
                 }
             }
             .navigationTitle(
-                "Todos"
+                viewMode == .menu ? "Todos" :
+                    viewMode == .upcoming ? "Upcoming Tasks" :
+                    "All Tasks"
             )
+            .navigationBarBackButtonHidden(viewMode == .menu)
+            .toolbar {
+                if viewMode != .menu {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button {
+                            viewMode = .menu
+                        } label: {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 17, weight: .semibold))
+                        }
+                    }
+                }
+            }
             .sheet(
                 isPresented: $showAddTask
             ) {
@@ -216,12 +364,13 @@ struct TodoView: View {
                         " \(dateBucket.start): \(dateBucket.end) -- \(dateBucket.taskIds.count) tasks"
                     )
                 }
+                
             }
         }
     }
-    
+
     // MARK: - DB
-    
+
     func loadTasks() {
         do {
             let manager = try DBManager.newInstance()
@@ -238,7 +387,7 @@ struct TodoView: View {
             self.error = error.localizedDescription
         }
     }
-    
+
     func addTask(
         _ task_input: TaskInput
     ) {
@@ -255,7 +404,6 @@ struct TodoView: View {
             }
             
             let task = Tasks(
-                
                 id: nil,
                 title: task_input.title,
                 description: task_input.description,
@@ -265,8 +413,6 @@ struct TodoView: View {
                 recursion_rule: rruleString,
                 start_date: task_input.schedule?.timing?.start,
                 duration: task_input.schedule?.timing?.duration,
-                
-                
             )
             
             let savedTask = try manager.addTask(
@@ -282,50 +428,50 @@ struct TodoView: View {
             if savedTask.id == nil {
                 return
             }
-            
-            if task_input.schedule != nil {
-                if task_input.schedule!.timing != nil && task_input.schedule!.recurrence != nil {
-                    do {
-                        var rule = task_input.schedule!.recurrence!
-                        
-                        try NeuralLoopCalendarService.shared
-                            .addRecurringEvent(
-                                taskId: Int(savedTask.id!) ,
-                                title: task.title,
-                                timing: task_input.schedule!.timing!,
-                                recurrenceRule: rule,
-                                notes: task.description,
-                            )
-                        if let next = nextOccurrence(of: rule) {
-                            print("Next occurrence:", next)
-                        } else {
-                                print("No next occurrence found")
-                            }
-                    } catch {
-                        print(
-                            "❌ Calendar preview failed:",
-                            error
-                        )
-                    }
-                }
-                else if task_input.schedule!.timing != nil  {
-                    do {
-                        try NeuralLoopCalendarService.shared
-                            .addEvent(
-                                taskId: Int(savedTask.id!) ,
-                                title: task.title,
-                                timing: task_input.schedule!.timing!,
-                                
-                                notes: task.description,
-                            )
-                    } catch {
-                        print(
-                            "❌ Calendar preview failed:",
-                            error
-                        )
-                    }
-                }
-            }
+            // TODO: add to calender
+            //            if task_input.schedule != nil {
+            //                if task_input.schedule!.timing != nil && task_input.schedule!.recurrence != nil {
+            //                    do {
+            //                        var rule = task_input.schedule!.recurrence!
+            //
+            //                        try NeuralLoopCalendarService.shared
+            //                            .addRecurringEvent(
+            //                                taskId: Int(savedTask.id!) ,
+            //                                title: task.title,
+            //                                timing: task_input.schedule!.timing!,
+            //                                recurrenceRule: rule,
+            //                                notes: task.description,
+            //                            )
+            //                        if let next = nextOccurrence(of: rule) {
+            //                            print("Next occurrence:", next)
+            //                        } else {
+            //                                print("No next occurrence found")
+            //                            }
+            //                    } catch {
+            //                        print(
+            //                            "❌ Calendar preview failed:",
+            //                            error
+            //                        )
+            //                    }
+            //                }
+            //                else if task_input.schedule!.timing != nil  {
+            //                    do {
+            //                        try NeuralLoopCalendarService.shared
+            //                            .addEvent(
+            //                                taskId: Int(savedTask.id!) ,
+            //                                title: task.title,
+            //                                timing: task_input.schedule!.timing!,
+            //
+            //                                notes: task.description,
+            //                            )
+            //                    } catch {
+            //                        print(
+            //                            "❌ Calendar preview failed:",
+            //                            error
+            //                        )
+            //                    }
+            //                }
+            //            }
             
             loadTasks()
         } catch {
