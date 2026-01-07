@@ -27,4 +27,9 @@ struct TaskTiming {
         return summary
         
     }
+    
+    init(start: Date, duration: TimeInterval) {
+        self.start = start
+        self.duration = duration
+    }
 }
