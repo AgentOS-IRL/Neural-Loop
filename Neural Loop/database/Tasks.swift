@@ -25,6 +25,12 @@ struct Tasks: Codable, Identifiable{
     var goal_id: Int64?
     var lifearea_id: Int64?
 
+    /// Optional target reference (default 0)
+    var target: Int64? = 0
+
+    /// Optional label
+    var label: String?
+
     /// 0 = false, 1 = true
     var is_completed: Bool
     var is_deadline: Bool
@@ -62,6 +68,9 @@ extension DBManager {
     private var goalId: SQLite.Expression<Int64?> { Expression<Int64?>("goal_id") }
     private var lifeAreaId: SQLite.Expression<Int64?> { Expression<Int64?>("lifearea_id") }
 
+    private var targetColumn: SQLite.Expression<Int64?> { Expression<Int64?>("target") }
+    private var labelColumn: SQLite.Expression<String?> { Expression<String?>("label") }
+
     private var isCompleted: SQLite.Expression<Bool> { Expression<Bool>("is_completed") }
     private var isDeadline: SQLite.Expression<Bool> { Expression<Bool>("is_deadline") }
     private var completedAt: SQLite.Expression<String?> { Expression<String?>("completed_at") }
@@ -82,7 +91,8 @@ extension DBManager {
             priority <- task.priority,
             goalId <- task.goal_id,
             lifeAreaId <- task.lifearea_id,
-            
+            targetColumn <- task.target,
+            labelColumn <- task.label,
             isCompleted <- task.is_completed,
             isDeadline <- task.is_deadline,
             completedAt <- task.completed_at?.ISO8601Format(),
@@ -101,8 +111,10 @@ extension DBManager {
 
     // MARK: - Read
 
-    func fetchAllTasks() throws -> [Tasks] {
-        try DBManager.sqliteDB!.prepare(tasksTable).map { row in
+    func fetchAllTasks(get_habits: Bool = false) throws -> [Tasks] {
+        let query = get_habits ? tasksTable.filter(targetColumn>0)  : tasksTable.filter(targetColumn==0 || targetColumn==nil)
+        
+        return try DBManager.sqliteDB!.prepare(query).map { row in
             Tasks(
                 id: row[id],
                 title: row[title],
@@ -110,6 +122,8 @@ extension DBManager {
                 priority: row[priority],
                 goal_id: row[goalId],
                 lifearea_id: row[lifeAreaId],
+                target: row[targetColumn],
+                label: row[labelColumn],
                 is_completed: row[isCompleted],
                 is_deadline: row[isDeadline],
                 completed_at: row[completedAt].flatMap {
@@ -136,6 +150,8 @@ extension DBManager {
                 priority: row[priority],
                 goal_id: row[goalId],
                 lifearea_id: row[lifeAreaId],
+                target: row[targetColumn],
+                label: row[labelColumn],
                 is_completed: row[isCompleted],
                 is_deadline: row[isDeadline],
                 completed_at: row[completedAt].flatMap {
@@ -162,6 +178,8 @@ extension DBManager {
                 priority: row[priority],
                 goal_id: row[goalId],
                 lifearea_id: row[lifeAreaId],
+                target: row[targetColumn],
+                label: row[labelColumn],
                 is_completed: row[isCompleted],
                 is_deadline: row[isDeadline],
                 completed_at: row[completedAt].flatMap {
@@ -188,6 +206,8 @@ extension DBManager {
                 priority: row[priority],
                 goal_id: row[goalId],
                 lifearea_id: row[lifeAreaId],
+                target: row[targetColumn],
+                label: row[labelColumn],
                 is_completed: row[isCompleted],
                 is_deadline: row[isDeadline],
                 completed_at: row[completedAt].flatMap {
@@ -214,6 +234,8 @@ extension DBManager {
                 priority: row[priority],
                 goal_id: row[goalId],
                 lifearea_id: row[lifeAreaId],
+                target: row[targetColumn],
+                label: row[labelColumn],
                 is_completed: row[isCompleted],
                 is_deadline: row[isDeadline],
                 completed_at: row[completedAt].flatMap {
@@ -243,6 +265,8 @@ extension DBManager {
                 priority <- task.priority,
                 goalId <- task.goal_id,
                 lifeAreaId <- task.lifearea_id,
+                targetColumn <- task.target,
+                labelColumn <- task.label,
                 isCompleted <- task.is_completed,
                 isDeadline <- task.is_deadline,
                 completedAt <- task.completed_at?.ISO8601Format(),

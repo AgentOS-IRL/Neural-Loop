@@ -23,6 +23,10 @@ struct AddTodoView: View {
     @State private var showTimeSheet = false       // clock (time only)
     @State private var scheduleDraft: TaskScheduleDraft?
 
+    @State private var isHabit: Bool = false
+    @State private var target: Int = 0
+    @State private var label: String = ""
+
     let onSave: (TaskInput) -> Void
 
     init(
@@ -89,7 +93,15 @@ struct AddTodoView: View {
 
                 // Bottom actions row
                 HStack(spacing: 20) {
-                    Text((scheduleDraft?.timing?.summary() ?? "No Time" ) + " • " + (scheduleDraft?.recurrence?.summary() ?? "No Repeat"))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text((scheduleDraft?.timing?.summary() ?? "No Time") + " • " + (scheduleDraft?.recurrence?.summary() ?? "No Repeat"))
+
+                        if scheduleDraft?.recurrence != nil {
+                            Toggle("Habit", isOn: $isHabit)
+                                .toggleStyle(.switch)
+                                .font(.caption)
+                        }
+                    }
 
                     Spacer()
 
@@ -129,6 +141,11 @@ struct AddTodoView: View {
                         print("📅 TaskScheduleDraft returned:")
                         print("Summary:", draft.timing?.summary() ?? "All Day")
                         print("Summary:", draft.recurrence?.summary() ?? "No Recurrence")
+                        if draft.recurrence == nil {
+                            isHabit = false
+                            target = 1
+                            label = ""
+                        }
                     }
                 }
                 .sheet(isPresented: $showTimeSheet) {
@@ -138,6 +155,18 @@ struct AddTodoView: View {
                             recurrence: nil
                         )
                     }
+                }
+
+                if scheduleDraft?.recurrence != nil && isHabit {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Stepper(value: $target, in: 1...100) {
+                            Text("Target: \(target)")
+                        }
+
+                        TextField("Label (e.g. times, pages, mins)", text: $label)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                    .padding(.top, 8)
                 }
             }
             .padding()
@@ -159,7 +188,9 @@ struct AddTodoView: View {
                             description: description.isEmpty ? nil : description,
                             priority: priority,
                             schedule: scheduleDraft,
-                            is_deadline: isDeadline
+                            is_deadline: isDeadline,
+                            target: Int64(target),
+                            label:  label
                         )
                     )
                     dismiss()
