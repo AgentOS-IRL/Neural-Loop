@@ -56,18 +56,6 @@ struct TaskScheduleDraft {
     let recurrence: Calendar.RecurrenceRule?
 }
 
-func nextOccurrence(
-    of rule: Calendar.RecurrenceRule,
-    after now: Date = .now
-) -> Date? {
-    // The `recurrences(of:)` API yields an async sequence of future dates
-    // starting from the given date.
-    // Call `first(where:)` to get the first one strictly after `now`.
-    
-    return rule
-        .recurrences(of: now)
-        .first { $0 > now }
-}
 
 // MARK: - Sheet
 
