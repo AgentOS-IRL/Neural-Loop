@@ -14,7 +14,7 @@
 
 import SwiftUI
 import RRuleKit
-
+import SwiftData
 
 func nextOccurrence(
     of rule: Calendar.RecurrenceRule,
@@ -23,6 +23,7 @@ func nextOccurrence(
     // The `recurrences(of:)` API yields an async sequence of future dates
     // starting from the given date.
     // Call `first(where:)` to get the first one strictly after `now`.
+    print("In nextOccurrence, Interval: \(rule.interval)")
     
     return rule
         .recurrences(of: now)
@@ -69,11 +70,16 @@ struct TodoView: View {
     @State private var error: String?
     @State private var dateBuckets: [DateBucket] = buildDateBuckets()
     @State private var searchText: String = ""
+    @State private var selectedTaskForEdit: Tasks? = nil
     
     @State private var initializationTiming: TaskTiming = .init(
         start: Date(),
         duration: 900
     )
+    
+    
+    @Environment(\.modelContext) private var context
+
     
     @ViewBuilder
     private func upcomingTasks() -> some View {
@@ -108,7 +114,12 @@ struct TodoView: View {
     }
     
     @ViewBuilder
-    private func taskView(task: Tasks) -> some View {
+    private func taskView(task: Tasks, checkIfCompleted: Bool = false) -> some View {
+        let strikeThrough =
+                checkIfCompleted &&
+                completedTasks(on: .now, context: context).contains(task.id!)
+
+        
         HStack(alignment: .top, spacing: 12) {
             
             // Checkbox placeholder
@@ -120,6 +131,7 @@ struct TodoView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(task.title)
                     .font(.body)
+                    .strikethrough(strikeThrough)
                     .foregroundColor(.primary)
                 
                 
@@ -128,7 +140,7 @@ struct TodoView: View {
                 let end = start.addingTimeInterval(duration)
                 
                 Text(
-                    "\(start.formatted(date: .omitted, time: .shortened)) – \(end.formatted(date: .omitted, time: .shortened))"
+                    "\(start.formatted(date: .omitted, time: .shortened)) – \(end.formatted(date: .omitted, time: .shortened)) \(checkIfCompleted)"
                 )
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -139,6 +151,9 @@ struct TodoView: View {
         }
         .padding(.vertical, 8)
         .contentShape(Rectangle()) // future tap support
+        .onTapGesture {
+            selectedTaskForEdit = task
+        }
         
     }
     
@@ -208,7 +223,7 @@ struct TodoView: View {
     }
     
     private func getUpcomingBucket() -> [DateBucket] {
-        dateBuckets.filter({ $0.type == .upcoming || $0.type == .today})
+        dateBuckets.filter({ $0.type == .upcoming})
     }
     
     private func getTodaysBucket() -> DateBucket {
@@ -219,6 +234,7 @@ struct TodoView: View {
     private func todayTasks() -> some View {
         let todayBucket = getTodaysBucket()
         
+    
         let morningTasks = todayBucket.taskIds.compactMap { tasksMapping[$0] }
             .filter {
                 guard let start = $0.start_date else { return false }
@@ -273,10 +289,10 @@ struct TodoView: View {
                 .font(.headline)
             
             ForEach(tasks, id: \.id) { task in
-                taskView(task: task)
+                taskView(task: task, checkIfCompleted: true)
             }
             // Add task row
-            addTask(initialTiming:initialTiming)
+            addTask(initialTiming:initialTiming, )
         }
     }
     
@@ -504,46 +520,16 @@ struct TodoView: View {
                     )
                 }
             }
+            .sheet(item: $selectedTaskForEdit) { task in
+                EditTodoView(task: task) { newTitle, newDescription, isCompleted in
+                    updateTask(task: task, newTitle: newTitle, newDescription: newDescription, isCompleted: isCompleted)
+                } onDelete: {
+                    deleteTask(task: task)
+                }
+            }
             .onAppear {
                 loadTasks()
-                var _dateBuckets = buildDateBuckets()
-
-                var inbox_bucket = DateBucket(title: AnyView( Text("Inbox")
-                    .font(.title3.weight(.semibold))
-                    .foregroundColor(.primary)), start: .distantPast, end: .now, type: .inbox)
-
-                var overdue_bucket = DateBucket(title: AnyView( Text("Overdue")
-                    .font(.title3.weight(.semibold))
-                    .foregroundColor(.primary)), start: .distantPast, end: .now, type: .overdue)
-                var completed_bucket = DateBucket(title: AnyView( Text("Completed")
-                    .font(.title3.weight(.semibold))
-                    .foregroundColor(.primary)), start: .distantPast, end: .distantFuture, type: .completed)
-
-                for task in tasks {
-                    if task.start_date == nil {
-                        inbox_bucket.taskIds.append(task.id!)
-                    }
-                    else if task.is_completed {
-                        completed_bucket.taskIds.append(task.id!)
-                    }
-                    else if (task.recursion_rule == "" || task.recursion_rule == nil) && task.start_date != nil && task.start_date! < Date() {
-                            overdue_bucket.taskIds.append(task.id!)
-
-                    }
-                    else {
-                        _dateBuckets = attachTaskToBuckets(task: task, buckets: _dateBuckets)
-                    }
-                }
-
-
-                dateBuckets = [inbox_bucket, overdue_bucket, completed_bucket] + _dateBuckets
-
-                for dateBucket in dateBuckets {
-                    print(
-                        " \(dateBucket.start): \(dateBucket.end) -- \(dateBucket.taskIds.count) tasks"
-                    )
-                }
-
+                rebuildDateBuckets()
             }
         }
     }
@@ -653,6 +639,7 @@ struct TodoView: View {
             //            }
             
             loadTasks()
+            rebuildDateBuckets()
         } catch {
             print(
                 "Error saving task"
@@ -660,6 +647,106 @@ struct TodoView: View {
             print(
                 error
             )
+            self.error = error.localizedDescription
+        }
+    }
+
+    private func rebuildDateBuckets() {
+        var _dateBuckets = buildDateBuckets()
+
+        var inbox_bucket = DateBucket(title: AnyView( Text("Inbox")
+            .font(.title3.weight(.semibold))
+            .foregroundColor(.primary)), start: .distantPast, end: .now, type: .inbox)
+
+        var overdue_bucket = DateBucket(title: AnyView( Text("Overdue")
+            .font(.title3.weight(.semibold))
+            .foregroundColor(.primary)), start: .distantPast, end: .now, type: .overdue)
+        var completed_bucket = DateBucket(title: AnyView( Text("Completed")
+            .font(.title3.weight(.semibold))
+            .foregroundColor(.primary)), start: .distantPast, end: .distantFuture, type: .completed)
+
+        for task in tasks {
+            if task.start_date == nil {
+                inbox_bucket.taskIds.append(task.id!)
+            }
+            else if task.is_completed {
+                completed_bucket.taskIds.append(task.id!)
+            }
+            else if (task.recursion_rule == "" || task.recursion_rule == nil) && task.start_date != nil && task.start_date! < Date() {
+                    overdue_bucket.taskIds.append(task.id!)
+
+            }
+            else {
+                _dateBuckets = attachTaskToBuckets(task: task, buckets: _dateBuckets)
+            }
+        }
+
+        dateBuckets = [inbox_bucket, overdue_bucket, completed_bucket] + _dateBuckets
+    }
+
+    func updateTask(task: Tasks, newTitle: String, newDescription: String?, isCompleted: Bool) {
+        var has_updated = false
+        var updated = task
+        do {
+            
+            if task.title != newTitle {
+                has_updated = true
+                updated.title = newTitle
+            }
+            
+            if task.description != newDescription {
+                has_updated = true
+                updated.description = newDescription
+            }
+            
+            if task.recursion_rule == nil  || task.recursion_rule == "" {
+                
+                if updated.is_completed != isCompleted {
+                    has_updated = true
+                    updated.is_completed = isCompleted
+                    updated.completed_at = isCompleted ? Date() : nil
+                }
+            }
+            else {
+                if let index = dateBuckets.firstIndex(where: { $0.type == .today })    {
+                    if isCompleted {
+                        print("Marking recurring task as completed")
+                        markRecurringTaskCompleted(taskId: task.id!, date: .now, context: context)
+                        
+                    }
+                    else {
+                        try deleteCompletion(taskId: task.id!, on: .now, context: context)
+                        
+                    }
+                
+                    
+                }
+            }
+            
+            if has_updated == true {
+                let manager = try DBManager.newInstance()
+                try manager.updateTask(updated)
+                
+            }
+            loadTasks()
+            rebuildDateBuckets()
+        } catch {
+            print("Error updating task", error)
+            self.error = error.localizedDescription
+        }
+    }
+
+    func deleteTask(task: Tasks) {
+        guard let id = task.id else { return }
+        do {
+            let manager = try DBManager.newInstance()
+            try manager.deleteTask(id: id)
+            // Clear selection if it was the same task
+            if selectedTaskForEdit?.id == id { selectedTaskForEdit = nil }
+            loadTasks()
+            rebuildDateBuckets()
+        } catch {
+            print("Error deleting task", error)
             self.error = error.localizedDescription
         }
     }

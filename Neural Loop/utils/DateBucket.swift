@@ -52,13 +52,15 @@ extension Calendar {
 func hasOccurrence(
     of rule: Calendar.RecurrenceRule,
     between start: Date,
-    and end: Date
+    and end: Date,
+    anchor: Date
 ) -> Bool {
-    
-    rule
-        .recurrences(of: start)
+    let has_occ =  rule
+        .recurrences(of: anchor)
         .prefix { $0 <= end }
         .contains { $0 >= start && $0 <= end }
+    print("Start date:\(start), End date:\(end), Occurrence:\(has_occ)")
+    return has_occ
 }
 
 func occursInBucket(
@@ -80,7 +82,8 @@ func occursInBucket(
         return hasOccurrence(
             of: rule,
             between: max(bucket.start, now),
-            and: bucket.end
+            and: bucket.end,
+            anchor: task.start_date!
         )
     } catch {
         
