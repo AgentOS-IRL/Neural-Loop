@@ -7,7 +7,7 @@
 
 import SwiftUI
 import EventKit
-
+import SwiftData
 
 @main
 struct Neural_LoopApp: App {
@@ -29,6 +29,8 @@ struct Neural_LoopApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-        }
+        }.modelContainer(for: [
+            CompletedRecurringTask.self
+        ])
     }
 }
