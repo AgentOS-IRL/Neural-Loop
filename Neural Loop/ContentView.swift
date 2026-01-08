@@ -25,6 +25,8 @@ struct ContentView: View {
                             LifeAreaListView()
                     case .todo:
                         TodoView()
+                    case .habits:
+                        HabitView()
                     default:
                         Text("Other Tab").onAppear { logger.info("ContentView appeared!") }
                         }

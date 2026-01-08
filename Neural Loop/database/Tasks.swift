@@ -7,6 +7,7 @@
 
 import Foundation
 import SQLite
+import Libsql
 
 struct Tasks: Codable, Identifiable{
     
@@ -114,6 +115,27 @@ extension DBManager {
     func fetchAllTasks(get_habits: Bool = false) throws -> [Tasks] {
         let query = get_habits ? tasksTable.filter(targetColumn>0)  : tasksTable.filter(targetColumn==0 || targetColumn==nil)
         
+        let conn = try DBManager.libsqlDB!.connect()
+        let rows = try conn.query(query.expression.description)
+        for row in rows {
+            // Example of index access
+            let id: Int64 = try Int64(row.getInt(0))
+            let title: String = try row.getString(1)
+            let completed: Bool = try row.getInt(3) == 1
+            
+            print("Task id:", id)
+            print("Title:", title)
+            print("Completed:", completed)
+            
+//                let title: String = row[1] as? String ?? ""
+//                let completed: Bool = row[2] as? Bool ?? false
+//
+//                print("Task id:", id)
+//                print("Title:", title)
+//                print("Completed:", completed)
+        }
+        
+        
         return try DBManager.sqliteDB!.prepare(query).map { row in
             Tasks(
                 id: row[id],
@@ -142,6 +164,8 @@ extension DBManager {
 
     func fetchTask(by idValue: Int64) throws -> Tasks? {
         let query = tasksTable.filter(id == idValue)
+        
+        
         return try DBManager.sqliteDB!.pluck(query).map { row in
             Tasks(
                 id: row[id],
