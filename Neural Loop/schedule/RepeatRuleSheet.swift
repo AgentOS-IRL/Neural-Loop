@@ -131,8 +131,8 @@ struct RepeatRuleSheet: View {
                             }
                         } else {
                             Picker("Ordinal", selection: $ordinal) {
-                                ForEach(OrdinalUI.allCases, id: \.self) {
-                                    Text("\($0)").tag($0)
+                                ForEach(OrdinalUI.allCases, id: \.self) { value in
+                                    Text(ordinalLabel(value)).tag(value)
                                 }
                             }
 
@@ -148,8 +148,8 @@ struct RepeatRuleSheet: View {
                 if frequency == .yearly {
                     Section("Repeat every year on") {
                         Picker("Ordinal", selection: $ordinal) {
-                            ForEach(OrdinalUI.allCases, id: \.self) {
-                                Text("\($0)").tag($0)
+                            ForEach(OrdinalUI.allCases, id: \.self) {value in
+                                Text(ordinalLabel(value)).tag(value)
                             }
                         }
 
@@ -210,6 +210,18 @@ struct RepeatRuleSheet: View {
     }
 
     // MARK: - Helpers
+
+    private func ordinalLabel(_ ordinal: OrdinalUI) -> String {
+        switch ordinal {
+        case .first: return "First"
+        case .second: return "Second"
+        case .third: return "Third"
+        case .fourth: return "Fourth"
+        case .fifth: return "Fifth"
+        case .secondLast: return "Second Last"
+        case .last: return "Last"
+        }
+    }
 
     private func buildRule() -> Calendar.RecurrenceRule {
         var rule = Calendar.RecurrenceRule(

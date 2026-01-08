@@ -35,16 +35,19 @@ struct LifeAreaListView: View {
             .navigationTitle("Life Areas")
             .onAppear {
                 print("Goals Tab Loading!")
-                loadLifeAreas()
+                Task {
+                    await loadLifeAreas()
+                }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
-    func loadLifeAreas() {
+    @MainActor
+    func loadLifeAreas() async {
         do {
             print("Loading life areas")
-            let manager = try DBManager.newInstance()
-            lifeAreas = try manager.fetchAllLifeAreas()
+            let manager = DBManager.newInstance()
+            lifeAreas = try await manager.fetchAllLifeAreas()
             error = nil
         } catch {
             lifeAreas = []

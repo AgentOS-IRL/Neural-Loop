@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import SQLite
+import Supabase
 
 struct LifeAreas: Codable, Identifiable {
     var id: Int64?
@@ -17,80 +17,56 @@ struct LifeAreas: Codable, Identifiable {
 }
 
 extension DBManager {
-
-    // MARK: - Table & Columns
-
-    private var lifeAreasTable: Table {
-        Table("LifeAreas")
-    }
-
-    private var id: SQLite.Expression<Int64> { SQLite.Expression<Int64>("id") }
-    private var name: SQLite.Expression<String> { SQLite.Expression<String>("name") }
-    private var vision: SQLite.Expression<String?> { SQLite.Expression<String?>("vision") }
-    private var isSample: SQLite.Expression<Bool> { SQLite.Expression<Bool>("is_sample") }
-    private var color: SQLite.Expression<String> { SQLite.Expression<String>("color") }
+    private var lifeAreasTableName: String { "life_areas" }
 
     // MARK: - Create
-
-    func addLifeArea(_ area: LifeAreas) throws {
-        let insert = lifeAreasTable.insert(
-            name <- area.name,
-            vision <- area.vision,
-            isSample <- area.is_sample,
-            color <- area.color
-        )
-
-        let rowId = try DBManager.sqliteDB!.run(insert)
-        print("Inserted LifeArea with id:", rowId)
+    func addLifeArea(_ area: LifeAreas) async throws {
+        let inserted: [LifeAreas] = try await customsupabase
+            .from(self.lifeAreasTableName)
+            .insert(area)
+            .select()
+            .execute()
+            .value
+        if let id = inserted.first?.id { print("Inserted LifeArea with id:", id) }
     }
 
     // MARK: - Read
-
-    func fetchAllLifeAreas() throws -> [LifeAreas] {
-        try DBManager.sqliteDB!.prepare(lifeAreasTable).map { row in
-            LifeAreas(
-                id: row[id],
-                name: row[name],
-                vision: row[vision],
-                is_sample: row[isSample],
-                color: row[color]
-            )
-        }
+    func fetchAllLifeAreas() async throws -> [LifeAreas] {
+        try await customsupabase
+            .from(self.lifeAreasTableName)
+            .select()
+            .execute()
+            .value as [LifeAreas]
     }
 
-    func fetchLifeArea(by idValue: Int64) throws -> LifeAreas? {
-        let query = lifeAreasTable.filter(id == idValue)
-        return try DBManager.sqliteDB!.pluck(query).map { row in
-            LifeAreas(
-                id: row[id],
-                name: row[name],
-                vision: row[vision],
-                is_sample: row[isSample],
-                color: row[color]
-            )
-        }
+    func fetchLifeArea(by idValue: Int64) async throws -> LifeAreas? {
+        let rows: [LifeAreas] = try await customsupabase
+            .from(self.lifeAreasTableName)
+            .select()
+            .eq("id", value: Int(idValue))
+            .limit(1)
+            .execute()
+            .value
+        return rows.first
     }
 
     // MARK: - Update
-
-    func updateLifeArea(_ area: LifeAreas) throws {
+    func updateLifeArea(_ area: LifeAreas) async throws {
         guard let areaId = area.id else { return }
-
-        let query = lifeAreasTable.filter(id == areaId)
-        try DBManager.sqliteDB!.run(
-            query.update(
-                name <- area.name,
-                vision <- area.vision,
-                isSample <- area.is_sample,
-                color <- area.color
-            )
-        )
+        _ = try await customsupabase
+            .from(self.lifeAreasTableName)
+            .update(area)
+            .eq("id", value: Int(areaId))
+            .select()
+            .execute()
     }
 
     // MARK: - Delete
-
-    func deleteLifeArea(id areaId: Int64) throws {
-        let query = lifeAreasTable.filter(id == areaId)
-        try DBManager.sqliteDB!.run(query.delete())
+    func deleteLifeArea(id areaId: Int64) async throws {
+        _ = try await customsupabase
+            .from(self.lifeAreasTableName)
+            .delete()
+            .eq("id", value: Int(areaId))
+            .execute()
     }
 }

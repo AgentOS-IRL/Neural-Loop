@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import SQLite
+import Supabase
 
 struct Goals: Codable, Identifiable {
 
@@ -21,110 +21,75 @@ struct Goals: Codable, Identifiable {
 }
 
 extension DBManager {
-
-    // MARK: - Table & Columns
-
-    private var goalsTable: Table {
-        Table("Goals")
-    }
-
-    private var id: SQLite.Expression<Int64> { Expression<Int64>("id") }
-    private var title: SQLite.Expression<String> { Expression<String>("title") }
-    private var lifeAreaId: SQLite.Expression<Int64> { Expression<Int64>("lifearea_id") }
-    private var startDate: SQLite.Expression<String> { Expression<String>("start_date") }
-    private var deadline: SQLite.Expression<String?> { Expression<String?>("deadline") }
-    private var color: SQLite.Expression<String?> { Expression<String?>("color") }
-    private var description: SQLite.Expression<String?> { Expression<String?>("description") }
+    private var goalsTableName: String { "goals" }
 
     // MARK: - Create
-
-    func addGoal(_ goal: Goals) throws {
-        let insert = goalsTable.insert(
-            title <- goal.title,
-            lifeAreaId <- goal.lifearea_id,
-            startDate <- goal.start_date,
-            deadline <- goal.deadline,
-            color <- goal.color,
-            description <- goal.description
-        )
-
-        let rowId = try DBManager.sqliteDB!.run(insert)
-        print("Inserted Goal with id:", rowId)
+    func addGoal(_ goal: Goals) async throws {
+        let inserted: [Goals] = try await customsupabase
+            .from(self.goalsTableName)
+            .insert(goal)
+            .select()
+            .execute()
+            .value
+        if let first = inserted.first, let newId = first.id {
+            print("Inserted Goal with id:", newId)
+        }
     }
 
     // MARK: - Read
-
-    func fetchAllGoals() throws -> [Goals] {
-        try DBManager.sqliteDB!.prepare(goalsTable).map { row in
-            Goals(
-                id: row[id],
-                title: row[title],
-                lifearea_id: row[lifeAreaId],
-                start_date: row[startDate],
-                deadline: row[deadline],
-                color: row[color],
-                description: row[description]
-            )
-        }
+    func fetchAllGoals() async throws -> [Goals] {
+        try await customsupabase
+            .from(self.goalsTableName)
+            .select()
+            .execute()
+            .value as [Goals]
     }
 
-    func fetchGoal(by idValue: Int64) throws -> Goals? {
-        let query = goalsTable.filter(id == idValue)
-        return try DBManager.sqliteDB!.pluck(query).map { row in
-            Goals(
-                id: row[id],
-                title: row[title],
-                lifearea_id: row[lifeAreaId],
-                start_date: row[startDate],
-                deadline: row[deadline],
-                color: row[color],
-                description: row[description]
-            )
-        }
+    func fetchGoal(by idValue: Int64) async throws -> Goals? {
+        let rows: [Goals] = try await customsupabase
+            .from(self.goalsTableName)
+            .select()
+            .eq("id", value: Int(idValue))
+            .limit(1)
+            .execute()
+            .value
+        return rows.first
     }
 
-    func fetchGoals(forLifeArea lifeAreaIdValue: Int64) throws -> [Goals] {
-        let query = goalsTable.filter(lifeAreaId == lifeAreaIdValue)
-        return try DBManager.sqliteDB!.prepare(query).map { row in
-            Goals(
-                id: row[id],
-                title: row[title],
-                lifearea_id: row[lifeAreaId],
-                start_date: row[startDate],
-                deadline: row[deadline],
-                color: row[color],
-                description: row[description]
-            )
-        }
+    func fetchGoals(forLifeArea lifeAreaIdValue: Int64) async throws -> [Goals] {
+        try await customsupabase
+            .from(self.goalsTableName)
+            .select()
+            .eq("lifearea_id", value: Int(lifeAreaIdValue))
+            .execute()
+            .value as [Goals]
     }
 
     // MARK: - Update
-
-    func updateGoal(_ goal: Goals) throws {
+    func updateGoal(_ goal: Goals) async throws {
         guard let goalId = goal.id else { return }
-
-        let query = goalsTable.filter(id == goalId)
-        try DBManager.sqliteDB!.run(
-            query.update(
-                title <- goal.title,
-                lifeAreaId <- goal.lifearea_id,
-                startDate <- goal.start_date,
-                deadline <- goal.deadline,
-                color <- goal.color,
-                description <- goal.description
-            )
-        )
+        _ = try await customsupabase
+            .from(self.goalsTableName)
+            .update(goal)
+            .eq("id", value: Int(goalId))
+            .select()
+            .execute()
     }
 
     // MARK: - Delete
-
-    func deleteGoal(id goalId: Int64) throws {
-        let query = goalsTable.filter(id == goalId)
-        try DBManager.sqliteDB!.run(query.delete())
+    func deleteGoal(id goalId: Int64) async throws {
+        _ = try await customsupabase
+            .from(self.goalsTableName)
+            .delete()
+            .eq("id", value: Int(goalId))
+            .execute()
     }
 
-    func deleteGoals(forLifeArea lifeAreaIdValue: Int64) throws {
-        let query = goalsTable.filter(lifeAreaId == lifeAreaIdValue)
-        try DBManager.sqliteDB!.run(query.delete())
+    func deleteGoals(forLifeArea lifeAreaIdValue: Int64) async throws {
+        _ = try await customsupabase
+            .from(self.goalsTableName)
+            .delete()
+            .eq("lifearea_id", value: Int(lifeAreaIdValue))
+            .execute()
     }
 }

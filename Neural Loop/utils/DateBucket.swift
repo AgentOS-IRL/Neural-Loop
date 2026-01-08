@@ -108,7 +108,7 @@ func attachTaskToBuckets(
             result[index].taskIds.append(taskId)
         }
         else if task.start_date! >= max(bucket.start, now) && task.start_date! <= bucket.end {
-            print("No rule in :", task.title ," \(task.start_date)",
+            print("No rule in :", task.title ," \(task.start_date, default: "no date")",
                   "\(max(bucket.start, now)) to \(bucket.end)", task.start_date! >= max(bucket.start, now) && task.start_date! <= bucket.end)
             result[index].taskIds.append(taskId)
         }

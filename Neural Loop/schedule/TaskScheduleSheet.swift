@@ -113,12 +113,8 @@ struct TaskScheduleSheet: View {
                 // MERGED PREVIEW
                 if timing != nil || recurrenceRule != nil {
                     Section("Summary") {
-                        if let timing {
-                            Label(timeSummary, systemImage: "clock")
-                        }
-                        if let recurrenceRule {
-                            Label(repeatSummary, systemImage: "repeat")
-                        }
+                        Label(timeSummary, systemImage: "clock")
+                        Label(repeatSummary, systemImage: "repeat")
                     }
                 }
             }
