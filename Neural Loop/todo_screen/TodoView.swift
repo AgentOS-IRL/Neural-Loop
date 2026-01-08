@@ -20,14 +20,14 @@ func nextOccurrence(
     of rule: Calendar.RecurrenceRule,
     after now: Date = .now
 ) -> Date? {
-    // The `recurrences(of:)` API yields an async sequence of future dates
-    // starting from the given date.
-    // Call `first(where:)` to get the first one strictly after `now`.
     print("In nextOccurrence, Interval: \(rule.interval)")
-    
-    return rule
-        .recurrences(of: now)
-        .first { $0 > now }
+
+    for date in rule.recurrences(of: now) {
+        if date > now {
+            return date
+        }
+    }
+    return nil
 }
 
 func rrule_to_string(rule: Calendar.RecurrenceRule) -> String{
@@ -138,9 +138,10 @@ struct TodoView: View {
                 let start = task.start_date!
                 let duration = task.duration!
                 let end = start.addingTimeInterval(duration)
-                
-                Text(
-                    "\(start.formatted(date: .omitted, time: .shortened)) – \(end.formatted(date: .omitted, time: .shortened)) \(checkIfCompleted)"
+
+                Text(verbatim:
+                    "\(start.formatted(date: .omitted, time: .shortened)) – " +
+                    "\(end.formatted(date: .omitted, time: .shortened))"
                 )
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -515,41 +516,52 @@ struct TodoView: View {
                 AddTodoView(
                     initialTiming: initializationTiming
                 ) { newTask in
-                    addTask(
+                    Task {
+                        await addTask(
                         newTask
                     )
+                    }
                 }
             }
             .sheet(item: $selectedTaskForEdit) { task in
                 EditTodoView(task: task) { newTitle, newDescription, isCompleted in
-                    updateTask(task: task, newTitle: newTitle, newDescription: newDescription, isCompleted: isCompleted)
+                    Task {
+                        await updateTask(task: task, newTitle: newTitle, newDescription: newDescription, isCompleted: isCompleted)
+                    }
                 } onDelete: {
-                    deleteTask(task: task)
+                    Task {
+                        await deleteTask(task: task)
+                    }
                 }
             }
             .onAppear {
                 print("Loading Tasks...")
-                loadTasks()
-                rebuildDateBuckets()
-                print("Tasks Loaded.")
+                Task {
+                    
+                    await loadTasks()
+                    rebuildDateBuckets()
+                    print("Tasks Loaded.")
+                }
             }
         }
     }
 
     // MARK: - DB
 
-    func loadTasks() {
+    func loadTasks() async {
         do {
-            let manager = try DBManager.newInstance()
-            tasks = try manager
+            print("loadTasks")
+            let manager =  DBManager.newInstance()
+            tasks = try await manager
                 .fetchAllTasks()
             for task in tasks {
                 tasksMapping[task.id!] = task
+                print(task.id!)
             }
-            try manager
-                .syncNow(
-                    
-                )
+//            try manager
+//                .syncNow(
+//
+//                )
         } catch {
             print(error)
             self.error = error.localizedDescription
@@ -558,15 +570,15 @@ struct TodoView: View {
 
     func addTask(
         _ task_input: TaskInput
-    ) {
+    ) async {
         do {
             print(
                 "saving task..."
             )
-            let manager = try DBManager.newInstance()
+            let manager = DBManager.newInstance()
             var rruleString = ""
             if task_input.schedule!.recurrence != nil {
-                var rule = task_input.schedule!.recurrence!
+                let rule = task_input.schedule!.recurrence!
                 let formatter = RecurrenceRuleRFC5545FormatStyle(calendar: .current)
                 rruleString = formatter.format(rule)
             }
@@ -588,7 +600,7 @@ struct TodoView: View {
                 
             )
             
-            let savedTask = try manager.addTask(
+            let savedTask = try await manager.addTask(
                 task
             )
             
@@ -645,9 +657,10 @@ struct TodoView: View {
             //                    }
             //                }
             //            }
-            
-            loadTasks()
-            rebuildDateBuckets()
+            Task {
+                await loadTasks()
+                rebuildDateBuckets()
+            }
         } catch {
             print(
                 "Error saving task"
@@ -656,12 +669,12 @@ struct TodoView: View {
                 error
             )
             self.error = error.localizedDescription
-            do {
-                try DBManager.resetLocalDatabase()
-            }
-            catch {
-                print("Error resetting local database")
-            }
+//            do {
+//                try DBManager.resetLocalDatabase()
+//            }
+//            catch {
+//                print("Error resetting local database")
+//            }
         }
     }
 
@@ -698,7 +711,7 @@ struct TodoView: View {
         dateBuckets = [inbox_bucket, overdue_bucket, completed_bucket] + _dateBuckets
     }
 
-    func updateTask(task: Tasks, newTitle: String, newDescription: String?, isCompleted: Bool) {
+    func updateTask(task: Tasks, newTitle: String, newDescription: String?, isCompleted: Bool) async {
         var has_updated = false
         var updated = task
         do {
@@ -722,7 +735,7 @@ struct TodoView: View {
                 }
             }
             else {
-                if let index = dateBuckets.firstIndex(where: { $0.type == .today })    {
+                if dateBuckets.firstIndex(where: { $0.type == .today }) != nil    {
                     if isCompleted {
                         print("Marking recurring task as completed")
                         markRecurringTaskCompleted(taskId: task.id!, date: .now, context: context)
@@ -738,27 +751,31 @@ struct TodoView: View {
             }
             
             if has_updated == true {
-                let manager = try DBManager.newInstance()
-                try manager.updateTask(updated)
+                let manager = DBManager.newInstance()
+                try await manager.updateTask(updated)
                 
             }
-            loadTasks()
-            rebuildDateBuckets()
+            Task {
+                await loadTasks()
+                rebuildDateBuckets()
+            }
         } catch {
             print("Error updating task", error)
             self.error = error.localizedDescription
         }
     }
 
-    func deleteTask(task: Tasks) {
+    func deleteTask(task: Tasks) async {
         guard let id = task.id else { return }
         do {
-            let manager = try DBManager.newInstance()
-            try manager.deleteTask(id: id)
+            let manager = DBManager.newInstance()
+            try await manager.deleteTask(id: id)
             // Clear selection if it was the same task
             if selectedTaskForEdit?.id == id { selectedTaskForEdit = nil }
-            loadTasks()
-            rebuildDateBuckets()
+            Task {
+                await loadTasks()
+                rebuildDateBuckets()
+            }
         } catch {
             print("Error deleting task", error)
             self.error = error.localizedDescription

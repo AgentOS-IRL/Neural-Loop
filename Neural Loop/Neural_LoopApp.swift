@@ -18,7 +18,7 @@ struct Neural_LoopApp: App {
         Task {
             do {
                 try await eventStore.requestFullAccessToEvents()
-                try NeuralLoopCalendarService.shared.createNeuralLoopCalendar()
+                let _ = try NeuralLoopCalendarService.shared.createNeuralLoopCalendar()
                 print("Calendar access granted")
             } catch {
                 print("Calendar access denied: \(error)")

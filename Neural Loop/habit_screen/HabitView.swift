@@ -27,7 +27,9 @@ struct HabitView: View {
                                 habit: habit,
                                 progress: progress,
                                 onIncrement: {
-                                    incrementHabit(habit)
+                                    Task {
+                                        await incrementHabit(habit)
+                                    }
                                 }
                             )
                         }
@@ -37,23 +39,26 @@ struct HabitView: View {
             }
             .navigationTitle("Habits")
             .onAppear {
-                loadHabits()
+                Task {
+                    await loadHabits()
+                }
             }
         }
     }
 
     // MARK: - Data loading (read-only)
 
-    private func loadHabits() {
+    @MainActor
+    private func loadHabits() async {
         do {
-            let manager = try DBManager.newInstance()
-            let fetched = try manager.fetchAllTasks(get_habits: true)
+            let manager = DBManager.newInstance()
+            let fetched = try await manager.fetchAllTasks(get_habits: true)
             habits = fetched
 
             var map: [Int64: HabitProgress] = [:]
             for habit in fetched {
                 guard let id = habit.id else { continue }
-                let progress = try computeProgress(for: habit, manager: manager)
+                let progress = try await computeProgress(for: habit, manager: manager)
                 map[id] = progress
             }
             progressMap = map
@@ -62,11 +67,11 @@ struct HabitView: View {
         }
     }
 
-    private func computeProgress(for habit: Tasks, manager: DBManager) throws -> HabitProgress {
+    private func computeProgress(for habit: Tasks, manager: DBManager) async throws -> HabitProgress {
         let now = Date()
         let window = HabitWindow.window(for: habit, reference: now)
 
-        let entries = try manager.fetchHabitEntries(
+        let entries = try await manager.fetchHabitEntries(
             forTask: habit.id!,
             from: window.start,
             to: window.end
@@ -82,12 +87,12 @@ struct HabitView: View {
         )
     }
 
-    private func incrementHabit(_ habit: Tasks) {
+    private func incrementHabit(_ habit: Tasks) async {
         guard let id = habit.id else { return }
         do {
-            let manager = try DBManager.newInstance()
-            _ = try manager.addHabitEntry(taskId: id, value: 1, date: Date())
-            loadHabits() // refresh UI after update
+            let manager = DBManager.newInstance()
+            _ = try await manager.addHabitEntry(taskId: id, value: 1, date: Date())
+            await loadHabits() // refresh UI after update
         } catch {
             self.error = error.localizedDescription
         }

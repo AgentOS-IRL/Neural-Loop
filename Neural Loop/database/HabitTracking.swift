@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import SQLite
+import Supabase
 
 struct HabitTracking: Codable, Identifiable {
     // MARK: - Properties
@@ -17,110 +17,83 @@ struct HabitTracking: Codable, Identifiable {
 }
 
 extension DBManager {
-
-    // MARK: - Table & Columns
-
-    private var habitTrackingTable: Table { Table("habit_tracking") }
-
-    private var id: SQLite.Expression<Int64> { Expression<Int64>("id") }
-    private var taskId: SQLite.Expression<Int64> { Expression<Int64>("task_id") }
-    private var entryDate: SQLite.Expression<String> { Expression<String>("entry_date") }
-    private var valueCol: SQLite.Expression<Int> { Expression<Int>("value") }
+    private var habitTrackingTableName: String { "habit_tracking" }
 
     // MARK: - Create
-
-    /// Insert a habit tracking entry. If `entry_date` isn't provided, DB default is used.
-    func addHabitEntry(_ entry: HabitTracking) throws -> HabitTracking {
-        if let dateString = entry.entry_date.ISO8601FormatIfAvailable() {
-            let insert = habitTrackingTable.insert(
-                taskId <- entry.task_id,
-                entryDate <- dateString,
-                valueCol <- entry.value
-            )
-            let rowId = try DBManager.sqliteDB!.run(insert)
-            var saved = entry
-            saved.id = rowId
-            return saved
-        } else {
-            let insert = habitTrackingTable.insert(
-                taskId <- entry.task_id,
-                valueCol <- entry.value
-            )
-            let rowId = try DBManager.sqliteDB!.run(insert)
-            var saved = entry
-            saved.id = rowId
-            return saved
-        }
+    func addHabitEntry(_ entry: HabitTracking) async throws -> HabitTracking {
+        let inserted: [HabitTracking] = try await customsupabase
+            .from(self.habitTrackingTableName)
+            .insert(entry)
+            .select()
+            .execute()
+            .value
+        return inserted.first ?? entry
     }
 
     /// Convenience to add by components.
-    func addHabitEntry(taskId: Int64, value: Int, date: Date? = nil) throws -> HabitTracking {
+    func addHabitEntry(taskId: Int64, value: Int, date: Date? = nil) async throws -> HabitTracking {
         let entry = HabitTracking(id: nil, task_id: taskId, entry_date: date ?? Date(), value: value)
-        return try addHabitEntry(entry)
+        return try await addHabitEntry(entry)
     }
 
     // MARK: - Read
-
-    func fetchHabitEntry(by idValue: Int64) throws -> HabitTracking? {
-        let q = habitTrackingTable.filter(id == idValue)
-        return try DBManager.sqliteDB!.pluck(q).map { row in
-            HabitTracking(
-                id: row[id],
-                task_id: row[taskId],
-                entry_date: ISO8601DateFormatter().date(from: row[entryDate]) ?? Date(),
-                value: row[valueCol]
-            )
-        }
+    func fetchHabitEntry(by idValue: Int64) async throws -> HabitTracking? {
+        let rows: [HabitTracking] = try await customsupabase
+            .from(self.habitTrackingTableName)
+            .select()
+            .eq("id", value: Int(idValue))
+            .limit(1)
+            .execute()
+            .value
+        return rows.first
     }
 
-    func fetchHabitEntries(forTask taskIdValue: Int64, from fromDate: Date? = nil, to toDate: Date? = nil) throws -> [HabitTracking] {
-        var q: Table = habitTrackingTable.filter(taskId == taskIdValue)
+    func fetchHabitEntries(forTask taskIdValue: Int64, from fromDate: Date? = nil, to toDate: Date? = nil) async throws -> [HabitTracking] {
+        var builder = customsupabase
+            .from(self.habitTrackingTableName)
+            .select()
+            .eq("task_id", value: Int(taskIdValue))
 
         if let fromDate = fromDate {
-            q = q.filter(entryDate >= fromDate.ISO8601FormatIfAvailable() ?? "")
+            builder = builder.gte("entry_date", value: ISO8601DateFormatter().string(from: fromDate))
         }
         if let toDate = toDate {
-            q = q.filter(entryDate <= toDate.ISO8601FormatIfAvailable() ?? "")
+            builder = builder.lte("entry_date", value: ISO8601DateFormatter().string(from: toDate))
         }
 
-        return try DBManager.sqliteDB!.prepare(q).map { row in
-            HabitTracking(
-                id: row[id],
-                task_id: row[taskId],
-                entry_date: ISO8601DateFormatter().date(from: row[entryDate]) ?? Date(),
-                value: row[valueCol]
-            )
-        }
+        return try await builder
+            .execute()
+            .value as [HabitTracking]
     }
 
-    func fetchLatestHabitEntry(forTask taskIdValue: Int64) throws -> HabitTracking? {
-        let q = habitTrackingTable
-            .filter(taskId == taskIdValue)
-            .order(entryDate.desc)
+    func fetchLatestHabitEntry(forTask taskIdValue: Int64) async throws -> HabitTracking? {
+        let rows: [HabitTracking] = try await customsupabase
+            .from(self.habitTrackingTableName)
+            .select()
+            .eq("task_id", value: Int(taskIdValue))
+            .order("entry_date", ascending: false)
             .limit(1)
-
-        return try DBManager.sqliteDB!.pluck(q).map { row in
-            HabitTracking(
-                id: row[id],
-                task_id: row[taskId],
-                entry_date: ISO8601DateFormatter().date(from: row[entryDate]) ?? Date(),
-                value: row[valueCol]
-            )
-        }
+            .execute()
+            .value
+        return rows.first
     }
 
     // MARK: - Update
-
-    func updateHabitEntryValue(id idValue: Int64, value: Int) throws {
-        let q = habitTrackingTable.filter(id == idValue)
-        try DBManager.sqliteDB!.run(q.update(valueCol <- value))
+    func updateHabitEntryValue(id idValue: Int64, value: Int) async throws {
+        _ = try await customsupabase
+            .from(self.habitTrackingTableName)
+            .update(["value": value])
+            .eq("id", value: Int(idValue))
+            .execute()
     }
 
     // MARK: - Delete
-
-    func deleteHabitEntry(id idValue: Int64) throws {
-        let q = habitTrackingTable.filter(id == idValue)
-        try DBManager.sqliteDB!.run(q.delete())
+    func deleteHabitEntry(id idValue: Int64) async throws {
+        _ = try await customsupabase
+            .from(self.habitTrackingTableName)
+            .delete()
+            .eq("id", value: Int(idValue))
+            .execute()
     }
 }
 

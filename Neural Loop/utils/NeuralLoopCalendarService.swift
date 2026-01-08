@@ -104,6 +104,8 @@ final class NeuralLoopCalendarService {
                     case .friday:    return .friday
                     case .saturday:  return .saturday
                     case .sunday:    return .sunday
+                    @unknown default:
+                        fatalError("Unsupported recurrence frequency")
                     }
                 }()
                 return EKRecurrenceDayOfWeek(ekWeekday)
@@ -118,9 +120,13 @@ final class NeuralLoopCalendarService {
                     case .friday:    return .friday
                     case .saturday:  return .saturday
                     case .sunday:    return .sunday
+                    @unknown default:
+                        fatalError("Unsupported recurrence frequency")
                     }
                 }()
                 return EKRecurrenceDayOfWeek(ekWeekday, weekNumber: n)
+            @unknown default:
+                fatalError("Unsupported recurrence frequency")
             }
         }
         
@@ -147,6 +153,8 @@ final class NeuralLoopCalendarService {
                 ekFrequency = .monthly
             case .yearly:
                 ekFrequency = .yearly
+            case .minutely, .hourly:
+                fatalError("Unsupported recurrence frequency")
             @unknown default:
                 fatalError("Unsupported recurrence frequency")
             }
@@ -173,8 +181,8 @@ final class NeuralLoopCalendarService {
 
         print("📅 [TEST MODE] Recurring Event Preview")
         print("Title:", event.title ?? "nil")
-        print("Start:", event.startDate)
-        print("End:", event.endDate)
+        print("Start:", event.startDate ?? "No date")
+        print("End:", event.endDate ?? "No date")
         print("Notes:", event.notes ?? "nil")
         print("URL:", event.url?.absoluteString ?? "nil")
 
