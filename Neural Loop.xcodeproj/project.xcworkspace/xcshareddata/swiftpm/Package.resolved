@@ -1,22 +1,12 @@
 {
-  "originHash" : "72a9d3672d0cf2e12a73f7c6fc21f01b2857bc4059ddc6ff192b9838a51b65fc",
+  "originHash" : "06912c476581fd53e2ee88aebdb363f7f74c61a16f24ce3337ff236151e7a338",
   "pins" : [
-    {
-      "identity" : "grdb.swift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/groue/GRDB.swift.git",
-      "state" : {
-        "revision" : "aa0079aeb82a4bf00324561a40bffe68c6fe1c26",
-        "version" : "7.9.0"
-      }
-    },
     {
       "identity" : "libsql-swift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/tursodatabase/libsql-swift",
       "state" : {
-        "revision" : "d6c16af9a8bf5a096c5eaca1fd4dac845242ef87",
-        "version" : "3.1.0"
+        "revision" : "d6c16af9a8bf5a096c5eaca1fd4dac845242ef87"
       }
     },
     {

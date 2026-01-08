@@ -528,8 +528,10 @@ struct TodoView: View {
                 }
             }
             .onAppear {
+                print("Loading Tasks...")
                 loadTasks()
                 rebuildDateBuckets()
+                print("Tasks Loaded.")
             }
         }
     }
@@ -549,6 +551,7 @@ struct TodoView: View {
                     
                 )
         } catch {
+            print(error)
             self.error = error.localizedDescription
         }
     }
@@ -567,6 +570,8 @@ struct TodoView: View {
                 let formatter = RecurrenceRuleRFC5545FormatStyle(calendar: .current)
                 rruleString = formatter.format(rule)
             }
+            
+            print("rruleString", rruleString)
             
             let task = Tasks(
                 id: nil,
@@ -651,6 +656,12 @@ struct TodoView: View {
                 error
             )
             self.error = error.localizedDescription
+            do {
+                try DBManager.resetLocalDatabase()
+            }
+            catch {
+                print("Error resetting local database")
+            }
         }
     }
 

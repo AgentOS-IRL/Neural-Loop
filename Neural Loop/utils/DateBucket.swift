@@ -59,7 +59,7 @@ func hasOccurrence(
         .recurrences(of: anchor)
         .prefix { $0 <= end }
         .contains { $0 >= start && $0 <= end }
-    print("Start date:\(start), End date:\(end), Occurrence:\(has_occ)")
+//    print("Start date:\(start), End date:\(end), Occurrence:\(has_occ)")
     return has_occ
 }
 

@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		34237FEA2F0AFD1E002E0D02 /* Libsql in Frameworks */ = {isa = PBXBuildFile; productRef = 34237FE92F0AFD1E002E0D02 /* Libsql */; };
-		342380082F0B0709002E0D02 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 342380072F0B0709002E0D02 /* GRDB */; };
 		346ACED12F0C1B0D008187C1 /* SQLite in Frameworks */ = {isa = PBXBuildFile; productRef = 346ACED02F0C1B0D008187C1 /* SQLite */; };
 		346ACF072F0C75C3008187C1 /* RRuleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 346ACF062F0C75C3008187C1 /* RRuleKit */; };
 /* End PBXBuildFile section */
@@ -46,7 +45,6 @@
 				346ACED12F0C1B0D008187C1 /* SQLite in Frameworks */,
 				34237FEA2F0AFD1E002E0D02 /* Libsql in Frameworks */,
 				346ACF072F0C75C3008187C1 /* RRuleKit in Frameworks */,
-				342380082F0B0709002E0D02 /* GRDB in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -91,7 +89,6 @@
 			name = "Neural Loop";
 			packageProductDependencies = (
 				34237FE92F0AFD1E002E0D02 /* Libsql */,
-				342380072F0B0709002E0D02 /* GRDB */,
 				346ACED02F0C1B0D008187C1 /* SQLite */,
 				346ACF062F0C75C3008187C1 /* RRuleKit */,
 			);
@@ -125,7 +122,6 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				34237FE82F0AFD1E002E0D02 /* XCRemoteSwiftPackageReference "libsql-swift" */,
-				342380062F0B0709002E0D02 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
 				346ACECF2F0C1B0D008187C1 /* XCRemoteSwiftPackageReference "SQLite" */,
 				346ACF052F0C75C3008187C1 /* XCRemoteSwiftPackageReference "RRuleKit" */,
 			);
@@ -291,6 +287,7 @@
 				DEVELOPMENT_TEAM = SSL47Z4595;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Neural-Loop-Info.plist";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = NSCalendarsUsageDescription;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -324,6 +321,7 @@
 				DEVELOPMENT_TEAM = SSL47Z4595;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Neural-Loop-Info.plist";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = NSCalendarsUsageDescription;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -375,16 +373,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/tursodatabase/libsql-swift";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 3.1.0;
-			};
-		};
-		342380062F0B0709002E0D02 /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/groue/GRDB.swift.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 7.0.0;
+				kind = revision;
+				revision = d6c16af9a8bf5a096c5eaca1fd4dac845242ef87;
 			};
 		};
 		346ACECF2F0C1B0D008187C1 /* XCRemoteSwiftPackageReference "SQLite" */ = {
@@ -410,11 +400,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 34237FE82F0AFD1E002E0D02 /* XCRemoteSwiftPackageReference "libsql-swift" */;
 			productName = Libsql;
-		};
-		342380072F0B0709002E0D02 /* GRDB */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 342380062F0B0709002E0D02 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
-			productName = GRDB;
 		};
 		346ACED02F0C1B0D008187C1 /* SQLite */ = {
 			isa = XCSwiftPackageProductDependency;
