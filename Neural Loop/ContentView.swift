@@ -13,7 +13,7 @@ let logger = Logger(subsystem: "NeuralLoop", category: "App")
 
 
 struct ContentView: View {
-    @State private var selectedTab: AppTab = .todo
+    @State private var selectedTab: AppTab = .goals
 
     var body: some View {
         ZStack {
@@ -22,7 +22,7 @@ struct ContentView: View {
                 Group {
                     switch selectedTab {
                         case .goals:
-                            LifeAreaListView()
+                        GoalView()
                     case .todo:
                         TodoView()
                     case .habits:

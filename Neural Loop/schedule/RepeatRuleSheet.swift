@@ -26,7 +26,7 @@ struct RepeatRuleSheet: View {
     @State private var frequency: FrequencyUI = .weekly
     @State private var interval: Int = 1
 
-    @State private var selectedWeekdays: Set<WeekdayUI> = []
+    @State private var selectedWeekdays: Set<WeekdayUI> = Set(WeekdayUI.allCases)
     @State private var monthlyMode: MonthlyMode = .dates
     @State private var selectedMonthDays: Set<Int> = []
     @State private var ordinal: OrdinalUI = .first
@@ -294,7 +294,7 @@ struct RepeatRuleSheet: View {
 
         Text(day.short)
             .frame(width: 44, height: 44)
-            .background(isSelected ? Color.purple : Color.clear)
+            .background(isSelected ? Color.violet : Color.clear)
             .overlay(Circle().stroke(Color.gray))
             .clipShape(Circle())
             .onTapGesture {

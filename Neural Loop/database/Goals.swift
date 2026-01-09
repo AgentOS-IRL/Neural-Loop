@@ -21,6 +21,16 @@ struct Goals: Codable, Identifiable {
 }
 
 extension DBManager {
+    // NOTE:
+    // Database indexes (PRIMARY KEY, foreign key indexes, composite indexes, etc.)
+    // CANNOT be created or managed from Swift/Supabase client code.
+    //
+    // Indexes must be defined at the database level using SQL migrations
+    // (e.g. in Supabase SQL editor or migration files).
+    //
+    // This Swift code will automatically benefit from those indexes when
+    // queries use `.eq`, `.order`, `.limit`, etc.
+
     private var goalsTableName: String { "goals" }
 
     // MARK: - Create
@@ -63,6 +73,15 @@ extension DBManager {
             .eq("lifearea_id", value: Int(lifeAreaIdValue))
             .execute()
             .value as [Goals]
+    }
+    
+    func fetchGoalsCount(forLifeArea lifeAreaIdValue: Int64) async throws -> Int {
+        try await customsupabase
+            .from(self.goalsTableName)
+            .select("COUNT(*)")
+            .eq("lifearea_id", value: Int(lifeAreaIdValue))
+            .execute()
+            .value!
     }
 
     // MARK: - Update

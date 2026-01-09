@@ -14,6 +14,7 @@ struct LifeAreas: Codable, Identifiable {
     var vision: String?
     var is_sample: Bool = false
     var color: String
+    var icon: String
 }
 
 extension DBManager {
