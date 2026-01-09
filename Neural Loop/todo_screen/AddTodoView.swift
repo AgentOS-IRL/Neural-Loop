@@ -24,8 +24,8 @@ struct AddTodoView: View {
     @State private var scheduleDraft: TaskScheduleDraft?
 
     @State private var isHabit: Bool = false
-    @State private var target: Int = 0
-    @State private var label: String = ""
+    @State private var target: Int = 1
+    @State private var label: String = "Times"
 
     let onSave: (TaskInput) -> Void
 
@@ -59,19 +59,36 @@ struct AddTodoView: View {
 
             // Header
             HStack {
-                Spacer()
                 Button {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark")
-                        .foregroundColor(.secondary)
-                        .padding(8)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.primary)
+                        .padding(10)
+                        .background(
+                            Circle()
+                                .fill(Color(.secondarySystemBackground))
+                        )
                 }
+
+                Spacer(minLength:10)
+
+                Text("New Task")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+
+                Spacer()
+
+                // spacer to balance close button
+                Color.clear
+                    .frame(width: 34, height: 34)
             }
             .padding(.horizontal)
+            .padding(.top, 8)
 
             // Content
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 16) {
 
                 TextField("New task", text: $title)
                     .font(.system(size: 22, weight: .semibold))
@@ -92,29 +109,26 @@ struct AddTodoView: View {
                 Spacer(minLength: 16)
 
                 // Bottom actions row
-                HStack(spacing: 20) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text((scheduleDraft?.timing?.summary() ?? "No Time") + " • " + (scheduleDraft?.recurrence?.summary() ?? "No Repeat"))
-
-                        if scheduleDraft?.recurrence != nil {
-                            Toggle("Habit", isOn: $isHabit)
-                                .toggleStyle(.switch)
-                                .font(.caption)
-                        }
-                    }
-
+                HStack(spacing: 18) {
+                    Text((scheduleDraft?.timing?.summary() ?? "No Time") + " • " + (scheduleDraft?.recurrence?.summary() ?? "No Repeat"))
                     Spacer()
 
                     Image(systemName: "clock")
+                        .padding(8)
+                        .contentShape(Rectangle())
                         .onTapGesture {
                             showTimeSheet = true
                         }
                     Image(systemName: isDeadline ? "flag.fill" : "flag")
+                        .padding(8)
+                        .contentShape(Rectangle())
                         .foregroundColor(isDeadline ? .red : .secondary)
                         .onTapGesture {
                             isDeadline.toggle()
                         }
                     Image(systemName: "tag")
+                        .padding(8)
+                        .contentShape(Rectangle())
                         .background(
                             RoundedRectangle(cornerRadius: 20)
                                 .fill(Color.red.opacity(0.8)) // Completely transparent fill
@@ -123,11 +137,15 @@ struct AddTodoView: View {
                                 .opacity(0.8) // Optional: slightly reduce opacity for more transparency
                         )
                     Image(systemName: priorityIcon)
+                        .padding(8)
+                        .contentShape(Rectangle())
                         .foregroundColor(priority == 0 ? .secondary : .accentColor)
                         .onTapGesture {
                             priority = (priority + 1) % 4
                         }
                     Image(systemName: "arrow.2.circlepath")
+                        .padding(8)
+                        .contentShape(Rectangle())
                         .onTapGesture {
                             showScheduleSheet = true
                         }
@@ -157,21 +175,88 @@ struct AddTodoView: View {
                     }
                 }
 
-                if scheduleDraft?.recurrence != nil && isHabit {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Stepper(value: $target, in: 1...100) {
-                            Text("Target: \(target)")
-                        }
-
-                        TextField("Label (e.g. times, pages, mins)", text: $label)
-                            .textFieldStyle(.roundedBorder)
-                    }
-                    .padding(.top, 8)
-                }
+                
             }
             .padding()
+            VStack(alignment: .leading, spacing: 12) {
+
+                if scheduleDraft?.recurrence != nil {
+
+                    VStack(alignment: .leading, spacing: 12) {
+
+                        // Habit toggle row
+                        Toggle(isOn: $isHabit) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Habit")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+
+                                Text("Track progress over time")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .toggleStyle(.switch)
+
+                        // Habit configuration
+                        if isHabit {
+                            Divider()
+
+                            VStack(alignment: .leading, spacing: 10) {
+
+                                // Target row
+                                HStack(alignment: .center) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Target")
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+
+                                        Text("Amount to complete each time")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+
+                                    Spacer()
+
+                                    HStack(spacing: 6) {
+                                        Stepper(value: $target, in: 1...100) {
+                                            EmptyView()
+                                        }
+                                        .labelsHidden()
+
+                                        Text("\(target)")
+                                            .font(.headline)
+                                            .frame(minWidth: 28, alignment: .trailing)
+                                    }
+                                }
+
+                                // Unit row
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Unit")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+
+                                    TextField(
+                                        "e.g. times, pages, minutes",
+                                        text: $label
+                                    )
+                                    .textFieldStyle(.roundedBorder)
+                                }
+                            }
+                        }
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color(.secondarySystemBackground))
+                    )
+                    .animation(.easeInOut(duration: 0.2), value: isHabit)
+                }
+            }
 
             Divider()
+                .padding(.top, 4)
 
             // Footer
             HStack {
@@ -214,7 +299,8 @@ struct AddTodoView: View {
             .padding()
             .background(Color(.systemBackground))
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.fraction(0.75), .large])
         .presentationDragIndicator(.visible)
+        .onChange(of: isHabit) { _ in }
     }
 }
