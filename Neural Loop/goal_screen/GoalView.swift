@@ -23,15 +23,16 @@ struct GoalView: View {
         case lifeAreas
     }
 
-    @State private var selectedTab: TopTab = .lifeAreas
+    @State private var selectedTab: TopTab = .inProgress
     @State private var lifeAreas: [LifeAreas] = []
     @State private var lifeGoalsMapping: [Int64: [Goals]] = [:]
     @State private var lifeTaskMapping: [Int64: [Tasks]] = [:]
     @State private var showAddLifeArea = false
+    @State private var showAddGoal = false
     @State private var error: String?
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 VStack(spacing: 0) {
 
@@ -52,7 +53,7 @@ struct GoalView: View {
                         }
                     }
                     .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading) 
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     
                     Divider()
@@ -79,6 +80,9 @@ struct GoalView: View {
                             if selectedTab == .lifeAreas {
                                 showAddLifeArea = true
                             }
+                            else {
+                                showAddGoal = true
+                            }
                         } label: {
                             Image(systemName: "plus")
                                 .font(.system(size: 22, weight: .bold))
@@ -98,6 +102,11 @@ struct GoalView: View {
                     Task {
                         await loadLifeAreas()
                     }
+                }
+            }
+            .sheet(isPresented: $showAddGoal) {
+                AddGoal(lifeAreas: lifeAreas) {
+                    
                 }
             }
             .onAppear {
@@ -144,7 +153,13 @@ struct GoalView: View {
         ScrollView {
             VStack(spacing: 12) {
                 ForEach(lifeAreas) { area in
-                    lifeAreaRow(area)
+                    NavigationLink {
+                        LifeAreaDetailView(area: area, goals: lifeGoalsMapping[area.id!]!,
+                                           tasks: lifeTaskMapping[area.id!]!)
+                    } label: {
+                        lifeAreaRow(area)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding()
@@ -205,44 +220,5 @@ struct GoalView: View {
             self.error = error.localizedDescription
             print("Failed to load life areas:", error)
         }
-    }
-}
-
-// MARK: - Helpers
-
-extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3: // RGB (12-bit)
-            (a, r, g, b) = (255,
-                            (int >> 8) * 17,
-                            (int >> 4 & 0xF) * 17,
-                            (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
-            (a, r, g, b) = (255,
-                            int >> 16,
-                            int >> 8 & 0xFF,
-                            int & 0xFF)
-        case 8: // ARGB (32-bit)
-            (a, r, g, b) = (int >> 24,
-                            int >> 16 & 0xFF,
-                            int >> 8 & 0xFF,
-                            int & 0xFF)
-        default:
-            (a, r, g, b) = (255, 0, 0, 0)
-        }
-
-        self.init(
-            .sRGB,
-            red: Double(r) / 255,
-            green: Double(g) / 255,
-            blue: Double(b) / 255,
-            opacity: Double(a) / 255
-        )
     }
 }

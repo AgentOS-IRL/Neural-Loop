@@ -61,6 +61,15 @@ extension DBManager {
             .select()
             .execute()
     }
+    
+    func updateVision(id: Int64, vision: String) async throws {
+        _ = try await customsupabase
+            .from(self.lifeAreasTableName)
+            .update(["vision": vision])
+            .eq("id", value: Int(id))
+            .select()
+            .execute()
+    }
 
     // MARK: - Delete
     func deleteLifeArea(id areaId: Int64) async throws {
