@@ -14,10 +14,12 @@ struct Goals: Codable, Identifiable {
     var id: Int64?
     var title: String
     var lifearea_id: Int64
-    var start_date: String          // ISO-8601: YYYY-MM-DD
-    var deadline: String?           // nullable
+    var start_date: Date          // ISO-8601: YYYY-MM-DD
+    var deadline: Date?           // nullable
     var color: String?              // nullable
     var description: String?        // nullable
+    var icon: String
+    var is_completed: Bool
 }
 
 extension DBManager {

@@ -14,6 +14,8 @@ struct AddLifeAreas: View {
     @State private var name: String = ""
     @State private var vision: String = ""
     @State private var color: String = "#4F46E5" // default indigo
+    @State private var icon: String = "heart"
+    @State private var showIconPicker: Bool = false
 
     private let colorOptions: [(name: String, hex: String)] = [
         ("Indigo", "#4F46E5"),
@@ -44,7 +46,7 @@ struct AddLifeAreas: View {
                     }
                 }
 
-                Section(header: Text("Color")) {
+                Section(header: Text("Settings")) {
                     Picker(
                         selection: $color,
                         label: HStack(spacing: 8) {
@@ -69,6 +71,24 @@ struct AddLifeAreas: View {
                         }
                     }
                     .pickerStyle(.menu)
+
+                    Button {
+                        showIconPicker = true
+                    } label: {
+                        HStack {
+                            Text("Icon")
+
+                            Spacer()
+
+                            Image(systemName: icon)
+                                .foregroundStyle(.primary)
+                                .frame(width: 28, height: 28)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color.secondary.opacity(0.2))
+                                )
+                        }
+                    }
                 }
             }
             .navigationTitle("Add Life Area")
@@ -89,6 +109,13 @@ struct AddLifeAreas: View {
                 }
             }
         }
+        .sheet(isPresented: $showIconPicker) {
+            IconSelectionSheet(
+                initialIcon: icon,
+            ) { selectedIcon in
+                icon = selectedIcon
+            }
+        }
     }
 
     // MARK: - Actions
@@ -102,7 +129,7 @@ struct AddLifeAreas: View {
                 vision: vision.isEmpty ? nil : vision,
                 is_sample: false,
                 color: color,
-                icon: "target"
+                icon: icon
             )
             try await manager.addLifeArea(area)
             onSaved()

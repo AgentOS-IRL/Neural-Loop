@@ -1,0 +1,194 @@
+//
+//  AddGoal.swift
+//  Neural Loop
+//
+//  Created by Sanjeev Hayal on 09/01/2026.
+//
+
+import SwiftUI
+
+struct AddGoal: View {
+    @Environment(\.dismiss) private var dismiss
+    
+    let lifeAreas: [LifeAreas]
+    let onSaved: () -> Void
+    
+    @State private var name: String = ""
+    @State private var description: String = ""
+    @State private var selectedLifeAreaId: Int64?
+    @State private var showTimeSheet = false
+    @State private var showIconPicker = false
+    @State private var deadline: TaskTiming? = nil
+    
+    @State private var color: String = "#4F46E5" // default indigo
+    @State private var icon: String = "heart"
+    
+    private let colorOptions: [(name: String, hex: String)] = [
+        ("Indigo", "#4F46E5"),
+        ("Blue", "#2563EB"),
+        ("Green", "#16A34A"),
+        ("Yellow", "#EAB308"),
+        ("Orange", "#F97316"),
+        ("Red", "#DC2626"),
+        ("Pink", "#DB2777"),
+        ("Purple", "#7C3AED"),
+        ("Gray", "#6B7280")
+    ]
+    
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        selectedLifeAreaId != nil
+    }
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Goal")) {
+                    TextField("Goal name", text: $name)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Description (optional)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        TextEditor( text: $description)
+                            .frame(minHeight: 80)
+                    }
+                    Picker(
+                        selection: $color,
+                        label: HStack(spacing: 8) {
+                            Circle()
+                                .fill(Color(hex: color))
+                                .frame(width: 14, height: 14)
+
+                            Text(
+                                colorOptions.first(where: { $0.hex == color })?.name ?? "Color"
+                            )
+                        }
+                    ) {
+                        ForEach(colorOptions, id: \.hex) { option in
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(Color(hex: option.hex))
+                                    .frame(width: 14, height: 14)
+
+                                Text(option.name)
+                            }
+                            .tag(option.hex)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    
+                    Button {
+                        showTimeSheet = true
+                    } label: {
+                        HStack {
+                            Text("Time")
+                            Spacer()
+                            Text(timeSummary)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Button {
+                        showIconPicker = true
+                    } label: {
+                        HStack {
+                            Text("Icon")
+
+                            Spacer()
+
+                            Image(systemName: icon)
+                                .foregroundStyle(.primary)
+                                .frame(width: 28, height: 28)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color.secondary.opacity(0.2))
+                                )
+                        }
+                    }
+                }
+                
+                Section(header: Text("Life Area")) {
+                    Picker("Life Area", selection: $selectedLifeAreaId) {
+                        Text("Select a life area")
+                            .tag(Int64?.none)
+                        
+                        ForEach(lifeAreas) { area in
+                            Text(area.name)
+                                .tag(Optional(area.id))
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Add Goal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        Task {
+                            try await saveGoal()
+                        }
+                    }
+                    .disabled(!canSave)
+                }
+            }
+            .sheet(isPresented: $showTimeSheet) { TimeRuleSheet(initialTiming: deadline ?? TaskTiming(
+                start:  Calendar.current.date(byAdding: .day, value: 30, to: Date())!,
+                duration: 0
+                
+            )) { timing in
+                deadline = timing
+            }
+            }
+            .sheet(isPresented: $showIconPicker) {
+                IconSelectionSheet(
+                    initialIcon: icon
+                ) { selectedIcon in
+                    icon = selectedIcon
+                }
+            }
+        }
+    }
+        private var timeSummary: String {
+            deadline?.summary() ?? "Not set"
+        }
+        private func saveGoal() async throws {
+            guard let lifeAreaId = selectedLifeAreaId else { return }
+            
+            let goal = Goals(
+                id: nil,
+                title: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                lifearea_id: lifeAreaId,
+                start_date: .now,
+                deadline: deadline?.start,
+                color: "blue",
+                description: description.trimmingCharacters(in: .whitespacesAndNewlines),
+                icon: icon,
+                is_completed: false
+            )
+            
+            let dbManager = DBManager.newInstance()
+            try await dbManager.addGoal(goal)
+            
+            onSaved()
+            dismiss()
+        }
+    }
+    
+
+
+#Preview {
+    AddGoal(
+        lifeAreas: [
+            LifeAreas( name: "Health", color: "green", icon: "heart"),
+            LifeAreas(name: "Career", color: "blue", icon: "person.line.dotted.person")
+        ],
+        onSaved: {}
+    )
+}
+

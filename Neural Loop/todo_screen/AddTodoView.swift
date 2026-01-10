@@ -26,6 +26,10 @@ struct AddTodoView: View {
     @State private var isHabit: Bool = false
     @State private var target: Int = 1
     @State private var label: String = "Times"
+    @State private var goalId: Int? = nil
+    @State private var GoalOrLifeAreadName: String? = nil
+
+    @State private var showGoalSheet = false
 
     let onSave: (TaskInput) -> Void
 
@@ -261,8 +265,12 @@ struct AddTodoView: View {
             // Footer
             HStack {
 
-                Label("Select goal or life area", systemImage: "scope")
+                Label(GoalOrLifeAreadName ?? "Select goal or life area", systemImage: "scope")
                     .foregroundColor(.secondary)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        showGoalSheet = true
+                    }
 
                 Spacer()
 
@@ -275,7 +283,8 @@ struct AddTodoView: View {
                             schedule: scheduleDraft,
                             is_deadline: isDeadline,
                             target: Int64(target),
-                            label:  label
+                            label:  label,
+                            goal_id: goalId
                         )
                     )
                     dismiss()
@@ -302,5 +311,16 @@ struct AddTodoView: View {
         .presentationDetents([.fraction(0.75), .large])
         .presentationDragIndicator(.visible)
         .onChange(of: isHabit) { _ in }
+        .sheet(isPresented: $showGoalSheet) {
+            GoalSelectionSheet { selectedId, selectedName in
+                if let id = selectedId {
+                    goalId = Int(id)
+                    GoalOrLifeAreadName = selectedName
+                } else {
+                    goalId = nil
+                    GoalOrLifeAreadName = nil
+                }
+            }
+        }
     }
 }
