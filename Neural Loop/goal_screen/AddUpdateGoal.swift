@@ -7,21 +7,42 @@
 
 import SwiftUI
 
-struct AddGoal: View {
+struct AddUpdateGoal: View {
     @Environment(\.dismiss) private var dismiss
     
     let lifeAreas: [LifeAreas]
     let onSaved: () -> Void
-    
-    @State private var name: String = ""
-    @State private var description: String = ""
+    private let existingGoal: Goals?
+
+    @State private var name: String
+    @State private var description: String
     @State private var selectedLifeAreaId: Int64?
     @State private var showTimeSheet = false
     @State private var showIconPicker = false
-    @State private var deadline: TaskTiming? = nil
-    
-    @State private var color: String = "#4F46E5" // default indigo
-    @State private var icon: String = "heart"
+    @State private var deadline: TaskTiming?
+
+    @State private var color: String
+    @State private var icon: String
+
+    init(
+        lifeAreas: [LifeAreas],
+        goal: Goals? = nil,
+        deadline: TaskTiming? = nil,
+        onSaved: @escaping () -> Void
+    ) {
+        self.lifeAreas = lifeAreas
+        self.onSaved = onSaved
+        self.existingGoal = goal
+        
+        let initialDeadline = (deadline != nil) ? deadline?.start : goal?.deadline
+        
+        _name = State(initialValue: goal?.title ?? "")
+        _description = State(initialValue: goal?.description ?? "")
+        _selectedLifeAreaId = State(initialValue: goal?.lifearea_id)
+        _deadline = State(initialValue: initialDeadline.map { TaskTiming(start: $0, duration: 0) })
+        _color = State(initialValue: goal?.color ?? "#4F46E5")
+        _icon = State(initialValue: goal?.icon ?? "heart")
+    }
     
     private let colorOptions: [(name: String, hex: String)] = [
         ("Indigo", "#4F46E5"),
@@ -82,7 +103,7 @@ struct AddGoal: View {
                         showTimeSheet = true
                     } label: {
                         HStack {
-                            Text("Time")
+                            Text("Deadline")
                             Spacer()
                             Text(timeSummary)
                                 .foregroundStyle(.secondary)
@@ -119,7 +140,7 @@ struct AddGoal: View {
                     }
                 }
             }
-            .navigationTitle("Add Goal")
+            .navigationTitle(existingGoal == nil ? "Add Goal" : "Edit Goal")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -129,7 +150,7 @@ struct AddGoal: View {
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button(existingGoal == nil ? "Save" : "Update") {
                         Task {
                             try await saveGoal()
                         }
@@ -159,22 +180,37 @@ struct AddGoal: View {
         }
         private func saveGoal() async throws {
             guard let lifeAreaId = selectedLifeAreaId else { return }
-            
-            let goal = Goals(
-                id: nil,
-                title: name.trimmingCharacters(in: .whitespacesAndNewlines),
+
+            let trimmedTitle = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedDescription = description.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            // Recompute start_date from the chosen deadline when possible; otherwise preserve existing.
+            let computedStartDate: Date? = {
+                if let start = deadline?.start {
+                    return Calendar.current.startOfQuarter(for: start)
+                }
+                return existingGoal?.start_date
+            }()
+
+            let goalToPersist = Goals(
+                id: existingGoal?.id,
+                title: trimmedTitle,
                 lifearea_id: lifeAreaId,
-                start_date: .now,
+                start_date: computedStartDate,
                 deadline: deadline?.start,
-                color: "blue",
-                description: description.trimmingCharacters(in: .whitespacesAndNewlines),
+                color: color,
+                description: trimmedDescription,
                 icon: icon,
-                is_completed: false
+                is_completed: existingGoal?.is_completed ?? false
             )
-            
+
             let dbManager = DBManager.newInstance()
-            try await dbManager.addGoal(goal)
-            
+            if existingGoal == nil {
+                try await dbManager.addGoal(goalToPersist)
+            } else {
+                try await dbManager.updateGoal(goalToPersist)
+            }
+
             onSaved()
             dismiss()
         }
@@ -183,7 +219,7 @@ struct AddGoal: View {
 
 
 #Preview {
-    AddGoal(
+    AddUpdateGoal(
         lifeAreas: [
             LifeAreas( name: "Health", color: "green", icon: "heart"),
             LifeAreas(name: "Career", color: "blue", icon: "person.line.dotted.person")
@@ -191,4 +227,3 @@ struct AddGoal: View {
         onSaved: {}
     )
 }
-

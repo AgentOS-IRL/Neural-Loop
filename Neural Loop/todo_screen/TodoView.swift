@@ -68,7 +68,7 @@ struct TodoView: View {
     @State private var showAddTask = false
     @State private var viewMode: ViewMode = .menu
     @State private var error: String?
-    @State private var dateBuckets: [DateBucket] = buildDateBuckets()
+    @State private var dateBuckets: [DateBucket] = buildShortRangeDateBuckets()
     @State private var searchText: String = ""
     @State private var selectedTaskForEdit: Tasks? = nil
     
@@ -92,7 +92,7 @@ struct TodoView: View {
                         bucket.title
                         
                         // Tasks for this date bucket
-                        ForEach(bucket.taskIds, id: \.self) { taskId in
+                        ForEach(bucket.ids, id: \.self) { taskId in
                             if let task = tasksMapping[taskId] {
                                 taskView(task: task)
                             }
@@ -195,7 +195,7 @@ struct TodoView: View {
             VStack(alignment: .leading, spacing: 14) {
                 addTask(initialTiming: .init(start: .now, duration: 900))
 
-                ForEach(inboxBucket.taskIds, id: \.self) { taskId in
+                ForEach(inboxBucket.ids, id: \.self) { taskId in
                     if let task = tasksMapping[taskId] {
                         taskView(task: task)
                     }
@@ -212,7 +212,7 @@ struct TodoView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                ForEach(completedBucket.taskIds, id: \.self) { taskId in
+                ForEach(completedBucket.ids, id: \.self) { taskId in
                     if let task = tasksMapping[taskId] {
                         taskView(task: task)
                     }
@@ -236,20 +236,20 @@ struct TodoView: View {
         let todayBucket = getTodaysBucket()
         
     
-        let morningTasks = todayBucket.taskIds.compactMap { tasksMapping[$0] }
+        let morningTasks = todayBucket.ids.compactMap { tasksMapping[$0] }
             .filter {
                 guard let start = $0.start_date else { return false }
                 return Calendar.current.component(.hour, from: start) < 12
             }
         
-        let afternoonTasks = todayBucket.taskIds.compactMap { tasksMapping[$0] }
+        let afternoonTasks = todayBucket.ids.compactMap { tasksMapping[$0] }
             .filter {
                 guard let start = $0.start_date else { return false }
                 let hour = Calendar.current.component(.hour, from: start)
                 return hour >= 12 && hour < 18
             }
         
-        let eveningTasks = todayBucket.taskIds.compactMap { tasksMapping[$0] }
+        let eveningTasks = todayBucket.ids.compactMap { tasksMapping[$0] }
             .filter {
                 guard let start = $0.start_date else { return false }
                 return Calendar.current.component(.hour, from: start) >= 18
@@ -679,7 +679,7 @@ struct TodoView: View {
     }
 
     private func rebuildDateBuckets() {
-        var _dateBuckets = buildDateBuckets()
+        var _dateBuckets = buildShortRangeDateBuckets()
 
         var inbox_bucket = DateBucket(title: AnyView( Text("Inbox")
             .font(.title3.weight(.semibold))
@@ -694,13 +694,13 @@ struct TodoView: View {
 
         for task in tasks {
             if task.start_date == nil {
-                inbox_bucket.taskIds.append(task.id!)
+                inbox_bucket.ids.append(task.id!)
             }
             else if task.is_completed {
-                completed_bucket.taskIds.append(task.id!)
+                completed_bucket.ids.append(task.id!)
             }
             else if (task.recursion_rule == "" || task.recursion_rule == nil) && task.start_date != nil && task.start_date! < Date() {
-                    overdue_bucket.taskIds.append(task.id!)
+                    overdue_bucket.ids.append(task.id!)
 
             }
             else {

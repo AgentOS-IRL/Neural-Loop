@@ -18,7 +18,7 @@ struct DateBucket: Identifiable {
     let title: AnyView
     let start: Date
     let end: Date
-    var taskIds: [Int64] = []
+    var ids: [Int64] = []
     let type: bucketType
 }
 
@@ -47,6 +47,21 @@ extension Calendar {
             second: 59
         ))!
     }
+    
+    func startOfQuarter(for date: Date) -> Date {
+            let comps = dateComponents([.year, .month], from: date)
+            guard let year = comps.year, let month = comps.month else { return date }
+
+            let quarterStartMonth = ((month - 1) / 3) * 3 + 1   // 1, 4, 7, 10
+
+            var startComps = DateComponents()
+            startComps.year = year
+            startComps.month = quarterStartMonth
+            startComps.day = 1
+
+            // Midnight at the start of that day in this calendar/timezone
+            return self.date(from: startComps)!
+        }
 }
 
 func hasOccurrence(
@@ -105,19 +120,92 @@ func attachTaskToBuckets(
     for index in result.indices {
         let bucket: DateBucket = result[index]
         if occursInBucket(task: task, bucket: bucket) {
-            result[index].taskIds.append(taskId)
+            result[index].ids.append(taskId)
         }
         else if task.start_date! >= max(bucket.start, now) && task.start_date! <= bucket.end {
             print("No rule in :", task.title ," \(task.start_date, default: "no date")",
                   "\(max(bucket.start, now)) to \(bucket.end)", task.start_date! >= max(bucket.start, now) && task.start_date! <= bucket.end)
-            result[index].taskIds.append(taskId)
+            result[index].ids.append(taskId)
         }
     }
 
     return result
 }
 
-func buildDateBuckets(
+func attachGoalToBuckets(
+    goal: Goals,
+    buckets: [DateBucket]
+) -> [DateBucket] {
+    
+    var result = buckets
+    
+    guard let goalId = goal.id else { return result }
+    
+    for index in result.indices {
+        let bucket: DateBucket = result[index]
+        if goal.deadline! >= bucket.start && goal.deadline! <= bucket.end {
+            result[index].ids.append(goalId)
+            return result
+        }
+    }
+    return result
+}
+
+
+func buildLongRangeDateBuckets(
+    today: Date = Date(),
+    calendar: Calendar = .current
+) -> [DateBucket] {
+
+    let todayStart = calendar.startOfDay(for: today)
+    let currentYear = calendar.component(.year, from: todayStart)
+
+    var buckets: [DateBucket] = []
+
+    // Builds quarter buckets for: currentYear ... currentYear+3 (4 years total)
+    for yearOffset in 0..<4 {
+        let year = currentYear + yearOffset
+
+        for quarter in 1...4 {
+            let startMonth = (quarter - 1) * 3 + 1 // 1, 4, 7, 10
+
+            let quarterStart = calendar.date(
+                from: DateComponents(year: year, month: startMonth, day: 1, hour: 0, minute: 0, second: 0)
+            )!
+
+            let afterQuarter = calendar.date(byAdding: .month, value: 3, to: quarterStart)!
+            let quarterEnd = calendar.date(byAdding: .second, value: -1, to: afterQuarter)! // end of last day
+
+            // Optional: skip buckets fully in the past (uncomment if you want)
+            // if quarterEnd < todayStart { continue }
+
+            let titleView = AnyView(
+                HStack(spacing: 6) {
+                    Text("Q\(quarter) \(year)")
+                        .font(.title3.weight(.semibold))
+                        .foregroundColor(.primary)
+
+                    Text("\(quarterStart.formatted(.dateTime.month(.abbreviated).day()))–\(quarterEnd.formatted(.dateTime.month(.abbreviated).day()))")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                }
+            )
+
+            buckets.append(
+                DateBucket(
+                    title: titleView,
+                    start: quarterStart,
+                    end: quarterEnd,
+                    type: .upcoming
+                )
+            )
+        }
+    }
+
+    return buckets
+}
+
+func buildShortRangeDateBuckets(
     today: Date = Date(),
     calendar: Calendar = .current
 ) -> [DateBucket] {

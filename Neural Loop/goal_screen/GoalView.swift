@@ -20,17 +20,23 @@ struct GoalView: View {
 
     enum TopTab {
         case inProgress
+        case roadmap
         case lifeAreas
     }
 
-    @State private var selectedTab: TopTab = .inProgress
+    @State private var selectedTab: TopTab = .roadmap
     @State private var lifeAreas: [LifeAreas] = []
     @State private var lifeGoalsMapping: [Int64: [Goals]] = [:]
     @State private var lifeTaskMapping: [Int64: [Tasks]] = [:]
+    @State private var goalMapping: [Int64: Goals] = [:]
     @State private var showAddLifeArea = false
     @State private var showAddGoal = false
     @State private var error: String?
-
+    @State private var dateBuckets: [DateBucket] = buildLongRangeDateBuckets()
+    @State private var hydrateGoal: Goals? = nil
+    @State private var hydrateGoalDeadline: TaskTiming? = nil
+    @State private var addGoalSheetID = UUID()
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -43,6 +49,13 @@ struct GoalView: View {
                             isSelected: selectedTab == .inProgress
                         ) {
                             selectedTab = .inProgress
+                        }
+
+                        topButton(
+                            title: "Roadmap",
+                            isSelected: selectedTab == .roadmap
+                        ) {
+                            selectedTab = .roadmap
                         }
 
                         topButton(
@@ -64,6 +77,9 @@ struct GoalView: View {
                         case .inProgress:
                             inProgressView()
 
+                        case .roadmap:
+                            roadmapView()
+
                         case .lifeAreas:
                             lifeAreasView()
                         }
@@ -81,6 +97,7 @@ struct GoalView: View {
                                 showAddLifeArea = true
                             }
                             else {
+                                hydrateGoal = nil
                                 showAddGoal = true
                             }
                         } label: {
@@ -105,10 +122,10 @@ struct GoalView: View {
                 }
             }
             .sheet(isPresented: $showAddGoal) {
-                AddGoal(lifeAreas: lifeAreas) {
+                AddUpdateGoal(lifeAreas: lifeAreas, goal: hydrateGoal, deadline: hydrateGoalDeadline) {
                     
                 }
-            }
+            }.id(addGoalSheetID)
             .onAppear {
                 Task {
                     await loadLifeAreas()
@@ -139,12 +156,73 @@ struct GoalView: View {
 
     @ViewBuilder
     private func inProgressView() -> some View {
+        ScrollView {
+            VStack {
+                
+                ForEach(Array(goalMapping.values)){ goal in
+                    goalRow(goal)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func roadmapView() -> some View {
         VStack {
             Spacer()
-            Text("In Progress")
-                .font(.title3)
-                .foregroundColor(.secondary)
-            Spacer()
+            ScrollView {
+                VStack {
+                    ForEach(dateBuckets) { bucket in
+                        VStack(alignment: .leading, spacing: 8) {
+                            
+                            bucket.title
+                            // Goals for this date bucket
+                            ForEach(bucket.ids, id: \.self) { goalId in
+                                if let goal = goalMapping[goalId] {
+                                    Text(goal.title)
+                                }
+                            }
+                            
+                            Spacer()
+                            
+                            HStack(spacing: 16) {
+
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(
+                                            Color.gray.opacity(0.7),
+                                            style: StrokeStyle(
+                                                lineWidth: 2,
+                                                lineCap: .round,      // makes dashes look like dots
+                                                dash: [1, 4]          // dot length, gap
+                                            )
+                                        )
+                                        .frame(width: 28, height: 28)
+
+                                    Image(systemName: "scope") // looks closer to your screenshot than "target"
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.gray)
+                                }
+
+                                Text("Add Goal")
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                            }.onTapGesture {
+                                
+                                hydrateGoal = nil
+                                hydrateGoalDeadline = TaskTiming(start: bucket.end, duration: 0)
+                                addGoalSheetID = UUID()
+                                showAddGoal = true
+                            }
+                            
+                            
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal)
+                .padding(.top)
+            }
         }
     }
 
@@ -164,6 +242,50 @@ struct GoalView: View {
             }
             .padding()
         }
+    }
+    
+    private func goalRow(_ goal: Goals) -> some View {
+        HStack(spacing: 16) {
+
+            // Icon container
+            ZStack {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(.systemGray5))
+                    .frame(width: 56, height: 56)
+
+                Image(systemName: goal.icon)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(.gray)
+            }
+
+            // Text content
+            VStack(alignment: .leading, spacing: 6) {
+                Text(goal.title)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                    Text(
+                        (goal.deadline != nil) ? goal.deadline!.formatted() : "No deadline"
+                    )
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    
+                }
+            Spacer()
+
+                   // Chevron
+                   Image(systemName: "chevron.right")
+                       .font(.system(size: 14, weight: .semibold))
+                       .foregroundColor(.secondary)
+               }
+               .padding(.horizontal)
+               .padding(.vertical, 12)
+               .onTapGesture {
+                   hydrateGoalDeadline = nil
+                   hydrateGoal = goal
+                   addGoalSheetID = UUID()
+                   showAddGoal = true
+               }
+        
     }
     
     private func lifeAreaRow(_ area: LifeAreas) -> some View {
@@ -213,8 +335,13 @@ struct GoalView: View {
             let manager = DBManager.newInstance()
             lifeAreas = try await manager.fetchAllLifeAreas()
             for lifeArea in lifeAreas {
-                lifeGoalsMapping[lifeArea.id!] = try await manager.fetchGoals(forLifeArea: lifeArea.id!)
+                let goals = try await manager.fetchGoals(forLifeArea: lifeArea.id!)
+                lifeGoalsMapping[lifeArea.id!] = goals
                 lifeTaskMapping[lifeArea.id!] = try await manager.fetchTasks(forLifeArea: lifeArea.id!)
+                
+                for goal in goals {
+                    goalMapping[goal.id!] = goal
+                }
             }
         } catch {
             self.error = error.localizedDescription

@@ -14,7 +14,7 @@ struct Goals: Codable, Identifiable {
     var id: Int64?
     var title: String
     var lifearea_id: Int64
-    var start_date: Date          // ISO-8601: YYYY-MM-DD
+    var start_date: Date?          // ISO-8601: YYYY-MM-DD
     var deadline: Date?           // nullable
     var color: String?              // nullable
     var description: String?        // nullable
