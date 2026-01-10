@@ -11,7 +11,7 @@ import Supabase
 struct HabitTracking: Codable, Identifiable {
     // MARK: - Properties
     var id: Int64?
-    var task_id: Int64
+    var habit_id: Int64
     var entry_date: Date
     var value: Int
 }
@@ -31,8 +31,8 @@ extension DBManager {
     }
 
     /// Convenience to add by components.
-    func addHabitEntry(taskId: Int64, value: Int, date: Date? = nil) async throws -> HabitTracking {
-        let entry = HabitTracking(id: nil, task_id: taskId, entry_date: date ?? Date(), value: value)
+    func addHabitEntry(habitId: Int64, value: Int, date: Date? = nil) async throws -> HabitTracking {
+        let entry = HabitTracking(id: nil, habit_id: habitId, entry_date: date ?? Date(), value: value)
         return try await addHabitEntry(entry)
     }
 
@@ -52,7 +52,7 @@ extension DBManager {
         var builder = customsupabase
             .from(self.habitTrackingTableName)
             .select()
-            .eq("task_id", value: Int(taskIdValue))
+            .eq("habit_id", value: Int(taskIdValue))
 
         if let fromDate = fromDate {
             builder = builder.gte("entry_date", value: ISO8601DateFormatter().string(from: fromDate))
@@ -70,7 +70,7 @@ extension DBManager {
         let rows: [HabitTracking] = try await customsupabase
             .from(self.habitTrackingTableName)
             .select()
-            .eq("task_id", value: Int(taskIdValue))
+            .eq("habit_id", value: Int(taskIdValue))
             .order("entry_date", ascending: false)
             .limit(1)
             .execute()

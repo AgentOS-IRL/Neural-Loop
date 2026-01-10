@@ -10,7 +10,7 @@ import SwiftData
 
 struct HabitView: View {
 
-    @State private var habits: [Tasks] = []
+    @State private var habits: [Habits] = []
     @State private var progressMap: [Int64: HabitProgress] = [:]
     @State private var error: String?
 
@@ -52,8 +52,10 @@ struct HabitView: View {
     private func loadHabits() async {
         do {
             let manager = DBManager.newInstance()
-            let fetched = try await manager.fetchAllTasks(get_habits: true)
+            let fetched = try await manager.fetchAllHabits()
             habits = fetched
+            
+            print(fetched.count)
 
             var map: [Int64: HabitProgress] = [:]
             for habit in fetched {
@@ -63,11 +65,12 @@ struct HabitView: View {
             }
             progressMap = map
         } catch {
+            print(error)
             self.error = error.localizedDescription
         }
     }
 
-    private func computeProgress(for habit: Tasks, manager: DBManager) async throws -> HabitProgress {
+    private func computeProgress(for habit: Habits, manager: DBManager) async throws -> HabitProgress {
         let now = Date()
         let window = HabitWindow.window(for: habit, reference: now)
 
@@ -78,20 +81,21 @@ struct HabitView: View {
         )
 
         let total = entries.reduce(0) { $0 + $1.value }
-        let target = Int(habit.target ?? 0)
-
+        let target = Int(habit.target)
+        
         return HabitProgress(
             current: total,
             target: target,
+            targetLabel: habit.label ?? "Times",
             windowLabel: window.label
         )
     }
 
-    private func incrementHabit(_ habit: Tasks) async {
+    private func incrementHabit(_ habit: Habits) async {
         guard let id = habit.id else { return }
         do {
             let manager = DBManager.newInstance()
-            _ = try await manager.addHabitEntry(taskId: id, value: 1, date: Date())
+            _ = try await manager.addHabitEntry(habitId: id, value: 1, date: Date())
             await loadHabits() // refresh UI after update
         } catch {
             self.error = error.localizedDescription
@@ -104,6 +108,7 @@ struct HabitView: View {
 struct HabitProgress {
     let current: Int
     let target: Int
+    let targetLabel: String
     let windowLabel: String
 
     var ratio: Double {
@@ -117,9 +122,9 @@ struct HabitWindow {
     let end: Date
     let label: String
 
-    static func window(for habit: Tasks, reference: Date) -> HabitWindow {
+    static func window(for habit: Habits, reference: Date) -> HabitWindow {
         guard
-            let ruleString = habit.recursion_rule,
+            let ruleString = habit.target_recursion_rule,
             let rule = try? parse_rrule(rruleString: ruleString)
         else {
             return day(reference)
@@ -164,7 +169,7 @@ struct HabitWindow {
 // MARK: - UI
 
 struct HabitCardView: View {
-    let habit: Tasks
+    let habit: Habits
     let progress: HabitProgress
     let onIncrement: () -> Void
 
@@ -185,7 +190,7 @@ struct HabitCardView: View {
                 .progressViewStyle(.linear)
 
             HStack {
-                Text("\(progress.current) / \(progress.target)")
+                Text("\(progress.current) / \(progress.target) \(progress.targetLabel)")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
