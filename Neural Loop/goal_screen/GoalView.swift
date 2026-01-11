@@ -122,7 +122,7 @@ struct GoalView: View {
                 }
             }
             .sheet(isPresented: $showAddGoal) {
-                AddUpdateGoal(lifeAreas: lifeAreas, goal: hydrateGoal, deadline: hydrateGoalDeadline) {
+                AddEditGoal(lifeAreas: lifeAreas, goal: hydrateGoal, deadline: hydrateGoalDeadline) {
                     
                 }
             }.id(addGoalSheetID)

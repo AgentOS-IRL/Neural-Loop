@@ -24,11 +24,6 @@ struct Tasks: Codable, Identifiable{
     var goal_id: Int64?
     var lifearea_id: Int64?
 
-    /// Optional target reference (default 0)
-    var target: Int64? = 0
-
-    /// Optional label
-    var label: String?
 
     /// 0 = false, 1 = true
     var is_completed: Bool
@@ -51,6 +46,23 @@ struct Tasks: Codable, Identifiable{
     var updated_at: Date?
 }
 
+extension Tasks: Equatable {
+    static func == (lhs: Tasks, rhs: Tasks) -> Bool {
+        lhs.id == rhs.id &&
+        lhs.title == rhs.title &&
+        lhs.description == rhs.description &&
+        lhs.priority == rhs.priority &&
+        lhs.goal_id == rhs.goal_id &&
+        lhs.lifearea_id == rhs.lifearea_id &&
+        lhs.is_completed == rhs.is_completed &&
+        lhs.is_deadline == rhs.is_deadline &&
+        lhs.completed_at == rhs.completed_at &&
+        lhs.recursion_rule == rhs.recursion_rule &&
+        lhs.start_date == rhs.start_date &&
+        lhs.duration == rhs.duration
+    }
+}
+
 extension DBManager {
     private var tasksTableName: String { "tasks" }
 
@@ -68,17 +80,10 @@ extension DBManager {
     // MARK: - Read
     func fetchAllTasks(get_habits: Bool = false) async throws -> [Tasks] {
             print("Start fetching tasks")
-            var builder = customsupabase
+            let builder = customsupabase
                 .from(self.tasksTableName)
                 .select()
             
-            print("Fetching tasks")
-            if get_habits {
-                builder = builder.gt("target", value: 0)
-            } else {
-                builder = builder.or("target.is.null,target.eq.0")
-            }
-            print("Done fetching tasks")
             return try await builder.execute().value as [Tasks]
         
     }

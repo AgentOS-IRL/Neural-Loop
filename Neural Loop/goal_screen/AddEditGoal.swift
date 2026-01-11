@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct AddUpdateGoal: View {
+struct AddEditGoal: View {
     @Environment(\.dismiss) private var dismiss
     
     let lifeAreas: [LifeAreas]
@@ -219,7 +219,7 @@ struct AddUpdateGoal: View {
 
 
 #Preview {
-    AddUpdateGoal(
+    AddEditGoal(
         lifeAreas: [
             LifeAreas( name: "Health", color: "green", icon: "heart"),
             LifeAreas(name: "Career", color: "blue", icon: "person.line.dotted.person")

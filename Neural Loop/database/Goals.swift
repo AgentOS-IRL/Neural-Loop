@@ -67,6 +67,17 @@ extension DBManager {
             .value
         return rows.first
     }
+    
+    func fetchGoalName(by idValue: Int64) async throws -> String? {
+        let rows: [Goals] = try await customsupabase
+            .from(self.goalsTableName)
+            .select()
+            .eq("id", value: Int(idValue))
+            .limit(1)
+            .execute()
+            .value
+        return rows.first?.title
+    }
 
     func fetchGoals(forLifeArea lifeAreaIdValue: Int64) async throws -> [Goals] {
         try await customsupabase
