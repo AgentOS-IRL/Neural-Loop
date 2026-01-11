@@ -52,8 +52,8 @@ extension Calendar.RecurrenceRule {
 
 
 struct TaskScheduleDraft {
-    let timing: TaskTiming?
-    let recurrence: Calendar.RecurrenceRule?
+    var timing: TaskTiming?
+    var recurrence: Calendar.RecurrenceRule?
 }
 
 
@@ -64,6 +64,7 @@ struct TaskScheduleSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let initialTiming: TaskTiming?
+    let initialRule: Calendar.RecurrenceRule?
 
     let onSave: (TaskScheduleDraft) -> Void
 
@@ -75,11 +76,15 @@ struct TaskScheduleSheet: View {
 
     init(
         initialTiming: TaskTiming? = nil,
+        initialRule: Calendar.RecurrenceRule? = nil,
         onSave: @escaping (TaskScheduleDraft) -> Void
     ) {
         self.initialTiming = initialTiming
+        self.initialRule = initialRule
         self.onSave = onSave
         _timing = State(initialValue: initialTiming)
+        _recurrenceRule = State(initialValue: initialRule)
+        print(initialRule)
     }
 
     var body: some View {
@@ -145,7 +150,7 @@ struct TaskScheduleSheet: View {
                 }
             }
             .sheet(isPresented: $showRepeatSheet) {
-                RepeatRuleSheet { rule in
+                RepeatRuleSheet(initialRule: initialRule) { rule in
                     recurrenceRule = rule
                 }
             }

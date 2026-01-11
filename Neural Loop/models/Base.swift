@@ -14,7 +14,5 @@ let title: String
     let priority: Int   // 0 = none, 1 = low, 2 = medium, 3 = high
     let schedule: TaskScheduleDraft?
     let is_deadline: Bool
-    let target: Int64
-    let label: String?
     var goal_id: Int? = nil
 }

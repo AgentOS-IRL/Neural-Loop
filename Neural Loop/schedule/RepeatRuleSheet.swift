@@ -17,7 +17,103 @@ struct RepeatRuleSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    let onSave: (Calendar.RecurrenceRule?) -> Void
+    let onSave: (Calendar.RecurrenceRule) -> Void
+    let initialRule: Calendar.RecurrenceRule?
+    init(
+        initialRule: Calendar.RecurrenceRule? = nil,
+        onSave: @escaping (Calendar.RecurrenceRule) -> Void
+    ) {
+        self.initialRule = initialRule
+        self.onSave = onSave
+
+        if let rule = initialRule {
+            switch rule.frequency {
+            case .weekly:
+                _frequency = State(initialValue: .weekly)
+            case .monthly:
+                _frequency = State(initialValue: .monthly)
+            case .yearly:
+                _frequency = State(initialValue: .yearly)
+            default:
+                _frequency = State(initialValue: .weekly)
+            }
+
+            _interval = State(initialValue: max(rule.interval, 1))
+
+            let weekdays = rule.weekdays
+            if !weekdays.isEmpty {
+                let mapped = weekdays.compactMap { weekday -> WeekdayUI? in
+                    switch weekday {
+                    case .every(let w), .nth(_, let w):
+                        switch w {
+                        case .monday: return .monday
+                        case .tuesday: return .tuesday
+                        case .wednesday: return .wednesday
+                        case .thursday: return .thursday
+                        case .friday: return .friday
+                        case .saturday: return .saturday
+                        case .sunday: return .sunday
+                        @unknown default:
+                            return nil
+                        }
+                    @unknown default:
+                        return nil
+                    }
+                }
+                _selectedWeekdays = State(initialValue: Set(mapped))
+            }
+
+            let days = rule.daysOfTheMonth
+            if !days.isEmpty {
+                _monthlyMode = State(initialValue: .dates)
+                _selectedMonthDays = State(initialValue: Set(days))
+            } else if let first = rule.weekdays.first,
+                      case let .nth(nth, _) = first {
+                _monthlyMode = State(initialValue: .ordinal)
+                _ordinal = State(initialValue: OrdinalUI(rawValue: nth) ?? .first)
+
+                switch first {
+                case .every(let w), .nth(_, let w):
+                    switch w {
+                    case .monday: _ordinalWeekday = State(initialValue: .monday)
+                    case .tuesday: _ordinalWeekday = State(initialValue: .tuesday)
+                    case .wednesday: _ordinalWeekday = State(initialValue: .wednesday)
+                    case .thursday: _ordinalWeekday = State(initialValue: .thursday)
+                    case .friday: _ordinalWeekday = State(initialValue: .friday)
+                    case .saturday: _ordinalWeekday = State(initialValue: .saturday)
+                    case .sunday: _ordinalWeekday = State(initialValue: .sunday)
+                    @unknown default:
+                        break
+                    }
+                @unknown default:
+                    break
+                }
+            }
+
+            let months = rule.months
+            if let firstMonth = months.first {
+                _selectedMonth = State(initialValue: firstMonth.index)
+            }
+            
+            
+            if rule.end != .never {
+                if rule.end.occurrences != nil {
+                    _endType = State(initialValue: .after)
+                    _occurrenceCount = State(initialValue: rule.end.occurrences!)
+                    
+                }
+                else if rule.end.date != nil {
+                    _endType = State(initialValue: .onDate)
+                    _endDate = State(initialValue: (rule.end.date!))
+                }
+            }
+            else{
+                _endType = State(initialValue: .never)
+            }
+            
+        
+        }
+    }
 
     enum FrequencyUI: String, CaseIterable {
         case weekly, monthly, yearly

@@ -22,6 +22,19 @@ struct DateBucket: Identifiable {
     let type: bucketType
 }
 
+func getUpcomingBucket(dateBuckets: [DateBucket]) -> [DateBucket] {
+    dateBuckets.filter({ $0.type == .upcoming})
+}
+
+
+func getInboxBucket(dateBuckets: [DateBucket]) -> DateBucket {
+    dateBuckets.first(where: { $0.type == .inbox })!
+}
+
+func getCompletedBucket(dateBuckets: [DateBucket]) -> DateBucket {
+    dateBuckets.first(where: { $0.type == .completed })!
+}
+
 extension Calendar {
 
     func startOfDay(_ date: Date) -> Date {
