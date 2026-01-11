@@ -39,6 +39,7 @@ struct AddEditTodoView: View {
         
         if task == nil {
             _draftSchedule.timing = initialTiming
+            print(_draftSchedule.timing )
         }
         else{
             if let start = task?.start_date, let duration = task?.duration {

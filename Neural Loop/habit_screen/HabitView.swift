@@ -13,6 +13,9 @@ struct HabitView: View {
     @State private var habits: [Habits] = []
     @State private var progressMap: [Int64: HabitProgress] = [:]
     @State private var error: String?
+    
+    @State private var showAddHabit: Bool = false
+    @State private var selectedHabit: Habits? = nil
 
     @Environment(\.modelContext) private var context
 
@@ -31,17 +34,69 @@ struct HabitView: View {
                                         await incrementHabit(habit)
                                     }
                                 }
-                            )
+                            ).onTapGesture {
+                                selectedHabit = habit
+                                
+                            }
                         }
                     }
+                    
                 }
                 .padding()
             }
             .navigationTitle("Habits")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Image(systemName: "plus")
+                        .foregroundColor(.secondary)
+                        .onTapGesture {
+                             showAddHabit = true
+                        }
+                }
+            }
             .onAppear {
                 Task {
                     await loadHabits()
                 }
+            }
+            .sheet(isPresented: $showAddHabit) {
+                AddEditHabitView(habit: nil){new_habit in
+                    Task {
+                        await saveNewHabit(new_habit: new_habit)
+                        await loadHabits()
+                    }
+                    
+                }
+            }
+            .sheet(item: $selectedHabit) { habit in
+                AddEditHabitView(habit: habit) { updatedHabit in
+                    Task {
+                        await updateHabit(updatedHabit: updatedHabit)
+                        await loadHabits()
+                    }
+                }
+            }
+        }
+    }
+    
+    private func saveNewHabit(new_habit: Habits) async{
+        do {
+            let manager = DBManager.newInstance()
+            let _ = try await manager.addHabit(new_habit)
+        }
+        catch {
+            print("Error saving new habit", error)
+        }
+    }
+    private func updateHabit(updatedHabit: Habits) async{
+        if updatedHabit != selectedHabit
+        {
+            do {
+                let manager = DBManager.newInstance()
+                try await manager.updateHabit(updatedHabit)
+            }
+            catch {
+                print("Error updating habit", error)
             }
         }
     }

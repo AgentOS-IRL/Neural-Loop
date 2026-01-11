@@ -21,14 +21,6 @@ struct Habits: Codable, Identifiable {
     let goal_id: Int64?
     let lifearea_id: Int64?
     
-    let is_completed: Bool
-    let is_deadline: Bool
-    
-    let completed_at: Date?
-    
-    let recursion_rule: String?
-    let start_date: Date?
-    let duration: Double?
     
     let target: Int
     let target_recursion_rule: String?
@@ -37,7 +29,20 @@ struct Habits: Codable, Identifiable {
     let created_at: Date?
     let updated_at: Date?
 }
-
+extension Habits: Equatable {
+    static func == (lhs: Habits, rhs: Habits) -> Bool {
+        lhs.id == rhs.id &&
+        lhs.title == rhs.title &&
+        lhs.description == rhs.description &&
+        lhs.priority == rhs.priority &&
+        lhs.goal_id == rhs.goal_id &&
+        lhs.lifearea_id == rhs.lifearea_id &&
+        lhs.target == rhs.target &&
+        lhs.target_recursion_rule == rhs.target_recursion_rule &&
+        lhs.label == rhs.label
+        
+    }
+}
 // MARK: - DBManager + Habits
 
 extension DBManager {
