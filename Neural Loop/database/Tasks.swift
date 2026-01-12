@@ -108,11 +108,20 @@ extension DBManager {
             .value as [Tasks]
     }
 
-    func fetchTasks(forLifeArea lifeAreaIdValue: Int64) async throws -> [Tasks] {
+    func fetchTasksforLifeArea( lifeAreaId: Int64) async throws -> [Tasks] {
         try await customsupabase
             .from(self.tasksTableName)
             .select()
-            .eq("lifearea_id", value: Int(lifeAreaIdValue))
+            .eq("lifearea_id", value: Int(lifeAreaId))
+            .execute()
+            .value as [Tasks]
+    }
+    
+    func fetchTasksforGoal( goalId: Int64) async throws -> [Tasks] {
+        try await customsupabase
+            .from(self.tasksTableName)
+            .select()
+            .eq("goal_id", value: Int(goalId))
             .execute()
             .value as [Tasks]
     }

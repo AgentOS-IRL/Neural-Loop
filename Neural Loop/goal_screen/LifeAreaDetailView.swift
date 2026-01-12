@@ -90,13 +90,17 @@ struct LifeAreaDetailView: View {
             selectedSection = section
         } label: {
             Text(title)
-                .font(.subheadline)
-                .foregroundColor(selectedSection == section ? .darkGray : .primary)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(selectedSection == section ? Color(.systemBackground) : .primary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(selectedSection == section ? Color.primary : Color(.secondarySystemBackground))
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(
+                            selectedSection == section
+                            ? Color.primary
+                            : Color(.secondarySystemBackground)
+                        )
                 )
         }
     }
