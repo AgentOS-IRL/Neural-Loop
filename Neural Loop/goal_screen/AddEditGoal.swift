@@ -17,9 +17,11 @@ struct AddEditGoal: View {
     @State private var name: String
     @State private var description: String
     @State private var selectedLifeAreaId: Int64?
+    @State private var selectedPatentGoalId: Int64?
     @State private var showTimeSheet = false
     @State private var showIconPicker = false
     @State private var deadline: TaskTiming?
+    @State private var startDate: Date
 
     @State private var color: String
     @State private var icon: String
@@ -28,6 +30,7 @@ struct AddEditGoal: View {
         lifeAreas: [LifeAreas],
         goal: Goals? = nil,
         deadline: TaskTiming? = nil,
+        parent_goal_id: Int64? = nil,
         onSaved: @escaping () -> Void
     ) {
         self.lifeAreas = lifeAreas
@@ -35,13 +38,18 @@ struct AddEditGoal: View {
         self.existingGoal = goal
         
         let initialDeadline = (deadline != nil) ? deadline?.start : goal?.deadline
+        let initialStartDate = goal?.start_date ?? Date()
         
         _name = State(initialValue: goal?.title ?? "")
         _description = State(initialValue: goal?.description ?? "")
         _selectedLifeAreaId = State(initialValue: goal?.lifearea_id)
+        _selectedPatentGoalId = State(initialValue: goal?.parent_id ?? parent_goal_id)
         _deadline = State(initialValue: initialDeadline.map { TaskTiming(start: $0, duration: 0) })
+        _startDate = State(initialValue: initialStartDate)
         _color = State(initialValue: goal?.color ?? "#4F46E5")
         _icon = State(initialValue: goal?.icon ?? "heart")
+        
+        
     }
     
     private let colorOptions: [(name: String, hex: String)] = [
@@ -99,6 +107,12 @@ struct AddEditGoal: View {
                     }
                     .pickerStyle(.menu)
                     
+                    DatePicker(
+                        "Start Date",
+                        selection: $startDate,
+                        displayedComponents: .date
+                    )
+                    
                     Button {
                         showTimeSheet = true
                     } label: {
@@ -128,14 +142,16 @@ struct AddEditGoal: View {
                     }
                 }
                 
-                Section(header: Text("Life Area")) {
-                    Picker("Life Area", selection: $selectedLifeAreaId) {
-                        Text("Select a life area")
-                            .tag(Int64?.none)
-                        
-                        ForEach(lifeAreas) { area in
-                            Text(area.name)
-                                .tag(Optional(area.id))
+                if (lifeAreas.count > 0) {
+                    Section(header: Text("Life Area")) {
+                        Picker("Life Area", selection: $selectedLifeAreaId) {
+                            Text("Select a life area")
+                                .tag(Int64?.none)
+                            
+                            ForEach(lifeAreas) { area in
+                                Text(area.name)
+                                    .tag(Optional(area.id))
+                            }
                         }
                     }
                 }
@@ -184,13 +200,7 @@ struct AddEditGoal: View {
             let trimmedTitle = name.trimmingCharacters(in: .whitespacesAndNewlines)
             let trimmedDescription = description.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            // Recompute start_date from the chosen deadline when possible; otherwise preserve existing.
-            let computedStartDate: Date? = {
-                if let start = deadline?.start {
-                    return Calendar.current.startOfQuarter(for: start)
-                }
-                return existingGoal?.start_date
-            }()
+            let computedStartDate: Date? = Calendar.current.startOfDay(for: startDate)
 
             let goalToPersist = Goals(
                 id: existingGoal?.id,

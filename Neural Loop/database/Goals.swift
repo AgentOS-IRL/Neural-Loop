@@ -13,13 +13,14 @@ struct Goals: Codable, Identifiable {
     // MARK: - Properties
     var id: Int64?
     var title: String
-    var lifearea_id: Int64
+    var lifearea_id: Int64?
     var start_date: Date?          // ISO-8601: YYYY-MM-DD
     var deadline: Date?           // nullable
     var color: String?              // nullable
     var description: String?        // nullable
     var icon: String
     var is_completed: Bool
+    var parent_id: Int64?
 }
 
 extension DBManager {
@@ -79,11 +80,19 @@ extension DBManager {
         return rows.first?.title
     }
 
-    func fetchGoals(forLifeArea lifeAreaIdValue: Int64) async throws -> [Goals] {
+    func fetchGoalsForLifeArea(forLifeArea: Int64) async throws -> [Goals] {
         try await customsupabase
             .from(self.goalsTableName)
             .select()
-            .eq("lifearea_id", value: Int(lifeAreaIdValue))
+            .eq("lifearea_id", value: Int(forLifeArea))
+            .execute()
+            .value as [Goals]
+    }
+    func fecthGoalsForParentId(forParentId: Int64) async throws -> [Goals] {
+        try await customsupabase
+            .from(self.goalsTableName)
+            .select()
+            .eq("parent_id", value: Int(forParentId))
             .execute()
             .value as [Goals]
     }
