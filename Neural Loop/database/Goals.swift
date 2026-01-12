@@ -23,6 +23,20 @@ struct Goals: Codable, Identifiable {
     var parent_id: Int64?
 }
 
+
+func getGoalName(goal_id: Int64?) async -> String? {
+    if goal_id == nil {return nil}
+    do {
+        let dbmanager = DBManager.newInstance()
+        return try await dbmanager.fetchGoalName(by: goal_id!)
+        
+    } catch {
+        print("❌ fetchAllGoals failed:", error)
+        
+    }
+    return nil
+}
+
 extension DBManager {
     // NOTE:
     // Database indexes (PRIMARY KEY, foreign key indexes, composite indexes, etc.)
@@ -79,6 +93,7 @@ extension DBManager {
             .value
         return rows.first?.title
     }
+    
 
     func fetchGoalsForLifeArea(forLifeArea: Int64) async throws -> [Goals] {
         try await customsupabase

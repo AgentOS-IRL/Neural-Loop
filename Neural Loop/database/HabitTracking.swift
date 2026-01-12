@@ -95,6 +95,14 @@ extension DBManager {
             .eq("id", value: Int(idValue))
             .execute()
     }
+    
+    func deleteHabitEntries(forTask taskIdValue: Int64) async throws {
+        _ = try await customsupabase
+            .from(self.habitTrackingTableName)
+            .delete()
+            .eq("habit_id", value: Int(taskIdValue))
+            .execute()
+    }
 }
 
 // MARK: - Helpers

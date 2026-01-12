@@ -29,6 +29,8 @@ struct AddEditHabitView: View {
     // Recurrence
     @State private var recurrenceRule: Calendar.RecurrenceRule?
     @State private var showRuleSheet = false
+    @State private var showGoalSheet = false
+    @State private var GoalOrLifeAreadName: String = "Select Goal or Life Area"
 
     // MARK: - Init
     init(habit: Habits?, onSave: @escaping (Habits) -> Void) {
@@ -62,6 +64,12 @@ struct AddEditHabitView: View {
                     TextField("Habit title", text: $title)
                         .font(.headline)
                 }
+                Label(GoalOrLifeAreadName ?? "Select goal or life area", systemImage: "scope")
+                                    .foregroundColor(.secondary)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        showGoalSheet = true
+                                    }
 
                 // MARK: - Description
                 Section(header: Text("Description")) {
@@ -133,6 +141,19 @@ struct AddEditHabitView: View {
                     recurrenceRule = rule
                     showRuleSheet = false
                 }
+            }.sheet(isPresented: $showGoalSheet) {
+                GoalSelectionSheet { selectedId, selectedName in
+                    if let id = selectedId {
+                        goalId = id
+                        GoalOrLifeAreadName = selectedName ?? "Select Goal or Life Area"
+                    } else {
+                        goalId = nil
+                        GoalOrLifeAreadName = "Select Goal or Life Area"
+                    }
+                }
+            }.task {
+                GoalOrLifeAreadName = await getGoalName(goal_id: habit?.goal_id) ?? "Select Goal or Life Area"
+                
             }
         }
     }
