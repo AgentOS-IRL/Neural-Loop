@@ -76,18 +76,6 @@ struct AddEditTodoView: View {
         
     }
     
-    private func getGoalName(goal_id: Int64?) async -> String? {
-        if goal_id == nil {return nil}
-        do {
-            let dbmanager = DBManager.newInstance()
-            return try await dbmanager.fetchGoalName(by: goal_id!)
-            
-        } catch {
-            print("❌ fetchAllGoals failed:", error)
-            
-        }
-        return nil
-    }
     
     private func scheduleSummary() -> Text {
         let timeText = scheduleDraft.timing?.summary() ?? "No Time"

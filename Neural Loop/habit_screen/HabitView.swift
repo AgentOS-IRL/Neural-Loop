@@ -14,6 +14,7 @@ struct HabitView: View {
     @State private var progressMap: [Int64: HabitProgress] = [:]
     @State private var error: String?
     
+    @State private var addProgressToHabit: Habits? = nil
     @State private var showAddHabit: Bool = false
     @State private var selectedHabit: Habits? = nil
 
@@ -34,9 +35,25 @@ struct HabitView: View {
                                         await incrementHabit(habit)
                                     }
                                 }
-                            ).onTapGesture {
-                                selectedHabit = habit
-                                
+                            )
+                            .onTapGesture {
+                                addProgressToHabit = habit
+                            }
+                            .contextMenu {
+                                Button {
+                                    selectedHabit = habit
+                                } label: {
+                                    Label("Edit Habit", systemImage: "pencil")
+                                }
+
+                                Button(role: .destructive) {
+                                    Task {
+                                        await deleteHabit(habit)
+                                        await loadHabits()
+                                    }
+                                } label: {
+                                    Label("Delete Habit", systemImage: "trash")
+                                }
                             }
                         }
                     }
@@ -76,6 +93,13 @@ struct HabitView: View {
                     }
                 }
             }
+            .sheet(item: $addProgressToHabit, onDismiss: {
+                Task {
+                    await loadHabits()
+                }
+            }) { habit in
+                AddProgressView(habit: habit) {}
+            }
         }
     }
     
@@ -100,6 +124,16 @@ struct HabitView: View {
             }
         }
     }
+    
+    private func deleteHabit(_ habit: Habits) async {
+        guard let id = habit.id else { return }
+        do {
+            let manager = DBManager.newInstance()
+            try await manager.deleteHabit(id: id)
+        } catch {
+            print("Error deleting habit", error)
+        }
+    }
 
     // MARK: - Data loading (read-only)
 
@@ -115,7 +149,7 @@ struct HabitView: View {
             var map: [Int64: HabitProgress] = [:]
             for habit in fetched {
                 guard let id = habit.id else { continue }
-                let progress = try await computeProgress(for: habit, manager: manager)
+                let progress = try await computeProgress(for: habit)
                 map[id] = progress
             }
             progressMap = map
@@ -125,26 +159,6 @@ struct HabitView: View {
         }
     }
 
-    private func computeProgress(for habit: Habits, manager: DBManager) async throws -> HabitProgress {
-        let now = Date()
-        let window = HabitWindow.window(for: habit, reference: now)
-
-        let entries = try await manager.fetchHabitEntries(
-            forTask: habit.id!,
-            from: window.start,
-            to: window.end
-        )
-
-        let total = entries.reduce(0) { $0 + $1.value }
-        let target = Int(habit.target)
-        
-        return HabitProgress(
-            current: total,
-            target: target,
-            targetLabel: habit.label ?? "Times",
-            windowLabel: window.label
-        )
-    }
 
     private func incrementHabit(_ habit: Habits) async {
         guard let id = habit.id else { return }
@@ -158,68 +172,7 @@ struct HabitView: View {
     }
 }
 
-// MARK: - Supporting Models
 
-struct HabitProgress {
-    let current: Int
-    let target: Int
-    let targetLabel: String
-    let windowLabel: String
-
-    var ratio: Double {
-        guard target > 0 else { return 0 }
-        return min(Double(current) / Double(target), 1.0)
-    }
-}
-
-struct HabitWindow {
-    let start: Date
-    let end: Date
-    let label: String
-
-    static func window(for habit: Habits, reference: Date) -> HabitWindow {
-        guard
-            let ruleString = habit.target_recursion_rule,
-            let rule = try? parse_rrule(rruleString: ruleString)
-        else {
-            return day(reference)
-        }
-
-        switch rule.frequency {
-        case .daily:
-            return day(reference)
-        case .weekly:
-            return week(reference)
-        case .monthly:
-            return month(reference)
-        default:
-            return day(reference)
-        }
-    }
-
-    private static func day(_ date: Date) -> HabitWindow {
-        let cal = Calendar.current
-        return HabitWindow(
-            start: cal.startOfDay(for: date),
-            end: cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: date))!,
-            label: "Today"
-        )
-    }
-
-    private static func week(_ date: Date) -> HabitWindow {
-        let cal = Calendar.current
-        let start = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date))!
-        let end = cal.date(byAdding: .day, value: 7, to: start)!
-        return HabitWindow(start: start, end: end, label: "This Week")
-    }
-
-    private static func month(_ date: Date) -> HabitWindow {
-        let cal = Calendar.current
-        let start = cal.date(from: cal.dateComponents([.year, .month], from: date))!
-        let end = cal.date(byAdding: .month, value: 1, to: start)!
-        return HabitWindow(start: start, end: end, label: "This Month")
-    }
-}
 
 // MARK: - UI
 
