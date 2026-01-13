@@ -36,6 +36,13 @@ func getCompletedBucket(dateBuckets: [DateBucket]) -> DateBucket {
 }
 
 extension Calendar {
+    func startOfWeek(for date: Date) -> Date {
+            self.date(from: dateComponents([.yearForWeekOfYear, .weekOfYear], from: date))!
+        }
+
+    func startOfMonth(for date: Date) -> Date {
+        self.date(from: dateComponents([.year, .month], from: date))!
+    }
 
     func startOfDay(_ date: Date) -> Date {
         startOfDay(for: date)
@@ -74,6 +81,10 @@ extension Calendar {
 
             // Midnight at the start of that day in this calendar/timezone
             return self.date(from: startComps)!
+        }
+    
+    func startOfYear(for date: Date) -> Date {
+            self.date(from: dateComponents([.year], from: date))!
         }
 }
 

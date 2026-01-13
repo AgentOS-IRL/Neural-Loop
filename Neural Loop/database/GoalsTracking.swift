@@ -10,7 +10,7 @@ import Supabase
 enum GoalTrackingType: String, Codable {
     case task
     case sub_goal
-    case custom
+    case custom 
 }
 
 struct GoalsTracking: Codable, Identifiable {

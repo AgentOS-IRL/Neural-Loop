@@ -22,7 +22,7 @@ struct GoalScreenView: View {
         case lifeAreas
     }
 
-    @State private var selectedTab: TopTab = .lifeAreas
+    @State private var selectedTab: TopTab = .inProgress
     @State private var lifeAreas: [LifeAreas] = []
     @State private var lifeGoalsMapping: [Int64: [Goals]] = [:]
     @State private var lifeTaskMapping: [Int64: [Tasks]] = [:]

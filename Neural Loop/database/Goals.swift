@@ -51,6 +51,11 @@ struct Goals: Codable, Identifiable {
     var icon: String
     var is_completed: Bool
     var parent_id: Int64?
+    private(set) var updated_at: Date = Date()
+    
+    private mutating func touch() {
+            updated_at = Date()
+        }
 }
 
 
