@@ -1,4 +1,36 @@
 import SwiftUI
+import Charts
+
+
+
+enum ProgressRange: String, CaseIterable, Identifiable {
+    case thisWeek = "This week"
+    case thisMonth = "This month"
+    case thisQuarter = "This quarter"
+    case thisYear = "This year"
+    case last4Weeks = "Last 4 weeks"
+    case last12Months = "Last 12 months"
+    case last24Months = "Last 24 months"
+    var id: Self { self }
+
+    var systemImage: String {
+        switch self {
+        case .thisWeek: return "calendar"
+        case .thisMonth: return "calendar.circle"
+        case .thisQuarter: return "calendar.badge.clock"
+        case .thisYear: return "calendar.badge.plus"
+        case .last4Weeks: return "clock"
+        case .last12Months: return "clock.arrow.circlepath"
+        case .last24Months: return "clock.arrow.2.circlepath"
+        }
+    }
+}
+
+struct ProgressPoint: Identifiable {
+    let id = UUID()
+    let date: Date
+    let value: Int64
+}
 
 struct GoalDetailView: View {
     let lifeAreaName: String
@@ -17,6 +49,11 @@ struct GoalDetailView: View {
         start: Date(),
         duration: 900
     )
+    
+    @State private var goalTrackingRecords: [Date: Int64] = [:]
+    
+    @State private var progressRange : ProgressRange = .thisWeek
+    
     
     @Environment(\.dismiss) private var dismiss
     
@@ -171,13 +208,133 @@ struct GoalDetailView: View {
                 await fetchSubGoals()
                 setTasksDateBuckets()
                 setGoalsDateBuclets()
+                await setGoalTrackingRecords()
             }
             for task in tasks {
                 tasksMapping[task.id!] = task
 //                print(task.id!)
             }
+            Task {
+                print("Fetching goal tracking")
+                
+            }
             
         }
+    }
+    private func setCustomGoalTrackingRecords(goalTracking: GoalsTracking) async {
+        let db = DBManager.newInstance()
+        
+        var records: [GoalsTrackingRecord] = []
+        
+        do{
+            
+            print("✅ goalTracking type is .custom")
+            
+            if goalTracking.label != nil {
+                print("📥 Fetching records from DB...")
+                
+                records = try await db.fetchGoalsTrackingRecords(
+                    forTracking: goalTracking.id!,
+                    type: goalTracking.type
+                )
+                
+                print("📊 Records fetched:", records.count)
+            } else {
+                print("⚠️ goalTracking label is not nil — skipping fetch")
+            }
+            print("🔄 Processing records...")
+
+            // 1. Sort records by ascending created_at (nil-safe)
+            let sortedRecords = records.sorted {
+                guard let d1 = $0.created_at, let d2 = $1.created_at else {
+                    return false
+                }
+                return d1 < d2
+            }
+
+            var runningTotal: Int64 = 0
+            goalTrackingRecords.removeAll()
+
+            // 2. Build cumulative values
+            for (index, record) in sortedRecords.enumerated() {
+                print("➡️ Record \(index):", record)
+
+                guard let createdAt = record.created_at else {
+                    print("⚠️ Record \(index) has nil created_at — skipping")
+                    continue
+                }
+
+                let value = Int64(record.value)
+                runningTotal += value
+
+                goalTrackingRecords[createdAt] = runningTotal
+
+                print("✅ Saved → Date:", createdAt, "Cumulative Value:", runningTotal)
+            }
+
+            print("🏁 Finished setGoalTrackingRecords()")
+            print("📦 Final goalTrackingRecords count:", goalTrackingRecords.count)
+        }
+        catch {
+            print("Error fetching goal tracking: \(error)")
+        }
+        
+        
+    }
+    
+    private func setGoalTrackingRecords() async {
+        
+        print("➡️ setGoalTrackingRecords() called")
+        let db = DBManager.newInstance()
+        
+        do {
+            goalTracking = try await db.fetchGoalsTracking(forGoal: goal.id!)
+        }
+        catch {
+            // ignore
+            print("Error fetching goal tracking: \(error)")
+        }
+
+        if goalTracking == nil {
+            print("❌ goalTracking is nil — exiting")
+            return
+        }
+
+
+        print("ℹ️ goalTracking id:", goalTracking!.id ?? -1)
+        print("ℹ️ goalTracking type:", goalTracking!.type)
+        print("ℹ️ goalTracking label:", goalTracking!.label as Any)
+        
+        goalTrackingRecords = [:]
+        
+        switch goalTracking!.type{
+        case .custom:
+            await setCustomGoalTrackingRecords(goalTracking: goalTracking!)
+        case .sub_goal:
+            await setSubGoalTrackingRecords()
+        case .task:
+            await setTaskGoalTrackingRecords()
+        }
+    }
+    
+    private func setSubGoalTrackingRecords() async {
+        
+        for task in tasksMapping.values {
+            if task.is_completed {
+                goalTrackingRecords[task.updated_at ?? .now] = 1
+            }
+            
+        }
+    
+    }
+    private func setTaskGoalTrackingRecords() async {
+        
+        for goal in subGoals{
+            if goal.is_completed {
+                goalTrackingRecords[.now] = 1
+            }
+        }
+        
     }
     
     struct ChartShape: Shape {
@@ -233,8 +390,157 @@ struct GoalDetailView: View {
     }
     
     @ViewBuilder
-    private func ProgressCard()-> some View {
+    private func ProgressCard() -> some View {
+        if goalTracking == nil {
+            EmptyProgressCard()
+        } else {
+//            EmptyProgressCard()
+//            EmptyView()
+            ProgressChartCard(
+                goalTrackingRecords: goalTrackingRecords,
+                targetValue: Int64(goalTracking?.target ?? 1)
+            )
+        }
+    }
+    
+    @ViewBuilder
+    private func ProgressChartCard(
+        goalTrackingRecords: [Date: Int64],
+        targetValue: Int64
         
+    ) -> some View {
+
+        let points = buildProgressPoints(
+            range: progressRange,
+            records: goalTrackingRecords
+        )
+
+        let totalProgress: Int64 = points
+            .max(by: { $0.date < $1.date })?
+            .value ?? 0
+        let progressPercent = Double(totalProgress) / Double(targetValue)
+        
+        let (type, label): (GoalTrackingType, String) = {
+            guard let tracking = goalTracking else {
+                return (.task, "times")
+            }
+
+            switch tracking.type {
+            case .custom:
+                return (.custom, tracking.label ?? "times")
+
+            case .task:
+                return (.task, "Tasks")
+
+            case .sub_goal:
+                return (.sub_goal, "Goals")
+            }
+        }()
+
+        VStack(alignment: .leading, spacing: 16) {
+
+            // Header
+            HStack {
+                
+                    Text("Target")
+                        .font(.headline)
+                    
+                    
+                    Spacer()
+                    // 3 dot context menu
+                    Menu {
+                        NavigationLink{
+                        
+                            // Edit goal tracking
+                            SetGoalTracking(goalId: goal.id!, goalTracking: goalTracking ) { newGoalTracking in
+                                goalTracking = newGoalTracking
+                                
+                            }
+                        } label: {
+                            Label("Edit tracking", systemImage: "pencil")
+                        }
+                        Divider()
+                        ForEach(ProgressRange.allCases) { range in
+                                    Button {
+                                        progressRange = range
+                                    } label: {
+                                        Label(range.rawValue, systemImage: range.systemImage)
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(progressRange == range ? .blue : .gray)
+                                }
+                        
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.title3)
+                            .foregroundColor(.secondary)
+                            .padding(8)
+                    }
+                
+            }
+            HStack {
+                    
+                    
+                    Text("\(totalProgress) \(label)")
+                        .font(.subheadline)
+                    
+                    
+                    Spacer()
+                    
+                    Text("\(Int(progressPercent * 100))%")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                
+            }
+
+            // Chart
+            Chart(points) {
+                LineMark(
+                    x: .value("Date", $0.date),
+                    y: .value("Progress", $0.value)
+                )
+                .foregroundStyle(Color.accentColor)
+                .lineStyle(.init(lineWidth: 3))
+
+                PointMark(
+                    x: .value("Date", $0.date),
+                    y: .value("Progress", $0.value)
+                )
+                .symbolSize(80)
+            }
+            .chartYScale(domain: 0...targetValue)
+            .frame(height: 180)
+            
+            if type == .custom {
+                // CTA
+                NavigationLink{
+                
+                    // Edit goal tracking
+                    AddGoalProgressView( goalTracking: goalTracking! ) {
+                    }
+                }  label: {
+                    Text("Update progress")
+                        .font(.headline)
+                        .foregroundColor(.accentColor)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule().fill(Color.accentColor.opacity(0.12))
+                        )
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 28)
+                .fill(Color(.systemBackground))
+        )
+        .padding(.horizontal)
+    }
+    
+    @ViewBuilder
+    private func EmptyProgressCard()-> some View {
         
             VStack(spacing: 20) {
                 
@@ -282,20 +588,6 @@ struct GoalDetailView: View {
                     .shadow(color: .black.opacity(0.05), radius: 10, y: 4)
             )
             .padding()
-            .onAppear {
-                Task {
-                    print("Fetching goal tracking")
-                    do {
-                        let db = DBManager.newInstance()
-                        goalTracking = try await db.fetchGoalsTracking(forGoal: goal.id!)
-                    }
-                    catch {
-                        // ignore
-                        print("Error fetching goal tracking: \(error)")
-                    }
-                }
-            }
-        
     }
     
     @ViewBuilder
@@ -486,6 +778,70 @@ struct GoalDetailView: View {
     //        }
 
     }
+    
+    private func buildProgressPoints(
+        range: ProgressRange,
+        records: [Date: Int64]
+    ) -> [ProgressPoint] {
 
+        let calendar = Calendar.current
+        let now = Date()
+
+        let startDate: Date
+        let step: Calendar.Component
+
+        switch range {
+        case .thisWeek:
+            startDate = calendar.startOfWeek(for: now)
+            step = .day
+
+        case .thisMonth:
+            startDate = calendar.startOfMonth(for: now)
+            step = .day
+
+        case .thisQuarter:
+            startDate = calendar.startOfQuarter(for: now)
+            step = .weekOfYear
+
+        case .thisYear:
+            startDate = calendar.startOfYear(for: now)
+            step = .month
+
+        case .last4Weeks:
+            startDate = calendar.date(byAdding: .weekOfYear, value: -4, to: now)!
+            step = .weekOfYear
+
+        case .last12Months:
+            startDate = calendar.date(byAdding: .month, value: -12, to: now)!
+            step = .month
+
+        case .last24Months:
+            startDate = calendar.date(byAdding: .month, value: -24, to: now)!
+            step = .month
+        }
+
+        var buckets: [Date: Int64] = [:]
+
+        for (date, value) in records where date >= startDate {
+            let bucketDate: Date
+
+            switch step {
+            case .day:
+                bucketDate = calendar.startOfDay(for: date)
+            case .weekOfYear:
+                bucketDate = calendar.startOfWeek(for: date)
+            case .month:
+                bucketDate = calendar.startOfMonth(for: date)
+            default:
+                bucketDate = date
+            }
+
+            buckets[bucketDate, default: 0] += value
+        }
+
+        return buckets
+            .sorted(by: { $0.key < $1.key })
+            .map { ProgressPoint(date: $0.key, value: $0.value) }
+    }
 
 }

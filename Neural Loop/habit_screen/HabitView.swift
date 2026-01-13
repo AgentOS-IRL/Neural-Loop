@@ -136,6 +136,29 @@ struct HabitView: View {
     }
 
     // MARK: - Data loading (read-only)
+    
+    
+    func computeProgress(for habit: Habits, reference: Date = .now) async throws -> HabitProgress {
+        let manager = DBManager.newInstance()
+        
+        let window = HabitWindow.window(for: habit, reference: reference)
+
+        let entries = try await manager.fetchHabitEntries(
+            forTask: habit.id!,
+            from: window.start,
+            to: window.end
+        )
+
+        let total = entries.reduce(0) { $0 + $1.value }
+        let target = Int(habit.target)
+        
+        return HabitProgress(
+            current: total,
+            target: target,
+            targetLabel: habit.label ?? "Times",
+            windowLabel: window.label
+        )
+    }
 
     @MainActor
     private func loadHabits() async {
