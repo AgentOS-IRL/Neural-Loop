@@ -481,10 +481,10 @@ struct TodoView: View {
             
             for task in tasks {
                 tasksMapping[task.id!] = task
-                print(task.id!)
+                print("task.id \(task.id!)")
             }
         } catch {
-            print(error)
+            print("error",error)
             self.error = error.localizedDescription
         }
     }

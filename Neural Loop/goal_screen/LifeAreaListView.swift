@@ -51,7 +51,7 @@ struct LifeAreaListView: View {
             error = nil
         } catch {
             lifeAreas = []
-            print(error)
+            print("error", error)
         }
     }
 }

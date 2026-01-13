@@ -154,7 +154,7 @@ struct HabitView: View {
             }
             progressMap = map
         } catch {
-            print(error)
+            print("error", error)
             self.error = error.localizedDescription
         }
     }
