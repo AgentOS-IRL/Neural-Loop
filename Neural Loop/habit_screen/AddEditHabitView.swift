@@ -142,14 +142,32 @@ struct AddEditHabitView: View {
                     showRuleSheet = false
                 }
             }.sheet(isPresented: $showGoalSheet) {
-                GoalSelectionSheet { selectedId, selectedName in
-                    if let id = selectedId {
-                        goalId = id
-                        GoalOrLifeAreadName = selectedName ?? "Select Goal or Life Area"
-                    } else {
-                        goalId = nil
-                        GoalOrLifeAreadName = "Select Goal or Life Area"
-                    }
+                GoalSelectionSheet { result in
+                    guard let result else {
+                            print("User cancelled")
+                            return
+                        }
+                    goalId = nil
+                    lifeAreaId = nil
+
+                        switch result {
+
+                        case .goal(let id, let title):
+                            print("Selected Goal:", id, title)
+                            GoalOrLifeAreadName = "Goal: \(title)"
+                            goalId = id
+
+                            // Example usage
+                            // viewModel.attachGoal(id)
+
+                        case .lifeArea(let id, let name):
+                            print("Selected Life Area:", id, name)
+                            GoalOrLifeAreadName = "Life Area: \(name)"
+                            lifeAreaId = id
+
+                            // Example usage
+                            // viewModel.attachLifeArea(id)
+                        }
                 }
             }.task {
                 GoalOrLifeAreadName = await getGoalName(goal_id: habit?.goal_id) ?? "Select Goal or Life Area"

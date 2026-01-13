@@ -23,12 +23,12 @@ struct AddEditTodoView: View {
     
     @State private var GoalOrLifeAreadName: String? = nil
 
-    @State private var showGoalSheet = false
+    @State private var showAreaGoalSheet = false
     @State private var showTimeSheet = false       // clock (time only)
     @State private var showScheduleSheet = false
     
 
-    init(task: Tasks?, initialTiming: TaskTiming? = nil, onSave: @escaping (Tasks) -> Void) {
+    init(task: Tasks?, initialTiming: TaskTiming? = nil, goalId: Int64? = nil, onSave: @escaping (Tasks) -> Void) {
         self.task = task
         self.onSave = onSave
         _title = State(initialValue: task?.title ?? "")
@@ -39,7 +39,7 @@ struct AddEditTodoView: View {
         
         if task == nil {
             _draftSchedule.timing = initialTiming
-            print(_draftSchedule.timing )
+//            print("_draftSchedule.timing",_draftSchedule.timing )
         }
         else{
             if let start = task?.start_date, let duration = task?.duration {
@@ -58,7 +58,7 @@ struct AddEditTodoView: View {
             do {
                 if rule == nil { return nil }
                 let rrule =  try parser.parse(rule!)
-                //            print(rrule)
+                print("rrule: \(rrule)")
                 return rrule
             } catch {
                 print("Failed to parse rule")
@@ -69,7 +69,11 @@ struct AddEditTodoView: View {
         _scheduleDraft = State(initialValue: _draftSchedule)
         
         if task?.goal_id != nil {
-            _goalId = State(initialValue: task?.goal_id!)
+            _goalId = State(initialValue: task?.goal_id)
+            
+        }
+        else {
+            _goalId = State(initialValue: goalId)
             
         }
         
@@ -182,7 +186,7 @@ struct AddEditTodoView: View {
                                     .foregroundColor(.secondary)
                                     .contentShape(Rectangle())
                                     .onTapGesture {
-                                        showGoalSheet = true
+                                        showAreaGoalSheet = true
                                     }
                 
                 Spacer()
@@ -234,7 +238,7 @@ struct AddEditTodoView: View {
         .sheet(isPresented: $showScheduleSheet) {
             TaskScheduleSheet(initialTiming: TaskTiming(start: scheduleDraft.timing?.start ?? .now, duration: scheduleDraft.timing?.duration ?? 900),
                               initialRule:scheduleDraft.recurrence) { draft in
-                print(draft)
+                print("draft \(draft)")
                 scheduleDraft = draft
                 
             }
@@ -245,15 +249,30 @@ struct AddEditTodoView: View {
                     recurrence: nil
                 )
             }
-        }.sheet(isPresented: $showGoalSheet) {
-            GoalSelectionSheet { selectedId, selectedName in
-                if let id = selectedId {
-                    goalId = id
-                    GoalOrLifeAreadName = selectedName
-                } else {
-                    goalId = nil
-                    GoalOrLifeAreadName = nil
-                }
+        }.sheet(isPresented: $showAreaGoalSheet) {
+            GoalSelectionSheet { result in
+                guard let result else {
+                        print("User cancelled")
+                        return
+                    }
+
+                    switch result {
+
+                    case .goal(let id, let title):
+                        print("Selected Goal:", id, title)
+                        GoalOrLifeAreadName = "Goal: \(title)"
+                        goalId = id
+
+                        // Example usage
+                        // viewModel.attachGoal(id)
+
+                    case .lifeArea(let id, let name):
+                        print("Selected Life Area:", id, name)
+                        GoalOrLifeAreadName = "Life Area: \(name)"
+
+                        // Example usage
+                        // viewModel.attachLifeArea(id)
+                    }
             }
         }.task {
             GoalOrLifeAreadName = await getGoalName(goal_id: goalId)

@@ -25,12 +25,16 @@ struct AddEditGoal: View {
 
     @State private var color: String
     @State private var icon: String
+    
+    @State private var fixedLifeAreaName: String? = nil
 
     init(
         lifeAreas: [LifeAreas],
         goal: Goals? = nil,
         deadline: TaskTiming? = nil,
         parent_goal_id: Int64? = nil,
+        fixed_lifearea: Int64? = nil,
+        fixed_lifearea_name: String? = nil,
         onSaved: @escaping () -> Void
     ) {
         self.lifeAreas = lifeAreas
@@ -42,12 +46,14 @@ struct AddEditGoal: View {
         
         _name = State(initialValue: goal?.title ?? "")
         _description = State(initialValue: goal?.description ?? "")
-        _selectedLifeAreaId = State(initialValue: goal?.lifearea_id)
+        _selectedLifeAreaId = State(initialValue: goal?.lifearea_id ?? fixed_lifearea)
         _selectedPatentGoalId = State(initialValue: goal?.parent_id ?? parent_goal_id)
         _deadline = State(initialValue: initialDeadline.map { TaskTiming(start: $0, duration: 0) })
         _startDate = State(initialValue: initialStartDate)
         _color = State(initialValue: goal?.color ?? "#4F46E5")
         _icon = State(initialValue: goal?.icon ?? "heart")
+        
+        _fixedLifeAreaName = State(initialValue: fixed_lifearea_name)
         
         
     }
@@ -141,16 +147,19 @@ struct AddEditGoal: View {
                         }
                     }
                 }
-                
-                if (lifeAreas.count > 0) {
+                if (lifeAreas.count > 0 || selectedLifeAreaId != nil) {
                     Section(header: Text("Life Area")) {
                         Picker("Life Area", selection: $selectedLifeAreaId) {
-                            Text("Select a life area")
-                                .tag(Int64?.none)
                             
-                            ForEach(lifeAreas) { area in
-                                Text(area.name)
-                                    .tag(Optional(area.id))
+                            if (lifeAreas.count > 0) {
+                                ForEach(lifeAreas) { area in
+                                    Text(area.name)
+                                        .tag(Optional(area.id))
+                                }
+                            }
+                            if selectedLifeAreaId != nil {
+                                Text(fixedLifeAreaName!)
+                                    .tag(selectedLifeAreaId!)
                             }
                         }
                     }

@@ -22,12 +22,13 @@ struct GoalScreenView: View {
         case lifeAreas
     }
 
-    @State private var selectedTab: TopTab = .inProgress
+    @State private var selectedTab: TopTab = .lifeAreas
     @State private var lifeAreas: [LifeAreas] = []
     @State private var lifeGoalsMapping: [Int64: [Goals]] = [:]
     @State private var lifeTaskMapping: [Int64: [Tasks]] = [:]
     @State private var goalMapping: [Int64: Goals] = [:]
     @State private var goalTaskMapping: [Int64: [Tasks]] = [:]
+    @State private var goalTrackingMapping: [Int64: GoalsTracking] = [:]
     @State private var showAddLifeArea = false
     @State private var showAddGoal = false
     @State private var error: String?
@@ -35,8 +36,7 @@ struct GoalScreenView: View {
     @State private var hydrateGoal: Goals? = nil
     @State private var hydrateGoalDeadline: TaskTiming? = nil
     @State private var addGoalSheetID = UUID()
-    
-    
+
     @State private var expandedIDs: Set<Int64> = []
 
     var body: some View {
@@ -147,31 +147,9 @@ struct GoalScreenView: View {
 
     // MARK: - Subviews
 
-    private func topButton(
-        title: String,
-        isSelected: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(isSelected ? Color(.systemBackground) : .primary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(
-                            isSelected
-                            ? Color.primary
-                            : Color(.secondarySystemBackground)
-                        )
-                )
-        }
-        .buttonStyle(.plain)
-    }
-
     @ViewBuilder
     private func inProgressView() -> some View {
+
         ScrollView {
             VStack {
                 ForEach(Array(lifeAreas), id: \.id) { lifeArea in
@@ -181,34 +159,26 @@ struct GoalScreenView: View {
                             LifeAreaDetailView(
                                 area: lifeArea,
                                 goals: lifeGoalsMapping[lifeArea.id!] ?? [],
-                                tasks: lifeTaskMapping[lifeArea.id!] ?? []
+                                tasks: lifeTaskMapping[lifeArea.id!] ?? [],
+                                goalTrackingMapping: goalTrackingMapping
                             )
                         } label: {
-                            
+
                             // Icon container
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color(.systemGray5))
-                                    .frame(width: 22, height: 22)
-                                
-                                Image(systemName: lifeArea.icon)
-                                    .font(.system(size: 22, weight: .semibold))
-                                    .foregroundColor(.gray)
-                            }
-                            Text(lifeArea.name)
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                            
+                            iconTitle(icon: lifeArea.icon, name: lifeArea.name)
+
                             // Chevron
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 12, weight: .heavy))
                                 .foregroundColor(.secondary)
                         }
-                         
+
                         Spacer()
                         Image(systemName: "chevron.down")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.secondary).rotationEffect(.degrees(isExpanded ? 180 : 0))
+                            .foregroundColor(.secondary).rotationEffect(
+                                .degrees(isExpanded ? 180 : 0)
+                            )
                             .onTapGesture {
                                 withAnimation {
                                     if isExpanded {
@@ -218,20 +188,20 @@ struct GoalScreenView: View {
                                     }
                                 }
                             }
-                        
+
                     }.frame(maxWidth: .infinity, alignment: .leading)
                     if isExpanded {
                         ForEach(lifeGoalsMapping[lifeArea.id!] ?? []) { goal in
-                            
-                                NavigationLink {
-                                    GoalDetailView(
-                                        lifeAreaName: lifeArea.name ,
-                                        goal: goal,
-                                        tasks: goalTaskMapping[goal.id!] ?? []
-                                    )
-                                } label: {
-                                    goalRow(goal)
-                                }
+
+                            NavigationLink {
+                                GoalDetailView(
+                                    lifeAreaName: lifeArea.name,
+                                    goal: goal,
+                                    tasks: goalTaskMapping[goal.id!] ?? []
+                                )
+                            } label: {
+                                goalRow(goal)
+                            }
                         }
                     }
                 }
@@ -311,8 +281,9 @@ struct GoalScreenView: View {
                     NavigationLink {
                         LifeAreaDetailView(
                             area: area,
-                            goals: lifeGoalsMapping[area.id!]!,
-                            tasks: lifeTaskMapping[area.id!]!
+                            goals: lifeGoalsMapping[area.id!] ?? [],
+                            tasks: lifeTaskMapping[area.id!] ?? [],
+                            goalTrackingMapping: goalTrackingMapping
                         )
                     } label: {
                         lifeAreaRow(area)
@@ -324,35 +295,47 @@ struct GoalScreenView: View {
         }
     }
 
-
     private func lifeAreaRow(_ area: LifeAreas) -> some View {
-        HStack(spacing: 16) {
+        var subText = "No active goals"
+        let goalCount = lifeGoalsMapping[area.id!]?.count ?? 0
+        if goalCount > 0 {
+            subText = "\(lifeGoalsMapping[area.id!]?.count ?? 0) goals"
+        }
+
+        return HStack(spacing: 16) {
 
             // Icon container
-            ZStack {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.systemGray5))
-                    .frame(width: 56, height: 56)
 
-                Image(systemName: area.icon)
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(.gray)
-            }
-
-            // Text content
-            VStack(alignment: .leading, spacing: 6) {
-                Text(area.name)
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                Text(
-                    (lifeGoalsMapping[area.id!]?.count ?? 0) > 0
-                        ? "\(lifeGoalsMapping[area.id!]?.count ?? 0) goals"
-                        : "No active goals"
-                )
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-
-            }
+            iconTitle(
+                icon: area.icon,
+                name: area.name,
+                size: 44,
+                subText: subText
+            )
+            //            ZStack {
+            //                RoundedRectangle(cornerRadius: 16)
+            //                    .fill(Color(.systemGray5))
+            //                    .frame(width: 56, height: 56)
+            //
+            //                Image(systemName: area.icon)
+            //                    .font(.system(size: 22, weight: .semibold))
+            //                    .foregroundColor(.gray)
+            //            }
+            //
+            //            // Text content
+            //            VStack(alignment: .leading, spacing: 6) {
+            //                Text(area.name)
+            //                    .font(.headline)
+            //                    .foregroundColor(.primary)
+            //                Text(
+            //                    (lifeGoalsMapping[area.id!]?.count ?? 0) > 0
+            //                        ? "\(lifeGoalsMapping[area.id!]?.count ?? 0) goals"
+            //                        : "No active goals"
+            //                )
+            //                .font(.subheadline)
+            //                .foregroundColor(.secondary)
+            //
+            //            }
             Spacer()
 
             // Chevron
@@ -375,69 +358,52 @@ struct GoalScreenView: View {
                     forLifeArea: lifeArea.id!
                 )
                 lifeGoalsMapping[lifeArea.id!] = goals
-                lifeTaskMapping[lifeArea.id!] = try await manager.fetchTasksforLifeArea(
-                    lifeAreaId: lifeArea.id!
-                )
-                
+                lifeTaskMapping[lifeArea.id!] =
+                    try await manager.fetchTasksforLifeArea(
+                        lifeAreaId: lifeArea.id!
+                    )
 
                 for goal in goals {
                     goalMapping[goal.id!] = goal
-                    goalTaskMapping[goal.id!] = try await manager.fetchTasksforGoal(goalId: goal.id!)
+                    goalTaskMapping[goal.id!] =
+                        try await manager.fetchTasksforGoal(goalId: goal.id!)
+                    let goaltracking = try await manager.fetchGoalsTracking(
+                        forGoal: goal.id!
+                    )
+                    goalTrackingMapping[goal.id!] = goaltracking
+
                 }
+
             }
         } catch {
             self.error = error.localizedDescription
             print("Failed to load life areas:", error)
         }
     }
-    
-    
+
+
     func goalRow(_ goal: Goals) -> some View {
-        HStack(spacing: 16) {
+//        let subText =
+//            ((goal.start_date != nil)
+//                ? goal.start_date!.formatted() : "") + " -"
+//            + ((goal.deadline != nil)
+//                ? goal.deadline!.formatted() : " No deadline")
+        return HStack(spacing: 16) {
 
             // Icon container
-            ZStack {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.systemGray5))
-                    .frame(width: 56, height: 56)
-
-                Image(systemName: goal.icon)
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(.gray)
-            }
-
-            // Text content
-            VStack(alignment: .leading, spacing: 6) {
-                Text(goal.title)
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                HStack{
-                    Text(
-                        ((goal.start_date != nil)
-                        ? goal.start_date!.formatted() : "") + " -"
-                    )
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    Text(
-                        (goal.deadline != nil)
-                        ? goal.deadline!.formatted() : "No deadline"
-                    )
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                }
-
+            iconTitle(
+                icon: goal.icon,
+                name: goal.title,
+                size: 56,
+//                subText: subText
+            ) {
+                getGoalProgressBar(goalId: goal.id!, goalTracking: goalTrackingMapping[goal.id!], goalTasks: goalTaskMapping[goal.id!])
             }
             Spacer()
 
         }
         .padding(.horizontal)
         .padding(.vertical, 12)
-    //        .onTapGesture {
-    //            hydrateGoalDeadline = nil
-    //            hydrateGoal = goal
-    //            addGoalSheetID = UUID()
-    //            showAddGoal = true
-    //        }
 
     }
 
