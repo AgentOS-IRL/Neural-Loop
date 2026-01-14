@@ -150,17 +150,13 @@ struct AddEditGoal: View {
                 if (lifeAreas.count > 0 || selectedLifeAreaId != nil) {
                     Section(header: Text("Life Area")) {
                         Picker("Life Area", selection: $selectedLifeAreaId) {
-                            
-                            if (lifeAreas.count > 0) {
-                                ForEach(lifeAreas) { area in
-                                    Text(area.name)
-                                        .tag(Optional(area.id))
-                                }
+                            Text("Select…").tag(Int64?.none)
+                            ForEach(lifeAreas) { area in
+                                Text(area.name).tag(Optional(area.id))
                             }
-                            if selectedLifeAreaId != nil {
-                                Text(fixedLifeAreaName!)
-                                    .tag(selectedLifeAreaId!)
-                            }
+                        }
+                        .onChange(of: selectedLifeAreaId) { _ , newValue in
+                            fixedLifeAreaName = lifeAreas.first(where: { $0.id == newValue })?.name
                         }
                     }
                 }

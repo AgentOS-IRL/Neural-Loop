@@ -38,7 +38,7 @@ struct GoalDetailView: View {
     let tasks: [Tasks]
     @State private var tasksMapping: [Int64: Tasks] = [:]
     
-    @State private var goalTracking: GoalsTracking? = nil
+    @State private var goalTracking: GoalsTracking = GoalsTracking.empty
     
     @State private var taskDateBuckets: [DateBucket] = buildShortRangeDateBuckets()
     @State private var goalDateBuckets: [DateBucket] = buildLongRangeDateBuckets()
@@ -288,38 +288,44 @@ struct GoalDetailView: View {
         let db = DBManager.newInstance()
         
         do {
-            goalTracking = try await db.fetchGoalsTracking(forGoal: goal.id!)
+            goalTracking = try await db.fetchGoalsTracking(forGoal: goal.id!) ?? GoalsTracking.empty
         }
         catch {
             // ignore
             print("Error fetching goal tracking: \(error)")
         }
 
-        if goalTracking == nil {
+        if goalTracking.isEmpty {
             print("❌ goalTracking is nil — exiting")
             return
         }
 
 
-        print("ℹ️ goalTracking id:", goalTracking!.id ?? -1)
-        print("ℹ️ goalTracking type:", goalTracking!.type)
-        print("ℹ️ goalTracking label:", goalTracking!.label as Any)
+        print("ℹ️ goalTracking id:", goalTracking.id ?? -1)
+        print("ℹ️ goalTracking type:", goalTracking.type)
+        print("ℹ️ goalTracking label:", goalTracking.label as Any)
         
         goalTrackingRecords = [:]
         
-        switch goalTracking!.type{
+        switch goalTracking.type{
         case .custom:
-            await setCustomGoalTrackingRecords(goalTracking: goalTracking!)
+            await setCustomGoalTrackingRecords(goalTracking: goalTracking)
         case .sub_goal:
             await setSubGoalTrackingRecords()
         case .task:
             await setTaskGoalTrackingRecords()
+        case .unknown:
+            break
         }
     }
     
-    private func setSubGoalTrackingRecords() async {
+    private func setTaskGoalTrackingRecords() async {
+        print("setSubGoalTrackingRecords")
+        
+        goalTracking.target = Double(tasksMapping.count)
         
         for task in tasksMapping.values {
+            print(task)
             if task.is_completed {
                 goalTrackingRecords[task.updated_at ?? .now] = 1
             }
@@ -327,11 +333,11 @@ struct GoalDetailView: View {
         }
     
     }
-    private func setTaskGoalTrackingRecords() async {
-        
+    private func setSubGoalTrackingRecords() async {
+        goalTracking.target = Double(subGoals.count)
         for goal in subGoals{
             if goal.is_completed {
-                goalTrackingRecords[.now] = 1
+                goalTrackingRecords[goal.updated_at] = 1
             }
         }
         
@@ -391,14 +397,12 @@ struct GoalDetailView: View {
     
     @ViewBuilder
     private func ProgressCard() -> some View {
-        if goalTracking == nil {
+        if goalTracking.isEmpty {
             EmptyProgressCard()
         } else {
-//            EmptyProgressCard()
-//            EmptyView()
             ProgressChartCard(
                 goalTrackingRecords: goalTrackingRecords,
-                targetValue: Int64(goalTracking?.target ?? 1)
+                targetValue: Int64(goalTracking.target ?? 1)
             )
         }
     }
@@ -420,20 +424,20 @@ struct GoalDetailView: View {
             .value ?? 0
         let progressPercent = Double(totalProgress) / Double(targetValue)
         
-        let (type, label): (GoalTrackingType, String) = {
-            guard let tracking = goalTracking else {
-                return (.task, "times")
-            }
+        let label: String = {
+            let tracking = goalTracking
 
             switch tracking.type {
             case .custom:
-                return (.custom, tracking.label ?? "times")
+                return "Times"
 
             case .task:
-                return (.task, "Tasks")
+                return "Tasks"
 
             case .sub_goal:
-                return (.sub_goal, "Goals")
+                return "Goals"
+            case .unknown:
+                return "Goals"
             }
         }()
 
@@ -460,15 +464,19 @@ struct GoalDetailView: View {
                             Label("Edit tracking", systemImage: "pencil")
                         }
                         Divider()
-                        ForEach(ProgressRange.allCases) { range in
-                                    Button {
-                                        progressRange = range
-                                    } label: {
-                                        Label(range.rawValue, systemImage: range.systemImage)
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .tint(progressRange == range ? .blue : .gray)
+                        
+                        if goalTracking.type == .custom {
+                            ForEach(ProgressRange.allCases) { range in
+                                Button {
+                                    progressRange = range
+                                } label: {
+                                    Label(range.rawValue, systemImage: range.systemImage)
                                 }
+                                .buttonStyle(.bordered)
+                                .tint(progressRange == range ? .blue : .gray)
+                            }
+                        }
+                        
                         
                     } label: {
                         Image(systemName: "ellipsis")
@@ -492,31 +500,38 @@ struct GoalDetailView: View {
                         .foregroundColor(.secondary)
                 
             }
-
-            // Chart
-            Chart(points) {
-                LineMark(
-                    x: .value("Date", $0.date),
-                    y: .value("Progress", $0.value)
-                )
-                .foregroundStyle(Color.accentColor)
-                .lineStyle(.init(lineWidth: 3))
-
-                PointMark(
-                    x: .value("Date", $0.date),
-                    y: .value("Progress", $0.value)
-                )
-                .symbolSize(80)
-            }
-            .chartYScale(domain: 0...targetValue)
-            .frame(height: 180)
             
-            if type == .custom {
+            
+            // Chart
+            if goalTracking.type == .custom {
+                
+                Chart(points) {
+                    LineMark(
+                        x: .value("Date", $0.date),
+                        y: .value("Progress", $0.value)
+                    )
+                    .foregroundStyle(Color.accentColor)
+                    .lineStyle(.init(lineWidth: 3))
+
+                    PointMark(
+                        x: .value("Date", $0.date),
+                        y: .value("Progress", $0.value)
+                    )
+                    .symbolSize(80)
+                }
+                .chartYScale(domain: 0...targetValue)
+                .frame(height: 180)
+            }
+            else{
+                FancyProgressBar(totalProgress:Double(totalProgress), targetValue: Double(targetValue))
+            }
+            
+            if goalTracking.type == .custom {
                 // CTA
                 NavigationLink{
                 
                     // Edit goal tracking
-                    AddGoalProgressView( goalTracking: goalTracking! ) {
+                    AddGoalProgressView( goalTracking: goalTracking ) {
                     }
                 }  label: {
                     Text("Update progress")
