@@ -10,7 +10,8 @@ import Supabase
 enum GoalTrackingType: String, Codable {
     case task
     case sub_goal
-    case custom 
+    case custom
+    case unknown
 }
 
 struct GoalsTracking: Codable, Identifiable {
@@ -20,12 +21,29 @@ struct GoalsTracking: Codable, Identifiable {
     let type: GoalTrackingType
 
     let value: Double?
-    let target: Double?
+    var target: Double?
 
     let label: String?
 
     let created_at: Date?
     let updated_at: Date?
+    
+    static let empty = GoalsTracking(
+            id: nil,
+            goal_id: 0,
+            type: .unknown,   // add this case if it doesn’t exist
+            value: nil,
+            target: nil,
+            label: nil,
+            created_at: nil,
+            updated_at: nil
+        )
+}
+
+extension GoalsTracking {
+    var isEmpty: Bool {
+        type == .unknown
+    }
 }
 
 

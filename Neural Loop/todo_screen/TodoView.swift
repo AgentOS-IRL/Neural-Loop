@@ -594,20 +594,23 @@ struct TodoView: View {
         var modified_task = task
         modified_task.is_completed.toggle()
         do {
-            if dateBuckets.firstIndex(where: { $0.type == .today }) != nil    {
-                if modified_task.is_completed {
-                    print("Marking recurring task as completed")
-                    markRecurringTaskCompleted(taskId: modified_task.id!, date: .now, context: context)
-                    
-                }
-                else {
-                    try deleteCompletion(taskId: modified_task.id!, on: .now, context: context)
+            
+            if modified_task.recursion_rule != "" && modified_task.recursion_rule != nil {
+                if dateBuckets.firstIndex(where: { $0.type == .today }) != nil    {
+                    if modified_task.is_completed {
+                        print("Marking recurring task as completed")
+                        markRecurringTaskCompleted(taskId: modified_task.id!, date: .now, context: context)
+                        
+                    }
+                    else {
+                        try deleteCompletion(taskId: modified_task.id!, on: .now, context: context)
+                        
+                    }
                     
                 }
                 
             }
-            if modified_task.recursion_rule != "" && modified_task.recursion_rule != nil {
-                
+            else {
                 let manager = DBManager.newInstance()
                 try await manager.updateTask(modified_task)
             }

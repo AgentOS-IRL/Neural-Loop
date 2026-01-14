@@ -138,9 +138,12 @@ extension DBManager {
     // MARK: - Update
     func updateTask(_ task: Tasks) async throws {
         guard let taskId = task.id else { return }
+        
+        var modified_task = task
+        modified_task.updated_at = Date()
         _ = try await customsupabase
             .from(self.tasksTableName)
-            .update(task)
+            .update(modified_task)
             .eq("id", value: Int(taskId))
             .select()
             .execute()
