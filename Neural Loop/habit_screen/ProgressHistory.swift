@@ -26,6 +26,13 @@ struct ProgressHistoryView: View {
 
                         Text("\(entry.value) \(label)")
                             .foregroundColor(.secondary)
+                        
+                        Button(role: .destructive) {
+                            Task { await deleteEntry(entry) }
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                        
                     }
                 }
             }
@@ -40,6 +47,16 @@ struct ProgressHistoryView: View {
         do {
             let manager = DBManager.newInstance()
             entries = try await manager.fetchHabitEntries(forTask: habitId)
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+    
+    private func deleteEntry(_ entry: HabitTracking) async {
+        do {
+            let manager = DBManager.newInstance()
+            try await manager.deleteHabitEntry(id: entry.id!)
+            entries.removeAll { $0.id == entry.id }
         } catch {
             self.error = error.localizedDescription
         }

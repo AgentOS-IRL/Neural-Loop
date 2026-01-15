@@ -479,6 +479,8 @@ struct TodoView: View {
                             completedView()
                         }
                     }
+                }.refreshable {
+                    await vm.loadTasks()
                 }
                 
                 // Floating Add Button

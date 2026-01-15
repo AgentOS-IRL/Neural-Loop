@@ -13,7 +13,7 @@ let logger = Logger(subsystem: "NeuralLoop", category: "App")
 
 
 struct ContentView: View {
-    @State private var selectedTab: AppTab = .habits
+    @State private var selectedTab: AppTab = .calendar
 
     var body: some View {
         ZStack {
@@ -27,6 +27,8 @@ struct ContentView: View {
                         TodoView()
                     case .habits:
                         HabitView()
+                    case .calendar:
+                        CalendarDayView()
                     default:
                         Text("Other Tab").onAppear { logger.info("ContentView appeared!") }
                         }

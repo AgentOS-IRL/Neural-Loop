@@ -17,6 +17,20 @@ struct LifeAreas: Codable, Identifiable {
     var icon: String
 }
 
+// Mark: - Get Name
+func getLiftAreaName(lifeArea_id: Int64?) async -> String? {
+    if lifeArea_id == nil {return nil}
+    do {
+        let dbmanager = DBManager.newInstance()
+        return try await dbmanager.fetchLifeAreaName(by: lifeArea_id!)
+        
+    } catch {
+        print("❌ fetchLifeAreaName failed:", error)
+        
+    }
+    return nil
+}
+
 extension DBManager {
     private var lifeAreasTableName: String { "life_areas" }
 
@@ -79,4 +93,18 @@ extension DBManager {
             .eq("id", value: Int(areaId))
             .execute()
     }
+    
+    // Mark: - Get Name
+    func fetchLifeAreaName(by idValue: Int64) async throws -> String? {
+        let rows: [LifeAreas] = try await customsupabase
+            .from(self.lifeAreasTableName)
+            .select()
+            .eq("id", value: Int(idValue))
+            .limit(1)
+            .execute()
+            .value
+        return rows.first?.name
+    }
+    
+    
 }

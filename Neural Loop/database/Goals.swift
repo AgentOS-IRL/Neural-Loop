@@ -66,7 +66,7 @@ func getGoalName(goal_id: Int64?) async -> String? {
         return try await dbmanager.fetchGoalName(by: goal_id!)
         
     } catch {
-        print("❌ fetchAllGoals failed:", error)
+        print("❌ fetchGoalName failed:", error)
         
     }
     return nil

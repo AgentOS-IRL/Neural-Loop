@@ -13,8 +13,10 @@
 //
 import Foundation
 import SwiftUI
+import Combine
 
-struct GoalScreenView: View {
+@MainActor
+final class GoalScreenViewModel: ObservableObject {
 
     enum TopTab {
         case inProgress
@@ -22,22 +24,98 @@ struct GoalScreenView: View {
         case lifeAreas
     }
 
-    @State private var selectedTab: TopTab = .inProgress
-    @State private var lifeAreas: [LifeAreas] = []
-    @State private var lifeGoalsMapping: [Int64: [Goals]] = [:]
-    @State private var lifeTaskMapping: [Int64: [Tasks]] = [:]
-    @State private var goalMapping: [Int64: Goals] = [:]
-    @State private var goalTaskMapping: [Int64: [Tasks]] = [:]
-    @State private var goalTrackingMapping: [Int64: GoalsTracking] = [:]
+    // MARK: - UI State
+    @Published var selectedTab: TopTab = .inProgress
+    @Published var error: String?
+
+    // MARK: - Data
+    @Published var lifeAreas: [LifeAreas] = []
+    @Published private(set) var lifeGoalsMapping: [Int64: [Goals]] = [:]
+    @Published private(set) var lifeTaskMapping: [Int64: [Tasks]] = [:]
+    @Published private(set) var goalMapping: [Int64: Goals] = [:]
+    @Published private(set) var goalTaskMapping: [Int64: [Tasks]] = [:]
+    @Published private(set) var goalTrackingMapping: [Int64: GoalsTracking] = [:]
+
+    @Published var dateBuckets: [DateBucket] = buildLongRangeDateBuckets()
+
+    // MARK: - Expansion State
+    @Published var expandedIDs: Set<Int64> = []
+
+    // MARK: - Public API
+    func load() async {
+        await loadLifeAreas()
+        expandAllLifeAreas()
+    }
+
+    func toggleExpansion(for id: Int64) {
+        if expandedIDs.contains(id) {
+            expandedIDs.remove(id)
+        } else {
+            expandedIDs.insert(id)
+        }
+    }
+
+    // MARK: - Private
+    private func expandAllLifeAreas() {
+        expandedIDs = Set(lifeAreas.compactMap { $0.id })
+    }
+
+    private func loadLifeAreas() async {
+        do {
+            let manager = DBManager.newInstance()
+
+            let areas = try await manager.fetchAllLifeAreas()
+            lifeAreas = areas
+
+            // Reset mappings to avoid stale data
+            lifeGoalsMapping = [:]
+            lifeTaskMapping = [:]
+            goalMapping = [:]
+            goalTaskMapping = [:]
+            goalTrackingMapping = [:]
+
+            for lifeArea in areas {
+                let lifeAreaId = lifeArea.id!
+
+                let goals = try await manager.fetchGoalsForLifeArea(
+                    forLifeArea: lifeAreaId
+                )
+                lifeGoalsMapping[lifeAreaId] = goals
+
+                lifeTaskMapping[lifeAreaId] =
+                    try await manager.fetchTasksforLifeArea(
+                        lifeAreaId: lifeAreaId
+                    )
+
+                for goal in goals {
+                    let goalId = goal.id!
+                    goalMapping[goalId] = goal
+
+                    goalTaskMapping[goalId] =
+                        try await manager.fetchTasksforGoal(goalId: goalId)
+
+                    let goaltracking = try await manager.fetchGoalsTracking(
+                        forGoal: goalId
+                    )
+                    goalTrackingMapping[goalId] = goaltracking
+                }
+            }
+        } catch {
+            self.error = error.localizedDescription
+            print("Failed to load life areas:", error)
+        }
+    }
+}
+
+struct GoalScreenView: View {
+
+    @StateObject private var vm = GoalScreenViewModel()
+
     @State private var showAddLifeArea = false
     @State private var showAddGoal = false
-    @State private var error: String?
-    @State private var dateBuckets: [DateBucket] = buildLongRangeDateBuckets()
     @State private var hydrateGoal: Goals? = nil
     @State private var hydrateGoalDeadline: TaskTiming? = nil
     @State private var addGoalSheetID = UUID()
-
-    @State private var expandedIDs: Set<Int64> = []
 
     var body: some View {
         NavigationStack {
@@ -48,23 +126,23 @@ struct GoalScreenView: View {
                     HStack(spacing: 8) {
                         topButton(
                             title: "In Progress",
-                            isSelected: selectedTab == .inProgress
+                            isSelected: vm.selectedTab == .inProgress
                         ) {
-                            selectedTab = .inProgress
+                            vm.selectedTab = .inProgress
                         }
 
                         topButton(
                             title: "Roadmap",
-                            isSelected: selectedTab == .roadmap
+                            isSelected: vm.selectedTab == .roadmap
                         ) {
-                            selectedTab = .roadmap
+                            vm.selectedTab = .roadmap
                         }
 
                         topButton(
                             title: "Life Areas",
-                            isSelected: selectedTab == .lifeAreas
+                            isSelected: vm.selectedTab == .lifeAreas
                         ) {
-                            selectedTab = .lifeAreas
+                            vm.selectedTab = .lifeAreas
                         }
                     }
                     .padding()
@@ -74,7 +152,7 @@ struct GoalScreenView: View {
 
                     // Content
                     Group {
-                        switch selectedTab {
+                        switch vm.selectedTab {
                         case .inProgress:
                             inProgressView()
 
@@ -98,7 +176,7 @@ struct GoalScreenView: View {
                     HStack {
                         Spacer()
                         Button {
-                            if selectedTab == .lifeAreas {
+                            if vm.selectedTab == .lifeAreas {
                                 showAddLifeArea = true
                             } else {
                                 hydrateGoal = nil
@@ -121,25 +199,24 @@ struct GoalScreenView: View {
             .sheet(isPresented: $showAddLifeArea) {
                 AddLifeAreas {
                     Task {
-                        await loadLifeAreas()
+                        await vm.load()
                     }
                 }
             }
             .sheet(isPresented: $showAddGoal) {
                 AddEditGoal(
-                    lifeAreas: lifeAreas,
+                    lifeAreas: vm.lifeAreas,
                     goal: hydrateGoal,
                     deadline: hydrateGoalDeadline
                 ) {
-
+                    Task {
+                        await vm.load()
+                    }
                 }
             }.id(addGoalSheetID)
             .onAppear {
                 Task {
-                    await loadLifeAreas()
-                    for lifeArea in lifeAreas {
-                        expandedIDs.insert(lifeArea.id!)
-                    }
+                    await vm.load()
                 }
             }
         }
@@ -152,15 +229,15 @@ struct GoalScreenView: View {
 
         ScrollView {
             VStack {
-                ForEach(Array(lifeAreas), id: \.id) { lifeArea in
-                    let isExpanded = expandedIDs.contains(lifeArea.id!)
+                ForEach(Array(vm.lifeAreas), id: \.id) { lifeArea in
+                    let isExpanded = vm.expandedIDs.contains(lifeArea.id!)
                     HStack {
                         NavigationLink {
                             LifeAreaDetailView(
                                 area: lifeArea,
-                                goals: lifeGoalsMapping[lifeArea.id!] ?? [],
-                                tasks: lifeTaskMapping[lifeArea.id!] ?? [],
-                                goalTrackingMapping: goalTrackingMapping
+                                goals: vm.lifeGoalsMapping[lifeArea.id!] ?? [],
+                                tasks: vm.lifeTaskMapping[lifeArea.id!] ?? [],
+                                goalTrackingMapping: vm.goalTrackingMapping
                             )
                         } label: {
 
@@ -181,23 +258,19 @@ struct GoalScreenView: View {
                             )
                             .onTapGesture {
                                 withAnimation {
-                                    if isExpanded {
-                                        expandedIDs.remove(lifeArea.id!)
-                                    } else {
-                                        expandedIDs.insert(lifeArea.id!)
-                                    }
+                                    vm.toggleExpansion(for: lifeArea.id!)
                                 }
                             }
 
                     }.frame(maxWidth: .infinity, alignment: .leading)
                     if isExpanded {
-                        ForEach(lifeGoalsMapping[lifeArea.id!] ?? []) { goal in
+                        ForEach(vm.lifeGoalsMapping[lifeArea.id!] ?? []) { goal in
 
                             NavigationLink {
                                 GoalDetailView(
                                     lifeAreaName: lifeArea.name,
                                     goal: goal,
-                                    tasks: goalTaskMapping[goal.id!] ?? []
+                                    tasks: vm.goalTaskMapping[goal.id!] ?? []
                                 )
                             } label: {
                                 goalRow(goal)
@@ -215,13 +288,13 @@ struct GoalScreenView: View {
             Spacer()
             ScrollView {
                 VStack {
-                    ForEach(dateBuckets) { bucket in
+                    ForEach(vm.dateBuckets) { bucket in
                         VStack(alignment: .leading, spacing: 8) {
 
                             bucket.title
                             // Goals for this date bucket
                             ForEach(bucket.ids, id: \.self) { goalId in
-                                if let goal = goalMapping[goalId] {
+                                if let goal = vm.goalMapping[goalId] {
                                     Text(goal.title)
                                 }
                             }
@@ -277,13 +350,13 @@ struct GoalScreenView: View {
     private func lifeAreasView() -> some View {
         ScrollView {
             VStack(spacing: 12) {
-                ForEach(lifeAreas) { area in
+                ForEach(vm.lifeAreas) { area in
                     NavigationLink {
                         LifeAreaDetailView(
                             area: area,
-                            goals: lifeGoalsMapping[area.id!] ?? [],
-                            tasks: lifeTaskMapping[area.id!] ?? [],
-                            goalTrackingMapping: goalTrackingMapping
+                            goals: vm.lifeGoalsMapping[area.id!] ?? [],
+                            tasks: vm.lifeTaskMapping[area.id!] ?? [],
+                            goalTrackingMapping: vm.goalTrackingMapping
                         )
                     } label: {
                         lifeAreaRow(area)
@@ -297,9 +370,9 @@ struct GoalScreenView: View {
 
     private func lifeAreaRow(_ area: LifeAreas) -> some View {
         var subText = "No active goals"
-        let goalCount = lifeGoalsMapping[area.id!]?.count ?? 0
+        let goalCount = vm.lifeGoalsMapping[area.id!]?.count ?? 0
         if goalCount > 0 {
-            subText = "\(lifeGoalsMapping[area.id!]?.count ?? 0) goals"
+            subText = "\(vm.lifeGoalsMapping[area.id!]?.count ?? 0) goals"
         }
 
         return HStack(spacing: 16) {
@@ -347,40 +420,6 @@ struct GoalScreenView: View {
         .padding(.vertical, 12)
     }
 
-    // MARK: - Data
-
-    private func loadLifeAreas() async {
-        do {
-            let manager = DBManager.newInstance()
-            lifeAreas = try await manager.fetchAllLifeAreas()
-            for lifeArea in lifeAreas {
-                let goals = try await manager.fetchGoalsForLifeArea(
-                    forLifeArea: lifeArea.id!
-                )
-                lifeGoalsMapping[lifeArea.id!] = goals
-                lifeTaskMapping[lifeArea.id!] =
-                    try await manager.fetchTasksforLifeArea(
-                        lifeAreaId: lifeArea.id!
-                    )
-
-                for goal in goals {
-                    goalMapping[goal.id!] = goal
-                    goalTaskMapping[goal.id!] =
-                        try await manager.fetchTasksforGoal(goalId: goal.id!)
-                    let goaltracking = try await manager.fetchGoalsTracking(
-                        forGoal: goal.id!
-                    )
-                    goalTrackingMapping[goal.id!] = goaltracking
-
-                }
-
-            }
-        } catch {
-            self.error = error.localizedDescription
-            print("Failed to load life areas:", error)
-        }
-    }
-
 
     func goalRow(_ goal: Goals) -> some View {
 //        let subText =
@@ -397,7 +436,7 @@ struct GoalScreenView: View {
                 size: 56,
 //                subText: subText
             ) {
-                getGoalProgressBar(goalId: goal.id!, goalTracking: goalTrackingMapping[goal.id!], goalTasks: goalTaskMapping[goal.id!])
+                getGoalProgressBar(goalId: goal.id!, goalTracking: vm.goalTrackingMapping[goal.id!], goalTasks: vm.goalTaskMapping[goal.id!])
             }
             Spacer()
 
