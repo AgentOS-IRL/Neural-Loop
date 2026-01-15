@@ -4,35 +4,147 @@
 //
 //  Created by Sanjeev Hayal on 07/01/2026.
 //
-
+import Foundation
 import SwiftUI
 import SwiftData
+import Combine
+
+@MainActor
+final class HabitViewModel: ObservableObject {
+    // Source of truth
+    @Published var habits: [Habits] = [] {
+        didSet {
+            Task {
+                await rebuildProgressMap()
+            }
+        }
+    }
+    @Published private(set) var progressMap: [Int64: HabitProgress] = [:]
+    @Published var error: String?
+    
+    
+    func loadHabits() async {
+        do {
+            let manager = DBManager.newInstance()
+            let fetched = try await manager.fetchAllHabits()
+            habits = fetched
+
+            
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+    private func rebuildProgressMap() async {
+        do {
+            var map: [Int64: HabitProgress] = [:]
+            for habit in habits {
+                guard let id = habit.id else { continue }
+                let progress = try await computeProgress(for: habit)
+                map[id] = progress
+            }
+            progressMap = map
+        } catch {
+            self.error = error.localizedDescription
+        }
+        
+    }
+
+    func incrementHabit(_ habit: Habits) async {
+        guard let id = habit.id else { return }
+        do {
+            let manager = DBManager.newInstance()
+            _ = try await manager.addHabitEntry(
+                habitId: id,
+                value: 1,
+                date: Date()
+            )
+            let index = self.habits.firstIndex(where: { $0.id == habit.id! })!
+            habits[index] = habit
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    func saveNewHabit(_ habit: Habits) async {
+        do {
+            let manager = DBManager.newInstance()
+            let newHabit = try await manager.addHabit(habit)
+            let index = self.habits.firstIndex(where: { $0.id == habit.id! })!
+            habits[index] = newHabit
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    func updateHabit(_ habit: Habits) async {
+        do {
+            let manager = DBManager.newInstance()
+            try await manager.updateHabit(habit)
+            let index = self.habits.firstIndex(where: { $0.id == habit.id! })!
+            habits[index] = habit
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    func deleteHabit(_ habit: Habits) async {
+        guard let id = habit.id else { return }
+        do {
+            let manager = DBManager.newInstance()
+            try await manager.deleteHabit(id: id)
+            let index = self.habits.firstIndex(where: { $0.id == habit.id! })!
+            habits.remove(at: index)
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    private func computeProgress(
+        for habit: Habits,
+        reference: Date = .now
+    ) async throws -> HabitProgress {
+
+        let manager = DBManager.newInstance()
+        let window = HabitWindow.window(for: habit, reference: reference)
+
+        let entries = try await manager.fetchHabitEntries(
+            forTask: habit.id!,
+            from: window.start,
+            to: window.end
+        )
+
+        let total = entries.reduce(0) { $0 + $1.value }
+
+        return HabitProgress(
+            current: total,
+            target: Int(habit.target),
+            targetLabel: habit.label ?? "Times",
+            windowLabel: window.label
+        )
+    }
+}
 
 struct HabitView: View {
 
-    @State private var habits: [Habits] = []
-    @State private var progressMap: [Int64: HabitProgress] = [:]
-    @State private var error: String?
+    @StateObject private var vm = HabitViewModel()
     
     @State private var addProgressToHabit: Habits? = nil
     @State private var showAddHabit: Bool = false
     @State private var selectedHabit: Habits? = nil
 
-    @Environment(\.modelContext) private var context
-
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 16) {
-                    ForEach(habits, id: \.id) { habit in
+                    ForEach(vm.habits, id: \.id) { habit in
                         if let id = habit.id,
-                           let progress = progressMap[id] {
+                           let progress = vm.progressMap[id] {
                             HabitCardView(
                                 habit: habit,
                                 progress: progress,
                                 onIncrement: {
                                     Task {
-                                        await incrementHabit(habit)
+                                        await vm.incrementHabit(habit)
                                     }
                                 }
                             )
@@ -48,8 +160,8 @@ struct HabitView: View {
 
                                 Button(role: .destructive) {
                                     Task {
-                                        await deleteHabit(habit)
-                                        await loadHabits()
+                                        await vm.deleteHabit(habit)
+                                        
                                     }
                                 } label: {
                                     Label("Delete Habit", systemImage: "trash")
@@ -72,15 +184,13 @@ struct HabitView: View {
                 }
             }
             .onAppear {
-                Task {
-                    await loadHabits()
-                }
+                Task { await vm.loadHabits() }
             }
             .sheet(isPresented: $showAddHabit) {
                 AddEditHabitView(habit: nil){new_habit in
                     Task {
-                        await saveNewHabit(new_habit: new_habit)
-                        await loadHabits()
+                        await vm.saveNewHabit(new_habit)
+                        
                     }
                     
                 }
@@ -88,109 +198,16 @@ struct HabitView: View {
             .sheet(item: $selectedHabit) { habit in
                 AddEditHabitView(habit: habit) { updatedHabit in
                     Task {
-                        await updateHabit(updatedHabit: updatedHabit)
-                        await loadHabits()
+                        await vm.updateHabit(updatedHabit)
+                        
                     }
                 }
             }
             .sheet(item: $addProgressToHabit, onDismiss: {
-                Task {
-                    await loadHabits()
-                }
+                Task { await vm.loadHabits() }
             }) { habit in
                 AddProgressView(habit: habit) {}
             }
-        }
-    }
-    
-    private func saveNewHabit(new_habit: Habits) async{
-        do {
-            let manager = DBManager.newInstance()
-            let _ = try await manager.addHabit(new_habit)
-        }
-        catch {
-            print("Error saving new habit", error)
-        }
-    }
-    private func updateHabit(updatedHabit: Habits) async{
-        if updatedHabit != selectedHabit
-        {
-            do {
-                let manager = DBManager.newInstance()
-                try await manager.updateHabit(updatedHabit)
-            }
-            catch {
-                print("Error updating habit", error)
-            }
-        }
-    }
-    
-    private func deleteHabit(_ habit: Habits) async {
-        guard let id = habit.id else { return }
-        do {
-            let manager = DBManager.newInstance()
-            try await manager.deleteHabit(id: id)
-        } catch {
-            print("Error deleting habit", error)
-        }
-    }
-
-    // MARK: - Data loading (read-only)
-    
-    
-    func computeProgress(for habit: Habits, reference: Date = .now) async throws -> HabitProgress {
-        let manager = DBManager.newInstance()
-        
-        let window = HabitWindow.window(for: habit, reference: reference)
-
-        let entries = try await manager.fetchHabitEntries(
-            forTask: habit.id!,
-            from: window.start,
-            to: window.end
-        )
-
-        let total = entries.reduce(0) { $0 + $1.value }
-        let target = Int(habit.target)
-        
-        return HabitProgress(
-            current: total,
-            target: target,
-            targetLabel: habit.label ?? "Times",
-            windowLabel: window.label
-        )
-    }
-
-    @MainActor
-    private func loadHabits() async {
-        do {
-            let manager = DBManager.newInstance()
-            let fetched = try await manager.fetchAllHabits()
-            habits = fetched
-            
-            print(fetched.count)
-
-            var map: [Int64: HabitProgress] = [:]
-            for habit in fetched {
-                guard let id = habit.id else { continue }
-                let progress = try await computeProgress(for: habit)
-                map[id] = progress
-            }
-            progressMap = map
-        } catch {
-            print("error", error)
-            self.error = error.localizedDescription
-        }
-    }
-
-
-    private func incrementHabit(_ habit: Habits) async {
-        guard let id = habit.id else { return }
-        do {
-            let manager = DBManager.newInstance()
-            _ = try await manager.addHabitEntry(habitId: id, value: 1, date: Date())
-            await loadHabits() // refresh UI after update
-        } catch {
-            self.error = error.localizedDescription
         }
     }
 }
