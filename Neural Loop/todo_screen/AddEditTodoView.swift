@@ -20,6 +20,7 @@ struct AddEditTodoView: View {
     @State private var isDeadline: Bool
     @State private var scheduleDraft: TaskScheduleDraft
     @State private var goalId: Int64? = nil
+    @State private var lifeAreaId: Int64? = nil
     
     @State private var GoalOrLifeAreadName: String? = nil
 
@@ -30,7 +31,7 @@ struct AddEditTodoView: View {
     @State private var showUnsetConfirmation = false
 
 
-    init(task: Tasks?, initialTiming: TaskTiming? = nil, goalId: Int64? = nil, onSave: @escaping (Tasks) -> Void) {
+    init(task: Tasks?, initialTiming: TaskTiming? = nil, goalId: Int64? = nil, lifeAreaId: Int64? = nil,  onSave: @escaping (Tasks) -> Void) {
         self.task = task
         self.onSave = onSave
         _title = State(initialValue: task?.title ?? "")
@@ -77,6 +78,12 @@ struct AddEditTodoView: View {
         else {
             _goalId = State(initialValue: goalId)
             
+        }
+        if task?.lifearea_id != nil {
+            _lifeAreaId = State(initialValue: task?.lifearea_id)
+        }
+        else {
+            _lifeAreaId = State(initialValue: lifeAreaId)
         }
         
         
@@ -225,6 +232,7 @@ struct AddEditTodoView: View {
                         description: trimmedDesc,
                         priority: priority,
                         goal_id: goalId,
+                        lifearea_id: lifeAreaId,
                         is_completed: task?.is_completed ?? false,
                         is_deadline: isDeadline,
                         completed_at: task?.completed_at ?? nil,
@@ -284,6 +292,7 @@ struct AddEditTodoView: View {
                         print("Selected Goal:", id, title)
                         GoalOrLifeAreadName = "Goal: \(title)"
                         goalId = id
+                        lifeAreaId = nil
 
                         // Example usage
                         // viewModel.attachGoal(id)
@@ -291,6 +300,9 @@ struct AddEditTodoView: View {
                     case .lifeArea(let id, let name):
                         print("Selected Life Area:", id, name)
                         GoalOrLifeAreadName = "Life Area: \(name)"
+                        
+                        goalId = nil
+                        lifeAreaId = id
 
                         // Example usage
                         // viewModel.attachLifeArea(id)
@@ -298,6 +310,9 @@ struct AddEditTodoView: View {
             }
         }.task {
             GoalOrLifeAreadName = await getGoalName(goal_id: goalId)
+            if GoalOrLifeAreadName == nil {
+                GoalOrLifeAreadName = await getLiftAreaName(lifeArea_id: lifeAreaId)
+            }
         }
     }
     

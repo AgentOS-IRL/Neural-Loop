@@ -5,6 +5,7 @@
 //  Created by Sanjeev Hayal on 10/01/2026.
 //
 
+import Foundation
 import SwiftUI
 import RRuleKit
 
@@ -82,7 +83,21 @@ func updateTask(task: Tasks, modified_task: Tasks) async {
 }
 
 func rebuildDateBuckets(tasks: [Tasks]) -> [DateBucket] {
+    let calendar = Calendar.current
+    
+    let todayStart = calendar.startOfDay(.now)
+    let todayEnd = calendar.endOfDay(.now)
     var _dateBuckets = buildShortRangeDateBuckets()
+    
+    var today_bucket = DateBucket(
+        title: AnyView( Text("Today")
+                .font(.title3.weight(.semibold))
+            .foregroundColor(.primary))
+            ,
+        start: todayStart,
+        end: todayEnd,
+        type: .today
+    )
 
     var inbox_bucket = DateBucket(title: AnyView( Text("Inbox")
         .font(.title3.weight(.semibold))
@@ -96,22 +111,32 @@ func rebuildDateBuckets(tasks: [Tasks]) -> [DateBucket] {
         .foregroundColor(.primary)), start: .distantPast, end: .distantFuture, type: .completed)
 
     for task in tasks {
+        print(task.title)
         if task.start_date == nil {
             inbox_bucket.ids.append(task.id!)
         }
         else if task.is_completed {
             completed_bucket.ids.append(task.id!)
         }
-        else if (task.recursion_rule == "" || task.recursion_rule == nil) && task.start_date != nil && task.start_date! < Date() {
+        else if (task.recursion_rule == "" || task.recursion_rule == nil) && task.start_date != nil {
+            if task.start_date! < todayStart {
                 overdue_bucket.ids.append(task.id!)
+            }
+            else if task.start_date! < todayEnd {
+                today_bucket.ids.append(task.id!)
+            }
+            else{
+                _dateBuckets = attachTaskToBuckets(task: task, buckets: _dateBuckets)
+            }
 
         }
         else {
+            print("attachTaskToBuckets")
             _dateBuckets = attachTaskToBuckets(task: task, buckets: _dateBuckets)
         }
     }
 
-    return [inbox_bucket, overdue_bucket, completed_bucket] + _dateBuckets
+    return [inbox_bucket, today_bucket, overdue_bucket, completed_bucket] + _dateBuckets
 }
 
 func addTaskRowView() -> some View {

@@ -87,6 +87,25 @@ extension DBManager {
             return try await builder.execute().value as [Tasks]
         
     }
+    
+    func fetchAllTasksByDate(date: Date) async throws -> [Tasks] {
+        let calendar = Calendar.current
+
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(
+            byAdding: .day,
+            value: 1,
+            to: startOfDay
+        )!
+
+        return try await customsupabase
+            .from(self.tasksTableName)
+            .select()
+            .gte("start_date", value: startOfDay)
+            .lt("start_date", value: endOfDay)
+            .execute()
+            .value as [Tasks]
+    }
 
     func fetchTask(by idValue: Int64) async throws -> Tasks? {
         let rows: [Tasks] = try await customsupabase

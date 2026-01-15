@@ -24,6 +24,7 @@ final class HabitViewModel: ObservableObject {
     
     
     func loadHabits() async {
+        print("Fetching Habits")
         do {
             let manager = DBManager.newInstance()
             let fetched = try await manager.fetchAllHabits()
@@ -172,6 +173,8 @@ struct HabitView: View {
                     
                 }
                 .padding()
+            }.refreshable {
+                await vm.loadHabits()
             }
             .navigationTitle("Habits")
             .toolbar {

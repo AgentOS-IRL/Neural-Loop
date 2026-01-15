@@ -144,11 +144,14 @@ func attachTaskToBuckets(
     for index in result.indices {
         let bucket: DateBucket = result[index]
         if occursInBucket(task: task, bucket: bucket) {
+            print("Task :", task.title ," \(task.start_date, default: "no date")",
+                  "\(max(bucket.start, now)) to \(bucket.end)", task.start_date! >= max(bucket.start, now) && task.start_date! <= bucket.end)
+            
             result[index].ids.append(taskId)
         }
         else if task.start_date! >= max(bucket.start, now) && task.start_date! <= bucket.end {
             print("No rule in :", task.title ," \(task.start_date, default: "no date")",
-                  "\(max(bucket.start, now)) to \(bucket.end)", task.start_date! >= max(bucket.start, now) && task.start_date! <= bucket.end)
+                  "\(max(bucket.start, now)) to \(bucket.end)", task.start_date! >= max(bucket.start, now) && task.start_date! <= bucket.end, " \(bucket.type)")
             result[index].ids.append(taskId)
         }
     }
@@ -238,20 +241,6 @@ func buildShortRangeDateBuckets(
 //    todayStart = calendar.date(byAdding: .day, value: 20, to: todayStart)!
     var buckets: [DateBucket] = []
     
-    
-
-    // 1️⃣ Today
-    buckets.append(
-        DateBucket(
-            title: AnyView( Text("Today")
-                    .font(.title3.weight(.semibold))
-                .foregroundColor(.primary))
-                ,
-            start: todayStart,
-            end: calendar.endOfDay(todayStart),
-            type: .today
-        )
-    )
 
     // 2️⃣ Tomorrow
     let tomorrow = calendar.date(byAdding: .day, value: 1, to: todayStart)!
