@@ -72,6 +72,11 @@ final class TodoViewModel: ObservableObject {
             tasks[index] = task
         }
     }
+    func removeTask(_ task: Tasks) {
+        if let index = tasks.firstIndex(of: task) {
+            tasks.remove(at: index)
+        }
+    }
 
     // MARK: - DB
 
@@ -192,7 +197,7 @@ struct TodoView: View {
                     Task {
                         await deleteTask(task: task)
                     }
-                    vm.reloadTasks()
+                    vm.removeTask(task)
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
