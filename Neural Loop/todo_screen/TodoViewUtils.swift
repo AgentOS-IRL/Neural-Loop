@@ -58,14 +58,15 @@ func deleteTask(task: Tasks) async {
     }
 }
 
-func saveTask(_ task: Tasks) async {
+func saveTask(_ task: Tasks) async -> Tasks?{
     do {
         let manager = DBManager.newInstance()
-        let _ = try await manager.addTask(task)
+        return try await manager.addTask(task)
     }
     catch {
         print("Error saving task", error)
     }
+    return nil
 }
 
 func updateTask(task: Tasks, modified_task: Tasks) async {

@@ -12,15 +12,39 @@
 //  Created by Sanjeev Hayal on 05/01/2026
 //
 
+
 import SwiftUI
 import RRuleKit
 import SwiftData
+import Combine
 
 
+@MainActor
+final class TodoViewModel: ObservableObject {
 
-struct TodoView: View {
-    
-    
+    // Source of truth
+    @Published var tasks: [Tasks] = [] {
+        didSet {
+            rebuildDerivedState()
+        }
+    }
+
+    // Derived state
+    @Published private(set) var tasksMapping: [Int64: Tasks] = [:]
+    @Published private(set) var dateBuckets: [DateBucket] = buildShortRangeDateBuckets()
+
+    // UI state
+    @Published var showAddTask: Bool = false
+    @Published var viewMode: ViewMode = .menu
+    @Published var error: String?
+    @Published var searchText: String = ""
+    @Published var selectedTaskForEdit: Tasks? = nil
+
+    @Published var initializationTiming: TaskTiming = .init(
+        start: Date(),
+        duration: 900
+    )
+
     var filteredTasks: [Tasks] {
         guard !searchText.isEmpty else { return tasks }
         return tasks.filter {
@@ -28,50 +52,116 @@ struct TodoView: View {
             ($0.description?.localizedCaseInsensitiveContains(searchText) ?? false)
         }
     }
-    
-    @State private var tasks: [Tasks] = []
-    @State private var tasksMapping: [Int64: Tasks] = [:]
-    @State private var showAddTask = false
-    @State private var viewMode: ViewMode = .menu
-    @State private var error: String?
-    @State private var dateBuckets: [DateBucket] = buildShortRangeDateBuckets()
-    @State private var searchText: String = ""
-    @State private var selectedTaskForEdit: Tasks? = nil
-    
-    @State private var initializationTiming: TaskTiming = .init(
-        start: Date(),
-        duration: 900
-    )
-    
-    
-    @Environment(\.modelContext) private var context
 
+    private func rebuildDerivedState() {
+        // Rebuild mapping
+        var map: [Int64: Tasks] = [:]
+        for task in tasks {
+            if let id = task.id {
+                map[id] = task
+            }
+        }
+        tasksMapping = map
+
+        // Rebuild buckets
+        dateBuckets = rebuildDateBuckets(tasks: tasks)
+    }
+    
+    func replaceTask(_ task: Tasks) {
+        if let index = tasks.firstIndex(where: { $0.id == task.id }) {
+            tasks[index] = task
+        }
+    }
+
+    // MARK: - DB
+
+    func loadTasks() async {
+        do {
+            print("loadTasks")
+            let manager = DBManager.newInstance()
+            let fetched = try await manager.fetchAllTasks()
+            tasks = fetched
+        } catch {
+            print("error", error)
+            self.error = error.localizedDescription
+        }
+    }
+
+    func reloadTasks() {
+        print("Loading Tasks...")
+        selectedTaskForEdit = nil
+        Task {
+            await loadTasks()
+        }
+        print("Done Loading Tasks")
+    }
+
+    func updateTaskCompletedStatus(task: Tasks, context: ModelContext) async {
+        var modified_task = task
+        modified_task.is_completed.toggle()
+        do {
+            if modified_task.recursion_rule != "" && modified_task.recursion_rule != nil {
+                if dateBuckets.firstIndex(where: { $0.type == .today }) != nil {
+                    if modified_task.is_completed {
+                        print("Marking recurring task as completed")
+                        markRecurringTaskCompleted(taskId: modified_task.id!, date: .now, context: context)
+                    } else {
+                        try deleteCompletion(taskId: modified_task.id!, on: .now, context: context)
+                    }
+                }
+            } else {
+                let manager = DBManager.newInstance()
+                try await manager.updateTask(modified_task)
+            }
+        } catch {
+            print("Error toggling completed status of task", error)
+            self.error = error.localizedDescription
+        }
+
+        // Ensure UI reflects DB changes
+        reloadTasks()
+    }
+}
+
+
+
+struct TodoView: View {
+    
+    @StateObject private var vm = TodoViewModel()
+    @Environment(\.modelContext) private var context
+    
     
     @ViewBuilder
     private func upcomingTasks() -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                ForEach(getUpcomingBucket(dateBuckets:dateBuckets)) { bucket in
+                ForEach(getUpcomingBucket(dateBuckets: vm.dateBuckets)) { bucket in
                     VStack(alignment: .leading, spacing: 8) {
                         
-                        // Section header (Today, Tomorrow, Thu 8 Jan, etc.)
-                        bucket.title
+                        HStack{
+                            // Section header (Today, Tomorrow, Thu 8 Jan, etc.)
+                            bucket.title
+                            Image(systemName: "plus")
+                                .foregroundColor(.secondary).onTapGesture {
+                                    vm.initializationTiming = .init(start: Calendar.current.date(
+                                        bySettingHour: 9,
+                                        minute: 0,
+                                        second: 0,
+                                        of: bucket.start
+                                    )!, duration: 900)
+                                    vm.showAddTask = true
+                                }
+                        }
                         
                         // Tasks for this date bucket
                         ForEach(bucket.ids, id: \.self) { taskId in
-                            if let task = tasksMapping[taskId] {
+                            if let task = vm.tasksMapping[taskId] {
                                 taskView(task: task)
                             }
                         }
                         
-                        // Add task row
-                        addTask(initialTiming: .init(start: Calendar.current.date(
-                            bySettingHour: 9,
-                            minute: 0,
-                            second: 0,
-                            of: bucket.start
-                        )!, duration: 900))
                     }
+                    Divider()
                 }
             }
             .padding(.horizontal)
@@ -82,55 +172,48 @@ struct TodoView: View {
     @ViewBuilder
     private func taskView(task: Tasks, checkIfCompleted: Bool = false) -> some View {
         let strikeThrough =
-                checkIfCompleted &&
-                completedTasks(on: .now, context: context).contains(task.id!)
-
+        (checkIfCompleted &&
+         completedTasks(on: .now, context: context).contains(task.id!)) || task.is_completed
         
         taskRowView(task: task, strikeThrough: strikeThrough)
-        .onTapGesture {
-            selectedTaskForEdit = task
-        }
-        .contextMenu {
+            .onTapGesture {
+                vm.selectedTaskForEdit = task
+            }
+            .contextMenu {
                 Button {
                     Task {
-                        await updateTaskCompletedStatus(task: task)
+                        await vm.updateTaskCompletedStatus(task: task, context: context)
                     }
                 } label: {
                     Label(task.is_completed ?"UnComplete" : "Complete", systemImage: "checkmark")
-                    
                 }
-
+                
                 Button(role: .destructive) {
                     Task {
                         await deleteTask(task: task)
                     }
-                    reloadTasks()
+                    vm.reloadTasks()
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
             }
-        
     }
     
-    @ViewBuilder
-    private func addTask(initialTiming: TaskTiming) -> some View {
-        addTaskRowView().onTapGesture {
-            initializationTiming = initialTiming
-            showAddTask = true
-        }
-    }
     
-
     @ViewBuilder
     private func inboxView() -> some View {
-        let inboxBucket = getInboxBucket(dateBuckets:dateBuckets)
-
+        let inboxBucket = getInboxBucket(dateBuckets: vm.dateBuckets)
+        
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                addTask(initialTiming: .init(start: .now, duration: 900))
-
+                addTaskRowView().onTapGesture {
+                    vm.initializationTiming = .init()
+                    vm.showAddTask = true
+                }
+                
+                
                 ForEach(inboxBucket.ids, id: \.self) { taskId in
-                    if let task = tasksMapping[taskId] {
+                    if let task = vm.tasksMapping[taskId] {
                         taskView(task: task)
                     }
                 }
@@ -139,15 +222,15 @@ struct TodoView: View {
             .padding(.top)
         }
     }
-
+    
     @ViewBuilder
     private func completedView() -> some View {
-        let completedBucket = getCompletedBucket(dateBuckets:dateBuckets)
-
+        let completedBucket = getCompletedBucket(dateBuckets: vm.dateBuckets)
+        
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 ForEach(completedBucket.ids, id: \.self) { taskId in
-                    if let task = tasksMapping[taskId] {
+                    if let task = vm.tasksMapping[taskId] {
                         taskView(task: task)
                     }
                 }
@@ -158,28 +241,27 @@ struct TodoView: View {
     }
     
     private func getTodaysBucket() -> DateBucket {
-        dateBuckets.first(where: { $0.type == .today })!
+        vm.dateBuckets.first(where: { $0.type == .today })!
     }
     
     @ViewBuilder
     private func todayTasks() -> some View {
         let todayBucket = getTodaysBucket()
         
-    
-        let morningTasks = todayBucket.ids.compactMap { tasksMapping[$0] }
+        let morningTasks = todayBucket.ids.compactMap { vm.tasksMapping[$0] }
             .filter {
                 guard let start = $0.start_date else { return false }
                 return Calendar.current.component(.hour, from: start) < 12
             }
         
-        let afternoonTasks = todayBucket.ids.compactMap { tasksMapping[$0] }
+        let afternoonTasks = todayBucket.ids.compactMap { vm.tasksMapping[$0] }
             .filter {
                 guard let start = $0.start_date else { return false }
                 let hour = Calendar.current.component(.hour, from: start)
                 return hour >= 12 && hour < 18
             }
         
-        let eveningTasks = todayBucket.ids.compactMap { tasksMapping[$0] }
+        let eveningTasks = todayBucket.ids.compactMap { vm.tasksMapping[$0] }
             .filter {
                 guard let start = $0.start_date else { return false }
                 return Calendar.current.component(.hour, from: start) >= 18
@@ -216,20 +298,29 @@ struct TodoView: View {
     @ViewBuilder
     private func sectionView(title: String, tasks: [Tasks], initialTiming: TaskTiming) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(title)
-                .font(.headline)
+            
+            
+            HStack{
+                // Section header (Today, Tomorrow, Thu 8 Jan, etc.)
+                Text(title)
+                    .font(.headline)
+                Image(systemName: "plus")
+                    .foregroundColor(.secondary).onTapGesture {
+                        vm.initializationTiming = initialTiming
+                        vm.showAddTask = true
+                    }
+            }
             
             ForEach(tasks, id: \.id) { task in
-                taskView(task: task, checkIfCompleted: true, )
+                taskView(task: task, checkIfCompleted: true)
             }
-            // Add task row
-            addTask(initialTiming:initialTiming, )
+            Divider()
         }
     }
     
     @ViewBuilder
     private func searchBar() -> some View {
-        TextField("Search tasks…", text: $searchText)
+        TextField("Search tasks…", text: $vm.searchText)
             .textFieldStyle(.roundedBorder)
             .padding(.horizontal)
             .padding(.top, 8)
@@ -238,11 +329,11 @@ struct TodoView: View {
     @ViewBuilder
     private func menuView() -> some View {
         VStack(spacing: 16) {
-
-            if searchText.isEmpty {
-
+            
+            if vm.searchText.isEmpty {
+                
                 Button {
-                    viewMode = .inbox
+                    vm.viewMode = .inbox
                 } label: {
                     menuRow(
                         icon: "tray",
@@ -250,14 +341,14 @@ struct TodoView: View {
                         showPlus: true
                     )
                 }
-
+                
                 Divider()
                     .padding(.leading, 56)
                     .opacity(0.6)
                 VStack(spacing: 0) {
-
+                    
                     Button {
-                        viewMode = .today
+                        vm.viewMode = .today
                     } label: {
                         menuRow(
                             icon: "calendar",
@@ -265,22 +356,22 @@ struct TodoView: View {
                             showPlus: true
                         )
                     }
-
+                    
                     Divider().padding(.leading, 56)
-
+                    
                     Button {
-                        viewMode = .upcoming
+                        vm.viewMode = .upcoming
                     } label: {
                         menuRow(
                             icon: "calendar.circle",
                             title: "Upcoming"
                         )
                     }
-
+                    
                     Divider().padding(.leading, 56)
-
+                    
                     Button {
-                        viewMode = .all
+                        vm.viewMode = .all
                     } label: {
                         menuRow(
                             icon: "list.bullet",
@@ -290,25 +381,25 @@ struct TodoView: View {
                 }
                 .background(Color(.secondarySystemBackground))
                 .cornerRadius(16)
-
+                
                 Button {
-                    viewMode = .completed
+                    vm.viewMode = .completed
                 } label: {
                     menuRow(
                         icon: "checkmark.circle",
                         title: "Completed"
                     )
                 }
-
+                
             } else {
-                ForEach(filteredTasks, id: \.id) { task in
+                ForEach(vm.filteredTasks, id: \.id) { task in
                     taskView(task: task)
                 }
             }
         }
         .padding()
     }
-
+    
     @ViewBuilder
     private func menuRow(
         icon: String,
@@ -319,17 +410,17 @@ struct TodoView: View {
             Image(systemName: icon)
                 .foregroundColor(.secondary)
                 .frame(width: 24)
-
+            
             Text(title)
                 .font(.headline)
                 .foregroundColor(.primary)
-
+            
             Spacer()
-
+            
             if showPlus {
                 Image(systemName: "plus")
                     .foregroundColor(.secondary).onTapGesture {
-                        showAddTask = true
+                        vm.showAddTask = true
                     }
             }
         }
@@ -342,9 +433,12 @@ struct TodoView: View {
     private func taskListView() -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                addTask(initialTiming: .init(start: .now, duration: 900))
+                addTaskRowView().onTapGesture {
+                    vm.initializationTiming = .init()
+                    vm.showAddTask = true
+                }
                 
-                ForEach(tasks, id: \.id) { task in
+                ForEach(vm.tasks, id: \.id) { task in
                     taskView(task: task)
                 }
             }
@@ -359,37 +453,37 @@ struct TodoView: View {
                 ScrollView {
                     VStack(spacing: 0) {
                         searchBar()
-
-                        switch viewMode {
+                        
+                        switch vm.viewMode {
                         case .menu:
                             menuView()
-
+                            
                         case .today:
                             todayTasks()
-
+                            
                         case .upcoming:
                             upcomingTasks()
-
+                            
                         case .all:
                             taskListView()
-
+                            
                         case .inbox:
                             inboxView()
-
+                            
                         case .completed:
                             completedView()
                         }
                     }
                 }
-
+                
                 // Floating Add Button
-                if searchText.isEmpty {
+                if vm.searchText.isEmpty && vm.viewMode == .menu {
                     VStack {
                         Spacer()
                         HStack {
                             Spacer()
                             Button {
-                                showAddTask = true
+                                vm.showAddTask = true
                             } label: {
                                 Image(
                                     systemName: "plus"
@@ -420,19 +514,19 @@ struct TodoView: View {
                 }
             }
             .navigationTitle(
-                viewMode == .menu ? "Todos" :
-                viewMode == .inbox ? "Inbox" :
-                viewMode == .completed ? "Completed" :
-                viewMode == .upcoming ? "Upcoming Tasks" :
-                viewMode == .today ? "Today" :
-                "All Tasks"
+                vm.viewMode == .menu ? "Todos" :
+                    vm.viewMode == .inbox ? "Inbox" :
+                    vm.viewMode == .completed ? "Completed" :
+                    vm.viewMode == .upcoming ? "Upcoming Tasks" :
+                    vm.viewMode == .today ? "Today" :
+                    "All Tasks"
             )
-            .navigationBarBackButtonHidden(viewMode == .menu)
+            .navigationBarBackButtonHidden(vm.viewMode == .menu)
             .toolbar {
-                if viewMode != .menu {
+                if vm.viewMode != .menu {
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button {
-                            viewMode = .menu
+                            vm.viewMode = .menu
                         } label: {
                             Image(systemName: "chevron.left")
                                 .font(.system(size: 17, weight: .semibold))
@@ -441,198 +535,35 @@ struct TodoView: View {
                 }
             }
             .sheet(
-                isPresented: $showAddTask
+                isPresented: $vm.showAddTask
             ) {
                 AddEditTodoView(
-                    task: nil, initialTiming: initializationTiming
+                    task: nil, initialTiming: vm.initializationTiming
                 ) { newTask in
                     Task {
-//                        await addTask(newTask)
-                        await saveTask(newTask)
-                    }
-                }
-            }
-            .sheet(item: $selectedTaskForEdit) { task in
-                AddEditTodoView(task: task) { modified_task in
-                    Task {
-                        if modified_task != nil{
-                            await updateTask(task: task, modified_task: modified_task)
-                            
-                            reloadTasks()
+                        let _newTask = await saveTask(newTask)
+                        if (_newTask != nil){
+                            vm.tasks.append(_newTask!)
                         }
                         
                     }
                 }
             }
-            .onAppear {
-                reloadTasks()
-            }
-        }
-    }
-
-    // MARK: - DB
-
-    func loadTasks() async {
-        do {
-            print("loadTasks")
-            let manager =  DBManager.newInstance()
-            tasks = try await manager
-                .fetchAllTasks()
-            
-            for task in tasks {
-                tasksMapping[task.id!] = task
-                print("task.id \(task.id!)")
-            }
-        } catch {
-            print("error",error)
-            self.error = error.localizedDescription
-        }
-    }
-
-    func addTask(
-        _ task_input: TaskInput
-    ) async {
-        do {
-            print(
-                "saving task..."
-            )
-            let manager = DBManager.newInstance()
-            var rruleString = ""
-            if task_input.schedule!.recurrence != nil {
-                let rule = task_input.schedule!.recurrence!
-                let formatter = RecurrenceRuleRFC5545FormatStyle(calendar: .current)
-                rruleString = formatter.format(rule)
-            }
-            
-            print("rruleString", rruleString)
-            
-            let task = Tasks(
-                id: nil,
-                title: task_input.title,
-                description: task_input.description,
-                priority: task_input.priority,
-                is_completed: false,
-                is_deadline: task_input.is_deadline,
-                recursion_rule: rruleString,
-                start_date: task_input.schedule?.timing?.start,
-                duration: task_input.schedule?.timing?.duration,
-                
-            )
-            
-            let savedTask = try await manager.addTask(
-                task
-            )
-            
-            print(
-                "done saving"
-            )
-            print(
-                savedTask.id ?? "no id"
-            )   // ✅ now works
-            if savedTask.id == nil {
-                return
-            }
-            reloadTasks()
-            // TODO: add to calender
-            //            if task_input.schedule != nil {
-            //                if task_input.schedule!.timing != nil && task_input.schedule!.recurrence != nil {
-            //                    do {
-            //                        var rule = task_input.schedule!.recurrence!
-            //
-            //                        try NeuralLoopCalendarService.shared
-            //                            .addRecurringEvent(
-            //                                taskId: Int(savedTask.id!) ,
-            //                                title: task.title,
-            //                                timing: task_input.schedule!.timing!,
-            //                                recurrenceRule: rule,
-            //                                notes: task.description,
-            //                            )
-            //                        if let next = nextOccurrence(of: rule) {
-            //                            print("Next occurrence:", next)
-            //                        } else {
-            //                                print("No next occurrence found")
-            //                            }
-            //                    } catch {
-            //                        print(
-            //                            "❌ Calendar preview failed:",
-            //                            error
-            //                        )
-            //                    }
-            //                }
-            //                else if task_input.schedule!.timing != nil  {
-            //                    do {
-            //                        try NeuralLoopCalendarService.shared
-            //                            .addEvent(
-            //                                taskId: Int(savedTask.id!) ,
-            //                                title: task.title,
-            //                                timing: task_input.schedule!.timing!,
-            //
-            //                                notes: task.description,
-            //                            )
-            //                    } catch {
-            //                        print(
-            //                            "❌ Calendar preview failed:",
-            //                            error
-            //                        )
-            //                    }
-            //                }
-            //            }
-            
-        } catch {
-            print(
-                "Error saving task"
-            )
-            print(
-                error
-            )
-            self.error = error.localizedDescription
-        }
-    }
-
-    
-    func updateTaskCompletedStatus(task: Tasks) async {
-        var modified_task = task
-        modified_task.is_completed.toggle()
-        do {
-            
-            if modified_task.recursion_rule != "" && modified_task.recursion_rule != nil {
-                if dateBuckets.firstIndex(where: { $0.type == .today }) != nil    {
-                    if modified_task.is_completed {
-                        print("Marking recurring task as completed")
-                        markRecurringTaskCompleted(taskId: modified_task.id!, date: .now, context: context)
+            .sheet(item: $vm.selectedTaskForEdit) { task in
+                AddEditTodoView(task: task) { modified_task in
+                    Task {
+                        await updateTask(task: task, modified_task: modified_task)
+                        
+                        vm.replaceTask(modified_task)
+                        
                         
                     }
-                    else {
-                        try deleteCompletion(taskId: modified_task.id!, on: .now, context: context)
-                        
-                    }
-                    
                 }
-                
             }
-            else {
-                let manager = DBManager.newInstance()
-                try await manager.updateTask(modified_task)
+            .onAppear {
+                vm.reloadTasks()
             }
-            
         }
-        catch {
-            print("Error toggling completed status of task", error)
-            self.error = error.localizedDescription
-        }
-        
     }
     
-    
-    func reloadTasks() {
-        // Clear selection if it was the same task
-        print("Loading Tasks...")
-        selectedTaskForEdit = nil
-        Task {
-            await loadTasks()
-            dateBuckets = rebuildDateBuckets(tasks:tasks)
-        }
-        print("Done Loading Tasks")
-    }
-
 }

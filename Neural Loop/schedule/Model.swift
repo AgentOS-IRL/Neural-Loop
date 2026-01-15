@@ -28,7 +28,7 @@ struct TaskTiming {
         
     }
     
-    init(start: Date, duration: TimeInterval) {
+    init(start: Date = .now, duration: TimeInterval = 900) {
         self.start = start
         self.duration = duration
     }

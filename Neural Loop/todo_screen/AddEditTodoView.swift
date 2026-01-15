@@ -27,6 +27,8 @@ struct AddEditTodoView: View {
     @State private var showTimeSheet = false       // clock (time only)
     @State private var showScheduleSheet = false
     
+    @State private var showUnsetConfirmation = false
+
 
     init(task: Tasks?, initialTiming: TaskTiming? = nil, goalId: Int64? = nil, onSave: @escaping (Tasks) -> Void) {
         self.task = task
@@ -80,12 +82,32 @@ struct AddEditTodoView: View {
         
     }
     
-    
-    private func scheduleSummary() -> Text {
+    @ViewBuilder
+    private func scheduleSummary() -> some View {
         let timeText = scheduleDraft.timing?.summary() ?? "No Time"
         let repeatText = scheduleDraft.recurrence?.summary() ?? "No Repeat"
 
-        return Text("\(timeText) • \(repeatText)")
+        Text("\(timeText) • \(repeatText)")
+            .onTapGesture {
+                // Only ask if there’s something to unset
+                if scheduleDraft.timing != nil || scheduleDraft.recurrence != nil {
+                    showUnsetConfirmation = true
+                }
+            }
+            .confirmationDialog(
+                "Remove Schedule?",
+                isPresented: $showUnsetConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Unset Schedule", role: .destructive) {
+                    scheduleDraft.timing = nil
+                    scheduleDraft.recurrence = nil
+                }
+
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will remove the time and repeat settings.")
+            }
     }
     
     private var priorityIcon: String {
