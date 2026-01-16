@@ -176,8 +176,17 @@ struct HabitView: View {
             }.refreshable {
                 await vm.loadHabits()
             }
-            .navigationTitle("Habits")
+//            .navigationTitle("Habits")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("Habits")
+                        .font(.title3.weight(.semibold))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)  // don’t compress horizontally
+                        .layoutPriority(1)                             // fight for space
+                        .padding(.horizontal, 12)
+                    
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Image(systemName: "plus")
                         .foregroundColor(.secondary)

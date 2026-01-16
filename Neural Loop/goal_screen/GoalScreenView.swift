@@ -170,32 +170,56 @@ struct GoalScreenView: View {
                     )
                 }
 
-                // Floating add button
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        Button {
-                            if vm.selectedTab == .lifeAreas {
-                                showAddLifeArea = true
-                            } else {
-                                hydrateGoal = nil
-                                showAddGoal = true
-                            }
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundColor(.black)
-                                .padding()
-                                .background(Color.white)
-                                .clipShape(Circle())
-                                .shadow(radius: 8)
+//                // Floating add button
+//                VStack {
+//                    Spacer()
+//                    HStack {
+//                        Spacer()
+//                        Button {
+//                            if vm.selectedTab == .lifeAreas {
+//                                showAddLifeArea = true
+//                            } else {
+//                                hydrateGoal = nil
+//                                showAddGoal = true
+//                            }
+//                        } label: {
+//                            Image(systemName: "plus")
+//                                .font(.system(size: 22, weight: .bold))
+//                                .foregroundColor(.black)
+//                                .padding()
+//                                .background(Color.white)
+//                                .clipShape(Circle())
+//                                .shadow(radius: 8)
+//                        }
+//                        .padding()
+//                    }
+//                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Text("Goals")
+                        .font(.title3.weight(.semibold))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)  // don’t compress horizontally
+                        .layoutPriority(1)                             // fight for space
+                        .padding(.horizontal, 12)
+                    
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        if vm.selectedTab == .lifeAreas {
+                            showAddLifeArea = true
+                        } else {
+                            hydrateGoal = nil
+                            showAddGoal = true
                         }
-                        .padding()
+                    } label: {
+                        Image(systemName: "plus")
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
-            .navigationTitle("Goals")
+//            .navigationTitle("Goals")
             .sheet(isPresented: $showAddLifeArea) {
                 AddLifeAreas {
                     Task {

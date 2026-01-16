@@ -152,6 +152,9 @@ struct CurrentTimeIndicatorView: View {
 }
 
 struct DateBarView: View {
+    let today = Date()
+    let day = Calendar.current.component(.day, from: Date())
+    
     @State private var selectedDate: Date
     let onSelect: (Date) -> Void
 
@@ -174,53 +177,67 @@ struct DateBarView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading) {
-            HStack{
-                Text(
-                    selectedDate.formatted(
-                        Date.FormatStyle()
-                            .month(.wide)
-                    )
-                )
-                .font(.title)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(dates, id: \.self) { date in
+                        let day = date.startOfDay
+                        dateCell(day)
+                            .id(day)
+                    }
+                }
                 .padding(.horizontal)
-                Spacer()
-                todayButton()
+            }
+            .onAppear {
+                DispatchQueue.main.async {
+                    proxy.scrollTo(selectedDate.startOfDay, anchor: .center)
+                }
+            }
+            .onChange(of: selectedDate) { _, newValue in
+                withAnimation(.easeInOut) {
+                    proxy.scrollTo(newValue.startOfDay, anchor: .center)
+                }
+            }
+        }.toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Text(selectedDate.formatted(.dateTime.month(.wide)))
+                    .font(.title3.weight(.semibold))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)  // don’t compress horizontally
+                    .layoutPriority(1)                             // fight for space
+                    .padding(.horizontal, 12)
+                    
+            }
+                // Trailing actions: calendar + plus
+            ToolbarItem(placement: .automatic) {
                 Button {
-//                    showAddHabit = true
+                    
+                    selectedDate = today
+                    onSelect(today)
                 } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 18, weight: .semibold))
-                        .frame(width: 44, height: 44)
-                        .background(.thinMaterial)
-                        .clipShape(Circle())
+                    Image(systemName: "\(Calendar.current.component(.day, from: today)).calendar")
+                        .font(.system(size: 21, weight: .ultraLight))
+                        .foregroundStyle(.secondary.opacity(0.8))
                 }
-                .buttonStyle(.borderless)
-                .tint(.primary)
             }
-            ScrollViewReader { proxy in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(dates, id: \.self) { date in
-                            let day = date.startOfDay
-                            dateCell(day)
-                                .id(day)
+            ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button {
+                            // add task action
+                        } label: {
+                            Label("Add Task", systemImage: "checkmark.circle")
                         }
-                    }
-                    .padding(.horizontal)
-                }
-                .onAppear {
-                    DispatchQueue.main.async {
-                        proxy.scrollTo(selectedDate.startOfDay, anchor: .center)
-                    }
-                }
-                .onChange(of: selectedDate) { _, newValue in
-                    withAnimation(.easeInOut) {
-                        proxy.scrollTo(newValue.startOfDay, anchor: .center)
+
+                        Button {
+                            // add habit action
+                        } label: {
+                            Label("Add Habit", systemImage: "repeat")
+                        }
+                    } label: {
+                        Image(systemName: "plus")
+                            .foregroundStyle(.secondary)
                     }
                 }
-            }
         }
     }
     
@@ -311,27 +328,29 @@ struct CalendarDayView: View {
     @State private var tasks: [Tasks] = []
 
     var body: some View {
-        ScrollViewReader { proxy in
+        NavigationStack {
+            ScrollViewReader { proxy in
                 
-            DateBarView(selectedDate: date) { newDate in
+                DateBarView(selectedDate: date) { newDate in
                     date = newDate
                 }
+                
+                ScrollView {
+                    ZStack(alignment: .topLeading) {
+                        TimeGridView()
+                        TaskOverlayView(date: date, tasks: tasks)
+                        CurrentTimeIndicatorView(date: date)
+                    }
+                    .frame(height: CGFloat(hoursInDay) * hourHeight)
+                }
+                .onAppear {
+                    DispatchQueue.main.async {
+                        let hour = Calendar.current.component(.hour, from: Date())
+                        proxy.scrollTo(hour, anchor: .top)
+                    }
+                }
             
-            ScrollView {
-                ZStack(alignment: .topLeading) {
-                    TimeGridView()
-                    TaskOverlayView(date: date, tasks: tasks)
-                    CurrentTimeIndicatorView(date: date)
-                }
-                .frame(height: CGFloat(hoursInDay) * hourHeight)
             }
-            .onAppear {
-                DispatchQueue.main.async {
-                    let hour = Calendar.current.component(.hour, from: Date())
-                    proxy.scrollTo(hour, anchor: .top)
-                }
-            }
-        
         }
         .background(Color.black)
         .onAppear {

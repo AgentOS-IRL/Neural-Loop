@@ -92,6 +92,7 @@ struct AddLifeAreas: View {
                 }
             }
             .navigationTitle("Add Life Area")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {

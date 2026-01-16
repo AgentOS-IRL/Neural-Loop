@@ -59,8 +59,12 @@ struct LifeAreaDetailView: View {
             HStack(spacing: 12) {
                 sectionButton("Overview", .overview)
                 sectionButton("Vision", .vision)
-                sectionButton("Goals", .goals)
-                sectionButton("Tasks", .tasks)
+                if goals.isEmpty == false {
+                    sectionButton("Goals", .goals)
+                }
+                if tasks.isEmpty == false {
+                    sectionButton("Tasks", .tasks)
+                }
             }
             .padding(.horizontal)
             .padding(.vertical, 8)
@@ -145,62 +149,48 @@ struct LifeAreaDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("Vision")
                         .font(.headline)
-
+                        .padding(.bottom, 8)
+                    
                     Text(visionText.isEmpty ? "No vision added yet." : visionText)
-                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, minHeight: 50, maxHeight: 100, alignment: .leading)
+                        .padding(8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.secondary.opacity(0.2))
+                        ).overlay {
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)   // outer line
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8)
+                                .inset(by: 3)                                         // move inward
+                                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)   // inner line
+                        }
                 }
+                Divider()
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Goals")
                         .font(.headline)
-
-                    if goals.isEmpty {
-                        Text("No goals added yet.")
-                            .foregroundColor(.secondary)
-                    } else {
-                        
-                            LazyVStack(alignment: .leading, spacing: 10) {
-                                ForEach(goals) { goal in
-                                    NavigationLink {
-                                        GoalDetailView(
-                                            lifeAreaName: area.name,
-                                            goal: goal,
-                                            tasks: tasks.filter({$0.goal_id == goal.id})
-                                        )
-                                    } label: {
-                                        goalRow(goal)
-                                    }
-//                                    HStack(spacing: 16) {
-//                                        
-//                                        // Icon container
-//                                        ZStack {
-//                                            RoundedRectangle(cornerRadius: 16)
-//                                                .fill(Color(.systemGray5))
-//                                                .frame(width: 56, height: 56)
-//                                            
-//                                            Image(systemName: goal.icon)
-//                                                .font(.system(size: 22, weight: .semibold))
-//                                                .foregroundColor(.gray)
-//                                        }
-//                                    VStack(alignment: .leading, spacing: 4) {
-//                                        Text(goal.title)
-//                                    }
-//                                    .frame(maxWidth: .infinity, alignment: .leading)
-//                                    
-//                                        Spacer()
-//
-//                                               // Chevron
-//                                               Image(systemName: "chevron.right")
-//                                                   .font(.system(size: 14, weight: .semibold))
-//                                                   .foregroundColor(.secondary)
-//                                           }
-//                                           .padding(.horizontal)
-//                                           .padding(.vertical, 12)
-                                
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        ForEach(goals) { goal in
+                            NavigationLink {
+                                GoalDetailView(
+                                    lifeAreaName: area.name,
+                                    goal: goal,
+                                    tasks: tasks.filter({$0.goal_id == goal.id})
+                                )
+                            } label: {
+                                goalRow(goal)
                             }
+                        }
+                        
+                        if goals.isEmpty {
+                            Text("No goals added yet.")
+                                .foregroundColor(.secondary.opacity(0.75))
                         }
                     }
                 }
@@ -221,7 +211,7 @@ struct LifeAreaDetailView: View {
                 .background(
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(Color.secondary.opacity(0.4))
-                ).onChange(of: visionText) { _ in
+                ).onChange(of: visionText) {
                     // Enable the button if text is not empty
                     enableSaveVisionButton = !visionText.isEmpty
                 }
@@ -269,11 +259,18 @@ struct LifeAreaDetailView: View {
 
     private func tasksView() -> some View {
         ScrollView {
-            List(tasks) { task in
-                VStack{
-                    Text(task.title)
+            VStack{
+            ForEach(tasks) { task in
+                    taskView(task:task)
                 }
             }
         }
     }
+    
+    
+    @ViewBuilder
+    private func taskView(task: Tasks) -> some View {
+        taskRowView(task: task, strikeThrough: task.is_completed)
+    }
+    
 }
