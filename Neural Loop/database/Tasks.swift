@@ -128,12 +128,17 @@ extension DBManager {
     }
 
     func fetchTasksforLifeArea( lifeAreaId: Int64) async throws -> [Tasks] {
-        try await customsupabase
+        let tasks = try await customsupabase
             .from(self.tasksTableName)
             .select()
             .eq("lifearea_id", value: Int(lifeAreaId))
             .execute()
             .value as [Tasks]
+//        print("Tasks for life area: \(lifeAreaId)")
+//        print(tasks)
+//        print("End fetching tasks")
+        return tasks
+        
     }
     
     func fetchTasksforGoal( goalId: Int64) async throws -> [Tasks] {

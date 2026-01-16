@@ -479,66 +479,87 @@ struct TodoView: View {
                             completedView()
                         }
                     }
-                }.refreshable {
-                    await vm.loadTasks()
                 }
                 
-                // Floating Add Button
-                if vm.searchText.isEmpty && vm.viewMode == .menu {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            Button {
-                                vm.showAddTask = true
-                            } label: {
-                                Image(
-                                    systemName: "plus"
-                                )
-                                .font(
-                                    .system(
-                                        size: 22,
-                                        weight: .bold
-                                    )
-                                )
-                                .foregroundColor(
-                                    .black
-                                )
-                                .padding()
-                                .background(
-                                    .white
-                                )
-                                .clipShape(
-                                    Circle()
-                                )
-                                .shadow(
-                                    radius: 8
-                                )
-                            }
-                            .padding()
-                        }
-                    }
-                }
+//                // Floating Add Button
+//                if vm.searchText.isEmpty && vm.viewMode == .menu {
+//                    VStack {
+//                        Spacer()
+//                        HStack {
+//                            Spacer()
+//                            Button {
+//                                vm.showAddTask = true
+//                            } label: {
+//                                Image(
+//                                    systemName: "plus"
+//                                )
+//                                .font(
+//                                    .system(
+//                                        size: 22,
+//                                        weight: .bold
+//                                    )
+//                                )
+//                                .foregroundColor(
+//                                    .black
+//                                )
+//                                .padding()
+//                                .background(
+//                                    .white
+//                                )
+//                                .clipShape(
+//                                    Circle()
+//                                )
+//                                .shadow(
+//                                    radius: 8
+//                                )
+//                            }
+//                            .padding()
+//                        }
+//                    }
+//                }
             }
-            .navigationTitle(
-                vm.viewMode == .menu ? "Todos" :
-                    vm.viewMode == .inbox ? "Inbox" :
-                    vm.viewMode == .completed ? "Completed" :
-                    vm.viewMode == .upcoming ? "Upcoming Tasks" :
-                    vm.viewMode == .today ? "Today" :
-                    "All Tasks"
-            )
+//            .navigationTitle(
+//                vm.viewMode == .menu ? "Todos" :
+//                    vm.viewMode == .inbox ? "Inbox" :
+//                    vm.viewMode == .completed ? "Completed" :
+//                    vm.viewMode == .upcoming ? "Upcoming Tasks" :
+//                    vm.viewMode == .today ? "Today" :
+//                    "All Tasks"
+//            )
             .navigationBarBackButtonHidden(vm.viewMode == .menu)
             .toolbar {
-                if vm.viewMode != .menu {
+                
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        vm.showAddTask = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button {
                             vm.viewMode = .menu
                         } label: {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 17, weight: .semibold))
+                            if vm.viewMode != .menu {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 17, weight: .semibold))
+                            }
+                            Text(vm.viewMode == .menu ? "Todos" :
+                                    vm.viewMode == .inbox ? "Inbox" :
+                                    vm.viewMode == .completed ? "Completed" :
+                                    vm.viewMode == .upcoming ? "Upcoming Tasks" :
+                                    vm.viewMode == .today ? "Today" :
+                                    "All Tasks")
+                            .font(.title3.weight(.semibold))
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)  // don’t compress horizontally
+                            .layoutPriority(1)                             // fight for space
+                            .padding(.trailing, 12)
+                            .padding(.leading, vm.viewMode == .menu ? 12:0)
+                            
                         }
-                    }
                 }
             }
             .sheet(
