@@ -56,6 +56,7 @@ struct GoalDetailView: View {
     
     
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var model: UnifiedDataModel
     
     var body: some View {
         ScrollView {
@@ -143,8 +144,7 @@ struct GoalDetailView: View {
                         NavigationLink {
                             AddEditTodoView(task: nil, goalId: goal.id!) { updatedTask in
                                 Task {
-                                    let db = DBManager.newInstance()
-                                    let _ = try await db.addTask(updatedTask)
+                                    await model.saveTask(updatedTask)
                                 }
                             }
                         } label: {
@@ -222,78 +222,65 @@ struct GoalDetailView: View {
         }
     }
     private func setCustomGoalTrackingRecords(goalTracking: GoalsTracking) async {
-        let db = DBManager.newInstance()
         
         var records: [GoalsTrackingRecord] = []
         
-        do{
+        
+        print("✅ goalTracking type is .custom")
+        
+        if goalTracking.label != nil {
+            print("📥 Fetching records from DB...")
             
-            print("✅ goalTracking type is .custom")
+            records = await model.fetchGoalsTrackingRecords(
+                forTracking: goalTracking.id!,
+                type: goalTracking.type
+            )
             
-            if goalTracking.label != nil {
-                print("📥 Fetching records from DB...")
-                
-                records = try await db.fetchGoalsTrackingRecords(
-                    forTracking: goalTracking.id!,
-                    type: goalTracking.type
-                )
-                
-                print("📊 Records fetched:", records.count)
-            } else {
-                print("⚠️ goalTracking label is not nil — skipping fetch")
-            }
-            print("🔄 Processing records...")
-
-            // 1. Sort records by ascending created_at (nil-safe)
-            let sortedRecords = records.sorted {
-                guard let d1 = $0.created_at, let d2 = $1.created_at else {
-                    return false
-                }
-                return d1 < d2
-            }
-
-            var runningTotal: Int64 = 0
-            goalTrackingRecords.removeAll()
-
-            // 2. Build cumulative values
-            for (index, record) in sortedRecords.enumerated() {
-                print("➡️ Record \(index):", record)
-
-                guard let createdAt = record.created_at else {
-                    print("⚠️ Record \(index) has nil created_at — skipping")
-                    continue
-                }
-
-                let value = Int64(record.value)
-                runningTotal += value
-
-                goalTrackingRecords[createdAt] = runningTotal
-
-                print("✅ Saved → Date:", createdAt, "Cumulative Value:", runningTotal)
-            }
-
-            print("🏁 Finished setGoalTrackingRecords()")
-            print("📦 Final goalTrackingRecords count:", goalTrackingRecords.count)
+            print("📊 Records fetched:", records.count)
+        } else {
+            print("⚠️ goalTracking label is not nil — skipping fetch")
         }
-        catch {
-            print("Error fetching goal tracking: \(error)")
+        print("🔄 Processing records...")
+        
+        // 1. Sort records by ascending created_at (nil-safe)
+        let sortedRecords = records.sorted {
+            guard let d1 = $0.created_at, let d2 = $1.created_at else {
+                return false
+            }
+            return d1 < d2
         }
         
+        var runningTotal: Int64 = 0
+        goalTrackingRecords.removeAll()
+        
+        // 2. Build cumulative values
+        for (index, record) in sortedRecords.enumerated() {
+            print("➡️ Record \(index):", record)
+            
+            guard let createdAt = record.created_at else {
+                print("⚠️ Record \(index) has nil created_at — skipping")
+                continue
+            }
+            
+            let value = Int64(record.value)
+            runningTotal += value
+            
+            goalTrackingRecords[createdAt] = runningTotal
+            
+            print("✅ Saved → Date:", createdAt, "Cumulative Value:", runningTotal)
+        }
+        
+        print("🏁 Finished setGoalTrackingRecords()")
+        print("📦 Final goalTrackingRecords count:", goalTrackingRecords.count)
         
     }
     
     private func setGoalTrackingRecords() async {
         
         print("➡️ setGoalTrackingRecords() called")
-        let db = DBManager.newInstance()
         
-        do {
-            goalTracking = try await db.fetchGoalsTracking(forGoal: goal.id!) ?? GoalsTracking.empty
-        }
-        catch {
-            // ignore
-            print("Error fetching goal tracking: \(error)")
-        }
+        goalTracking = await model.fetchGoalsTracking(forGoal: goal.id!)
+        
 
         if goalTracking.isEmpty {
             print("❌ goalTracking is nil — exiting")
@@ -720,18 +707,10 @@ struct GoalDetailView: View {
     }
     
     private func fetchSubGoals() async -> Void {
-        do {
-            let db_manager = DBManager.newInstance()
-            subGoals = try await db_manager.fecthGoalsForParentId(forParentId: goal.id!)
-            
-            for goal in subGoals{
-                subGoalMapping[goal.id!] = goal
-            }
+        subGoals = model.getSubGoals(forPatentId: goal.id!)
+        for goal in subGoals{
+            subGoalMapping[goal.id!] = goal
         }
-        catch {
-            print("Error fetching tasks: \(error)")
-        }
-        
     }
     
     @ViewBuilder

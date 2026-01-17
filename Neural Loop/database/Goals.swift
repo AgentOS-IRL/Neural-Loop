@@ -59,19 +59,6 @@ struct Goals: Codable, Identifiable {
 }
 
 
-func getGoalName(goal_id: Int64?) async -> String? {
-    if goal_id == nil {return nil}
-    do {
-        let dbmanager = DBManager.newInstance()
-        return try await dbmanager.fetchGoalName(by: goal_id!)
-        
-    } catch {
-        print("❌ fetchGoalName failed:", error)
-        
-    }
-    return nil
-}
-
 extension DBManager {
     // NOTE:
     // Database indexes (PRIMARY KEY, foreign key indexes, composite indexes, etc.)

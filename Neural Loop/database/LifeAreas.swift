@@ -9,6 +9,8 @@ import Foundation
 import Supabase
 
 struct LifeAreas: Codable, Identifiable {
+    static let databasePrimaryKey = ["id"]
+    
     var id: Int64?
     var name: String
     var vision: String?
@@ -17,19 +19,6 @@ struct LifeAreas: Codable, Identifiable {
     var icon: String
 }
 
-// Mark: - Get Name
-func getLiftAreaName(lifeArea_id: Int64?) async -> String? {
-    if lifeArea_id == nil {return nil}
-    do {
-        let dbmanager = DBManager.newInstance()
-        return try await dbmanager.fetchLifeAreaName(by: lifeArea_id!)
-        
-    } catch {
-        print("❌ fetchLifeAreaName failed:", error)
-        
-    }
-    return nil
-}
 
 extension DBManager {
     private var lifeAreasTableName: String { "life_areas" }

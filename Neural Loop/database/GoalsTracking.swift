@@ -63,6 +63,16 @@ extension DBManager {
 
         return response.first
     }
+    
+    func fetchAllGoalsTracking() async throws -> [GoalsTracking] {
+        let response: [GoalsTracking] = try await customsupabase
+            .from(goalsTrackingTableName)
+            .select()
+            .execute()
+            .value
+        
+        return response
+    }
 
     // Create tracking (only once per goal)
     func createGoalsTracking(_ tracking: GoalsTracking) async throws {

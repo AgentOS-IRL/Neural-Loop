@@ -21,22 +21,8 @@ import Combine
 
 @MainActor
 final class TodoViewModel: ObservableObject {
-
-    // Source of truth
-    @Published var tasks: [Tasks] = [] {
-        didSet {
-            rebuildDerivedState()
-        }
-    }
-
-    // Derived state
-    @Published private(set) var tasksMapping: [Int64: Tasks] = [:]
-    @Published private(set) var dateBuckets: [DateBucket] = buildShortRangeDateBuckets()
-
-    // UI state
     @Published var showAddTask: Bool = false
     @Published var viewMode: ViewMode = .menu
-    @Published var error: String?
     @Published var searchText: String = ""
     @Published var selectedTaskForEdit: Tasks? = nil
 
@@ -45,87 +31,6 @@ final class TodoViewModel: ObservableObject {
         duration: 900
     )
 
-    var filteredTasks: [Tasks] {
-        guard !searchText.isEmpty else { return tasks }
-        return tasks.filter {
-            $0.title.localizedCaseInsensitiveContains(searchText) ||
-            ($0.description?.localizedCaseInsensitiveContains(searchText) ?? false)
-        }
-    }
-
-    private func rebuildDerivedState() {
-        // Rebuild mapping
-        var map: [Int64: Tasks] = [:]
-        for task in tasks {
-            if let id = task.id {
-                map[id] = task
-            }
-        }
-        tasksMapping = map
-
-        // Rebuild buckets
-        dateBuckets = rebuildDateBuckets(tasks: tasks)
-    }
-    
-    func replaceTask(_ task: Tasks) {
-        if let index = tasks.firstIndex(where: { $0.id == task.id }) {
-            tasks[index] = task
-        }
-    }
-    func removeTask(_ task: Tasks) {
-        if let index = tasks.firstIndex(of: task) {
-            tasks.remove(at: index)
-        }
-    }
-
-    // MARK: - DB
-
-    func loadTasks() async {
-        do {
-            print("loadTasks")
-            let manager = DBManager.newInstance()
-            let fetched = try await manager.fetchAllTasks()
-            tasks = fetched
-        } catch {
-            print("error", error)
-            self.error = error.localizedDescription
-        }
-    }
-
-    func reloadTasks() {
-        print("Loading Tasks...")
-        selectedTaskForEdit = nil
-        Task {
-            await loadTasks()
-        }
-        print("Done Loading Tasks")
-    }
-
-    func updateTaskCompletedStatus(task: Tasks, context: ModelContext) async {
-        var modified_task = task
-        modified_task.is_completed.toggle()
-        do {
-            if modified_task.recursion_rule != "" && modified_task.recursion_rule != nil {
-                if dateBuckets.firstIndex(where: { $0.type == .today }) != nil {
-                    if modified_task.is_completed {
-                        print("Marking recurring task as completed")
-                        markRecurringTaskCompleted(taskId: modified_task.id!, date: .now, context: context)
-                    } else {
-                        try deleteCompletion(taskId: modified_task.id!, on: .now, context: context)
-                    }
-                }
-            } else {
-                let manager = DBManager.newInstance()
-                try await manager.updateTask(modified_task)
-            }
-        } catch {
-            print("Error toggling completed status of task", error)
-            self.error = error.localizedDescription
-        }
-
-        // Ensure UI reflects DB changes
-        reloadTasks()
-    }
 }
 
 
@@ -134,13 +39,14 @@ struct TodoView: View {
     
     @StateObject private var vm = TodoViewModel()
     @Environment(\.modelContext) private var context
+    @EnvironmentObject var model: UnifiedDataModel
     
     
     @ViewBuilder
     private func upcomingTasks() -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                ForEach(getUpcomingBucket(dateBuckets: vm.dateBuckets)) { bucket in
+                ForEach(model.getUpcomingTasksDateBucket(), id: \.id) { bucket in
                     VStack(alignment: .leading, spacing: 8) {
                         
                         HStack{
@@ -160,7 +66,7 @@ struct TodoView: View {
                         
                         // Tasks for this date bucket
                         ForEach(bucket.ids, id: \.self) { taskId in
-                            if let task = vm.tasksMapping[taskId] {
+                            if let task = model.getTask(by: taskId) {
                                 taskView(task: task)
                             }
                         }
@@ -187,7 +93,7 @@ struct TodoView: View {
             .contextMenu {
                 Button {
                     Task {
-                        await vm.updateTaskCompletedStatus(task: task, context: context)
+                        await model.updateTaskCompletedStatus(task: task, context: context)
                     }
                 } label: {
                     Label(task.is_completed ?"UnComplete" : "Complete", systemImage: "checkmark")
@@ -195,9 +101,8 @@ struct TodoView: View {
                 
                 Button(role: .destructive) {
                     Task {
-                        await deleteTask(task: task)
+                        await model.deleteTask(task: task)
                     }
-                    vm.removeTask(task)
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
@@ -207,7 +112,7 @@ struct TodoView: View {
     
     @ViewBuilder
     private func inboxView() -> some View {
-        let inboxBucket = getInboxBucket(dateBuckets: vm.dateBuckets)
+        let inboxBucket = model.getInboxTasksDateBucket()
         
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
@@ -218,7 +123,7 @@ struct TodoView: View {
                 
                 
                 ForEach(inboxBucket.ids, id: \.self) { taskId in
-                    if let task = vm.tasksMapping[taskId] {
+                    if let task = model.getTask(by: taskId)  {
                         taskView(task: task)
                     }
                 }
@@ -230,12 +135,12 @@ struct TodoView: View {
     
     @ViewBuilder
     private func completedView() -> some View {
-        let completedBucket = getCompletedBucket(dateBuckets: vm.dateBuckets)
+        let completedBucket = model.getCompletedTasksDateBucket()
         
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 ForEach(completedBucket.ids, id: \.self) { taskId in
-                    if let task = vm.tasksMapping[taskId] {
+                    if let task = model.getTask(by: taskId) {
                         taskView(task: task)
                     }
                 }
@@ -245,28 +150,24 @@ struct TodoView: View {
         }
     }
     
-    private func getTodaysBucket() -> DateBucket {
-        vm.dateBuckets.first(where: { $0.type == .today })!
-    }
-    
     @ViewBuilder
     private func todayTasks() -> some View {
-        let todayBucket = getTodaysBucket()
+        let todayBucket = model.getTodayTasksDateBucket()
         
-        let morningTasks = todayBucket.ids.compactMap { vm.tasksMapping[$0] }
+        let morningTasks = todayBucket.ids.compactMap { model.getTask(by: $0)! }
             .filter {
                 guard let start = $0.start_date else { return false }
                 return Calendar.current.component(.hour, from: start) < 12
             }
         
-        let afternoonTasks = todayBucket.ids.compactMap { vm.tasksMapping[$0] }
+        let afternoonTasks = todayBucket.ids.compactMap { model.getTask(by: $0)! }
             .filter {
                 guard let start = $0.start_date else { return false }
                 let hour = Calendar.current.component(.hour, from: start)
                 return hour >= 12 && hour < 18
             }
         
-        let eveningTasks = todayBucket.ids.compactMap { vm.tasksMapping[$0] }
+        let eveningTasks = todayBucket.ids.compactMap { model.getTask(by: $0)! }
             .filter {
                 guard let start = $0.start_date else { return false }
                 return Calendar.current.component(.hour, from: start) >= 18
@@ -397,7 +298,7 @@ struct TodoView: View {
                 }
                 
             } else {
-                ForEach(vm.filteredTasks, id: \.id) { task in
+                ForEach(model.filterTasks(searchText: vm.searchText), id: \.id) { task in
                     taskView(task: task)
                 }
             }
@@ -443,7 +344,7 @@ struct TodoView: View {
                     vm.showAddTask = true
                 }
                 
-                ForEach(vm.tasks, id: \.id) { task in
+                ForEach(model.tasks, id: \.id) { task in
                     taskView(task: task)
                 }
             }
@@ -569,10 +470,7 @@ struct TodoView: View {
                     task: nil, initialTiming: vm.initializationTiming
                 ) { newTask in
                     Task {
-                        let _newTask = await saveTask(newTask)
-                        if (_newTask != nil){
-                            vm.tasks.append(_newTask!)
-                        }
+                        await model.saveTask(newTask)
                         
                     }
                 }
@@ -580,16 +478,11 @@ struct TodoView: View {
             .sheet(item: $vm.selectedTaskForEdit) { task in
                 AddEditTodoView(task: task) { modified_task in
                     Task {
-                        await updateTask(task: task, modified_task: modified_task)
                         
-                        vm.replaceTask(modified_task)
-                        
+                        await model.updateTask(task: task, modified_task: modified_task)
                         
                     }
                 }
-            }
-            .onAppear {
-                vm.reloadTasks()
             }
         }
     }

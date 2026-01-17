@@ -31,6 +31,6 @@ struct Neural_LoopApp: App {
             ContentView()
         }.modelContainer(for: [
             CompletedRecurringTask.self
-        ])
+        ]).environmentObject(UnifiedDataModel.shared)
     }
 }

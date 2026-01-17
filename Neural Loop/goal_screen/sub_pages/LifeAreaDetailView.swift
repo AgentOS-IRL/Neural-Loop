@@ -18,18 +18,19 @@ struct LifeAreaDetailView: View {
     let area: LifeAreas
     let goals: [Goals]
     let tasks: [Tasks]
-    let goalTrackingMapping: [Int64: GoalsTracking]
 
     @Environment(\.dismiss) private var dismiss
+    
+    @EnvironmentObject var model: UnifiedDataModel
+    
     @State private var selectedSection: Section = .overview
     @State private var visionText: String = ""
     @State private var enableSaveVisionButton: Bool = false
     
-    init(area: LifeAreas, goals: [Goals], tasks: [Tasks], goalTrackingMapping: [Int64: GoalsTracking]) {
+    init(area: LifeAreas, goals: [Goals], tasks: [Tasks], ) {
         self.area = area
         self.goals = goals
         self.tasks = tasks
-        self.goalTrackingMapping = goalTrackingMapping
         
     }
 
@@ -121,11 +122,6 @@ struct LifeAreaDetailView: View {
     // MARK: - Sections
     
     func goalRow(_ goal: Goals) -> some View {
-//        let subText =
-//            ((goal.start_date != nil)
-//                ? goal.start_date!.formatted() : "") + " -"
-//            + ((goal.deadline != nil)
-//                ? goal.deadline!.formatted() : " No deadline")
         return HStack(spacing: 16) {
 
             // Icon container
@@ -135,7 +131,7 @@ struct LifeAreaDetailView: View {
                 size: 56,
 //                subText: subText
             ) {
-                getGoalProgressBar(goalId: goal.id!, goalTracking: goalTrackingMapping[goal.id!], goalTasks: tasks.filter{$0.goal_id == goal.id})
+                model.getGoalProgressBar(goalId: goal.id!, goalTracking: model.getGoalTracking(goalId: goal.id!), goalTasks: tasks.filter{$0.goal_id == goal.id})
             }
             Spacer()
 
@@ -220,8 +216,7 @@ struct LifeAreaDetailView: View {
             if enableSaveVisionButton {
                 Button {
                     Task {
-                        let manager = DBManager.newInstance()
-                        try await manager.updateVision(id: area.id!, vision: visionText)
+                        await model.updateLifeAreaVision(id: area.id!, vision: visionText)
                     }
                 } label: {
                     Text("Save")
