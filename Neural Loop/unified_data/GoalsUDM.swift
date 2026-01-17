@@ -9,6 +9,20 @@ import SwiftUI
 
 extension  UnifiedDataModel {
     
+    // MARK: - Goal Functions
+    func getGoal(by goalId: Int64) -> Goals? {
+        return goals.first { $0.id == goalId }
+    }
+    
+    func getGoals(lifeAreaId: Int64) -> [Goals] {
+        return goals.filter { $0.lifearea_id == lifeAreaId }
+    }
+    
+    
+    func getGoalTracking(goalId:Int64) -> GoalsTracking? {
+        return goalTracking.first(where: { $0.goal_id == goalId }) ?? nil
+    }
+    
     func getLifeAreaName(lifeArea_id: Int64?) async -> String? {
         if lifeArea_id == nil {return nil}
         

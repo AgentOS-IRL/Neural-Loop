@@ -13,6 +13,23 @@ import Combine
 
 extension  UnifiedDataModel {
     
+    func getTask(by id: Int64) -> Tasks? {
+        if let index = tasks.firstIndex(where: { $0.id == id }) {
+            return tasks[index]
+        }
+        return nil
+    }
+    
+    
+    func getTasks(lifeAreaId: Int64) -> [Tasks] {
+        return tasks.filter { $0.lifearea_id == lifeAreaId }
+    }
+    
+    func getTasks(goalId: Int64) -> [Tasks] {
+        return tasks.filter { $0.goal_id == goalId }
+    }
+    
+    
     func getTasks(date:Date) async -> [Tasks]{
         do {
             return try await manager.fetchAllTasksByDate(date: date)

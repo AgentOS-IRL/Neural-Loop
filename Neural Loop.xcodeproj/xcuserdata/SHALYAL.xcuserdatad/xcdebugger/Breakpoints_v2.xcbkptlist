@@ -52,11 +52,11 @@
             landmarkType = "21">
             <Locations>
                <Location
-                  uuid = "034FEC2F-D15D-49EA-BCE8-40398FE0FA6C - e00d3b88e5a4781f"
+                  uuid = "034FEC2F-D15D-49EA-BCE8-40398FE0FA6C - 64f2bbfe295a796a"
                   shouldBeEnabled = "Yes"
                   ignoreCount = "0"
                   continueAfterRunningActions = "No"
-                  symbolName = "(1) suspend resume partial function for Neural_Loop.DBManager.addLifeArea(Neural_Loop.LifeAreas) async throws -&gt; ()"
+                  symbolName = "(1) suspend resume partial function for Neural_Loop.DBManager.addLifeArea(Neural_Loop.LifeAreas) async throws -&gt; Neural_Loop.LifeAreas"
                   moduleName = "Neural Loop.debug.dylib"
                   usesParentBreakpointCondition = "Yes"
                   urlString = "file:///Users/SHALYAL/personal_projects/Neural%20Loop/Neural%20Loop/database/LifeAreas.swift"
@@ -66,25 +66,11 @@
                   endingLineNumber = "35">
                </Location>
                <Location
-                  uuid = "034FEC2F-D15D-49EA-BCE8-40398FE0FA6C - f9e9e8f1d86dbc1d"
+                  uuid = "034FEC2F-D15D-49EA-BCE8-40398FE0FA6C - ccc6b349429d9c29"
                   shouldBeEnabled = "Yes"
                   ignoreCount = "0"
                   continueAfterRunningActions = "No"
-                  symbolName = "(3) suspend resume partial function for Neural_Loop.DBManager.addLifeArea(Neural_Loop.LifeAreas) async throws -&gt; ()"
-                  moduleName = "Neural Loop.debug.dylib"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/SHALYAL/personal_projects/Neural%20Loop/Neural%20Loop/database/LifeAreas.swift"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "35"
-                  endingLineNumber = "35">
-               </Location>
-               <Location
-                  uuid = "034FEC2F-D15D-49EA-BCE8-40398FE0FA6C - f21bcf853d761e1a"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "(4) suspend resume partial function for Neural_Loop.DBManager.addLifeArea(Neural_Loop.LifeAreas) async throws -&gt; ()"
+                  symbolName = "(4) suspend resume partial function for Neural_Loop.DBManager.addLifeArea(Neural_Loop.LifeAreas) async throws -&gt; Neural_Loop.LifeAreas"
                   moduleName = "Neural Loop.debug.dylib"
                   usesParentBreakpointCondition = "Yes"
                   urlString = "file:///Users/SHALYAL/personal_projects/Neural%20Loop/Neural%20Loop/database/LifeAreas.swift"
