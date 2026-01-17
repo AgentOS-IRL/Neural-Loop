@@ -145,7 +145,6 @@ struct AddEditHabitView: View {
             }.sheet(isPresented: $showGoalSheet) {
                 GoalSelectionSheet { result in
                     guard let result else {
-                            print("User cancelled")
                             return
                         }
                     goalId = nil
@@ -154,7 +153,6 @@ struct AddEditHabitView: View {
                         switch result {
 
                         case .goal(let id, let title):
-                            print("Selected Goal:", id, title)
                             GoalOrLifeAreadName = "Goal: \(title)"
                             goalId = id
 
@@ -162,7 +160,6 @@ struct AddEditHabitView: View {
                             // viewModel.attachGoal(id)
 
                         case .lifeArea(let id, let name):
-                            print("Selected Life Area:", id, name)
                             GoalOrLifeAreadName = "Life Area: \(name)"
                             lifeAreaId = id
 

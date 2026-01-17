@@ -79,7 +79,7 @@ extension DBManager {
 
     // MARK: - Read
     func fetchAllTasks(get_habits: Bool = false) async throws -> [Tasks] {
-            print("Start fetching tasks")
+            
             let builder = customsupabase
                 .from(self.tasksTableName)
                 .select()
@@ -134,9 +134,6 @@ extension DBManager {
             .eq("lifearea_id", value: Int(lifeAreaId))
             .execute()
             .value as [Tasks]
-//        print("Tasks for life area: \(lifeAreaId)")
-//        print(tasks)
-//        print("End fetching tasks")
         return tasks
         
     }

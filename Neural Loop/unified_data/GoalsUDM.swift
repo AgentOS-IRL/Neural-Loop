@@ -52,8 +52,8 @@ extension  UnifiedDataModel {
     
     func saveLifeArea(_ lifeArea: LifeAreas) async {
         do {
-            try await manager.addLifeArea(lifeArea)
-            lifeAreas.append(lifeArea)
+            let newLifeArea = try await manager.addLifeArea(lifeArea)
+            lifeAreas.append(newLifeArea)
         }
         catch {
             print("Error saving life area: \(error)")
@@ -72,8 +72,8 @@ extension  UnifiedDataModel {
     
     func saveGoal(_ goal: Goals) async {
         do {
-            try await manager.addGoal(goal)
-            goals.append(goal)
+            let newGoal = try await manager.addGoal(goal)
+            goals.append(newGoal)
         }
         catch {
             print("Error saving goal: \(error)")

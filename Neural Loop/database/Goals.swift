@@ -73,16 +73,14 @@ extension DBManager {
     private var goalsTableName: String { "goals" }
 
     // MARK: - Create
-    func addGoal(_ goal: Goals) async throws {
+    func addGoal(_ goal: Goals) async throws -> Goals {
         let inserted: [Goals] = try await customsupabase
             .from(self.goalsTableName)
             .insert(goal)
             .select()
             .execute()
             .value
-        if let first = inserted.first, let newId = first.id {
-            print("Inserted Goal with id:", newId)
-        }
+        return inserted.first!
     }
 
     // MARK: - Read

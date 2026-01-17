@@ -98,7 +98,6 @@ func hasOccurrence(
         .recurrences(of: anchor)
         .prefix { $0 <= end }
         .contains { $0 >= start && $0 <= end }
-//    print("Start date:\(start), End date:\(end), Occurrence:\(has_occ)")
     return has_occ
 }
 
@@ -144,14 +143,12 @@ func attachTaskToBuckets(
     for index in result.indices {
         let bucket: DateBucket = result[index]
         if occursInBucket(task: task, bucket: bucket) {
-            print("Task :", task.title ," \(task.start_date, default: "no date")",
-                  "\(max(bucket.start, now)) to \(bucket.end)", task.start_date! >= max(bucket.start, now) && task.start_date! <= bucket.end)
+            
             
             result[index].ids.append(taskId)
         }
         else if task.start_date! >= max(bucket.start, now) && task.start_date! <= bucket.end {
-            print("No rule in :", task.title ," \(task.start_date, default: "no date")",
-                  "\(max(bucket.start, now)) to \(bucket.end)", task.start_date! >= max(bucket.start, now) && task.start_date! <= bucket.end, " \(bucket.type)")
+            
             result[index].ids.append(taskId)
         }
     }

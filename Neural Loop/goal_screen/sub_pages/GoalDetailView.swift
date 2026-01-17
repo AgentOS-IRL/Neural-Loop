@@ -212,7 +212,6 @@ struct GoalDetailView: View {
             }
             for task in tasks {
                 tasksMapping[task.id!] = task
-//                print(task.id!)
             }
             Task {
                 print("Fetching goal tracking")
