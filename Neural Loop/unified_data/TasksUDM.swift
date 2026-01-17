@@ -20,6 +20,42 @@ extension  UnifiedDataModel {
         return nil
     }
     
+    func getSubTasks(taskId: Int64) async -> [SubTasks]{
+        do{
+            return try await manager.fetchAllSubTasks(task_id: taskId)
+        }
+        catch {
+            print("Error fetching subtasks", error)
+            return []
+        }
+    }
+    
+    func addSubTask(_ title: String, taskId: Int64) async {
+        do{
+            let _ = try await manager.addSubTask(title, task_id: taskId)
+        }
+        catch {
+            print("Error adding subtask", error)
+        }
+    }
+    
+    func setSubTaskIsCompleted(subtask_id: UUID, is_completed: Bool) async {
+        do {
+            try await manager.setSubTaskIsCompleted(subtask_id: subtask_id, is_completed: is_completed)
+        }
+        catch {
+            print("Error updating subtask", error)
+        }
+    }
+    
+    func deleteSubTask(subtask_id: UUID) async {
+        do{
+            try await manager.deleteSubTask(subtask_id: subtask_id)
+        }
+        catch {
+            print("Error deleting subtask", error)
+        }
+    }
     
     func getTasks(lifeAreaId: Int64) -> [Tasks] {
         return tasks.filter { $0.lifearea_id == lifeAreaId }

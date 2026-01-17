@@ -8,6 +8,15 @@
 import Foundation
 import Supabase
 
+struct SubTasks: Codable, Identifiable{
+    static let databasePrimaryKey = ["id"]
+    
+    var id: UUID = UUID()
+    var task_id: Int64?
+    var title: String
+    var is_completed: Bool
+}
+
 struct Tasks: Codable, Identifiable{
     static let databasePrimaryKey = ["id"]
 
@@ -65,6 +74,54 @@ extension Tasks: Equatable {
 
 extension DBManager {
     private var tasksTableName: String { "tasks" }
+    private var subTasksTableName: String { "subtasks" }
+    
+    func addSubTask(_ subtask_title: String, task_id: Int64) async throws -> SubTasks {
+        let subtask = SubTasks(
+            id: UUID(),
+            task_id: Int64(task_id), title: subtask_title,
+            is_completed: false
+        )
+        let inserted: [SubTasks] = try await customsupabase
+            .from(self.subTasksTableName)
+            .insert(subtask)
+            .select()
+            .execute()
+            .value
+        return inserted.first ?? subtask
+    }
+    
+    func fetchAllSubTasks(task_id: Int64) async throws -> [SubTasks] {
+        
+        let builder = customsupabase
+            .from(self.subTasksTableName)
+            .select()
+            .eq("task_id", value: Int(task_id))
+        
+        return try await builder.execute().value as [SubTasks]
+    }
+    
+    func setSubTaskIsCompleted(subtask_id: UUID, is_completed: Bool) async throws -> Void {
+        
+        let builder = try customsupabase
+            .from(self.subTasksTableName)
+            .update(["is_completed": is_completed])
+            .eq("id", value: subtask_id)
+        
+        try await builder.execute()
+        
+    }
+    
+    func deleteSubTask(subtask_id: UUID) async throws -> Void {
+        
+        let builder = customsupabase
+            .from(self.subTasksTableName)
+            .delete()
+            .eq("id", value: subtask_id)
+        
+        try await builder.execute()
+    }
+    
 
     // MARK: - Create
     func addTask(_ task: Tasks) async throws -> Tasks {

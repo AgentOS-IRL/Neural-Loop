@@ -47,6 +47,29 @@ extension DBManager {
             .value
         return rows.first
     }
+    
+    func fetchHabitEntriesCursor(
+        forTask taskIdValue: Int64,
+        after cursorDate: Date? = nil
+    ) async throws -> [HabitTracking] {
+
+        var builder = customsupabase
+            .from(self.habitTrackingTableName)
+            .select()
+            .eq("habit_id", value: Int(taskIdValue))
+
+        if let cursorDate = cursorDate {
+            builder = builder.gte(
+                "entry_date",
+                value: ISO8601DateFormatter().string(from: cursorDate)
+            )
+        }
+
+        return try await builder
+            .select()
+            .execute()
+            .value as [HabitTracking]
+    }
 
     func fetchHabitEntries(forTask taskIdValue: Int64, from fromDate: Date? = nil, to toDate: Date? = nil) async throws -> [HabitTracking] {
         var builder = customsupabase

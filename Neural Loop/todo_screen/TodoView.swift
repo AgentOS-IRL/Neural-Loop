@@ -25,6 +25,10 @@ final class TodoViewModel: ObservableObject {
     @Published var viewMode: ViewMode = .menu
     @Published var searchText: String = ""
     @Published var selectedTaskForEdit: Tasks? = nil
+    @Published var selectedTaskForViewer: Tasks? = nil
+    
+    @Published var showDeleteConfirmation: Bool = false
+    @Published var selectedTaskForDelete: Tasks? = nil
 
     @Published var initializationTiming: TaskTiming = .init(
         start: Date(),
@@ -88,7 +92,7 @@ struct TodoView: View {
         
         taskRowView(task: task, strikeThrough: strikeThrough)
             .onTapGesture {
-                vm.selectedTaskForEdit = task
+                vm.selectedTaskForViewer = task
             }
             .contextMenu {
                 Button {
@@ -99,13 +103,38 @@ struct TodoView: View {
                     Label(task.is_completed ?"UnComplete" : "Complete", systemImage: "checkmark")
                 }
                 
+                Button(role: .confirm){
+                    vm.selectedTaskForEdit = task
+                }label: {
+                    Label("Edit", systemImage: "pencil")
+                }
+                
                 Button(role: .destructive) {
-                    Task {
-                        await model.deleteTask(task: task)
-                    }
+                    vm.showDeleteConfirmation = true
+                    vm.selectedTaskForDelete = task
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
+            }
+            .confirmationDialog(
+                "Delete this task?",
+                isPresented: $vm.showDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Delete Task", role: .destructive) {
+                    guard let task = vm.selectedTaskForDelete else { return }
+
+                    Task {
+                        await model.deleteTask(task: task)
+                        vm.selectedTaskForDelete = nil
+                    }
+                }
+
+                Button("Cancel", role: .cancel) {
+                    vm.selectedTaskForDelete = nil
+                }
+            } message: {
+                Text("This action cannot be undone.")
             }
     }
     
@@ -244,6 +273,7 @@ struct TodoView: View {
                     menuRow(
                         icon: "tray",
                         title: "Inbox",
+                        count: model.getInboxTasksDateBucket().ids.count,
                         showPlus: true
                     )
                 }
@@ -259,6 +289,7 @@ struct TodoView: View {
                         menuRow(
                             icon: "calendar",
                             title: "Today",
+                            count: model.getTodayTasksDateBucket().ids.count,
                             showPlus: true
                         )
                     }
@@ -310,6 +341,7 @@ struct TodoView: View {
     private func menuRow(
         icon: String,
         title: String,
+        count: Int? = nil,
         showPlus: Bool = false
     ) -> some View {
         HStack(spacing: 16) {
@@ -317,11 +349,19 @@ struct TodoView: View {
                 .foregroundColor(.secondary)
                 .frame(width: 24)
             
-            Text(title)
-                .font(.headline)
-                .foregroundColor(.primary)
-            
+            HStack(spacing: 2) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                if let count {
+                    Text("(\(count))")
+                        .foregroundColor(.secondary)
+                }
+            }
             Spacer()
+            
+            
             
             if showPlus {
                 Image(systemName: "plus")
@@ -483,6 +523,9 @@ struct TodoView: View {
                         
                     }
                 }
+            }
+            .sheet(item: $vm.selectedTaskForViewer) { task in
+                IndividualTodoView(task: task)
             }
         }
     }

@@ -126,189 +126,154 @@ struct AddEditTodoView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                Spacer()
-                Button { dismiss() } label: {
-                    Image(systemName: "xmark")
-                        .foregroundColor(.secondary)
-                        .padding(8)
+        NavigationStack {
+            Form {
+                // MARK: Title
+                Section {
+                    TextField("Task title", text: $title)
+                        .font(.title3.weight(.semibold))
                 }
-            }
-            .padding(.horizontal)
 
-            // Content
-            VStack(alignment: .leading, spacing: 12) {
-                TextField("Task title", text: $title)
-                    .font(.system(size: 22, weight: .semibold))
-                    .padding(.top, 8)
-
-                ZStack(alignment: .topLeading) {
-                    if description.isEmpty {
-                        Text("Description")
-                            .foregroundColor(.secondary)
-                            .padding(.top, 8)
-                    }
-
+                // MARK: Description
+                Section("Description") {
                     TextEditor(text: $description)
                         .frame(minHeight: 120)
-                        .padding(.horizontal, -4)
                 }
-                
-                Spacer(minLength: 16)
-                
-                // Bottom actions row
-                HStack(spacing: 18) {
+
+                // MARK: Priority & Deadline
+                Section("Priority") {
+                    Picker("Priority", selection: $priority) {
+                        Text("Low").tag(0)
+                        Text("Medium").tag(1)
+                        Text("High").tag(2)
+                        Text("Critical").tag(3)
+                    }
+                    .pickerStyle(.segmented)
+
+                    Toggle("Deadline", isOn: $isDeadline)
+                        .tint(.red)
+                }
+
+                // MARK: Schedule
+                Section("Schedule") {
                     scheduleSummary()
-                    Spacer()
+                    Button {
+                        showTimeSheet = true
+                    } label: {
+                        Label("Set Time", systemImage: "clock")
+                    }
 
-                    Image(systemName: "clock")
-                        .padding(8)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            showTimeSheet = true
-                        }
-                    Image(systemName: isDeadline ? "flag.fill" : "flag")
-                        .padding(8)
-                        .contentShape(Rectangle())
-                        .foregroundColor(isDeadline ? .red : .secondary)
-                        .onTapGesture {
-                            isDeadline.toggle()
-                        }
-                    Image(systemName: "tag")
-                        .padding(8)
-                        .contentShape(Rectangle())
-                        .background(
-                            RoundedRectangle(cornerRadius: 20)
-                                .fill(Color.red.opacity(0.8)) // Completely transparent fill
-                                .background(.ultraThickMaterial)
-                                .blendMode(.screen) // Adjust blend mode for a lighter, glass-like effect
-                                .opacity(0.8) // Optional: slightly reduce opacity for more transparency
+                    Button {
+                        showScheduleSheet = true
+                    } label: {
+                        Label("Repeat", systemImage: "arrow.2.circlepath")
+                    }
+                }
+
+                // MARK: Goal / Life Area
+                Section("Goal or Life Area") {
+                    Button {
+                        showAreaGoalSheet = true
+                    } label: {
+                        Label(
+                            GoalOrLifeAreadName ?? "Select goal or life area",
+                            systemImage: "scope"
                         )
-                    Image(systemName: priorityIcon)
-                        .padding(8)
-                        .contentShape(Rectangle())
-                        .foregroundColor(priority == 0 ? .secondary : .accentColor)
-                        .onTapGesture {
-                            priority = (priority + 1) % 4
-                        }
-                    Image(systemName: "arrow.2.circlepath")
-                        .padding(8)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            showScheduleSheet = true
-                        }
-
+                    }
+                    .foregroundColor(.primary)
+                }
+            }
+            .navigationTitle(task == nil ? "New Task" : "Edit Task")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // Close
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
                 }
 
-            }
-            .padding()
-
-            Divider()
-
-            // Footer
-            HStack {
-                
-                Label(GoalOrLifeAreadName ?? "Select goal or life area", systemImage: "scope")
-                                    .foregroundColor(.secondary)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture {
-                                        showAreaGoalSheet = true
-                                    }
-                
-                Spacer()
-                Button {
-                    let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let trimmedDesc = description.trimmingCharacters(in: .whitespacesAndNewlines)
-                    var recursion_rule: String? = nil
-                    if let rule = scheduleDraft.recurrence {
-                        recursion_rule = rrule_to_string(rule: rule)
+                // Save
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(task == nil ? "Save" : "Update") {
+                        saveTask()
                     }
-                    let updated_task = Tasks(
-                        id: task?.id ?? nil,
-                        title: trimmedTitle,
-                        description: trimmedDesc,
-                        priority: priority,
-                        goal_id: goalId,
-                        lifearea_id: lifeAreaId,
-                        is_completed: task?.is_completed ?? false,
-                        is_deadline: isDeadline,
-                        completed_at: task?.completed_at ?? nil,
-                        recursion_rule: recursion_rule,
-                        start_date: scheduleDraft.timing?.start ?? nil,
-                        duration: scheduleDraft.timing?.duration ?? nil,
-                        
-                    )
-                    onSave(updated_task)
-                    dismiss()
-                } label: {
-                    HStack {
-                        Text(task == nil ?  "Save" : "Update")
-                        Image(systemName: task == nil ?  "checkmark" : "checkmark.circle.fill")
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(
-                        Capsule()
-                            .fill(Color.accentColor.opacity(
-                                title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.4 : 1
-                            ))
-                    )
-                    .foregroundColor(.white)
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-            .padding()
-            .background(Color(.systemBackground))
-        }
-        .presentationDetents([.medium])
-        .presentationDragIndicator(.visible)
-        .sheet(isPresented: $showScheduleSheet) {
-            TaskScheduleSheet(initialTiming: TaskTiming(start: scheduleDraft.timing?.start ?? .now, duration: scheduleDraft.timing?.duration ?? 900),
-                              initialRule:scheduleDraft.recurrence) { draft in
-                scheduleDraft = draft
-                
+            .sheet(isPresented: $showScheduleSheet) {
+                TaskScheduleSheet(
+                    initialTiming: TaskTiming(
+                        start: scheduleDraft.timing?.start ?? .now,
+                        duration: scheduleDraft.timing?.duration ?? 900
+                    ),
+                    initialRule: scheduleDraft.recurrence
+                ) { draft in
+                    scheduleDraft = draft
+                }
             }
-        }.sheet(isPresented: $showTimeSheet) {
-            TimeRuleSheet(initialTiming: scheduleDraft.timing) { timing in
-                scheduleDraft = TaskScheduleDraft(
-                    timing: timing,
-                    recurrence: nil
-                )
+            .sheet(isPresented: $showTimeSheet) {
+                TimeRuleSheet(initialTiming: scheduleDraft.timing) { timing in
+                    scheduleDraft = TaskScheduleDraft(
+                        timing: timing,
+                        recurrence: nil
+                    )
+                }
             }
-        }.sheet(isPresented: $showAreaGoalSheet) {
-            GoalSelectionSheet { result in
-                guard let result else {
-                        return
-                    }
+            .sheet(isPresented: $showAreaGoalSheet) {
+                GoalSelectionSheet { result in
+                    guard let result else { return }
 
                     switch result {
-
                     case .goal(let id, let title):
                         GoalOrLifeAreadName = "Goal: \(title)"
                         goalId = id
                         lifeAreaId = nil
 
-                        // Example usage
-                        // viewModel.attachGoal(id)
-
                     case .lifeArea(let id, let name):
                         GoalOrLifeAreadName = "Life Area: \(name)"
-                        
                         goalId = nil
                         lifeAreaId = id
-
-                        // Example usage
-                        // viewModel.attachLifeArea(id)
                     }
+                }
             }
-        }.task {
-            GoalOrLifeAreadName = await model.getGoalName(goal_id: goalId)
-            if GoalOrLifeAreadName == nil {
-                GoalOrLifeAreadName = await model.getLifeAreaName(lifeArea_id: lifeAreaId)
+            .task {
+                GoalOrLifeAreadName = await model.getGoalName(goal_id: goalId)
+                if GoalOrLifeAreadName == nil {
+                    GoalOrLifeAreadName = await model.getLifeAreaName(lifeArea_id: lifeAreaId)
+                }
             }
         }
+    }
+    
+    private func saveTask() {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDesc = description.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        var recursion_rule: String? = nil
+        if let rule = scheduleDraft.recurrence {
+            recursion_rule = rrule_to_string(rule: rule)
+        }
+
+        let updatedTask = Tasks(
+            id: task?.id ?? nil,
+            title: trimmedTitle,
+            description: trimmedDesc,
+            priority: priority,
+            goal_id: goalId,
+            lifearea_id: lifeAreaId,
+            is_completed: task?.is_completed ?? false,
+            is_deadline: isDeadline,
+            completed_at: task?.completed_at ?? nil,
+            recursion_rule: recursion_rule,
+            start_date: scheduleDraft.timing?.start ?? nil,
+            duration: scheduleDraft.timing?.duration ?? nil
+        )
+
+        onSave(updatedTask)
+        dismiss()
     }
     
 }
