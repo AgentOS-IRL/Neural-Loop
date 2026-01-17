@@ -4,21 +4,21 @@ struct ProgressHistoryView: View {
     let habitId: Int64
     let label: String
 
-    @State private var entries: [HabitTracking] = []
     @State private var error: String?
+    @EnvironmentObject var model: UnifiedDataModel
 
     var body: some View {
         List {
             Section {
                 Button(role: .destructive) {
-                    Task { await deleteAll() }
+                    Task { await model.deleteAllHabitEntires(habitId:habitId) }
                 } label: {
                     Text("Delete all progress")
                 }
             }
 
             Section {
-                ForEach(entries) { entry in
+                ForEach(model.habitTrackingEntriesMap[habitId]! , id: \.id) { entry in
                     HStack {
                         Text(entry.entry_date, style: .date)
 
@@ -28,7 +28,7 @@ struct ProgressHistoryView: View {
                             .foregroundColor(.secondary)
                         
                         Button(role: .destructive) {
-                            Task { await deleteEntry(entry) }
+                            Task { await model.deleteHabitEntry(entry) }
                         } label: {
                             Image(systemName: "trash")
                         }
@@ -38,37 +38,8 @@ struct ProgressHistoryView: View {
             }
         }
         .navigationTitle("Progress history")
-        .onAppear {
-            Task { await load() }
-        }
+        
     }
 
-    private func load() async {
-        do {
-            let manager = DBManager.newInstance()
-            entries = try await manager.fetchHabitEntries(forTask: habitId)
-        } catch {
-            self.error = error.localizedDescription
-        }
-    }
     
-    private func deleteEntry(_ entry: HabitTracking) async {
-        do {
-            let manager = DBManager.newInstance()
-            try await manager.deleteHabitEntry(id: entry.id!)
-            entries.removeAll { $0.id == entry.id }
-        } catch {
-            self.error = error.localizedDescription
-        }
-    }
-
-    private func deleteAll() async {
-        do {
-            let manager = DBManager.newInstance()
-            try await manager.deleteHabitEntries(forTask: habitId)
-            entries.removeAll()
-        } catch {
-            self.error = error.localizedDescription
-        }
-    }
 }

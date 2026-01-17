@@ -46,42 +46,6 @@ enum ViewMode {
 }
 
 
-
-func deleteTask(task: Tasks) async {
-    guard let id = task.id else { return }
-    do {
-        let manager = DBManager.newInstance()
-        try await manager.deleteTask(id: id)
-        
-    } catch {
-        print("Error deleting task", error)
-        
-    }
-}
-
-func saveTask(_ task: Tasks) async -> Tasks?{
-    do {
-        let manager = DBManager.newInstance()
-        return try await manager.addTask(task)
-    }
-    catch {
-        print("Error saving task", error)
-    }
-    return nil
-}
-
-func updateTask(task: Tasks, modified_task: Tasks) async {
-    do {
-        let manager = DBManager.newInstance()
-        if task != modified_task {
-            try await manager.updateTask(modified_task)
-        }
-    }
-    catch {
-        print("Error updating task", error)
-    }
-}
-
 func rebuildDateBuckets(tasks: [Tasks]) -> [DateBucket] {
     let calendar = Calendar.current
     

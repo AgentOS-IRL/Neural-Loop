@@ -12,6 +12,7 @@ struct AddGoalProgressView: View {
     let onSaved: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var model: UnifiedDataModel
 
 //    @State private var mode: Mode = .add
     @State private var latestTotal: Int = 0
@@ -106,11 +107,8 @@ struct AddGoalProgressView: View {
         guard let trackingId = goalTracking.id else { return }
 
         do {
-            let manager = DBManager.newInstance()
-            let allRecords = try await manager.fetchGoalsTrackingRecords(
-                forTracking: trackingId,
-                type: goalTracking.type
-            )
+            
+            let allRecords =  await model.fetchGoalsTrackingRecords(forTracking: trackingId, type: goalTracking.type)
 
             let calendar = Calendar.current
             recordsForDate = allRecords.filter {
@@ -130,26 +128,23 @@ struct AddGoalProgressView: View {
     }
 
     private func save() async {
-        do {
-            guard let trackingId = goalTracking.id else { return }
-
-            let manager = DBManager.newInstance()
-
-            let record = GoalsTrackingRecord(
-                id: nil,
-                goals_tracking_id: trackingId,
-                type: goalTracking.type,
-                value: Double(inputValue),
-                label: unitLabel,
-                created_at: selectedDate
-            )
-
-            try await manager.createGoalsTrackingRecord(record)
-
-            onSaved()
-            dismiss()
-        } catch {
-            self.error = error.localizedDescription
-        }
+        
+        guard let trackingId = goalTracking.id else { return }
+        
+        
+        let record = GoalsTrackingRecord(
+            id: nil,
+            goals_tracking_id: trackingId,
+            type: goalTracking.type,
+            value: Double(inputValue),
+            label: unitLabel,
+            created_at: selectedDate
+        )
+        await model.createGoalsTrackingRecord(record:record)
+        
+        
+        onSaved()
+        dismiss()
+        
     }
 }

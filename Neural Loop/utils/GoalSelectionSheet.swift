@@ -14,6 +14,7 @@ enum GoalSelectionResult {
 struct GoalSelectionSheet: View {
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var model: UnifiedDataModel
 
     /// Returns selected goal or life area (nil if cancelled)
     let onSelect: (GoalSelectionResult?) -> Void
@@ -25,41 +26,34 @@ struct GoalSelectionSheet: View {
 
     @State private var selectedTab: DetailTab = .goals
 
-    @State private var goals: [Int64: Goals] = [:]
-    @State private var lifeAreas: [Int64: LifeAreas] = [:]
-    @State private var isLoading = true
 
     @State private var selectedGoalId: Int64?
     @State private var selectedLifeAreaId: Int64?
 
     var body: some View {
         NavigationStack {
-            Group {
-                if isLoading {
-                    ProgressView()
-                } else {
-                    VStack(spacing: 0) {
-
-                        Picker("View", selection: $selectedTab) {
-                            ForEach(DetailTab.allCases, id: \.self) { tab in
-                                Text(tab.rawValue).tag(tab)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .padding()
-                        .onChange(of: selectedTab) { _ in
-                            clearSelection()
-                        }
-
-                        Divider()
-
-                        if selectedTab == .goals {
-                            goalsView()
-                        } else {
-                            lifeAreaView()
-                        }
+            Group {VStack(spacing: 0) {
+                
+                Picker("View", selection: $selectedTab) {
+                    ForEach(DetailTab.allCases, id: \.self) { tab in
+                        Text(tab.rawValue).tag(tab)
                     }
                 }
+                .pickerStyle(.segmented)
+                .padding()
+                .onChange(of: selectedTab) { _ in
+                    clearSelection()
+                }
+                
+                Divider()
+                
+                if selectedTab == .goals {
+                    goalsView()
+                } else {
+                    lifeAreaView()
+                }
+            }
+                
             }
             .navigationTitle("Select")
             .toolbar {
@@ -75,18 +69,13 @@ struct GoalSelectionSheet: View {
                         .disabled(!hasSelection)
                 }
             }
-            .task {
-                await loadGoals()
-                await loadLifeAreas()
-                isLoading = false
-            }
         }
     }
 
     // MARK: - Views
 
     private func goalsView() -> some View {
-        List(Array(goals.values), id: \.id) { goal in
+        List(Array(model.goals), id: \.id) { goal in
             selectableRow(
                 title: goal.title,
                 isSelected: selectedGoalId == goal.id
@@ -97,7 +86,7 @@ struct GoalSelectionSheet: View {
     }
 
     private func lifeAreaView() -> some View {
-        List(Array(lifeAreas.values), id: \.id) { lifeArea in
+        List(Array(model.lifeAreas), id: \.id) { lifeArea in
             selectableRow(
                 title: lifeArea.name,
                 isSelected: selectedLifeAreaId == lifeArea.id
@@ -139,39 +128,17 @@ struct GoalSelectionSheet: View {
         switch selectedTab {
         case .goals:
             if let id = selectedGoalId,
-               let goal = goals[id] {
+               let goal = model.goals.first(where: { $0.id == id }) {
                 onSelect(.goal(id: id, title: goal.title))
             }
         case .lifeArea:
             if let id = selectedLifeAreaId,
-               let area = lifeAreas[id] {
+               let area = model.lifeAreas.first(where: { $0.id == id }) {
                 onSelect(.lifeArea(id: id, name: area.name))
             }
         }
         dismiss()
     }
 
-    // MARK: - Data
 
-    private func loadGoals() async {
-        do {
-            let db = DBManager.newInstance()
-            goals = try await db.fetchAllGoals()
-                .reduce(into: [:]) { $0[$1.id!] = $1 }
-        } catch {
-            print("❌ fetchAllGoals failed:", error)
-            goals = [:]
-        }
-    }
-
-    private func loadLifeAreas() async {
-        do {
-            let db = DBManager.newInstance()
-            lifeAreas = try await db.fetchAllLifeAreas()
-                .reduce(into: [:]) { $0[$1.id!] = $1 }
-        } catch {
-            print("❌ fetchAllLifeAreas failed:", error)
-            lifeAreas = [:]
-        }
-    }
 }

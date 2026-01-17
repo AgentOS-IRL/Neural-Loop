@@ -13,6 +13,7 @@ struct SetGoalTracking: View {
 
     let goalId: Int64
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var model: UnifiedDataModel
 
     @State private var selectedType: GoalTrackingType?
     @State private var value: String = ""
@@ -144,29 +145,20 @@ struct SetGoalTracking: View {
     ) async {
         isSaving = true
         errorMessage = nil
-
-        do {
-            let db = DBManager.newInstance()
-
-            // Ensure 1-to-1 by deleting existing tracking first
-            try await db.deleteGoalsTracking(forGoal: goalId)
-
-            let tracking = GoalsTracking(
-                id: nil,
-                goal_id: goalId,
-                type: type,
-                value: value,
-                target: target,
-                label: label,
-                created_at: nil,
-                updated_at: nil
-            )
-
-            try await db.createGoalsTracking(tracking)
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+            
+        await model.deleteGoalsTracking(forGoal: goalId)
+        let tracking = GoalsTracking(
+            id: nil,
+            goal_id: goalId,
+            type: type,
+            value: value,
+            target: target,
+            label: label,
+            created_at: nil,
+            updated_at: nil
+        )
+        await model.createGoalsTracking(tracking)
+        dismiss()
 
         isSaving = false
     }

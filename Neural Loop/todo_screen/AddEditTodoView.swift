@@ -13,6 +13,7 @@ struct AddEditTodoView: View {
     let onSave: (Tasks) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var model: UnifiedDataModel
 
     @State private var title: String
     @State private var description: String
@@ -309,9 +310,9 @@ struct AddEditTodoView: View {
                     }
             }
         }.task {
-            GoalOrLifeAreadName = await getGoalName(goal_id: goalId)
+            GoalOrLifeAreadName = await model.getGoalName(goal_id: goalId)
             if GoalOrLifeAreadName == nil {
-                GoalOrLifeAreadName = await getLiftAreaName(lifeArea_id: lifeAreaId)
+                GoalOrLifeAreadName = await model.getLifeAreaName(lifeArea_id: lifeAreaId)
             }
         }
     }

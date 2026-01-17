@@ -326,6 +326,8 @@ private extension Calendar {
 struct CalendarDayView: View {
     @State private var date: Date = .now
     @State private var tasks: [Tasks] = []
+    
+    @EnvironmentObject var model: UnifiedDataModel
 
     var body: some View {
         NavigationStack {
@@ -355,8 +357,7 @@ struct CalendarDayView: View {
         .background(Color.black)
         .onAppear {
             Task {
-                let dbmanager = DBManager.newInstance()
-                tasks = try await dbmanager.fetchAllTasksByDate(date: date)
+                tasks = await model.getTasks(date: date)
             }
         }
     }

@@ -27,6 +27,8 @@ struct AddEditGoal: View {
     @State private var icon: String
     
     @State private var fixedLifeAreaName: String? = nil
+    
+    @EnvironmentObject var model: UnifiedDataModel
 
     init(
         lifeAreas: [LifeAreas],
@@ -219,11 +221,10 @@ struct AddEditGoal: View {
                 is_completed: existingGoal?.is_completed ?? false
             )
 
-            let dbManager = DBManager.newInstance()
             if existingGoal == nil {
-                try await dbManager.addGoal(goalToPersist)
+                await model.saveGoal(goalToPersist)
             } else {
-                try await dbManager.updateGoal(goalToPersist)
+                await model.updateGoal(goalToPersist)
             }
 
             onSaved()

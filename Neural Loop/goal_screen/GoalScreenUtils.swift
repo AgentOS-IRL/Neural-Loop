@@ -27,63 +27,6 @@ func progressMiniBar(percentage: Double) -> some View {
 }
 
 
-
-func getGoalProgressBar(goalId: Int64, goalTracking: GoalsTracking?, goalTasks: [Tasks]?) -> some View {
-    let tracking: GoalsTracking =
-    goalTracking
-        ?? GoalsTracking(
-            id: nil,
-            goal_id: goalId,
-            type: .custom,
-            value: nil,
-            target: nil,
-            label: nil,
-            created_at: nil,
-            updated_at: nil
-        )
-
-    if tracking.type == .custom {
-        return progressMiniBar(
-            percentage: Double(tracking.value ?? 0)
-                / Double(tracking.target ?? 1)
-        )
-    }
-
-    if tracking.type == .task {
-        let tasks: [Tasks] = goalTasks ?? []
-        let totalCount = tasks.count
-        let completedCount = tasks.filter { $0.is_completed }.count
-
-        let percentage: Double =
-            totalCount == 0
-            ? 0
-            : Double(completedCount) / Double(totalCount)
-        return progressMiniBar(percentage: percentage)
-
-    }
-
-    if tracking.type == .sub_goal {
-
-        let db_manager = DBManager.newInstance()
-        Task {
-            let subGoals = try await db_manager.fecthGoalsForParentId(
-                forParentId: goalId
-            )
-
-            let totalCount = subGoals.count
-            let completedCount = subGoals.filter { $0.is_completed }.count
-
-            let percentage: Double =
-                totalCount == 0
-                ? 0
-                : Double(completedCount) / Double(totalCount)
-            return progressMiniBar(percentage: percentage)
-        }
-    }
-
-    return progressMiniBar(percentage: 0)
-}
-
 func topButton(
     title: String,
     isSelected: Bool,

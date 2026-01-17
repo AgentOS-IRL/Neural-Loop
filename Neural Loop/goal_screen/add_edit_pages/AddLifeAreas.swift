@@ -16,6 +16,7 @@ struct AddLifeAreas: View {
     @State private var color: String = "#4F46E5" // default indigo
     @State private var icon: String = "heart"
     @State private var showIconPicker: Bool = false
+    @EnvironmentObject var model: UnifiedDataModel
 
     private let colorOptions: [(name: String, hex: String)] = [
         ("Indigo", "#4F46E5"),
@@ -122,21 +123,17 @@ struct AddLifeAreas: View {
     // MARK: - Actions
 
     private func save() async {
-        do {
-            let manager = DBManager.newInstance()
-            let area = LifeAreas(
-                id: nil,
-                name: name,
-                vision: vision.isEmpty ? nil : vision,
-                is_sample: false,
-                color: color,
-                icon: icon
-            )
-            try await manager.addLifeArea(area)
-            onSaved()
-            dismiss()
-        } catch {
-            print("Failed to save life area:", error)
-        }
+        let area = LifeAreas(
+            id: nil,
+            name: name,
+            vision: vision.isEmpty ? nil : vision,
+            is_sample: false,
+            color: color,
+            icon: icon
+        )
+        await model.saveLifeArea(area)
+        onSaved()
+        dismiss()
+        
     }
 }

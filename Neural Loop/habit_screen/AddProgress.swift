@@ -70,8 +70,8 @@ struct AddProgressView: View {
     let onSaved: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var model: UnifiedDataModel
 
-//    @State private var mode: Mode = .add
     @State private var latestTotal: Int = 0
     @State private var inputValue: Int = 0
     @State private var error: String?
@@ -82,21 +82,10 @@ struct AddProgressView: View {
     
     @State private var habitWindow = HabitWindow(start: Calendar.current.startOfDay(for: .now), end: Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: .now))!, label: "Times")
 
-//    enum Mode: String, CaseIterable {
-//        case add = "Add to total"
-//        case set = "Enter new total"
-//    }
 
     var body: some View {
         NavigationView {
             VStack(spacing: 24) {
-//                Text("Add to total")
-//                Picker("", selection: $mode) {
-//                    ForEach(Mode.allCases, id: \.self) { mode in
-//                        Text(mode.rawValue)
-//                    }
-//                }
-//                .pickerStyle(.segmented)
                 
                 DatePicker(
                     "Date",
@@ -106,7 +95,6 @@ struct AddProgressView: View {
                 .datePickerStyle(.compact)
                 .onChange(of: selectedDate) {
                     Task {
-                        await fetchProgess()
                         await loadLatestTotal()
                     }
                 }
@@ -155,7 +143,6 @@ struct AddProgressView: View {
             .onAppear {
                 Task {
                     
-                    await fetchProgess()
                     await loadLatestTotal()
                 }
             }
@@ -165,53 +152,26 @@ struct AddProgressView: View {
         }
     }
     
-    private func fetchProgess() async -> Void {
-        print("fetchProgess")
-        habitWindow = HabitWindow.window(for: habit, reference: selectedDate)
-        
-    }
 
     private var displayValue: String {
         return "\(inputValue)"
-//        switch mode {
-//        case .add:
-//            return "\(latestTotal) + \(inputValue)"
-//        case .set:
-//            return "\(inputValue)"
-//        }
     }
 
     private func loadLatestTotal() async {
-        do {
-            
-            let manager = DBManager.newInstance()
-            let entries = try await manager.fetchHabitEntries(forTask: habit.id!, from: habitWindow.start, to: habitWindow.end)
-            var total = 0
-            entries.forEach { total += Int($0.value) }
-            latestTotal = total
-            inputValue = 0
-        } catch {
-            self.error = error.localizedDescription
-        }
+        habitWindow = HabitWindow.window(for: habit, reference: selectedDate)
+        let entries = await model.fetchHabitTrackingEntries(by: habit.id!, window: habitWindow)
+        var total = 0
+        entries.forEach { total += Int($0.value) }
+        latestTotal = total
+        inputValue = 0
+    
     }
 
     private func save() async {
-        do {
-            let manager = DBManager.newInstance()
-//            let newValue = mode == .add
-//                ? latestTotal + inputValue
-//                : inputValue
-            
-            _ = try await manager.addHabitEntry(
-                habitId: habit.id!,
-                value: inputValue,
-                date: selectedDate
-            )
-
-            onSaved()
-            dismiss()
-        } catch {
-            self.error = error.localizedDescription
-        }
+    
+        await model.incrementHabit(habit, value: inputValue, date: selectedDate)
+        onSaved()
+        dismiss()
+        
     }
 }

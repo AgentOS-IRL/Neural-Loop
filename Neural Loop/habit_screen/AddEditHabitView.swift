@@ -14,6 +14,7 @@ struct AddEditHabitView: View {
     let onSave: (Habits) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var model: UnifiedDataModel
 
     // MARK: - Editable State
     @State private var title: String
@@ -170,7 +171,7 @@ struct AddEditHabitView: View {
                         }
                 }
             }.task {
-                GoalOrLifeAreadName = await getGoalName(goal_id: habit?.goal_id) ?? "Select Goal or Life Area"
+                GoalOrLifeAreadName = await model.getGoalName(goal_id: habit?.goal_id) ?? "Select Goal or Life Area"
                 
             }
         }
