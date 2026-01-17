@@ -61,7 +61,6 @@ struct HabitView: View {
                 }
                 .padding()
             }
-//            .navigationTitle("Habits")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Text("Habits")

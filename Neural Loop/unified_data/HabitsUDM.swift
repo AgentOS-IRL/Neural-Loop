@@ -14,6 +14,15 @@ import Combine
 
 extension  UnifiedDataModel {
     
+    func getHabit(by goalId: Int64) -> [Habits] {
+        return habits.filter { $0.goal_id == goalId }
+    }
+
+    func getHabits(by lifeAreaId: Int64) -> [Habits] {
+        return habits.filter { $0.lifearea_id == lifeAreaId }
+    }
+    
+    
     func fetchHabitTrackingEntries(by habitId: Int64, window: HabitWindow) async -> [HabitTracking]{
         do {
             return try await manager.fetchHabitEntries(

@@ -206,41 +206,6 @@ final class UnifiedDataModel: ObservableObject {
         }
     }
 
-    // MARK: - Goal Functions
-    func getGoal(by goalId: Int64) -> Goals? {
-        return goals.first { $0.id == goalId }
-    }
-    
-    func getGoals(lifeAreaId: Int64) -> [Goals] {
-        return goals.filter { $0.lifearea_id == lifeAreaId }
-    }
-
-    func getHabit(by goalId: Int64) -> [Habits] {
-        return habits.filter { $0.goal_id == goalId }
-    }
-
-    func getHabits(by lifeAreaId: Int64) -> [Habits] {
-        return habits.filter { $0.lifearea_id == lifeAreaId }
-    }
-    
-    func getTask(by id: Int64) -> Tasks? {
-        if let index = tasks.firstIndex(where: { $0.id == id }) {
-            return tasks[index]
-        }
-        return nil
-    }
-    
-    func getTasks(lifeAreaId: Int64) -> [Tasks] {
-        return tasks.filter { $0.lifearea_id == lifeAreaId }
-    }
-    
-    func getTasks(goalId: Int64) -> [Tasks] {
-        return tasks.filter { $0.goal_id == goalId }
-    }
-    
-    func getGoalTracking(goalId:Int64) -> GoalsTracking? {
-        return goalTracking.first(where: { $0.goal_id == goalId }) ?? nil 
-    }
     
     func updateHabitEntries(for habit: Habits) async {
         
@@ -273,6 +238,5 @@ final class UnifiedDataModel: ObservableObject {
             windowLabel: window.label
         )
     }
-    
     
 }
