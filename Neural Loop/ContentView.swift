@@ -13,7 +13,7 @@ let logger = Logger(subsystem: "NeuralLoop", category: "App")
 
 
 struct ContentView: View {
-    @State private var selectedTab: AppTab = .habits
+    @State private var selectedTab: AppTab = .todo
 
     var body: some View {
         ZStack {
