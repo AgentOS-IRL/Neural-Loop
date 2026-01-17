@@ -13,7 +13,6 @@ func nextOccurrence(
     of rule: Calendar.RecurrenceRule,
     after now: Date = .now
 ) -> Date? {
-    print("In nextOccurrence, Interval: \(rule.interval)")
 
     for date in rule.recurrences(of: now) {
         if date > now {
@@ -75,7 +74,6 @@ func rebuildDateBuckets(tasks: [Tasks]) -> [DateBucket] {
         .foregroundColor(.primary)), start: .distantPast, end: .distantFuture, type: .completed)
 
     for task in tasks {
-        print(task.title)
         if task.start_date == nil {
             inbox_bucket.ids.append(task.id!)
         }
@@ -95,7 +93,6 @@ func rebuildDateBuckets(tasks: [Tasks]) -> [DateBucket] {
 
         }
         else {
-            print("attachTaskToBuckets")
             _dateBuckets = attachTaskToBuckets(task: task, buckets: _dateBuckets)
         }
     }

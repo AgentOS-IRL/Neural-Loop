@@ -24,14 +24,14 @@ extension DBManager {
     private var lifeAreasTableName: String { "life_areas" }
 
     // MARK: - Create
-    func addLifeArea(_ area: LifeAreas) async throws {
+    func addLifeArea(_ area: LifeAreas) async throws -> LifeAreas{
         let inserted: [LifeAreas] = try await customsupabase
             .from(self.lifeAreasTableName)
             .insert(area)
             .select()
             .execute()
             .value
-        if let id = inserted.first?.id { print("Inserted LifeArea with id:", id) }
+        return inserted.first!
     }
 
     // MARK: - Read

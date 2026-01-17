@@ -51,10 +51,9 @@ extension  UnifiedDataModel {
         do {
             
             let newHabit = try await manager.addHabit(habit)
-            let index = self.habits.firstIndex(where: { $0.id == habit.id! })!
-            habits[index] = newHabit
+            habits.append(newHabit)
         } catch {
-            print("Error saving new habit", error)
+            print("Error saving new habit", error, habit)
         }
     }
 

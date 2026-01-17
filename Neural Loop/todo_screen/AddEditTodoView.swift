@@ -43,7 +43,6 @@ struct AddEditTodoView: View {
         
         if task == nil {
             _draftSchedule.timing = initialTiming
-//            print("_draftSchedule.timing",_draftSchedule.timing )
         }
         else{
             if let start = task?.start_date, let duration = task?.duration {
@@ -62,7 +61,6 @@ struct AddEditTodoView: View {
             do {
                 if rule == nil { return nil }
                 let rrule =  try parser.parse(rule!)
-                print("rrule: \(rrule)")
                 return rrule
             } catch {
                 print("Failed to parse rule")
@@ -269,7 +267,6 @@ struct AddEditTodoView: View {
         .sheet(isPresented: $showScheduleSheet) {
             TaskScheduleSheet(initialTiming: TaskTiming(start: scheduleDraft.timing?.start ?? .now, duration: scheduleDraft.timing?.duration ?? 900),
                               initialRule:scheduleDraft.recurrence) { draft in
-                print("draft \(draft)")
                 scheduleDraft = draft
                 
             }
@@ -283,14 +280,12 @@ struct AddEditTodoView: View {
         }.sheet(isPresented: $showAreaGoalSheet) {
             GoalSelectionSheet { result in
                 guard let result else {
-                        print("User cancelled")
                         return
                     }
 
                     switch result {
 
                     case .goal(let id, let title):
-                        print("Selected Goal:", id, title)
                         GoalOrLifeAreadName = "Goal: \(title)"
                         goalId = id
                         lifeAreaId = nil
@@ -299,7 +294,6 @@ struct AddEditTodoView: View {
                         // viewModel.attachGoal(id)
 
                     case .lifeArea(let id, let name):
-                        print("Selected Life Area:", id, name)
                         GoalOrLifeAreadName = "Life Area: \(name)"
                         
                         goalId = nil

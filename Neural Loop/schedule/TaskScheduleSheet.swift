@@ -84,7 +84,7 @@ struct TaskScheduleSheet: View {
         self.onSave = onSave
         _timing = State(initialValue: initialTiming)
         _recurrenceRule = State(initialValue: initialRule)
-        print("initialRule: \(initialRule)")
+
     }
 
     var body: some View {

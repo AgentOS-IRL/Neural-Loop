@@ -41,8 +41,8 @@ extension  UnifiedDataModel {
     
     func saveTask(_ task: Tasks) async {
         do {
-            let _ = try await manager.addTask(task)
-            tasks.append(task)
+            let newTask = try await manager.addTask(task)
+            tasks.append(newTask)
         }
         catch {
             print("Error saving task", error)
@@ -146,7 +146,6 @@ extension  UnifiedDataModel {
 
             }
             else {
-                print("attachTaskToBuckets")
                 _dateBuckets = attachTaskToBuckets(task: task, buckets: _dateBuckets)
             }
         }
