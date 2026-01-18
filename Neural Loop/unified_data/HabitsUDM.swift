@@ -14,11 +14,11 @@ import Combine
 
 extension  UnifiedDataModel {
     
-    func getHabit(by goalId: Int64) -> [Habits] {
+    func getHabits(goalId: Int64) -> [Habits] {
         return habits.filter { $0.goal_id == goalId }
     }
 
-    func getHabits(by lifeAreaId: Int64) -> [Habits] {
+    func getHabits(lifeAreaId: Int64) -> [Habits] {
         return habits.filter { $0.lifearea_id == lifeAreaId }
     }
     
@@ -70,7 +70,8 @@ extension  UnifiedDataModel {
         do {
             try await manager.updateHabit(habit)
             let index = self.habits.firstIndex(where: { $0.id == habit.id! })!
-            habits[index] = habit
+            habits.remove(at: index)
+            habits.append(habit)
         } catch {
             print("Error updating habit", error)
         }

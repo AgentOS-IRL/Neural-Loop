@@ -107,7 +107,8 @@ extension  UnifiedDataModel {
             if task != modified_task {
                 try await manager.updateTask(modified_task)
                 if let index = tasks.firstIndex(where: { $0.id == task.id }) {
-                    tasks[index] = modified_task
+                    tasks.remove(at: index)
+                    tasks.append(modified_task)
                 }
             }
         }
