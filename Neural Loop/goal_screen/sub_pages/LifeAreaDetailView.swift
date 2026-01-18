@@ -177,7 +177,8 @@ struct LifeAreaDetailView: View {
                                 GoalDetailView(
                                     lifeAreaName: area.name,
                                     goal: goal,
-                                    tasks: tasks.filter({$0.goal_id == goal.id})
+                                    tasks: tasks.filter({$0.goal_id == goal.id}),
+                                    habits: model.getHabits(goalId: goal.id!)
                                 )
                             } label: {
                                 goalRow(goal)
@@ -242,7 +243,8 @@ struct LifeAreaDetailView: View {
                         GoalDetailView(
                             lifeAreaName: area.name,
                             goal: goal,
-                            tasks: tasks.filter({$0.goal_id == goal.id})
+                            tasks: tasks.filter({$0.goal_id == goal.id}),
+                            habits: model.getHabits(goalId: goal.id!)
                         )
                     } label: {
                         goalRow(goal)

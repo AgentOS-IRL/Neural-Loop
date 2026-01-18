@@ -26,7 +26,7 @@ struct HabitView: View {
                 VStack(spacing: 16) {
                     ForEach(model.habits , id: \.id) { habit in
                         if let id = habit.id,
-                           let progress = model.habitProgressMap[id]{
+                           let progress = model.currentHabitProgressMap[id]{
                             HabitCardView(
                                 habit: habit,
                                 progress: progress,
@@ -104,11 +104,51 @@ struct HabitView: View {
     }
 }
 
+// Example input
+let data: [Int: Float] = [
+    -3: 0.4,
+    -2: 0.0,
+    -1: 0.0,
+     0: 0.0,
+     1: 0.0,
+     2: 0.6,
+     3: 0.0
+]
 
+
+// MARK: - Single bar
+
+private struct Bar: View {
+    let fill: CGFloat
+
+    private var clampedFill: CGFloat {
+        min(max(fill, 0), 1)
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .bottom) {
+                Capsule()
+                    .fill(.gray.opacity(0.25))
+
+                Capsule()
+                    .fill(.primary)
+                    .frame(height: geo.size.height * clampedFill)
+                    .animation(.easeOut(duration: 0.25), value: clampedFill)
+            }
+        }
+        .accessibilityElement()
+        .accessibilityLabel("Day bar")
+        .accessibilityValue("\(Int(clampedFill * 100)) percent")
+    }
+}
 
 // MARK: - UI
 
 struct HabitCardView: View {
+    @EnvironmentObject var model: UnifiedDataModel
+    
+    
     let habit: Habits
     let progress: HabitProgress
     let onIncrement: () -> Void
@@ -118,9 +158,13 @@ struct HabitCardView: View {
             HStack {
                 Text(habit.title)
                     .font(.headline)
-
+                statusLabel
                 Spacer()
-
+                
+                Text("\(progress.current) / \(progress.target) \(progress.targetLabel)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
                 Text(progress.windowLabel.uppercased())
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -130,24 +174,28 @@ struct HabitCardView: View {
                 .progressViewStyle(.linear)
 
             HStack {
-                Text("\(progress.current) / \(progress.target) \(progress.targetLabel)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
 
-                Spacer()
-
+//                Spacer()
+                if model.progressChartData[habit.id!] ?? nil != nil {
+                    ProgressChartView(habit: habit, values: model.progressChartData[habit.id!]!)
+                        .padding()
+                }
+                
                 Button(action: onIncrement) {
                     Text("+1")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Color.accentColor.opacity(0.15))
-                        .cornerRadius(8)
+                        .font(.callout.weight(.semibold))   // ⬆️ bigger text
+                        .foregroundStyle(Color.accentColor)
+                        .padding(.horizontal, 14)           // ⬆️ wider
+                        .padding(.vertical, 8)              // ⬆️ taller
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color.accentColor.opacity(0.12))
+                        )
                 }
                 .buttonStyle(.plain)
 
-                statusLabel
-            }
+                
+            }.frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding()
         .background(Color(.secondarySystemBackground))

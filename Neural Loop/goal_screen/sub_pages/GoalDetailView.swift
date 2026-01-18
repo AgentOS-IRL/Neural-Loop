@@ -36,6 +36,7 @@ struct GoalDetailView: View {
     let lifeAreaName: String
     let goal: Goals
     let tasks: [Tasks]
+    let habits: [Habits]
     @State private var tasksMapping: [Int64: Tasks] = [:]
     
     @State private var goalTracking: GoalsTracking = GoalsTracking.empty
@@ -65,7 +66,7 @@ struct GoalDetailView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack(alignment: .center, spacing: 16) {
                         iconTitle(icon: goal.icon, name: goal.title, size: 22, subText: goalDateText)
-
+                        
                         Spacer()
                     }
                 }
@@ -78,7 +79,6 @@ struct GoalDetailView: View {
                 .padding(.horizontal)
                 
                 // Sub Goals Section
-                // Todo Section
                 VStack(alignment: .leading, spacing: 16) {
                     
                     ProgressCard()
@@ -103,11 +103,11 @@ struct GoalDetailView: View {
                             AddEditGoal(lifeAreas: [], goal: nil, deadline: nil, parent_goal_id: goal.id!, fixed_lifearea: goal.lifearea_id, fixed_lifearea_name: lifeAreaName) {}
                         } label: {
                             Image(systemName: "plus")
-                                        .font(.system(size: 18, weight: .bold))
-                                        .padding(8)
+                                .font(.system(size: 18, weight: .bold))
+                                .padding(8)
                         }
                     }
-                
+                    
                     
                     VStack(spacing: 12) {
                         if subGoals.count == 0 {
@@ -121,7 +121,7 @@ struct GoalDetailView: View {
                     }
                     .padding(.horizontal)
                 }
-
+                
                 // Todo Section
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
@@ -149,11 +149,11 @@ struct GoalDetailView: View {
                             }
                         } label: {
                             Image(systemName: "plus")
-                                        .font(.system(size: 18, weight: .bold))
-                                        .padding(8)
+                                .font(.system(size: 18, weight: .bold))
+                                .padding(8)
                         }
                     }
-
+                    
                     VStack(spacing: 12) {
                         if tasks.isEmpty {
                             // Empty State Card
@@ -199,25 +199,111 @@ struct GoalDetailView: View {
                         }
                     }
                     .padding(.horizontal)
+                    
+                    
+                    // Habits Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            NavigationLink {
+                                habitsView()
+                            } label: {
+                                HStack {
+                                    Text("Habits")
+                                        .font(.headline)
+                                        .padding(.horizontal)
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12, weight: .heavy))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            
+                            Spacer()
+                            
+                            NavigationLink {
+                                // Replace with AddEditHabitView when available
+                                Text("Add Habit")
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .padding(8)
+                            }
+                        }
+                        
+                        VStack(spacing: 12) {
+                            if habits.isEmpty {
+                                // Empty state scaffold
+                                VStack(spacing: 16) {
+                                    Image(systemName: "repeat")
+                                        .font(.system(size: 32))
+                                        .foregroundColor(.secondary)
+                                    
+                                    Text("Create habits")
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+                                    
+                                    Text("Build habits to make progress on this goal consistently.")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                        .multilineTextAlignment(.center)
+                                    
+                                    NavigationLink {
+                                        Text("Add Habit")
+                                    } label: {
+                                        Text("Create habit")
+                                            .font(.headline)
+                                            .padding(.horizontal, 24)
+                                            .padding(.vertical, 10)
+                                            .background(Color.secondary.opacity(0.15))
+                                            .foregroundColor(.primary)
+                                            .clipShape(Capsule())
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color(.secondarySystemBackground))
+                                .clipShape(RoundedRectangle(cornerRadius: 20))
+                                .padding(.horizontal)
+                            }
+                            else{
+                                
+                                ForEach(habits) { habit in
+                                    //                                    EmptyView()
+                                    if let progress = model.currentHabitProgressMap[habit.id!]{
+                                        HabitCardView(
+                                            habit: habit,
+                                            progress: progress,
+                                            onIncrement: {
+                                                Task {
+                                                    await model.incrementHabit(habit, value:1)
+                                                }
+                                            }
+                                        )
+                                    }
+                                    
+                                }
+                            }
+                        }
+                        
+                    }
                 }
-            }
-            .padding(.top)
-        }.onAppear()
-        {
-            Task{
-                await fetchSubGoals()
-                setTasksDateBuckets()
-                setGoalsDateBuclets()
-                await setGoalTrackingRecords()
-            }
-            for task in tasks {
-                tasksMapping[task.id!] = task
-            }
-            Task {
-                print("Fetching goal tracking")
+                .padding(.top)
+            }.onAppear()
+            {
+                Task{
+                    await fetchSubGoals()
+                    setTasksDateBuckets()
+                    setGoalsDateBuclets()
+                    await setGoalTrackingRecords()
+                }
+                for task in tasks {
+                    tasksMapping[task.id!] = task
+                }
+                Task {
+                    print("Fetching goal tracking")
+                    
+                }
                 
             }
-            
         }
     }
     private func setCustomGoalTrackingRecords(goalTracking: GoalsTracking) async {
@@ -837,4 +923,25 @@ struct GoalDetailView: View {
             .map { ProgressPoint(date: $0.key, value: $0.value) }
     }
 
+}
+
+// Habits list view builder
+@ViewBuilder
+private func habitsView() -> some View {
+    ScrollView {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Habits")
+                .font(.title2)
+                .fontWeight(.bold)
+                .padding(.horizontal)
+
+            // Placeholder list – wire to real habits later
+            VStack(spacing: 12) {
+                Text("Habit list goes here")
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal)
+        }
+        .padding(.top)
+    }
 }

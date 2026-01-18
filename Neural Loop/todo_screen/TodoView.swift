@@ -349,7 +349,7 @@ struct TodoView: View {
                 .foregroundColor(.secondary)
                 .frame(width: 24)
             
-            HStack(spacing: 2) {
+            HStack(spacing: 3) {
                 Text(title)
                     .font(.headline)
                     .foregroundColor(.primary)

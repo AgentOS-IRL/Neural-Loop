@@ -225,7 +225,8 @@ struct GoalScreenView: View {
                                 GoalDetailView(
                                     lifeAreaName: lifeArea.name,
                                     goal: goal,
-                                    tasks: model.getTasks(goalId: goal.id!)
+                                    tasks: model.getTasks(goalId: goal.id!),
+                                    habits: model.getHabits(goalId: goal.id!)
                                 )
                             } label: {
                                 goalRow(goal)

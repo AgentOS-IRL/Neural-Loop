@@ -85,7 +85,8 @@ final class UnifiedDataModel: ObservableObject {
         }
     }
     
-    @Published var habitProgressMap: [Int64: HabitProgress] = [:]
+    @Published var currentHabitProgressMap: [Int64: HabitProgress] = [:]
+    @Published var progressChartData: [Int64: [Int: Float]] = [:]
     
     @Published var habitTrackingEntriesMap: [Int64: [HabitTracking]] = [:]{
         didSet {
@@ -94,19 +95,22 @@ final class UnifiedDataModel: ObservableObject {
             
 
             for key in changes.removed {
-                habitProgressMap.removeValue(forKey: key)
+                currentHabitProgressMap.removeValue(forKey: key)
+                progressChartData.removeValue(forKey: key)
             }
             
             for key in changes.common {
                 if oldValue[key]!.count != habitTrackingEntriesMap[key]!.count {
-                    updateHabitProgress(for: habits.first(where: { $0.id == key })!, entries: habitTrackingEntriesMap[key]!)
-                    
+                    let habit = habits.first(where: { $0.id == key })!
+                    loadCurrentHabitProgress(for: habit, entries: habitTrackingEntriesMap[key]!)
+                    loadProgressChartData(for: habit, entries: habitTrackingEntriesMap[key]!)
                 }
             }
             
             for key in changes.added {
-                
-                updateHabitProgress(for: habits.first(where: { $0.id == key })!, entries: habitTrackingEntriesMap[key]!)
+                let habit = habits.first(where: { $0.id == key })!
+                loadCurrentHabitProgress(for: habit, entries: habitTrackingEntriesMap[key]!)
+                loadProgressChartData(for: habit, entries: habitTrackingEntriesMap[key]!)
             }
             
         }
@@ -210,10 +214,11 @@ final class UnifiedDataModel: ObservableObject {
     func updateHabitEntries(for habit: Habits) async {
         
         do{
+            let window = HabitWindow.longWindow(for: .now)
             let entries = try await manager.fetchHabitEntries(
                 forTask: habit.id!,
-//                from: window.start,
-//                to: window.end
+                from: window.start,
+                to: window.end
             )
             habitTrackingEntriesMap[habit.id!] = entries
         }
@@ -223,7 +228,7 @@ final class UnifiedDataModel: ObservableObject {
         
     }
     
-    func updateHabitProgress(for habit: Habits, entries: [HabitTracking], reference: Date = .now) {
+    func loadCurrentHabitProgress(for habit: Habits, entries: [HabitTracking], reference: Date = .now) {
         let window = HabitWindow.window(for: habit, reference: reference)
         
         let filteredEntries = entries.filter {
@@ -231,7 +236,7 @@ final class UnifiedDataModel: ObservableObject {
         }
         let total = filteredEntries.reduce(0) { $0 + $1.value }
 
-        habitProgressMap[habit.id!] = HabitProgress(
+        currentHabitProgressMap[habit.id!] = HabitProgress(
             current: total,
             target: Int(habit.target),
             targetLabel: habit.label ?? "Times",
@@ -239,4 +244,40 @@ final class UnifiedDataModel: ObservableObject {
         )
     }
     
+    func loadProgressChartData(for habit: Habits, entries: [HabitTracking], reference: Date = .now) {
+        progressChartData[habit.id!] =  loadDailyProgressChartData(for: habit, entries: entries)
+        
+    }
+    
+    private func loadDailyProgressChartData(for habit: Habits, entries: [HabitTracking])  -> [Int: Float] {
+        let calendar = Calendar.current
+        let window = HabitWindow.longWindow(for: .now)
+
+
+        let weekStart = calendar.startOfDay(for: window.start)
+
+        // Pre-fill all days
+        var result: [Int: Float] = Dictionary(
+            uniqueKeysWithValues: (0...6).map { ($0, 0) }
+        )
+
+        for entry in entries {
+            let entryDay = calendar.startOfDay(for: entry.entry_date)
+
+            let daysFromMonday = calendar.dateComponents(
+                [.day],
+                from: weekStart,
+                to: entryDay
+            ).day ?? 0
+
+            let key = daysFromMonday // <-- MONDAY = 0
+
+            guard (0...6).contains(key) else { continue }
+
+            result[key, default: 0] += Float(entry.value)
+        }
+
+        return result
+    }
+
 }
