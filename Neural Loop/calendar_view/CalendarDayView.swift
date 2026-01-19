@@ -367,4 +367,9 @@ private extension Date {
     var startOfDay: Date {
         Calendar.current.startOfDay(for: self)
     }
+    
+    func ISO8601FormatIfAvailable() -> String? {
+        // Always format to full ISO-8601 string
+        ISO8601DateFormatter().string(from: self)
+    }
 }

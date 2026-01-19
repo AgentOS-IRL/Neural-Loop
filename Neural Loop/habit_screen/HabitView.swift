@@ -78,6 +78,20 @@ struct HabitView: View {
                              showAddHabit = true
                         }
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Image(systemName: "arrow.clockwise.square")
+                        .foregroundColor(.secondary)
+                        .onTapGesture {
+                            Task {
+                                do {
+                                    try await model.manager.reloadHabitEntries(refresh: true)
+                                }
+                                catch {
+                                    print("Error Refreshing the Habit Entries")
+                                }
+                            }
+                        }
+                }
             }
             
             .sheet(isPresented: $showAddHabit) {
