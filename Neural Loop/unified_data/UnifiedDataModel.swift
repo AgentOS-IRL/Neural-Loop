@@ -127,7 +127,15 @@ final class UnifiedDataModel: ObservableObject {
     }
     
     private func initialize(manager: DBManager ) async {
-
+        
+        do{
+            try await manager.reloadHabitEntries()
+        }
+        catch {
+            print("Error Reloading Habit Entries", error)
+            fatalError("\(error)")
+        }
+        
         async let _goals = loadGoals(manager: manager)
         async let _tracking = loadGoalTracking(manager: manager)
         async let _habits = loadHabits(manager: manager)
@@ -217,9 +225,10 @@ final class UnifiedDataModel: ObservableObject {
             let window = HabitWindow.longWindow(for: .now)
             let entries = try await manager.fetchHabitEntries(
                 forTask: habit.id!,
-                from: window.start,
-                to: window.end
+//                from: window.start,
+//                to: window.end
             )
+            print("got entries for habit: \(habit.id!) \(entries.count)")
             habitTrackingEntriesMap[habit.id!] = entries
         }
         catch{

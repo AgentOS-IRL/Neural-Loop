@@ -14,10 +14,16 @@ struct HabitTracking: Codable, Identifiable {
     var habit_id: Int64
     var entry_date: Date
     var value: Int
+    
+    
+    static func fromLocal(_ record: HabitTrackingLocalRecord) -> Self {
+        .init(id: Int64(record.id), habit_id: Int64(record.habitID), entry_date: record.entryDate, value: Int(record.value))
+    }
 }
 
 extension DBManager {
     private var habitTrackingTableName: String { "habit_tracking" }
+    
 
     // MARK: - Create
     func addHabitEntry(_ entry: HabitTracking) async throws -> HabitTracking {
@@ -27,6 +33,7 @@ extension DBManager {
             .select()
             .execute()
             .value
+        try self.localHabitTrackingStore.add(inserted.first!)
         return inserted.first ?? entry
     }
 
@@ -38,6 +45,11 @@ extension DBManager {
 
     // MARK: - Read
     func fetchHabitEntry(by idValue: Int64) async throws -> HabitTracking? {
+        let habit =  try self.localHabitTrackingStore.fetchHabitEntry(by: Int32(idValue))
+        if habit != nil {
+            return habit
+        }
+        
         let rows: [HabitTracking] = try await customsupabase
             .from(self.habitTrackingTableName)
             .select()
@@ -48,57 +60,77 @@ extension DBManager {
         return rows.first
     }
     
-    func fetchHabitEntriesCursor(
-        forTask taskIdValue: Int64,
-        after cursorDate: Date? = nil
-    ) async throws -> [HabitTracking] {
-
-        var builder = customsupabase
-            .from(self.habitTrackingTableName)
-            .select()
-            .eq("habit_id", value: Int(taskIdValue))
-
-        if let cursorDate = cursorDate {
-            builder = builder.gte(
-                "entry_date",
-                value: ISO8601DateFormatter().string(from: cursorDate)
-            )
+    
+    func reloadHabitEntries(refresh: Bool = false) async throws {
+        
+        // 1️⃣ Clear local store
+        if refresh {
+            try localHabitTrackingStore.deleteAllEntries()
         }
+        
+        
 
-        return try await builder
-            .select()
-            .execute()
-            .value as [HabitTracking]
+        let pageSize = 500
+        var lastID: Int64 = try localHabitTrackingStore.fetchLastHabitEntryId()
+        
+        print(lastID)
+        var hasMore = true
+
+        while hasMore {
+            
+            let builder = customsupabase
+                .from(self.habitTrackingTableName)
+                .select()
+                .gt("id", value: Int(lastID))
+                .order("id", ascending: true)
+                .limit(pageSize)
+                
+            let entries: [HabitTracking] = try await builder.execute().value  as [HabitTracking]
+
+
+            if entries.isEmpty {
+                print("No more entries")
+                hasMore = false
+                break
+            }
+            print("Got \(entries.count) entries")
+
+            // 2️⃣ Insert batch locally
+            try localHabitTrackingStore.addMultiple(entries)
+
+            // 3️⃣ Advance cursor
+            lastID = (entries.last?.id!)!
+
+            // 4️⃣ Stop if this was the final page
+            hasMore = entries.count == pageSize
+        }
     }
-
+    
     func fetchHabitEntries(forTask taskIdValue: Int64, from fromDate: Date? = nil, to toDate: Date? = nil) async throws -> [HabitTracking] {
-        var builder = customsupabase
-            .from(self.habitTrackingTableName)
-            .select()
-            .eq("habit_id", value: Int(taskIdValue))
-
-        if let fromDate = fromDate {
-            builder = builder.gte("entry_date", value: ISO8601DateFormatter().string(from: fromDate))
+        let habits =  try self.localHabitTrackingStore.fetchHabitEntries(forHabit: Int32(taskIdValue), from:fromDate, to:toDate)
+        
+        if !habits.isEmpty {
+            return habits
         }
-        if let toDate = toDate {
-            builder = builder.lte("entry_date", value: ISO8601DateFormatter().string(from: toDate))
+        else {
+            return []
         }
+        
+        // var builder = customsupabase
+        //     .from(self.habitTrackingTableName)
+        //     .select()
+        //     .eq("habit_id", value: Int(taskIdValue))
 
-        return try await builder
-            .execute()
-            .value as [HabitTracking]
-    }
+        // if let fromDate = fromDate {
+        //     builder = builder.gte("entry_date", value: ISO8601DateFormatter().string(from: fromDate))
+        // }
+        // if let toDate = toDate {
+        //     builder = builder.lte("entry_date", value: ISO8601DateFormatter().string(from: toDate))
+        // }
 
-    func fetchLatestHabitEntry(forTask taskIdValue: Int64) async throws -> HabitTracking? {
-        let rows: [HabitTracking] = try await customsupabase
-            .from(self.habitTrackingTableName)
-            .select()
-            .eq("habit_id", value: Int(taskIdValue))
-            .order("entry_date", ascending: false)
-            .limit(1)
-            .execute()
-            .value
-        return rows.first
+        // return try await builder
+        //     .execute()
+        //     .value as [HabitTracking]
     }
 
     // MARK: - Update
@@ -108,6 +140,8 @@ extension DBManager {
             .update(["value": value])
             .eq("id", value: Int(idValue))
             .execute()
+        try self.localHabitTrackingStore.updateHabitEntryValue(id:Int32(idValue),
+                                                           value:Int16(value))
     }
 
     // MARK: - Delete
@@ -117,6 +151,7 @@ extension DBManager {
             .delete()
             .eq("id", value: Int(idValue))
             .execute()
+        try self.localHabitTrackingStore.deleteHabitEntry(id:Int32(idValue))
     }
     
     func deleteHabitEntries(forTask taskIdValue: Int64) async throws {
@@ -125,14 +160,7 @@ extension DBManager {
             .delete()
             .eq("habit_id", value: Int(taskIdValue))
             .execute()
-    }
-}
-
-// MARK: - Helpers
-
-private extension Date {
-    func ISO8601FormatIfAvailable() -> String? {
-        // Always format to full ISO-8601 string
-        ISO8601DateFormatter().string(from: self)
+        
+        try self.localHabitTrackingStore.deleteHabitEntries(forHabit: Int32(taskIdValue))
     }
 }

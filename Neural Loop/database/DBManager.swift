@@ -9,8 +9,12 @@ import Supabase
 
 
 final class DBManager {
-    private init() {}
-
+    let localHabitTrackingStore: LocalHabitTrackingStore
+    
+    private init() {
+        self.localHabitTrackingStore = .init()
+    }
+    
     // MARK: - Factory
     static func newInstance() -> DBManager { DBManager() }
 
