@@ -18,7 +18,7 @@ struct ProgressHistoryView: View {
             }
 
             Section {
-                ForEach(model.habitTrackingEntriesMap[habitId]! , id: \.id) { entry in
+                ForEach(model.habitTrackingEntriesMap[habitId, default: []] , id: \.id) { entry in
                     HStack {
                         Text(entry.entry_date, style: .date)
 

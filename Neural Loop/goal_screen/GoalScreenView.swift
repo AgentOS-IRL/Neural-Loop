@@ -128,6 +128,9 @@ struct GoalScreenView: View {
 //                    }
 //                }
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                        Color.clear.frame(height: SAFE_AREA_INSET)
+                    }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Text("Goals")
@@ -234,7 +237,7 @@ struct GoalScreenView: View {
                         }
                     }
                 }
-            }
+            }.padding(.horizontal, 4).padding(.top, 16)
         }
     }
 

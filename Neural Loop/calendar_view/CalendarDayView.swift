@@ -353,6 +353,9 @@ struct CalendarDayView: View {
                 }
             
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                        Color.clear.frame(height: SAFE_AREA_INSET)
+                    }
         }
         .background(Color.black)
         .onAppear {

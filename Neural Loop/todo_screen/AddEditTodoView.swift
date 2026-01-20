@@ -183,6 +183,9 @@ struct AddEditTodoView: View {
                     .foregroundColor(.primary)
                 }
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                        Color.clear.frame(height: SAFE_AREA_INSET)
+                    }
             .navigationTitle(task == nil ? "New Task" : "Edit Task")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -121,7 +121,11 @@ struct AddEditHabitView: View {
                     TextField("Optional label", text: $label)
                 }
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                        Color.clear.frame(height: SAFE_AREA_INSET)
+                    }
             .navigationTitle(habit == nil ? "New Habit" : "Edit Habit")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
 
                 ToolbarItem(placement: .cancellationAction) {

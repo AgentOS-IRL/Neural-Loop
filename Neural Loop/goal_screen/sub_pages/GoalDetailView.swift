@@ -305,6 +305,9 @@ struct GoalDetailView: View {
                 
             }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+                    Color.clear.frame(height: SAFE_AREA_INSET)
+                }
     }
     private func setCustomGoalTrackingRecords(goalTracking: GoalsTracking) async {
         

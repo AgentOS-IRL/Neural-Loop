@@ -421,6 +421,9 @@ struct TodoView: View {
                         }
                     }
                 }
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                            Color.clear.frame(height: SAFE_AREA_INSET)
+                        }
                 
 //                // Floating Add Button
 //                if vm.searchText.isEmpty && vm.viewMode == .menu {
