@@ -11,32 +11,30 @@ import OSLog
 
 let logger = Logger(subsystem: "NeuralLoop", category: "App")
 
-
 struct ContentView: View {
     @State private var selectedTab: AppTab = .habits
 
     var body: some View {
-        ZStack {
-
-            VStack {
-                Group {
-                    switch selectedTab {
-                        case .goals:
-                        GoalScreenView()
-                    case .todo:
-                        TodoView()
-                    case .habits:
-                        HabitView()
-                    case .calendar:
-                        CalendarDayView()
-                    default:
-                        Text("Other Tab").onAppear { logger.info("ContentView appeared!") }
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                GlassTabBar(selectedTab: $selectedTab)
-                    .padding(.bottom, 14)
+        Group {
+            switch selectedTab {
+            case .goals:
+                GoalScreenView()
+            case .todo:
+                TodoView()
+            case .habits:
+                HabitView()
+            case .calendar:
+                CalendarDayView()
+            default:
+                Text("Other Tab")
             }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .ignoresSafeArea(edges: .bottom)
+
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            LiquidGlassTabBar(selectedTab: $selectedTab)
+                .padding(.bottom, 8)
         }
     }
 }
