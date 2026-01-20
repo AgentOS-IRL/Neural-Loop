@@ -1,92 +1,6 @@
 import SwiftUI
 
 
-
-struct HabitProgress {
-    let current: Int
-    let target: Int
-    let targetLabel: String
-    let windowLabel: String
-
-    var ratio: Double {
-        guard target > 0 else { return 0 }
-        return min(Double(current) / Double(target), 1.0)
-    }
-}
-
-struct HabitWindow {
-    let start: Date
-    let end: Date
-    let label: String
-    
-    static func get_frequency(for habit: Habits) -> Calendar.RecurrenceRule.Frequency {
-        guard
-            let ruleString = habit.target_recursion_rule,
-            let rule = try? parse_rrule(rruleString: ruleString)
-        else {
-            return Calendar.RecurrenceRule.Frequency.daily
-        }
-        return rule.frequency
-        
-    }
-
-    static func window(for habit: Habits, reference: Date) -> HabitWindow {
-        let frequency = HabitWindow.get_frequency(for: habit)
-
-        switch frequency {
-        case .daily:
-            return _day(reference)
-        case .weekly:
-            return _week(reference)
-        case .monthly:
-            return _month(reference)
-        default:
-            return _day(reference)
-        }
-    }
-
-    private static func _day(_ date: Date) -> HabitWindow {
-        let cal = Calendar.current
-        return HabitWindow(
-            start: cal.startOfDay(for: date),
-            end: cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: date))!,
-            label: "Today"
-        )
-    }
-    
-    static func longWindow(for date: Date) -> HabitWindow {
-        return _week(date)
-    }
-
-    private static func _week(_ date: Date) -> HabitWindow {
-        var calendar = Calendar.current
-        calendar.firstWeekday = 2 // Monday
-
-        let startOfDay = calendar.startOfDay(for: date)
-
-        let weekStart = calendar.date(
-            from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: startOfDay)
-        )!
-
-        let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart)!
-
-        return HabitWindow(
-            start: weekStart,
-            end: weekEnd,
-            label: "This Week"
-        )
-    }
-
-    private static func _month(_ date: Date) -> HabitWindow {
-        let cal = Calendar.current
-        let start = cal.date(from: cal.dateComponents([.year, .month], from: date))!
-        let end = cal.date(byAdding: .month, value: 1, to: start)!
-        return HabitWindow(start: start, end: end, label: "This Month")
-    }
-}
-
-
-
 struct AddProgressView: View {
     let habit: Habits
     let onSaved: () -> Void
@@ -103,7 +17,10 @@ struct AddProgressView: View {
     @State private var showProgressHistory: Bool = false
     @State private var isAddProgressExpanded = true
     
-    @State private var habitWindow = HabitWindow(start: Calendar.current.startOfDay(for: .now), end: Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: .now))!, label: "Times")
+    @State private var habitWindow = HabitWindow(start: Calendar.current.startOfDay(for: .now), end: Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: .now))!, label: "Times", frequency: .daily)
+    
+    @State private var trendFrequency: TrendFrequency = .weekly
+    @State private var trendsData: [Date: Float] = [:]
 
 
     var body: some View {
@@ -191,12 +108,40 @@ struct AddProgressView: View {
                 }
                 Divider()
                 Section {
-                    EmptyView()
+                    if !trendsData.isEmpty {
+                        TrendsBarChart(
+                            data: trendsData,
+                            frequency: trendFrequency
+                        )
+                    } else {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                    }
                 } header: {
-                    Text("Trends")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(.primary)   // keeps default (white in dark mode)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    HStack {
+                        Text("Trends")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(.primary)
+
+                        Spacer()
+
+                        Menu {
+                            Button("Weekly") {
+                                trendFrequency = .weekly
+                                Task { await loadTrends() }
+                            }
+
+                            Button("Monthly") {
+                                trendFrequency = .monthly
+                                Task { await loadTrends() }
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .rotationEffect(.degrees(90))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 4)
+                        }
+                    }
                 }
 
                    
@@ -215,6 +160,7 @@ struct AddProgressView: View {
                 Task {
                     
                     await loadLatestTotal()
+                    await loadTrends()
                 }
             }
             .sheet(isPresented: $showProgressHistory) {
@@ -223,6 +169,13 @@ struct AddProgressView: View {
         }
     }
     
+    private func getTrendsData(frequency: Calendar.RecurrenceRule.Frequency) async -> [Date: Float]{
+        await model.getTrendsData(forHabitWithId: habit.id!, frequency: frequency)
+    }
+    
+    private func loadTrends() async {
+        trendsData = await getTrendsData(frequency: trendFrequency.get_frequency())
+    }
 
     private var displayValue: String {
         return "\(inputValue)"

@@ -179,7 +179,7 @@ struct HabitCardView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
-                Text(progress.windowLabel.uppercased())
+                Text(progress.window.label.uppercased())
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
