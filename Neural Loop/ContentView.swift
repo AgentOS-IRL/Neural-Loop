@@ -34,7 +34,9 @@ struct ContentView: View {
 
         .safeAreaInset(edge: .bottom, spacing: 0) {
             LiquidGlassTabBar(selectedTab: $selectedTab)
-                .padding(.bottom, 8)
+                .ignoresSafeArea(.container, edges: .bottom)
+                .padding(.bottom, -20)
+
         }
     }
 }

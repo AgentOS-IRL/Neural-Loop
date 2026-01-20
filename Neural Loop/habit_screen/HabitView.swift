@@ -61,6 +61,9 @@ struct HabitView: View {
                 }
                 .padding()
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                        Color.clear.frame(height: SAFE_AREA_INSET)
+                    }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Text("Habits")

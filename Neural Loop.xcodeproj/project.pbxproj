@@ -45,22 +45,9 @@
 		34B495962F138D78000FAD6D /* Neural LoopTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Neural LoopTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		34B5B1802F1EF40900D44FEF /* Exceptions for "Neural Loop" folder in "Neural Loop" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				habit_screen/Untitled.swift,
-			);
-			target = 34237FBD2F0AF4CA002E0D02 /* Neural Loop */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		34237FC02F0AF4CA002E0D02 /* Neural Loop */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				34B5B1802F1EF40900D44FEF /* Exceptions for "Neural Loop" folder in "Neural Loop" target */,
-			);
 			path = "Neural Loop";
 			sourceTree = "<group>";
 		};

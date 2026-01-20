@@ -94,6 +94,9 @@ struct LifeAreaDetailView: View {
         .onAppear {
             visionText = area.vision ?? ""
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+                    Color.clear.frame(height: SAFE_AREA_INSET)
+                }
         .navigationBarBackButtonHidden(true)
     }
 
