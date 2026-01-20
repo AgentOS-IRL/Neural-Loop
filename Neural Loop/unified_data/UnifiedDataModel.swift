@@ -87,6 +87,7 @@ final class UnifiedDataModel: ObservableObject {
     
     @Published var currentHabitProgressMap: [Int64: HabitProgress] = [:]
     @Published var progressChartData: [Int64: [Int: Float]] = [:]
+    @Published var trendsChartData: [Int64: [Calendar.RecurrenceRule.Frequency: [Date: Float]]] = [:]
     
     @Published var habitTrackingEntriesMap: [Int64: [HabitTracking]] = [:]{
         didSet {
@@ -249,7 +250,7 @@ final class UnifiedDataModel: ObservableObject {
             current: total,
             target: Int(habit.target),
             targetLabel: habit.label ?? "Times",
-            windowLabel: window.label
+            window: window
         )
     }
     
