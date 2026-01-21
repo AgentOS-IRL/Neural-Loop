@@ -47,6 +47,67 @@ struct TaskBlockView: View {
     }
 }
 
+struct HabitBlockView: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.caption2.weight(.semibold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.green.opacity(0.85))
+            .foregroundColor(.white)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+struct HabitOverlayView: View {
+    let date: Date
+    /// Dictionary of habit name -> array of completion dates (with time)
+    let habits: [String: [Date]]
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(habitEvents, id: \ .id) { event in
+                HabitBlockView(title: event.title)
+                    .offset(y: yOffset(for: event.time))
+            }
+        }
+        .padding(.leading, 60)
+    }
+
+    // Flatten dictionary into a list of occurrences for the currently selected day
+    private var habitEvents: [HabitEvent] {
+        var events: [HabitEvent] = []
+
+        for (habitName, dates) in habits {
+            for d in dates where Calendar.current.isDate(d, inSameDayAs: date) {
+                events.append(HabitEvent(title: habitName, time: d))
+            }
+        }
+
+        // Sort by time so they render in order
+        events.sort { $0.time < $1.time }
+        return events
+    }
+
+    private func yOffset(for time: Date) -> CGFloat {
+        let components = Calendar.current.dateComponents([.hour, .minute], from: time)
+        let hour = components.hour ?? 0
+        let minute = components.minute ?? 0
+
+        return CGFloat(hour) * hourHeight + CGFloat(minute) / 60 * hourHeight
+    }
+
+    private struct HabitEvent: Identifiable {
+        let id = UUID()
+        let title: String
+        let time: Date
+    }
+}
+
 struct TaskOverlayView: View {
     let date: Date
     let tasks: [Tasks]
@@ -326,6 +387,7 @@ private extension Calendar {
 struct CalendarDayView: View {
     @State private var date: Date = .now
     @State private var tasks: [Tasks] = []
+    @State private var habits: [String:[Date]] = [:]
     
     @EnvironmentObject var model: UnifiedDataModel
 
@@ -341,6 +403,7 @@ struct CalendarDayView: View {
                     ZStack(alignment: .topLeading) {
                         TimeGridView()
                         TaskOverlayView(date: date, tasks: tasks)
+                        HabitOverlayView(date: date, habits: habits)
                         CurrentTimeIndicatorView(date: date)
                     }
                     .frame(height: CGFloat(hoursInDay) * hourHeight)
@@ -361,6 +424,7 @@ struct CalendarDayView: View {
         .onAppear {
             Task {
                 tasks = await model.getTasks(date: date)
+                habits = WaterAutoScheduling.shared.get_calendar_data()
             }
         }
     }

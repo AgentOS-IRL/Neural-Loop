@@ -13,6 +13,8 @@ final class WaterAutoScheduling {
     
     final let habit_id: Int64 = 1
     
+    var schedule: [Date] = []
+    
     init(){
         Task {
             await scheduleMorningRepeatWaterAuto()
@@ -21,6 +23,7 @@ final class WaterAutoScheduling {
     
     func scheduleMorningRepeatWaterAuto(hour: Int = 6, minute: Int = 0) async {
         let id = "repeat_water_auto"
+        schedule = []
 
         // Remove existing (recreate if it exists)
         UNUserNotificationCenter.current()
@@ -40,6 +43,10 @@ final class WaterAutoScheduling {
         )
 
         print("🟢 [WaterAutoScheduling] Scheduled daily repeating morning reminder at \(hour):\(String(format: "%02d", minute))")
+    }
+    
+    func get_calendar_data() -> [String: [Date]]{
+        return ["Water": schedule]
     }
     
     
@@ -237,7 +244,7 @@ final class WaterAutoScheduling {
         // ---- Schedule ----
         for (index, fireDate) in finalTimes.enumerated() {
             let id = prefix + "\(index)"
-
+            schedule.append(fireDate)
             await NotificationManager.shared.scheduleNotification(
                 id: id,
                 title: "Drink Water 💧",
