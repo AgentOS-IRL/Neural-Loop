@@ -8,7 +8,7 @@
 import SwiftUI
 import Combine
 
-let hourHeight: CGFloat = 120   // 1 hour = 60 points
+let hourHeight: CGFloat = 120   // 1 hour = 120 points
 let hoursInDay = 24
 
 struct TaskBlockView: View {
@@ -34,7 +34,7 @@ struct TaskBlockView: View {
 
     private var taskHeight: CGFloat {
         let duration = task.duration ?? 3600
-        return CGFloat(duration / 3600) * hourHeight
+        return CGFloat(duration) / 3600 * hourHeight
     }
 
     private var priorityColor: Color {
@@ -70,7 +70,7 @@ struct HabitOverlayView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            ForEach(habitEvents, id: \ .id) { event in
+            ForEach(habitEvents, id: \.id) { event in
                 HabitBlockView(title: event.title)
                     .offset(y: yOffset(for: event.time))
             }
@@ -108,18 +108,33 @@ struct HabitOverlayView: View {
     }
 }
 
+/// Overlapping tasks are laid out side-by-side (calendar-style)
 struct TaskOverlayView: View {
     let date: Date
     let tasks: [Tasks]
 
+    private let leftGutter: CGFloat = 60
+    private let columnSpacing: CGFloat = 6
+
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            ForEach(tasksForDay) { task in
-                TaskBlockView(task: task)
-                    .offset(y: yOffset(for: task))
+        GeometryReader { geo in
+            let availableWidth = max(0, geo.size.width - leftGutter - 8)
+            let laidOut = layoutTasks(tasksForDay)
+
+            ZStack(alignment: .topLeading) {
+                ForEach(laidOut) { item in
+                    let colWidth = columnWidth(totalWidth: availableWidth, columns: item.columnCount)
+
+                    TaskBlockView(task: item.task)
+                        .frame(width: colWidth)
+                        .offset(
+                            x: leftGutter + (CGFloat(item.column) * (colWidth + columnSpacing)),
+                            y: yOffset(for: item.task)
+                        )
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .padding(.leading, 60)
     }
 
     private var tasksForDay: [Tasks] {
@@ -136,6 +151,106 @@ struct TaskOverlayView: View {
         let minute = components.minute ?? 0
 
         return CGFloat(hour) * hourHeight + CGFloat(minute) / 60 * hourHeight
+    }
+
+    private func taskEndDate(_ task: Tasks) -> Date {
+        let start = task.start_date ?? date
+        let duration = TimeInterval(task.duration ?? 3600)
+        return start.addingTimeInterval(duration)
+    }
+
+    private func columnWidth(totalWidth: CGFloat, columns: Int) -> CGFloat {
+        guard columns > 0 else { return totalWidth }
+        let totalSpacing = CGFloat(max(0, columns - 1)) * columnSpacing
+        return max(0, (totalWidth - totalSpacing) / CGFloat(columns))
+    }
+
+    // MARK: - Layout (overlaps -> columns)
+
+    private struct LayoutItem: Identifiable {
+        let id = UUID()
+        let task: Tasks
+        let column: Int
+        let columnCount: Int
+        let start: Date
+        let end: Date
+    }
+
+    private struct Interval {
+        let task: Tasks
+        let start: Date
+        let end: Date
+    }
+
+    /// Assign tasks into columns so overlaps are side-by-side.
+    /// Uses a greedy interval coloring strategy per overlap-cluster.
+    private func layoutTasks(_ tasks: [Tasks]) -> [LayoutItem] {
+        let intervals: [Interval] = tasks.compactMap { t in
+            guard let start = t.start_date else { return nil }
+            let end = taskEndDate(t)
+            return Interval(task: t, start: start, end: end)
+        }
+        .sorted { $0.start < $1.start }
+
+        // Active set holds (end, col, interval)
+        struct Active {
+            let end: Date
+            let col: Int
+            let interval: Interval
+        }
+
+        var result: [LayoutItem] = []
+        var active: [Active] = []
+
+        // Current cluster (continuous overlaps)
+        var cluster: [(interval: Interval, col: Int)] = []
+        var clusterMaxCols: Int = 0
+
+        func finalizeCluster() {
+            guard !cluster.isEmpty else { return }
+            for (interval, col) in cluster {
+                result.append(
+                    LayoutItem(
+                        task: interval.task,
+                        column: col,
+                        columnCount: max(1, clusterMaxCols),
+                        start: interval.start,
+                        end: interval.end
+                    )
+                )
+            }
+            cluster.removeAll()
+            clusterMaxCols = 0
+        }
+
+        for interval in intervals {
+            // Remove tasks that ended before this starts
+            active.removeAll { $0.end <= interval.start }
+
+            // If nothing is active, we finished a cluster
+            if active.isEmpty {
+                finalizeCluster()
+            }
+
+            // Find smallest available column index
+            let usedCols = Set(active.map { $0.col })
+            var col = 0
+            while usedCols.contains(col) { col += 1 }
+
+            active.append(Active(end: interval.end, col: col, interval: interval))
+            cluster.append((interval: interval, col: col))
+
+            // Track max parallel overlaps within this cluster
+            clusterMaxCols = max(clusterMaxCols, active.count)
+        }
+
+        finalizeCluster()
+
+        // Preserve visual order by start time, then column
+        return result.sorted {
+            if $0.start != $1.start { return $0.start < $1.start }
+            return $0.column < $1.column
+        }
     }
 }
 
@@ -215,7 +330,7 @@ struct CurrentTimeIndicatorView: View {
 struct DateBarView: View {
     let today = Date()
     let day = Calendar.current.component(.day, from: Date())
-    
+
     @State private var selectedDate: Date
     let onSelect: (Date) -> Void
 
@@ -259,7 +374,8 @@ struct DateBarView: View {
                     proxy.scrollTo(newValue.startOfDay, anchor: .center)
                 }
             }
-        }.toolbar {
+        }
+        .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Text(selectedDate.formatted(.dateTime.month(.wide)))
                     .font(.title3.weight(.semibold))
@@ -267,12 +383,11 @@ struct DateBarView: View {
                     .fixedSize(horizontal: true, vertical: false)  // don’t compress horizontally
                     .layoutPriority(1)                             // fight for space
                     .padding(.horizontal, 12)
-                    
             }
-                // Trailing actions: calendar + plus
+
+            // Trailing actions: calendar + plus
             ToolbarItem(placement: .automatic) {
                 Button {
-                    
                     selectedDate = today
                     onSelect(today)
                 } label: {
@@ -281,27 +396,28 @@ struct DateBarView: View {
                         .foregroundStyle(.secondary.opacity(0.8))
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button {
-                            // add task action
-                        } label: {
-                            Label("Add Task", systemImage: "checkmark.circle")
-                        }
 
-                        Button {
-                            // add habit action
-                        } label: {
-                            Label("Add Habit", systemImage: "repeat")
-                        }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        // add task action
                     } label: {
-                        Image(systemName: "plus")
-                            .foregroundStyle(.secondary)
+                        Label("Add Task", systemImage: "checkmark.circle")
                     }
+
+                    Button {
+                        // add habit action
+                    } label: {
+                        Label("Add Habit", systemImage: "repeat")
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                        .foregroundStyle(.secondary)
                 }
+            }
         }
     }
-    
+
     func todayButton() -> some View {
         let today = Date()
         let day = Calendar.current.component(.day, from: today)
@@ -317,10 +433,8 @@ struct DateBarView: View {
                 .shadow(color: .black.opacity(0.3), radius: 10, y: 4)
 
             Image(systemName: "\(day).calendar")
-                    .font(.system(size: 26, weight: .light))
-                    .foregroundColor(.white.opacity(0.5))
-
-            
+                .font(.system(size: 26, weight: .light))
+                .foregroundColor(.white.opacity(0.5))
         }
         .frame(width: 50, height: 50)
         .onTapGesture {
@@ -328,7 +442,7 @@ struct DateBarView: View {
             onSelect(today)
         }
     }
-    
+
     func dateCell(_ date: Date) -> some View {
         let isToday = calendar.isDateInToday(date)
         let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
@@ -387,18 +501,18 @@ private extension Calendar {
 struct CalendarDayView: View {
     @State private var date: Date = .now
     @State private var tasks: [Tasks] = []
-    @State private var habits: [String:[Date]] = [:]
-    
+    @State private var habits: [String: [Date]] = [:]
+
     @EnvironmentObject var model: UnifiedDataModel
 
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
-                
+
                 DateBarView(selectedDate: date) { newDate in
                     date = newDate
                 }
-                
+
                 ScrollView {
                     ZStack(alignment: .topLeading) {
                         TimeGridView()
@@ -414,11 +528,11 @@ struct CalendarDayView: View {
                         proxy.scrollTo(hour, anchor: .top)
                     }
                 }
-            
+
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                        Color.clear.frame(height: SAFE_AREA_INSET)
-                    }
+                Color.clear.frame(height: SAFE_AREA_INSET)
+            }
         }
         .background(Color.black)
         .onAppear {
@@ -434,7 +548,7 @@ private extension Date {
     var startOfDay: Date {
         Calendar.current.startOfDay(for: self)
     }
-    
+
     func ISO8601FormatIfAvailable() -> String? {
         // Always format to full ISO-8601 string
         ISO8601DateFormatter().string(from: self)
