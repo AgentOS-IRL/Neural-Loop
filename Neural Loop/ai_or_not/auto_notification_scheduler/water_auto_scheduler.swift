@@ -23,7 +23,7 @@ final class WaterAutoScheduling {
     
     func scheduleMorningRepeatWaterAuto(hour: Int = 6, minute: Int = 0) async {
         let id = "repeat_water_auto"
-        schedule = []
+        
 
         // Remove existing (recreate if it exists)
         UNUserNotificationCenter.current()
@@ -242,6 +242,7 @@ final class WaterAutoScheduling {
         }
 
         // ---- Schedule ----
+        schedule = []
         for (index, fireDate) in finalTimes.enumerated() {
             let id = prefix + "\(index)"
             schedule.append(fireDate)
