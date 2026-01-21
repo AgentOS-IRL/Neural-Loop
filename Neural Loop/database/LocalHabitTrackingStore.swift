@@ -44,33 +44,27 @@ final class LocalHabitTrackingStore {
 
     init() {
         do {
-            self.dbQueue = try DatabaseQueue(
-                path: FileManager.default
-                    .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                    .appendingPathComponent("habits.sqlite")
-                    .path
-            )
+            let fileManager = FileManager.default
             
-            var migrator = DatabaseMigrator()
+            let appSupportURL = try fileManager
+                .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             
-            print("createHabitTracking")
-            
-            
-//
-//            migrator.registerMigration("dropHabitTracking") { db in
-//                try db.drop(table: "habit_tracking")
-//            }
+            // ✅ Ensure directory exists
+            if !fileManager.fileExists(atPath: appSupportURL.path) {
+                try fileManager.createDirectory(
+                    at: appSupportURL,
+                    withIntermediateDirectories: true,
+                    attributes: nil
+                )
+            }
 
-//            migrator.registerMigration("createHabitTracking") { db in
-//                try db.create(table: "habit_tracking") { t in
-//                    t.column("id", .integer).primaryKey()
-//                    t.column("habitID", .integer).notNull()
-//                    t.column("entryDate", .datetime).notNull()
-//                    t.column("value", .integer).notNull()
-//                }
-//            }
-            
-            try self.dbQueue.write { db in
+            let dbURL = appSupportURL.appendingPathComponent("habits.sqlite")
+
+            self.dbQueue = try DatabaseQueue(path: dbURL.path)
+
+            var migrator = DatabaseMigrator()
+
+            migrator.registerMigration("createHabitTracking") { db in
                 try db.create(table: "habit_tracking", ifNotExists: true) { t in
                     t.column("id", .integer).primaryKey()
                     t.column("habitID", .integer).notNull()
@@ -80,6 +74,7 @@ final class LocalHabitTrackingStore {
             }
 
             try migrator.migrate(self.dbQueue)
+
             print("Done Migration")
         }
         catch {

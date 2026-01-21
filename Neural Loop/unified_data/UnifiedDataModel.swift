@@ -85,7 +85,21 @@ final class UnifiedDataModel: ObservableObject {
         }
     }
     
-    @Published var currentHabitProgressMap: [Int64: HabitProgress] = [:]
+    @Published var currentHabitProgressMap: [Int64: HabitProgress] = [:] {
+        didSet {
+            guard let progress = currentHabitProgressMap[WaterAutoScheduling.shared.habit_id] else {
+                return
+            }
+
+            Task {
+                await WaterAutoScheduling.shared.schedule(
+                    current: progress.current,
+                    target: progress.target
+                )
+            }
+        }
+    }
+    
     @Published var progressChartData: [Int64: [Int: Float]] = [:]
     @Published var trendsChartData: [Int64: [Calendar.RecurrenceRule.Frequency: [Date: Float]]] = [:]
     

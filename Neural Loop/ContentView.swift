@@ -25,8 +25,10 @@ struct ContentView: View {
                 HabitView()
             case .calendar:
                 CalendarDayView()
-            default:
-                Text("Other Tab")
+            case .settings:
+                SettingsView()
+//            default:
+//                Text("Other Tab")
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -37,6 +39,10 @@ struct ContentView: View {
                 .ignoresSafeArea(.container, edges: .bottom)
                 .padding(.bottom, -20)
 
+        }.onAppear {
+            Task {
+                await NotificationManager.shared.requestPermission()
+            }
         }
     }
 }

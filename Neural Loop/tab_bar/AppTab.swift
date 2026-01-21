@@ -12,7 +12,8 @@ enum AppTab: String, CaseIterable {
     case calendar = "Calendar"
     case habits = "Habits"
     case goals = "Goals"
-    case insights = "Insights"
+//    case insights = "Insights"
+    case settings = "Settings"
 
     var systemImage: String {
         switch self {
@@ -20,7 +21,8 @@ enum AppTab: String, CaseIterable {
         case .calendar: return "calendar"
         case .habits: return "arrow.triangle.2.circlepath"
         case .goals: return "target"
-        case .insights: return "chart.line.uptrend.xyaxis"
+//        case .insights: return "chart.line.uptrend.xyaxis"
+        case .settings: return "gearshape"
         }
     }
 }
