@@ -92,7 +92,7 @@ final class UnifiedDataModel: ObservableObject {
             }
 
             Task {
-                await WaterAutoScheduling.shared.schedule(
+                await WaterAutoScheduling.shared.schedule_notification(
                     current: progress.current,
                     target: progress.target
                 )
