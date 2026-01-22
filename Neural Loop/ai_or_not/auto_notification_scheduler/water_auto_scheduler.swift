@@ -50,7 +50,7 @@ final class WaterAutoScheduling {
     }
     
     
-    func schedule(current: Int, target: Int) async {
+    func schedule_notification(current: Int, target: Int) async {
 
         let requested = max(target - current, 0)
         let prefix = "water_auto_"
@@ -76,7 +76,8 @@ final class WaterAutoScheduling {
 
         guard let endTime = calendar.date(from: endComponents),
               endTime > now else {
-            print("🔴 [WaterAutoScheduling] Invalid end time for scheduling")
+            
+            print("🔴 [WaterAutoScheduling] Invalid end time for scheduling ")
             return
         }
 
@@ -135,7 +136,7 @@ final class WaterAutoScheduling {
         // Segment endpoints are:
         // start -> anchor1 -> anchor2 -> end
         let sortedAnchors = anchors.sorted()
-        var points: [Date] = [now] + sortedAnchors + [endTime]
+        let points: [Date] = [now] + sortedAnchors + [endTime]
 
         // How many reminders left after anchors?
         var fillCount = remaining - sortedAnchors.count
