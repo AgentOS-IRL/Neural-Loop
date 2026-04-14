@@ -35,6 +35,48 @@ final class TodoViewModel: ObservableObject {
         duration: 900
     )
 
+    @Published private(set) var bucketsForCurrentViewMode: [DateBucket] = []
+
+    func refreshCurrentBuckets(using model: UnifiedDataModel) {
+        refreshCurrentBuckets(
+            using: model.shortTermTaskBuckets,
+            allTasks: model.tasks
+        )
+    }
+
+    func refreshCurrentBuckets(using buckets: [DateBucket], allTasks: [Tasks]) {
+        bucketsForCurrentViewMode = buckets(for: viewMode, using: buckets, allTasks: allTasks)
+    }
+
+    private func buckets(for mode: ViewMode, using buckets: [DateBucket], allTasks: [Tasks]) -> [DateBucket] {
+        switch mode {
+        case .today:
+            return buckets.compactMap { $0.type == .today ? $0 : nil }
+        case .upcoming:
+            return buckets.filter { $0.type == .upcoming }
+        case .inbox:
+            return buckets.compactMap { $0.type == .inbox ? $0 : nil }
+        case .completed:
+            return buckets.compactMap { $0.type == .completed ? $0 : nil }
+        case .all:
+            var bucket = DateBucket(
+                title: AnyView(
+                    Text("All Tasks")
+                        .font(.title3.weight(.semibold))
+                        .foregroundColor(.primary)
+                ),
+                start: .distantPast,
+                end: .distantFuture,
+                type: .upcoming
+            )
+            bucket.tasks = allTasks
+            bucket.ids = allTasks.compactMap { $0.id }
+            return [bucket]
+        default:
+            return []
+        }
+    }
+
 }
 
 
@@ -48,39 +90,30 @@ struct TodoView: View {
     
     @ViewBuilder
     private func upcomingTasks() -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                ForEach(model.getUpcomingTasksDateBucket(), id: \.id) { bucket in
-                    VStack(alignment: .leading, spacing: 8) {
-                        
-                        HStack{
-                            // Section header (Today, Tomorrow, Thu 8 Jan, etc.)
-                            bucket.title
-                            Image(systemName: "plus")
-                                .foregroundColor(.secondary).onTapGesture {
-                                    vm.initializationTiming = .init(start: Calendar.current.date(
-                                        bySettingHour: 9,
-                                        minute: 0,
-                                        second: 0,
-                                        of: bucket.start
-                                    )!, duration: 900)
-                                    vm.showAddTask = true
-                                }
-                        }
-                        
-                        // Tasks for this date bucket
-                        ForEach(bucket.ids, id: \.self) { taskId in
-                            if let task = model.getTask(by: taskId) {
-                                taskView(task: task)
+        LazyVStack(alignment: .leading, spacing: 28) {
+            ForEach(vm.bucketsForCurrentViewMode) { bucket in
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        bucket.title
+                        Image(systemName: "plus")
+                            .foregroundColor(.secondary)
+                            .onTapGesture {
+                                vm.initializationTiming = .init(start: Calendar.current.date(
+                                    bySettingHour: 9,
+                                    minute: 0,
+                                    second: 0,
+                                    of: bucket.start
+                                )!, duration: 900)
+                                vm.showAddTask = true
                             }
-                        }
-                        
                     }
-                    Divider()
+
+                    ForEach(bucket.tasks, id: \.id) { task in
+                        taskView(task: task)
+                    }
                 }
+                Divider()
             }
-            .padding(.horizontal)
-            .padding(.top)
         }
     }
     
@@ -141,70 +174,51 @@ struct TodoView: View {
     
     @ViewBuilder
     private func inboxView() -> some View {
-        let inboxBucket = model.getInboxTasksDateBucket()
-        
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                addTaskRowView().onTapGesture {
-                    vm.initializationTiming = .init()
-                    vm.showAddTask = true
-                }
-                
-                
-                ForEach(inboxBucket.ids, id: \.self) { taskId in
-                    if let task = model.getTask(by: taskId)  {
-                        taskView(task: task)
+        if let inboxBucket = vm.bucketsForCurrentViewMode.first(where: { $0.type == .inbox }) {
+            LazyVStack(alignment: .leading, spacing: 14) {
+                addTaskRowView()
+                    .onTapGesture {
+                        vm.initializationTiming = .init()
+                        vm.showAddTask = true
                     }
+
+                ForEach(inboxBucket.tasks, id: \.id) { task in
+                    taskView(task: task)
                 }
             }
-            .padding(.horizontal)
-            .padding(.top)
         }
     }
-    
+
     @ViewBuilder
     private func completedView() -> some View {
-        let completedBucket = model.getCompletedTasksDateBucket()
-        
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                ForEach(completedBucket.ids, id: \.self) { taskId in
-                    if let task = model.getTask(by: taskId) {
-                        taskView(task: task)
-                    }
+        if let completedBucket = vm.bucketsForCurrentViewMode.first(where: { $0.type == .completed }) {
+            LazyVStack(alignment: .leading, spacing: 14) {
+                ForEach(completedBucket.tasks, id: \.id) { task in
+                    taskView(task: task)
                 }
             }
-            .padding(.horizontal)
-            .padding(.top)
         }
     }
-    
+
     @ViewBuilder
     private func todayTasks() -> some View {
-        let todayBucket = model.getTodayTasksDateBucket()
-        
-        let morningTasks = todayBucket.ids.compactMap { model.getTask(by: $0)! }
-            .filter {
+        if let todayBucket = vm.bucketsForCurrentViewMode.first(where: { $0.type == .today }) {
+            let tasks = todayBucket.tasks
+            let morningTasks = tasks.filter {
                 guard let start = $0.start_date else { return false }
                 return Calendar.current.component(.hour, from: start) < 12
             }
-        
-        let afternoonTasks = todayBucket.ids.compactMap { model.getTask(by: $0)! }
-            .filter {
+            let afternoonTasks = tasks.filter {
                 guard let start = $0.start_date else { return false }
                 let hour = Calendar.current.component(.hour, from: start)
                 return hour >= 12 && hour < 18
             }
-        
-        let eveningTasks = todayBucket.ids.compactMap { model.getTask(by: $0)! }
-            .filter {
+            let eveningTasks = tasks.filter {
                 guard let start = $0.start_date else { return false }
                 return Calendar.current.component(.hour, from: start) >= 18
             }
-        
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                
+
+            LazyVStack(alignment: .leading, spacing: 28) {
                 sectionView(title: "Morning", tasks: morningTasks, initialTiming: .init(start: Calendar.current.date(
                     bySettingHour: 8,
                     minute: 0,
@@ -223,79 +237,71 @@ struct TodoView: View {
                     second: 0,
                     of: Date()
                 )!, duration: 900))
-                
             }
-            .padding(.horizontal)
-            .padding(.top)
         }
     }
-    
+
     @ViewBuilder
     private func sectionView(title: String, tasks: [Tasks], initialTiming: TaskTiming) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            
-            
-            HStack{
-                // Section header (Today, Tomorrow, Thu 8 Jan, etc.)
+            HStack {
                 Text(title)
                     .font(.headline)
                 Image(systemName: "plus")
-                    .foregroundColor(.secondary).onTapGesture {
+                    .foregroundColor(.secondary)
+                    .onTapGesture {
                         vm.initializationTiming = initialTiming
                         vm.showAddTask = true
                     }
             }
-            
+
             ForEach(tasks, id: \.id) { task in
                 taskView(task: task, checkIfCompleted: true)
             }
             Divider()
         }
     }
-    
+
     @ViewBuilder
     private func searchBar() -> some View {
         TextField("Search tasks…", text: $vm.searchText)
             .textFieldStyle(.roundedBorder)
-            .padding(.horizontal)
             .padding(.top, 8)
     }
-    
+
     @ViewBuilder
     private func menuView() -> some View {
-        VStack(spacing: 16) {
-            
+        LazyVStack(spacing: 16) {
             if vm.searchText.isEmpty {
-                
                 Button {
                     vm.viewMode = .inbox
                 } label: {
                     menuRow(
                         icon: "tray",
                         title: "Inbox",
-                        count: model.getInboxTasksDateBucket().ids.count,
+                        count: model.inboxTaskBucket.tasks.count,
                         showPlus: true
                     )
                 }
-                
+
                 Divider()
                     .padding(.leading, 56)
                     .opacity(0.6)
+
                 VStack(spacing: 0) {
-                    
                     Button {
                         vm.viewMode = .today
                     } label: {
                         menuRow(
                             icon: "calendar",
                             title: "Today",
-                            count: model.getTodayTasksDateBucket().ids.count,
+                            count: model.todayTaskBucket.tasks.count,
                             showPlus: true
                         )
                     }
-                    
+
                     Divider().padding(.leading, 56)
-                    
+
                     Button {
                         vm.viewMode = .upcoming
                     } label: {
@@ -304,9 +310,9 @@ struct TodoView: View {
                             title: "Upcoming"
                         )
                     }
-                    
+
                     Divider().padding(.leading, 56)
-                    
+
                     Button {
                         vm.viewMode = .all
                     } label: {
@@ -318,7 +324,7 @@ struct TodoView: View {
                 }
                 .background(Color(.secondarySystemBackground))
                 .cornerRadius(16)
-                
+
                 Button {
                     vm.viewMode = .completed
                 } label: {
@@ -327,16 +333,17 @@ struct TodoView: View {
                         title: "Completed"
                     )
                 }
-                
             } else {
-                ForEach(model.filterTasks(searchText: vm.searchText), id: \.id) { task in
-                    taskView(task: task)
+                LazyVStack(alignment: .leading, spacing: 14) {
+                    ForEach(model.filterTasks(searchText: vm.searchText), id: \.id) { task in
+                        taskView(task: task)
+                    }
                 }
             }
         }
-        .padding()
+        .padding(.top, 12)
     }
-    
+
     @ViewBuilder
     private func menuRow(
         icon: String,
@@ -348,24 +355,23 @@ struct TodoView: View {
             Image(systemName: icon)
                 .foregroundColor(.secondary)
                 .frame(width: 24)
-            
+
             HStack(spacing: 3) {
                 Text(title)
                     .font(.headline)
                     .foregroundColor(.primary)
-                
+
                 if let count {
                     Text("(\(count))")
                         .foregroundColor(.secondary)
                 }
             }
             Spacer()
-            
-            
-            
+
             if showPlus {
                 Image(systemName: "plus")
-                    .foregroundColor(.secondary).onTapGesture {
+                    .foregroundColor(.secondary)
+                    .onTapGesture {
                         vm.showAddTask = true
                     }
             }
@@ -374,105 +380,64 @@ struct TodoView: View {
         .background(Color(.secondarySystemBackground))
         .cornerRadius(16)
     }
-    
+
     @ViewBuilder
-    private func taskListView() -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                addTaskRowView().onTapGesture {
-                    vm.initializationTiming = .init()
-                    vm.showAddTask = true
-                }
-                
-                ForEach(model.tasks, id: \.id) { task in
+    private func allTasksView() -> some View {
+        if let bucket = vm.bucketsForCurrentViewMode.first {
+            LazyVStack(alignment: .leading, spacing: 14) {
+                addTaskRowView()
+                    .onTapGesture {
+                        vm.initializationTiming = .init()
+                        vm.showAddTask = true
+                    }
+
+                ForEach(bucket.tasks, id: \.id) { task in
                     taskView(task: task)
                 }
             }
-            .padding(.horizontal)
-            .padding(.top)
         }
+    }
+
+    private func refreshBucketsFromModel() {
+        vm.refreshCurrentBuckets(using: model.shortTermTaskBuckets, allTasks: model.tasks)
     }
     
     var body: some View {
         NavigationView {
             ZStack {
                 ScrollView {
-                    VStack(spacing: 0) {
+                    LazyVStack(spacing: 0) {
                         searchBar()
-                        
+
                         switch vm.viewMode {
                         case .menu:
                             menuView()
-                            
+
                         case .today:
                             todayTasks()
-                            
+
                         case .upcoming:
                             upcomingTasks()
-                            
+
                         case .all:
-                            taskListView()
-                            
+                            allTasksView()
+
                         case .inbox:
                             inboxView()
-                            
+
                         case .completed:
                             completedView()
                         }
                     }
+                    .padding(.horizontal)
+                    .padding(.top)
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                            Color.clear.frame(height: SAFE_AREA_INSET)
-                        }
-                
-//                // Floating Add Button
-//                if vm.searchText.isEmpty && vm.viewMode == .menu {
-//                    VStack {
-//                        Spacer()
-//                        HStack {
-//                            Spacer()
-//                            Button {
-//                                vm.showAddTask = true
-//                            } label: {
-//                                Image(
-//                                    systemName: "plus"
-//                                )
-//                                .font(
-//                                    .system(
-//                                        size: 22,
-//                                        weight: .bold
-//                                    )
-//                                )
-//                                .foregroundColor(
-//                                    .black
-//                                )
-//                                .padding()
-//                                .background(
-//                                    .white
-//                                )
-//                                .clipShape(
-//                                    Circle()
-//                                )
-//                                .shadow(
-//                                    radius: 8
-//                                )
-//                            }
-//                            .padding()
-//                        }
-//                    }
-//                }
+                    Color.clear.frame(height: SAFE_AREA_INSET)
+                }
             }
-//            .navigationTitle(
-//                vm.viewMode == .menu ? "Todos" :
-//                    vm.viewMode == .inbox ? "Inbox" :
-//                    vm.viewMode == .completed ? "Completed" :
-//                    vm.viewMode == .upcoming ? "Upcoming Tasks" :
-//                    vm.viewMode == .today ? "Today" :
-//                    "All Tasks"
-//            )
             .navigationBarBackButtonHidden(vm.viewMode == .menu)
             .toolbar {
-                
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         vm.showAddTask = true
@@ -481,30 +446,39 @@ struct TodoView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button {
-                            vm.viewMode = .menu
-                        } label: {
-                            if vm.viewMode != .menu {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 17, weight: .semibold))
-                            }
-                            Text(vm.viewMode == .menu ? "Todos" :
-                                    vm.viewMode == .inbox ? "Inbox" :
-                                    vm.viewMode == .completed ? "Completed" :
-                                    vm.viewMode == .upcoming ? "Upcoming Tasks" :
-                                    vm.viewMode == .today ? "Today" :
-                                    "All Tasks")
-                            .font(.title3.weight(.semibold))
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)  // don’t compress horizontally
-                            .layoutPriority(1)                             // fight for space
-                            .padding(.trailing, 12)
-                            .padding(.leading, vm.viewMode == .menu ? 12:0)
-                            
+
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        vm.viewMode = .menu
+                    } label: {
+                        if vm.viewMode != .menu {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 17, weight: .semibold))
                         }
+                        Text(vm.viewMode == .menu ? "Todos" :
+                                vm.viewMode == .inbox ? "Inbox" :
+                                vm.viewMode == .completed ? "Completed" :
+                                vm.viewMode == .upcoming ? "Upcoming Tasks" :
+                                vm.viewMode == .today ? "Today" :
+                                "All Tasks")
+                        .font(.title3.weight(.semibold))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
+                        .padding(.trailing, 12)
+                        .padding(.leading, vm.viewMode == .menu ? 12 : 0)
+                    }
                 }
+            }
+            .onAppear {
+                refreshBucketsFromModel()
+            }
+            .onChange(of: vm.viewMode) { _ in
+                refreshBucketsFromModel()
+            }
+            .onReceive(model.$tasks) { tasks in
+                let buckets = model.shortTermTaskBuckets(from: tasks)
+                vm.refreshCurrentBuckets(using: buckets, allTasks: tasks)
             }
             .sheet(
                 isPresented: $vm.showAddTask
@@ -514,16 +488,13 @@ struct TodoView: View {
                 ) { newTask in
                     Task {
                         await model.saveTask(newTask)
-                        
                     }
                 }
             }
             .sheet(item: $vm.selectedTaskForEdit) { task in
                 AddEditTodoView(task: task) { modified_task in
                     Task {
-                        
                         await model.updateTask(task: task, modified_task: modified_task)
-                        
                     }
                 }
             }
@@ -532,5 +503,4 @@ struct TodoView: View {
             }
         }
     }
-    
 }

@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import SwiftData
 
 enum bucketType: String, CaseIterable {
     case inbox, today, overdue, upcoming, completed
@@ -19,7 +20,16 @@ struct DateBucket: Identifiable {
     let start: Date
     let end: Date
     var ids: [Int64] = []
+    var tasks: [Tasks] = []
     let type: bucketType
+}
+
+extension DateBucket {
+    mutating func appendTask(_ task: Tasks) {
+        guard let taskId = task.id else { return }
+        ids.append(taskId)
+        tasks.append(task)
+    }
 }
 
 func getUpcomingBucket(dateBuckets: [DateBucket]) -> [DateBucket] {
@@ -136,20 +146,17 @@ func attachTaskToBuckets(
 
     var result = buckets
 
-    guard let taskId = task.id else { return result }
+    guard task.id != nil else { return result }
     
     let now = Date()
 
     for index in result.indices {
         let bucket: DateBucket = result[index]
         if occursInBucket(task: task, bucket: bucket) {
-            
-            
-            result[index].ids.append(taskId)
+            result[index].appendTask(task)
         }
         else if task.start_date! >= max(bucket.start, now) && task.start_date! <= bucket.end {
-            
-            result[index].ids.append(taskId)
+            result[index].appendTask(task)
         }
     }
 
