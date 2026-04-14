@@ -124,89 +124,57 @@ extension  UnifiedDataModel {
             ($0.description?.localizedCaseInsensitiveContains(searchText) ?? false)
         }
     }
-    
+
+    private var resolvedShortTermTaskBuckets: [DateBucket] {
+        if _shortTermTasksDataBucket.isEmpty {
+            reloadShortTermTasksDateBucket()
+        }
+        return _shortTermTasksDataBucket
+    }
+
+    var shortTermTaskBuckets: [DateBucket] {
+        resolvedShortTermTaskBuckets
+    }
+
+    func shortTermTaskBuckets(from tasks: [Tasks]) -> [DateBucket] {
+        rebuildDateBuckets(tasks: tasks)
+    }
+
+    var todayTaskBucket: DateBucket {
+        resolvedShortTermTaskBuckets.first(where: { $0.type == .today })!
+    }
+
+    var inboxTaskBucket: DateBucket {
+        resolvedShortTermTaskBuckets.first(where: { $0.type == .inbox })!
+    }
+
+    var completedTaskBucket: DateBucket {
+        resolvedShortTermTaskBuckets.first(where: { $0.type == .completed })!
+    }
+
+    var upcomingTaskBuckets: [DateBucket] {
+        resolvedShortTermTaskBuckets.filter({ $0.type == .upcoming })
+    }
+
     func getTodayTasksDateBucket() -> DateBucket {
-        if _shortTermTasksDataBucket.isEmpty { reloadShortTermTasksDateBucket() }
-        
-        return _shortTermTasksDataBucket.first(where: { $0.type == .today })!
-        
+        todayTaskBucket
     }
-    
+
     func getInboxTasksDateBucket() -> DateBucket {
-        if _shortTermTasksDataBucket.isEmpty { reloadShortTermTasksDateBucket() }
-        
-        return _shortTermTasksDataBucket.first(where: { $0.type == .inbox })!
+        inboxTaskBucket
     }
-    
+
     func getCompletedTasksDateBucket() -> DateBucket {
-        if _shortTermTasksDataBucket.isEmpty { reloadShortTermTasksDateBucket() }
-        
-        return _shortTermTasksDataBucket.first(where: { $0.type == .completed})!
+        completedTaskBucket
     }
-    
+
     func getUpcomingTasksDateBucket() -> [DateBucket] {
-        if _shortTermTasksDataBucket.isEmpty { reloadShortTermTasksDateBucket() }
-        
-        return _shortTermTasksDataBucket.filter({ $0.type == .upcoming})
+        upcomingTaskBuckets
     }
     
     
     private func reloadShortTermTasksDateBucket() -> Void {
-        
-        
-        let todayStart = calendar.startOfDay(.now)
-        let todayEnd = calendar.endOfDay(.now)
-        var _dateBuckets = buildShortRangeDateBuckets()
-        
-        var today_bucket = DateBucket(
-            title: AnyView( Text("Today")
-                    .font(.title3.weight(.semibold))
-                .foregroundColor(.primary))
-                ,
-            start: todayStart,
-            end: todayEnd,
-            type: .today
-        )
-
-        var inbox_bucket = DateBucket(title: AnyView( Text("Inbox")
-            .font(.title3.weight(.semibold))
-            .foregroundColor(.primary)), start: .distantPast, end: .now, type: .inbox)
-
-        var overdue_bucket = DateBucket(title: AnyView( Text("Overdue")
-            .font(.title3.weight(.semibold))
-            .foregroundColor(.primary)), start: .distantPast, end: .now, type: .overdue)
-        var completed_bucket = DateBucket(title: AnyView( Text("Completed")
-            .font(.title3.weight(.semibold))
-            .foregroundColor(.primary)), start: .distantPast, end: .distantFuture, type: .completed)
-
-        for task in tasks {
-            print(task.title)
-            if task.start_date == nil {
-                inbox_bucket.ids.append(task.id!)
-            }
-            else if task.is_completed {
-                completed_bucket.ids.append(task.id!)
-            }
-            else if (task.recursion_rule == "" || task.recursion_rule == nil) && task.start_date != nil {
-                if task.start_date! < todayStart {
-                    overdue_bucket.ids.append(task.id!)
-                }
-                else if task.start_date! < todayEnd {
-                    today_bucket.ids.append(task.id!)
-                }
-                else{
-                    _dateBuckets = attachTaskToBuckets(task: task, buckets: _dateBuckets)
-                }
-
-            }
-            else {
-                _dateBuckets = attachTaskToBuckets(task: task, buckets: _dateBuckets)
-            }
-        }
-
-        _shortTermTasksDataBucket = [inbox_bucket, today_bucket, overdue_bucket, completed_bucket] + _dateBuckets
-        
-        
+        _shortTermTasksDataBucket = rebuildDateBuckets(tasks: tasks)
     }
 
 
