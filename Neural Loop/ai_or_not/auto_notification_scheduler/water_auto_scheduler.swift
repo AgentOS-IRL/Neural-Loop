@@ -54,6 +54,7 @@ final class WaterAutoScheduling {
 
         let requested = max(target - current, 0)
         let prefix = "water_auto_"
+        schedule = []
 
         await NotificationManager.shared.clearIndexedNotificationsAsync(prefix: prefix)
 
@@ -243,7 +244,7 @@ final class WaterAutoScheduling {
         }
 
         // ---- Schedule ----
-        schedule = []
+        
         for (index, fireDate) in finalTimes.enumerated() {
             let id = prefix + "\(index)"
             schedule.append(fireDate)
