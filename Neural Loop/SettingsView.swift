@@ -16,6 +16,9 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @State private var pendingRequests: [UNNotificationRequest] = []
 
+    // Mirror the custom tab bar height (78) with extra cushion so list content stays above the overlay.
+    private let bottomInsetHeight: CGFloat = 88
+
     private func loadPendingNotifications() async {
         let requests = await notificationTester.pendingNotificationRequests()
         await MainActor.run {
@@ -128,6 +131,10 @@ struct SettingsView: View {
                 } header: {
                     Text("Scheduled Notifications")
                 }
+            }
+            .safeAreaInset(edge: .bottom) {
+                Color.clear
+                    .frame(height: bottomInsetHeight)
             }
             .navigationTitle("Settings")
             .task {
