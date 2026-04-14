@@ -59,7 +59,7 @@ final class TodoViewModel: ObservableObject {
         case .completed:
             return buckets.compactMap { $0.type == .completed ? $0 : nil }
         case .new:
-            return buckets.compactMap { $0.type == .new ? $0 : nil }
+            return [buildNewTaskBucket(from: allTasks)]
         case .all:
             var bucket = DateBucket(
                 title: AnyView(
