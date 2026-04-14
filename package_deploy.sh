@@ -33,8 +33,12 @@ fi
 # --- DEVICE AVAILABILITY CHECK ---
 echo "🔍 Checking if device ${DEVICE_UDID} is available..."
 
+# Capture the device list first so `pipefail` does not turn a successful match
+# into a false negative when upstream output is cut short.
+DEVICE_LIST_OUTPUT="$(xcrun devicectl list devices)"
+
 # Search for the UDID in the list of connected devices
-if xcrun devicectl list devices | grep -q "${DEVICE_UDID}"; then
+if [[ "${DEVICE_LIST_OUTPUT}" == *"${DEVICE_UDID}"* ]]; then
     echo "📱 Device found! Proceeding with install..."
 
     # 3. Install to device
