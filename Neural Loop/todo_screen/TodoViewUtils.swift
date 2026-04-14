@@ -43,12 +43,13 @@ enum ViewMode {
     case all
     case inbox
     case completed
+    case new
 }
 
 
 func rebuildDateBuckets(tasks: [Tasks]) -> [DateBucket] {
     let calendar = Calendar.current
-    
+
     let todayStart = calendar.startOfDay(.now)
     let todayEnd = calendar.endOfDay(.now)
     var _dateBuckets = buildShortRangeDateBuckets()
@@ -99,6 +100,25 @@ func rebuildDateBuckets(tasks: [Tasks]) -> [DateBucket] {
     }
 
     return [inbox_bucket, today_bucket, overdue_bucket, completed_bucket] + _dateBuckets
+}
+
+func buildNewTaskBucket(from tasks: [Tasks]) -> DateBucket {
+    var newBucket = DateBucket(
+        title: AnyView(
+            Text("New")
+                .font(.title3.weight(.semibold))
+                .foregroundColor(.primary)
+        ),
+        start: .distantPast,
+        end: .distantFuture,
+        type: .new
+    )
+
+    for task in tasks where !task.is_completed {
+        newBucket.appendTask(task)
+    }
+
+    return newBucket
 }
 
 func addTaskRowView() -> some View {
