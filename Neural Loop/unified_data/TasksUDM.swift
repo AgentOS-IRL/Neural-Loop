@@ -132,6 +132,14 @@ extension  UnifiedDataModel {
         return _shortTermTasksDataBucket
     }
 
+    var shortTermTaskBuckets: [DateBucket] {
+        resolvedShortTermTaskBuckets
+    }
+
+    func shortTermTaskBuckets(from tasks: [Tasks]) -> [DateBucket] {
+        rebuildDateBuckets(tasks: tasks)
+    }
+
     var todayTaskBucket: DateBucket {
         resolvedShortTermTaskBuckets.first(where: { $0.type == .today })!
     }
