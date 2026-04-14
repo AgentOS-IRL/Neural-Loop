@@ -152,6 +152,10 @@ extension  UnifiedDataModel {
         resolvedShortTermTaskBuckets.first(where: { $0.type == .completed })!
     }
 
+    var newTaskBucket: DateBucket {
+        resolvedShortTermTaskBuckets.first(where: { $0.type == .new })!
+    }
+
     var upcomingTaskBuckets: [DateBucket] {
         resolvedShortTermTaskBuckets.filter({ $0.type == .upcoming })
     }

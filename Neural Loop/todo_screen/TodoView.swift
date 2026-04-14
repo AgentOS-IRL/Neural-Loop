@@ -58,6 +58,8 @@ final class TodoViewModel: ObservableObject {
             return buckets.compactMap { $0.type == .inbox ? $0 : nil }
         case .completed:
             return buckets.compactMap { $0.type == .completed ? $0 : nil }
+        case .new:
+            return buckets.compactMap { $0.type == .new ? $0 : nil }
         case .all:
             var bucket = DateBucket(
                 title: AnyView(
@@ -314,6 +316,18 @@ struct TodoView: View {
                     Divider().padding(.leading, 56)
 
                     Button {
+                        vm.viewMode = .new
+                    } label: {
+                        menuRow(
+                            icon: "sparkles",
+                            title: "New",
+                            count: model.newTaskBucket.tasks.count
+                        )
+                    }
+
+                    Divider().padding(.leading, 56)
+
+                    Button {
                         vm.viewMode = .all
                     } label: {
                         menuRow(
@@ -382,6 +396,23 @@ struct TodoView: View {
     }
 
     @ViewBuilder
+    private func newTasksView() -> some View {
+        if let newBucket = vm.bucketsForCurrentViewMode.first(where: { $0.type == .new }) {
+            LazyVStack(alignment: .leading, spacing: 14) {
+                addTaskRowView()
+                    .onTapGesture {
+                        vm.initializationTiming = .init()
+                        vm.showAddTask = true
+                    }
+
+                ForEach(newBucket.tasks, id: \.id) { task in
+                    taskView(task: task)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
     private func allTasksView() -> some View {
         if let bucket = vm.bucketsForCurrentViewMode.first {
             LazyVStack(alignment: .leading, spacing: 14) {
@@ -400,6 +431,25 @@ struct TodoView: View {
 
     private func refreshBucketsFromModel() {
         vm.refreshCurrentBuckets(using: model.shortTermTaskBuckets, allTasks: model.tasks)
+    }
+
+    private func toolbarTitle(for mode: ViewMode) -> String {
+        switch mode {
+        case .menu:
+            return "Todos"
+        case .inbox:
+            return "Inbox"
+        case .completed:
+            return "Completed"
+        case .upcoming:
+            return "Upcoming Tasks"
+        case .today:
+            return "Today"
+        case .all:
+            return "All Tasks"
+        case .new:
+            return "New"
+        }
     }
     
     var body: some View {
@@ -421,6 +471,9 @@ struct TodoView: View {
 
                         case .all:
                             allTasksView()
+
+                        case .new:
+                            newTasksView()
 
                         case .inbox:
                             inboxView()
@@ -455,12 +508,7 @@ struct TodoView: View {
                             Image(systemName: "chevron.left")
                                 .font(.system(size: 17, weight: .semibold))
                         }
-                        Text(vm.viewMode == .menu ? "Todos" :
-                                vm.viewMode == .inbox ? "Inbox" :
-                                vm.viewMode == .completed ? "Completed" :
-                                vm.viewMode == .upcoming ? "Upcoming Tasks" :
-                                vm.viewMode == .today ? "Today" :
-                                "All Tasks")
+                        Text(toolbarTitle(for: vm.viewMode))
                         .font(.title3.weight(.semibold))
                         .lineLimit(1)
                         .fixedSize(horizontal: true, vertical: false)
