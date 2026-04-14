@@ -74,6 +74,9 @@ EOF
 case "\$*" in
     "devicectl list devices")
         printf '%s\n' "Some Device ${DEVICE_UDID:-72D40F6B-9625-5561-932B-E71F4E30E3BF}"
+        for _ in \$(seq 1 5000); do
+            printf '%s\n' "additional device listing output"
+        done
         ;;
     "devicectl device install app --device 72D40F6B-9625-5561-932B-E71F4E30E3BF ./build/Neural Loop.xcarchive/Products/Applications/Neural Loop.app")
         touch "${temp_dir}/install-called"
