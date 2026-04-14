@@ -18,8 +18,8 @@ Neural Loop is a multi-platform productivity suite that pairs a full featured iO
 2. Ensure required Supabase credentials (if needed) are available to the app and any relevant scheme environment overrides are configured.
 3. Use the `Neural Loop` scheme for iOS work or `Neural Loop Watch Watch App` for WatchOS.
 
-## Automated testing (manual verification not required)
-- Run `xcodebuild -scheme "Neural Loop" test` to execute all automated suites that cover the iOS target, shared services, and any linked dependencies. This is the only verification step expected at the moment; manual QA passes are explicitly out of scope.
+## No Automated testing
+-  No Tests in this project. 
 
 ## Related documentation
 - `Neural Loop/README.md` (iOS target overview)
