@@ -38,19 +38,26 @@ final class TodoViewModel: ObservableObject {
     @Published private(set) var bucketsForCurrentViewMode: [DateBucket] = []
 
     func refreshCurrentBuckets(using model: UnifiedDataModel) {
-        bucketsForCurrentViewMode = buckets(for: viewMode, using: model)
+        refreshCurrentBuckets(
+            using: model.shortTermTaskBuckets,
+            allTasks: model.tasks
+        )
     }
 
-    private func buckets(for mode: ViewMode, using model: UnifiedDataModel) -> [DateBucket] {
+    func refreshCurrentBuckets(using buckets: [DateBucket], allTasks: [Tasks]) {
+        bucketsForCurrentViewMode = buckets(for: viewMode, using: buckets, allTasks: allTasks)
+    }
+
+    private func buckets(for mode: ViewMode, using buckets: [DateBucket], allTasks: [Tasks]) -> [DateBucket] {
         switch mode {
         case .today:
-            return [model.todayTaskBucket]
+            return buckets.compactMap { $0.type == .today ? $0 : nil }
         case .upcoming:
-            return model.upcomingTaskBuckets
+            return buckets.filter { $0.type == .upcoming }
         case .inbox:
-            return [model.inboxTaskBucket]
+            return buckets.compactMap { $0.type == .inbox ? $0 : nil }
         case .completed:
-            return [model.completedTaskBucket]
+            return buckets.compactMap { $0.type == .completed ? $0 : nil }
         case .all:
             var bucket = DateBucket(
                 title: AnyView(
@@ -62,8 +69,8 @@ final class TodoViewModel: ObservableObject {
                 end: .distantFuture,
                 type: .upcoming
             )
-            bucket.tasks = model.tasks
-            bucket.ids = model.tasks.compactMap { $0.id }
+            bucket.tasks = allTasks
+            bucket.ids = allTasks.compactMap { $0.id }
             return [bucket]
         default:
             return []
@@ -391,6 +398,10 @@ struct TodoView: View {
         }
     }
 
+    private func refreshBucketsFromModel() {
+        vm.refreshCurrentBuckets(using: model.shortTermTaskBuckets, allTasks: model.tasks)
+    }
+    
     var body: some View {
         NavigationView {
             ZStack {
@@ -460,13 +471,14 @@ struct TodoView: View {
                 }
             }
             .onAppear {
-                vm.refreshCurrentBuckets(using: model)
+                refreshBucketsFromModel()
             }
             .onChange(of: vm.viewMode) { _ in
-                vm.refreshCurrentBuckets(using: model)
+                refreshBucketsFromModel()
             }
-            .onReceive(model.$tasks) { _ in
-                vm.refreshCurrentBuckets(using: model)
+            .onReceive(model.$tasks) { tasks in
+                let buckets = model.shortTermTaskBuckets(from: tasks)
+                vm.refreshCurrentBuckets(using: buckets, allTasks: tasks)
             }
             .sheet(
                 isPresented: $vm.showAddTask
