@@ -45,7 +45,7 @@ final class TodoViewModel: ObservableObject {
     }
 
     func refreshCurrentBuckets(using buckets: [DateBucket], allTasks: [Tasks]) {
-        bucketsForCurrentViewMode = buckets(for: viewMode, using: buckets, allTasks: allTasks)
+        bucketsForCurrentViewMode = self.buckets(for: viewMode, using: buckets, allTasks: allTasks)
     }
 
     private func buckets(for mode: ViewMode, using buckets: [DateBucket], allTasks: [Tasks]) -> [DateBucket] {
