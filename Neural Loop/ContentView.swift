@@ -12,7 +12,7 @@ import OSLog
 let logger = Logger(subsystem: "NeuralLoop", category: "App")
 
 struct ContentView: View {
-    @State private var selectedTab: AppTab = .habits
+    @State private var selectedTab: AppTab = .calendar
 
     var body: some View {
         Group {

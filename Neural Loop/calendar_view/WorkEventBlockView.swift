@@ -94,7 +94,7 @@ struct WorkEventBlockView: View {
         case .pending:
             return [.purple.opacity(0.4), .purple.opacity(0.3)]
         default:
-            return [.purple.opacity(0.5), .purple.opacity(0.35)]
+            return [event.event_type.color.opacity(0.5), event.event_type.color.opacity(0.35)]
         }
     }
 

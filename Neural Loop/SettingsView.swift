@@ -85,6 +85,15 @@ struct SettingsView: View {
                 } footer: {
                     Text("Use “Send Test Notification” to verify notifications are working on your device.")
                 }
+                
+                VStack{
+                    Text(ConnectivityManager.shared.receivedMessage)
+                        .font(.title)
+                    Button("Send to Watch") {
+                        print("Sending message to watch...")
+                        ConnectivityManager.shared.sendMessage("Hello from iPhone 📱")
+                    }
+                }
 
                 Section {
                     if pendingRequests.isEmpty {

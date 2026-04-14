@@ -1,12 +1,6 @@
 import Foundation
 import EventKit
 
-struct SimpleEvent {
-    let title: String
-    let start: Date
-    let end: Date
-    let acceptanceStatus: EKParticipantStatus?
-}
 
 func fetchTodaysGenesysEvents(
     for date: Date = Date(),
@@ -63,7 +57,7 @@ func fetchTodaysGenesysEvents(
         }
 
         // 🧹 Filter overlaps
-        var filtered: [EKEvent] = events
+        let filtered: [EKEvent] = events
 
         // 📦 Map result
         let result = filtered
@@ -73,7 +67,8 @@ func fetchTodaysGenesysEvents(
                     title: $0.title,
                     start: $0.startDate,
                     end: $0.endDate,
-                    acceptanceStatus: acceptanceStatus(for: $0)
+                    acceptanceStatus: acceptanceStatus(for: $0),
+                    event_type: .workEvent
                 )
             }
 
