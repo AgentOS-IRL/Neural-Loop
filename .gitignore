@@ -1,2 +1,18 @@
 output.diff
 plan/**
+
+
+# Xcode User Data
+xcuserdata/
+
+# Derived Data and Build artifacts
+build/
+DerivedData/
+
+# Project-specific internal state
+*.moved-aside
+*.xcuserstate
+
+# Swift Package Manager
+.swiftpm/xcode/package.pull-requests
+.swiftpm/xcode/xcuserdata/
