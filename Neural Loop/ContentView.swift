@@ -28,8 +28,10 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.easeInOut(duration: 0.26), value: isAudioMode)
         .onAppear {
-            Task {
-                await NotificationManager.shared.requestPermission()
+            if !isRunningUnderTests() {
+                Task {
+                    await NotificationManager.shared.requestPermission()
+                }
             }
         }
     }

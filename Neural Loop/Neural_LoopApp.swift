@@ -13,6 +13,10 @@ import SwiftData
 struct Neural_LoopApp: App {
     
     init() {
+        if isRunningUnderTests() {
+            return
+        }
+
         let eventStore = EKEventStore()
 
         Task {

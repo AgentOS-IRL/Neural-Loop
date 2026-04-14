@@ -28,9 +28,10 @@ private func getKeyChangeSets<K: Hashable>(
 @MainActor
 final class UnifiedDataModel: ObservableObject {
 
-    static let shared = UnifiedDataModel()
+    static let shared = UnifiedDataModel(autoStart: !isRunningUnderTests())
     
     let manager :DBManager
+    private let secretsFetcher: any SecretsFetching
     let calendar: Calendar
     
     var _shortTermTasksDataBucket: [DateBucket] = []
@@ -84,6 +85,7 @@ final class UnifiedDataModel: ObservableObject {
             _shortTermTasksDataBucket = []
         }
     }
+    @Published var secrets: [Secrets] = []
     
     @Published var currentHabitProgressMap: [Int64: HabitProgress] = [:] {
         didSet {
@@ -131,14 +133,21 @@ final class UnifiedDataModel: ObservableObject {
         }
     }
     
-    private init() {
-        self.manager = DBManager.newInstance()
+    init(
+        manager: DBManager? = nil,
+        secretsFetcher: (any SecretsFetching)? = nil,
+        autoStart: Bool = true
+    ) {
+        let resolvedManager = manager ?? DBManager.newInstance()
+        self.manager = resolvedManager
+        self.secretsFetcher = secretsFetcher ?? resolvedManager
         self.calendar  = Calendar.current
-        Task {
-            await initialize(manager: self.manager)
-            print("Done Initializing")
+        if autoStart {
+            Task {
+                await initialize(manager: self.manager)
+                print("Done Initializing")
+            }
         }
-        
     }
     
     private func initialize(manager: DBManager ) async {
@@ -157,6 +166,7 @@ final class UnifiedDataModel: ObservableObject {
         async let _lifeAreas = loadLifeAreas(manager: manager)
         async let _tags = loadTags(manager: manager)
         async let _tasks = loadTasks(manager: manager)
+        async let _secrets = loadSecrets(fetcher: secretsFetcher)
         
         _ = await (
             _goals,
@@ -164,7 +174,8 @@ final class UnifiedDataModel: ObservableObject {
             _habits,
             _lifeAreas,
             _tags,
-            _tasks
+            _tasks,
+            _secrets
         )
     }
 
@@ -231,6 +242,21 @@ final class UnifiedDataModel: ObservableObject {
         } catch {
             print("error", error)
         }
+    }
+
+    func loadSecrets(fetcher: (any SecretsFetching)? = nil) async {
+        do {
+            print("Loading Secrets")
+            let source = fetcher ?? secretsFetcher
+            let fetched = try await source.fetchAllSecrets()
+            secrets = fetched
+        } catch {
+            print("error", error)
+        }
+    }
+
+    var loadedSecretKeys: [String] {
+        secrets.map(\.key).sorted()
     }
 
     
