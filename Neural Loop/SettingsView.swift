@@ -15,6 +15,7 @@ struct SettingsView: View {
     @StateObject private var notificationTester = NotificationManager.shared
     @Environment(\.openURL) private var openURL
     @State private var pendingRequests: [UNNotificationRequest] = []
+    @AppStorage("isAudioMode") private var isAudioMode = false
 
     // Mirror the custom tab bar height (78) with extra cushion so list content stays above the overlay.
     private let bottomInsetHeight: CGFloat = 88
@@ -29,6 +30,23 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    Toggle(isOn: $isAudioMode) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Audio Mode")
+                                .font(.headline)
+                            Text("Use a simplified, voice-first interface.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .toggleStyle(.switch)
+                } header: {
+                    Text("App Mode")
+                } footer: {
+                    Text("Switching modes updates the main app shell immediately and remembers your choice across launches.")
+                }
+
                 Section {
                     HStack(spacing: 12) {
                         Image(systemName: notificationTester.statusSymbol)
