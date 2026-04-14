@@ -153,7 +153,7 @@ extension  UnifiedDataModel {
     }
 
     var newTaskBucket: DateBucket {
-        resolvedShortTermTaskBuckets.first(where: { $0.type == .new })!
+        buildNewTaskBucket(from: tasks)
     }
 
     var upcomingTaskBuckets: [DateBucket] {
