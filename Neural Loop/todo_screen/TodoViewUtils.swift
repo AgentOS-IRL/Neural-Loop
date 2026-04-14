@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import RRuleKit
+import SwiftData
 
 func nextOccurrence(
     of rule: Calendar.RecurrenceRule,
@@ -75,17 +76,17 @@ func rebuildDateBuckets(tasks: [Tasks]) -> [DateBucket] {
 
     for task in tasks {
         if task.start_date == nil {
-            inbox_bucket.ids.append(task.id!)
+            inbox_bucket.appendTask(task)
         }
         else if task.is_completed {
-            completed_bucket.ids.append(task.id!)
+            completed_bucket.appendTask(task)
         }
         else if (task.recursion_rule == "" || task.recursion_rule == nil) && task.start_date != nil {
             if task.start_date! < todayStart {
-                overdue_bucket.ids.append(task.id!)
+                overdue_bucket.appendTask(task)
             }
             else if task.start_date! < todayEnd {
-                today_bucket.ids.append(task.id!)
+                today_bucket.appendTask(task)
             }
             else{
                 _dateBuckets = attachTaskToBuckets(task: task, buckets: _dateBuckets)
