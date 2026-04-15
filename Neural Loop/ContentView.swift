@@ -12,12 +12,13 @@ import OSLog
 let logger = Logger(subsystem: "NeuralLoop", category: "App")
 
 struct ContentView: View {
+    @EnvironmentObject private var model: UnifiedDataModel
     @AppStorage("isAudioMode") private var isAudioMode = false
     @State private var selectedTab: AppTab = .calendar
 
     var body: some View {
         ZStack {
-            if isAudioMode {
+            if shouldPresentAudioModeShell {
                 AudioModeView()
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             } else {
@@ -26,14 +27,28 @@ struct ContentView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(.easeInOut(duration: 0.26), value: isAudioMode)
+        .animation(.easeInOut(duration: 0.26), value: shouldPresentAudioModeShell)
         .onAppear {
+            reconcileAudioModePreference()
             if !isRunningUnderTests() {
                 Task {
                     await NotificationManager.shared.requestPermission()
                 }
             }
         }
+        .onChange(of: model.secretsLoaded) { _, _ in
+            reconcileAudioModePreference()
+        }
+        .onChange(of: model.canUseAudioMode) { _, _ in
+            reconcileAudioModePreference()
+        }
+    }
+
+    private var shouldPresentAudioModeShell: Bool {
+        shouldShowAudioModeShell(
+            isAudioModeEnabled: isAudioMode,
+            canUseAudioMode: model.canUseAudioMode
+        )
     }
 
     @ViewBuilder
@@ -60,10 +75,32 @@ struct ContentView: View {
                 .padding(.bottom, -20)
         }
     }
+
+    private func reconcileAudioModePreference() {
+        guard model.secretsLoaded else {
+            return
+        }
+
+        guard !model.canUseAudioMode else {
+            return
+        }
+
+        if isAudioMode {
+            isAudioMode = false
+        }
+    }
+}
+
+func shouldShowAudioModeShell(
+    isAudioModeEnabled: Bool,
+    canUseAudioMode: Bool
+) -> Bool {
+    isAudioModeEnabled && canUseAudioMode
 }
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
+            .environmentObject(UnifiedDataModel(autoStart: false))
     }
 }

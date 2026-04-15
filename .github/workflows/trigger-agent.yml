@@ -1,16 +1,15 @@
-name: Agent Trigger on Reaction
-
 on:
-  issue:
+  issue_comment:
     types: [created]
 
 jobs:
   trigger-agent:
-    runs-on: self-hosted
-    if: |
-      github.event.reaction.content == '+1' && 
-      github.event.issue != null &&
-      startsWith(github.event.issue.title, '[Task ')
+    # Only run if the comment or issue body contains '@agentos'
+    if: >
+      gitea.event.issue.pull_request != null && 
+      (contains(gitea.event.comment.body, 'Codex Review: Didn\'t find any major issues. Swish!') || 
+      contains(gitea.event.issue.body, 'Codex Review: Didn\'t find any major issues. Swish!'))
+    runs-on: ubuntu-latest
     steps:
       - name: Install dependencies
         run: |

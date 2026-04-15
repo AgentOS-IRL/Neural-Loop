@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct AudioModeView: View {
+    @EnvironmentObject private var model: UnifiedDataModel
     @AppStorage("isAudioMode") private var isAudioMode = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
@@ -83,8 +84,15 @@ struct AudioModeView: View {
             .padding(.vertical, 28)
         }
         .onAppear {
+            reconcileAuthorizationState()
             guard !reduceMotion else { return }
             pulse = true
+        }
+        .onChange(of: model.secretsLoaded) { _, _ in
+            reconcileAuthorizationState()
+        }
+        .onChange(of: model.canUseAudioMode) { _, _ in
+            reconcileAuthorizationState()
         }
     }
 
@@ -138,6 +146,23 @@ struct AudioModeView: View {
         .accessibilityLabel("Microphone is ready for audio mode")
     }
 
+    private func reconcileAuthorizationState() {
+        guard model.secretsLoaded else {
+            return
+        }
+
+        guard model.canUseAudioMode else {
+            if isAudioMode {
+                withAnimation(.easeInOut(duration: 0.24)) {
+                    isAudioMode = false
+                }
+            } else {
+                isAudioMode = false
+            }
+            return
+        }
+    }
+
     private var switchBackBackground: some View {
         LinearGradient(
             colors: [
@@ -152,4 +177,5 @@ struct AudioModeView: View {
 
 #Preview {
     AudioModeView()
+        .environmentObject(UnifiedDataModel(autoStart: false))
 }
