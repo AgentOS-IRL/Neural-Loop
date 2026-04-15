@@ -24,7 +24,6 @@ public enum CodexAction {
 public protocol CodexSchemaProviding {
     static var codexSchemaPayload: CodexJSONSchemaPayload { get }
 }
-
 public struct CodexTool: Codable, Equatable {
     public let name: String
     public let description: String
@@ -36,33 +35,29 @@ public struct CodexTool: Codable, Equatable {
         self.parameters = parameters
     }
 
+    // Simplified CodingKeys to flatten the structure
     private enum CodingKeys: String, CodingKey {
-        case type
-        case function
-    }
-
-    private enum FunctionCodingKeys: String, CodingKey {
         case name
         case description
         case parameters
+        case type
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let function = try container.nestedContainer(keyedBy: FunctionCodingKeys.self, forKey: .function)
-        self.name = try function.decode(String.self, forKey: .name)
-        self.description = try function.decode(String.self, forKey: .description)
-        self.parameters = try function.decode(JSONValue.self, forKey: .parameters)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.description = try container.decode(String.self, forKey: .description)
+        self.parameters = try container.decode(JSONValue.self, forKey: .parameters)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        // Encode everything at the top level
         try container.encode("function", forKey: .type)
-
-        var function = container.nestedContainer(keyedBy: FunctionCodingKeys.self, forKey: .function)
-        try function.encode(name, forKey: .name)
-        try function.encode(description, forKey: .description)
-        try function.encode(parameters, forKey: .parameters)
+        try container.encode(name, forKey: .name)
+        try container.encode(description, forKey: .description)
+        try container.encode(parameters, forKey: .parameters)
     }
 }
 
@@ -128,7 +123,7 @@ public final class CodexStructuredTool {
         self.accessToken = access_token
         self.accountID = account_id
         self.baseURL = url ?? URL(string: "https://chatgpt.com/backend-api/codex/responses")!
-        self.model = model ?? "gpt-5.1-codex"
+        self.model = model ?? "gpt-5.4-mini"
         self.instructions = instructions ?? "You are a helpful assistant."
         self.timeout = timeout
 
@@ -321,7 +316,7 @@ public final class CodexStructuredTool {
         let session = URLSession(configuration: sessionConfiguration)
         do {
             let (bytes, response) = try await session.bytes(for: request)
-            try validate(response: response)
+            try await validate(bytes: bytes, response: response)
             return try await collectText(
                 from: bytes,
                 handleEvent: handleEvent,
@@ -466,8 +461,20 @@ private extension CodexStructuredTool {
         ]
     }
 
-    func validate(response: URLResponse) throws {
+    func validate(bytes: URLSession.AsyncBytes, response: URLResponse) async throws {
         if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+            print("HTTP \(httpResponse.statusCode) response received.")
+                        
+            var data = Data()
+            // 2. This 'await' requires the function to be 'async'
+            for try await byte in bytes {
+                data.append(byte)
+            }
+
+            if let bodyString = String(data: data, encoding: .utf8) {
+                print("Response Body: \(bodyString)")
+            }
+            
             throw CodexStructuredToolError.transport(
                 "Codex request failed with HTTP \(httpResponse.statusCode)."
             )
