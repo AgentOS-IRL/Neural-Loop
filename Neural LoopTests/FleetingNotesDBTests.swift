@@ -34,4 +34,16 @@ final class FleetingNotesDBTests: XCTestCase {
 
         XCTAssertEqual(sorted.map(\.id), [3, 2, 1])
     }
+
+    func testBoundedFleetingNotesFetchLimitFallsBackToMinimumForNonPositiveValues() {
+        XCTAssertEqual(FleetingNotesQueryPolicy.boundedFetchLimit(0), 1)
+        XCTAssertEqual(FleetingNotesQueryPolicy.boundedFetchLimit(-5), 1)
+    }
+
+    func testBoundedFleetingNotesFetchLimitCapsLargeRequests() {
+        XCTAssertEqual(
+            FleetingNotesQueryPolicy.boundedFetchLimit(FleetingNotesQueryPolicy.maxFetchLimit + 50),
+            FleetingNotesQueryPolicy.maxFetchLimit
+        )
+    }
 }

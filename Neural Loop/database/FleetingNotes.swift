@@ -8,6 +8,14 @@
 import Foundation
 import Supabase
 
+enum FleetingNotesQueryPolicy {
+    static let maxFetchLimit = 200
+
+    static func boundedFetchLimit(_ requestedLimit: Int) -> Int {
+        min(max(1, requestedLimit), maxFetchLimit)
+    }
+}
+
 struct FleetingNote: Codable, Identifiable, Equatable {
     let id: Int64
     let created_at: Date
@@ -31,11 +39,13 @@ extension DBManager {
     // stays centralized here instead of being duplicated across queries.
     fileprivate var fleetingNotesTableName: String { "fleeting notes" }
 
-    func fetchFleetingNotes() async throws -> [FleetingNote] {
+    func fetchFleetingNotes(limit: Int = FleetingNotesQueryPolicy.maxFetchLimit) async throws -> [FleetingNote] {
+        let boundedLimit = FleetingNotesQueryPolicy.boundedFetchLimit(limit)
         let rows: [FleetingNote] = try await customsupabase
             .from(fleetingNotesTableName)
             .select("id, created_at, note")
             .order("created_at", ascending: false)
+            .limit(boundedLimit)
             .execute()
             .value
 
