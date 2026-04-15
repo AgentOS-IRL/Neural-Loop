@@ -21,6 +21,29 @@ public enum CodexAction {
     case clarify(text: String)
 }
 
+public struct CodexConversationState: Equatable {
+    public var previousResponseID: String?
+    public var conversationID: String?
+
+    public init(
+        previousResponseID: String? = nil,
+        conversationID: String? = nil
+    ) {
+        self.previousResponseID = previousResponseID
+        self.conversationID = conversationID
+    }
+}
+
+public struct CodexIntentResult {
+    public let action: CodexAction
+    public let state: CodexConversationState
+
+    public init(action: CodexAction, state: CodexConversationState) {
+        self.action = action
+        self.state = state
+    }
+}
+
 public protocol CodexSchemaProviding {
     static var codexSchemaPayload: CodexJSONSchemaPayload { get }
 }
@@ -144,29 +167,46 @@ public final class CodexStructuredTool {
     }
 
     public func executeIntent(_ prompt: String, url: URL? = nil) async throws -> CodexAction {
+        let result = try await executeIntent(
+            messages: [Self.userMessage(prompt)],
+            state: nil,
+            url: url
+        )
+        return result.action
+    }
+
+    public func executeIntent(
+        messages: [CodexInputMessage],
+        state: CodexConversationState? = nil,
+        url: URL? = nil
+    ) async throws -> CodexIntentResult {
         var accumulator = CodexIntentAccumulator()
         let clarification = try await _post_and_collect_text(
-            prompt: prompt,
+            messages: messages,
             url: url,
             instructions: Self.intentInstructions,
             text_format: nil,
             tools: Self.intentTools,
             tool_choice: "auto",
             parallel_tool_calls: false,
+            store: false,
             handleEvent: { event in
                 accumulator.ingest(event)
             }
         )
 
-        if let action = accumulator.finalizedAction() {
-            return action
-        }
-
         let fallback = clarification.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !fallback.isEmpty {
-            return .clarify(text: fallback)
-        }
-        return .clarify(text: "Could you clarify whether you want me to create a task or save a note?")
+        let action = accumulator.finalizedAction()
+            ?? (!fallback.isEmpty ? .clarify(text: fallback) : nil)
+            ?? .clarify(text: "Could you clarify whether you want me to create a task or save a note?")
+
+        return CodexIntentResult(
+            action: action,
+            state: CodexConversationState(
+                previousResponseID: accumulator.responseID ?? state?.previousResponseID,
+                conversationID: state?.conversationID
+            )
+        )
     }
 
     public func executeStructured<T: Decodable>(
@@ -251,23 +291,39 @@ public final class CodexStructuredTool {
         tool_choice: String? = nil,
         parallel_tool_calls: Bool? = nil
     ) -> CodexRequestBody {
+        _build_body(
+            messages: [Self.userMessage(prompt)],
+            instructions: instructions,
+            text_format: text_format,
+            tools: tools,
+            tool_choice: tool_choice,
+            parallel_tool_calls: parallel_tool_calls
+        )
+    }
+
+    func _build_body(
+        messages: [CodexInputMessage],
+        instructions: String? = nil,
+        text_format: JSONValue? = nil,
+        tools: [CodexTool]? = nil,
+        tool_choice: String? = nil,
+        parallel_tool_calls: Bool? = nil,
+        previous_response_id: String? = nil,
+        conversation: String? = nil,
+        store: Bool = false
+    ) -> CodexRequestBody {
         CodexRequestBody(
             model: model,
             stream: true,
-            store: false,
+            store: store,
             instructions: instructions ?? self.instructions,
             text: CodexTextConfig(verbosity: "medium", format: text_format),
             tools: tools,
             tool_choice: tool_choice,
             parallel_tool_calls: parallel_tool_calls,
-            input: [
-                CodexInputMessage(
-                    role: "user",
-                    content: [
-                        CodexInputContent(type: "input_text", text: prompt)
-                    ]
-                )
-            ]
+            previous_response_id: previous_response_id,
+            conversation: conversation,
+            input: messages
         )
     }
 
@@ -296,14 +352,42 @@ public final class CodexStructuredTool {
         parallel_tool_calls: Bool? = nil,
         handleEvent: ((CodexStreamEvent) throws -> Void)? = nil
     ) async throws -> String {
-        let request = try _build_request(
-            prompt: prompt,
+        try await _post_and_collect_text(
+            messages: [Self.userMessage(prompt)],
             url: url,
             instructions: instructions,
             text_format: text_format,
             tools: tools,
             tool_choice: tool_choice,
-            parallel_tool_calls: parallel_tool_calls
+            parallel_tool_calls: parallel_tool_calls,
+            handleEvent: handleEvent
+        )
+    }
+
+    private func _post_and_collect_text(
+        messages: [CodexInputMessage],
+        url: URL?,
+        instructions: String?,
+        text_format: JSONValue?,
+        tools: [CodexTool]? = nil,
+        tool_choice: String? = nil,
+        parallel_tool_calls: Bool? = nil,
+        previous_response_id: String? = nil,
+        conversation: String? = nil,
+        store: Bool = false,
+        handleEvent: ((CodexStreamEvent) throws -> Void)? = nil
+    ) async throws -> String {
+        let request = try _build_request(
+            messages: messages,
+            url: url,
+            instructions: instructions,
+            text_format: text_format,
+            tools: tools,
+            tool_choice: tool_choice,
+            parallel_tool_calls: parallel_tool_calls,
+            previous_response_id: previous_response_id,
+            conversation: conversation,
+            store: store
         )
 
         if let streamingChunksProvider {
@@ -350,6 +434,29 @@ public final class CodexStructuredTool {
         tool_choice: String? = nil,
         parallel_tool_calls: Bool? = nil
     ) throws -> URLRequest {
+        try _build_request(
+            messages: [Self.userMessage(prompt)],
+            url: url,
+            instructions: instructions,
+            text_format: text_format,
+            tools: tools,
+            tool_choice: tool_choice,
+            parallel_tool_calls: parallel_tool_calls
+        )
+    }
+
+    private func _build_request(
+        messages: [CodexInputMessage],
+        url: URL? = nil,
+        instructions: String? = nil,
+        text_format: JSONValue? = nil,
+        tools: [CodexTool]? = nil,
+        tool_choice: String? = nil,
+        parallel_tool_calls: Bool? = nil,
+        previous_response_id: String? = nil,
+        conversation: String? = nil,
+        store: Bool = false
+    ) throws -> URLRequest {
         let requestURL = url ?? baseURL
 
         var request = URLRequest(url: requestURL)
@@ -362,12 +469,15 @@ public final class CodexStructuredTool {
         }
 
         let body = _build_body(
-            prompt: prompt,
+            messages: messages,
             instructions: instructions,
             text_format: text_format,
             tools: tools,
             tool_choice: tool_choice,
-            parallel_tool_calls: parallel_tool_calls
+            parallel_tool_calls: parallel_tool_calls,
+            previous_response_id: previous_response_id,
+            conversation: conversation,
+            store: store
         )
         request.httpBody = try requestEncoder.encode(body)
         return request
@@ -401,6 +511,15 @@ public final class CodexStructuredTool {
 
     private func normalizedStructuredText(_ raw: String) -> String {
         normalizedCodexStructuredText(raw)
+    }
+
+    static func userMessage(_ prompt: String) -> CodexInputMessage {
+        CodexInputMessage(
+            role: "user",
+            content: [
+                CodexInputContent(type: "input_text", text: prompt)
+            ]
+        )
     }
 }
 
@@ -535,22 +654,65 @@ public struct CodexRequestBody: Codable, Equatable {
     public let tools: [CodexTool]?
     public let tool_choice: String?
     public let parallel_tool_calls: Bool?
+    public let previous_response_id: String?
+    public let conversation: String?
     public let input: [CodexInputMessage]
+
+    public init(
+        model: String,
+        stream: Bool,
+        store: Bool,
+        instructions: String,
+        text: CodexTextConfig,
+        tools: [CodexTool]? = nil,
+        tool_choice: String? = nil,
+        parallel_tool_calls: Bool? = nil,
+        previous_response_id: String? = nil,
+        conversation: String? = nil,
+        input: [CodexInputMessage]
+    ) {
+        self.model = model
+        self.stream = stream
+        self.store = store
+        self.instructions = instructions
+        self.text = text
+        self.tools = tools
+        self.tool_choice = tool_choice
+        self.parallel_tool_calls = parallel_tool_calls
+        self.previous_response_id = previous_response_id
+        self.conversation = conversation
+        self.input = input
+    }
 }
 
 public struct CodexTextConfig: Codable, Equatable {
     public let verbosity: String
     public let format: JSONValue?
+
+    public init(verbosity: String, format: JSONValue? = nil) {
+        self.verbosity = verbosity
+        self.format = format
+    }
 }
 
 public struct CodexInputMessage: Codable, Equatable {
     public let role: String
     public let content: [CodexInputContent]
+
+    public init(role: String, content: [CodexInputContent]) {
+        self.role = role
+        self.content = content
+    }
 }
 
 public struct CodexInputContent: Codable, Equatable {
     public let type: String
     public let text: String
+
+    public init(type: String, text: String) {
+        self.type = type
+        self.text = text
+    }
 }
 
 public struct CodexStreamEvent: Decodable, Equatable {
@@ -638,13 +800,20 @@ public struct CodexStreamEvent: Decodable, Equatable {
 }
 
 public struct CodexStreamResponse: Decodable, Equatable {
+    public let id: String?
     public let output: [CodexStreamOutput]?
+
+    public init(id: String? = nil, output: [CodexStreamOutput]? = nil) {
+        self.id = id
+        self.output = output
+    }
 
     static func parse(_ value: Any?) throws -> CodexStreamResponse? {
         guard let dictionary = value as? [String: Any] else { return nil }
+        let id = dictionary["id"] as? String
         let outputValue = dictionary["output"] as? [[String: Any]]
         let output = try outputValue?.map(CodexStreamOutput.parse)
-        return CodexStreamResponse(output: output)
+        return CodexStreamResponse(id: id, output: output)
     }
 }
 
@@ -896,8 +1065,35 @@ private struct CodexSSECollector {
 private struct CodexIntentAccumulator {
     private var orderedKeys: [String] = []
     private var toolCalls: [String: CodexStreamToolCall] = [:]
+    private var sawClarificationDelta = false
+    private(set) var clarificationText: String = ""
+    private(set) var responseID: String?
 
     mutating func ingest(_ event: CodexStreamEvent) {
+        if let id = event.response?.id, !id.isEmpty {
+            responseID = id
+        }
+
+        switch event.type {
+        case "response.output_text.delta":
+            if let delta = event.delta, !delta.isEmpty {
+                sawClarificationDelta = true
+                clarificationText += delta
+            }
+        case "response.output_text.done", "response.completed":
+            guard !sawClarificationDelta else { break }
+            let finalText = event.response?
+                .output?
+                .flatMap { $0.content ?? [] }
+                .compactMap { $0.text }
+                .joined() ?? ""
+            if !finalText.isEmpty {
+                clarificationText += finalText
+            }
+        default:
+            break
+        }
+
         for fragment in event.toolCalls ?? [] {
             ingest(fragment)
         }
@@ -922,6 +1118,12 @@ private struct CodexIntentAccumulator {
                 return .callTool(name: name, arguments: decoded)
             }
         }
+
+        let trimmed = clarificationText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            return .clarify(text: trimmed)
+        }
+
         return nil
     }
 

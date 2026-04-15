@@ -123,11 +123,20 @@ final class CodexStructuredToolTests: XCTestCase {
             }
         )
 
-        let action = try await tool.executeIntent("make something")
-        guard case .clarify(let text) = action else {
+        let result = try await tool.executeIntent(
+            messages: [
+                CodexInputMessage(
+                    role: "user",
+                    content: [CodexInputContent(type: "input_text", text: "make something")]
+                )
+            ],
+            state: CodexConversationState(previousResponseID: "resp_prev")
+        )
+        guard case .clarify(let text) = result.action else {
             return XCTFail("Expected clarification response")
         }
         XCTAssertEqual(text, "Which task do you want me to create?")
+        XCTAssertEqual(result.state.previousResponseID, "resp_prev")
 
         let request = try XCTUnwrap(capturedRequests.first)
         let body = try XCTUnwrap(request.httpBody)
@@ -135,11 +144,43 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(json["instructions"] as? String, "You are an assistant with two tools: create_task for to-dos and Notes for general info. If the user's intent is clear, call the appropriate tool. If the input is vague or missing details, do not call a tool; instead, respond with a clarification question.")
         XCTAssertEqual(json["tool_choice"] as? String, "auto")
         XCTAssertEqual(json["parallel_tool_calls"] as? Bool, false)
+        XCTAssertEqual(json["store"] as? Bool, false)
+        XCTAssertNil(json["previous_response_id"])
 
         let tools = try XCTUnwrap(json["tools"] as? [[String: Any]])
         XCTAssertEqual(tools.count, 2)
         XCTAssertEqual((tools[0]["function"] as? [String: Any])?["name"] as? String, "create_task")
         XCTAssertEqual((tools[1]["function"] as? [String: Any])?["name"] as? String, "Notes")
+    }
+
+    func testStatefulExecuteIntentCapturesLatestResponseID() async throws {
+        let tool = CodexStructuredTool(
+            access_token: "token",
+            account_id: "account",
+            streamingChunksProvider: { _ in
+                [
+                    "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_new\",\"output\":[{\"content\":[{\"text\":\"What would you like me to do?\"}]}]}}\n".data(using: .utf8)!
+                ]
+            }
+        )
+
+        let result = try await tool.executeIntent(
+            messages: [
+                CodexInputMessage(
+                    role: "user",
+                    content: [CodexInputContent(type: "input_text", text: "something vague")]
+                )
+            ],
+            state: CodexConversationState(previousResponseID: "resp_old", conversationID: "conv_1")
+        )
+
+        guard case .clarify(let text) = result.action else {
+            return XCTFail("Expected clarification")
+        }
+
+        XCTAssertEqual(text, "What would you like me to do?")
+        XCTAssertEqual(result.state.previousResponseID, "resp_new")
+        XCTAssertEqual(result.state.conversationID, "conv_1")
     }
 
     func testExecuteIntentReturnsToolCallFromChunkedArguments() async throws {
