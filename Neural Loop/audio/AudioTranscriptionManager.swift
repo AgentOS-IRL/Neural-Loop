@@ -91,6 +91,7 @@ final class AudioTranscriptionManager: ObservableObject {
     @Published private(set) var isTranscriptFinal = false
     @Published private(set) var transcriptHistory: [AudioTranscriptMessage] = []
     @Published private(set) var errorMessage: String?
+    var onCommittedTranscript: ((String) -> Void)?
 
     private let session: any AudioTranscribingSession
     private let preferOnDeviceRecognition: Bool
@@ -370,6 +371,7 @@ final class AudioTranscriptionManager: ObservableObject {
         }
 
         transcriptHistory.append(AudioTranscriptMessage(content: trimmedTranscript))
+        onCommittedTranscript?(trimmedTranscript)
         resetTranscript()
     }
 

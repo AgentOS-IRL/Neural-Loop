@@ -10,6 +10,7 @@ import Supabase
 
 // Startup-only secrets metadata loaded from public.secrets.
 let codexAuthTokenSecretKey = "codex_auth_token"
+let chatgptAccountIDSecretKey = "chatgpt_account_id"
 let llmEnabledOverrideStorageKey = "llm_enabled_override"
 
 struct Secrets: Codable, Identifiable, Equatable {
@@ -24,6 +25,10 @@ struct Secrets: Codable, Identifiable, Equatable {
 extension Array where Element == Secrets {
     func containsSecretKey(_ key: String) -> Bool {
         contains { $0.key == key }
+    }
+
+    func secretValue(for key: String) -> String? {
+        first(where: { $0.key == key })?.value
     }
 }
 
