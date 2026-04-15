@@ -185,12 +185,12 @@ struct AudioModeView: View {
                 }
             }
 
-            Text(transcriptionManager.transcriptText.isEmpty ? transcriptionManager.promptText : transcriptionManager.transcriptText)
+            Text(transcriptionManager.transcriptCardText)
                 .font(.system(size: 20, weight: .medium, design: .rounded))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 6)
-                .accessibilityLabel(transcriptionManager.transcriptText.isEmpty ? transcriptionManager.promptText : transcriptionManager.transcriptText)
+                .accessibilityLabel(transcriptionManager.transcriptCardText)
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
