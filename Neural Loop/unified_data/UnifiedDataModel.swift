@@ -87,6 +87,7 @@ final class UnifiedDataModel: ObservableObject {
     }
     @Published var secrets: [Secrets] = []
     @Published private(set) var secretsLoaded = false
+    @Published private(set) var llmOverrideEnabled: Bool
     
     @Published var currentHabitProgressMap: [Int64: HabitProgress] = [:] {
         didSet {
@@ -143,6 +144,7 @@ final class UnifiedDataModel: ObservableObject {
         self.manager = resolvedManager
         self.secretsFetcher = secretsFetcher ?? resolvedManager
         self.calendar  = Calendar.current
+        self.llmOverrideEnabled = UserDefaults.standard.bool(forKey: llmEnabledOverrideStorageKey)
         if autoStart {
             Task {
                 await initialize(manager: self.manager)
@@ -260,12 +262,33 @@ final class UnifiedDataModel: ObservableObject {
         }
     }
 
+    func refreshSecrets() async {
+        await loadSecrets()
+    }
+
     var loadedSecretKeys: [String] {
         secrets.map(\.key).sorted()
     }
 
+    var hasCodexAuthTokenSecret: Bool {
+        secrets.containsSecretKey(codexAuthTokenSecretKey)
+    }
+
     var canUseAudioMode: Bool {
-        secretsLoaded && secrets.containsSecretKey(codexAuthTokenSecretKey)
+        secretsLoaded && hasCodexAuthTokenSecret
+    }
+
+    var llm_enabled: Bool {
+        shouldEnableLLMFeature(
+            secretsLoaded: secretsLoaded,
+            hasCodexAuthToken: hasCodexAuthTokenSecret,
+            overrideEnabled: llmOverrideEnabled
+        )
+    }
+
+    func setLLMOverrideEnabled(_ enabled: Bool) {
+        llmOverrideEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: llmEnabledOverrideStorageKey)
     }
 
     
