@@ -286,6 +286,14 @@ final class UnifiedDataModel: ObservableObject {
         )
     }
 
+    var codexAccessToken: String? {
+        secrets.secretValue(for: codexAuthTokenSecretKey)
+    }
+
+    var codexAccountID: String? {
+        secrets.secretValue(for: chatgptAccountIDSecretKey)
+    }
+
     func setLLMOverrideEnabled(_ enabled: Bool) {
         llmOverrideEnabled = enabled
         UserDefaults.standard.set(enabled, forKey: llmEnabledOverrideStorageKey)
@@ -361,5 +369,6 @@ final class UnifiedDataModel: ObservableObject {
 
         return result
     }
-
 }
+
+extension UnifiedDataModel: AudioModeCodexModel {}
