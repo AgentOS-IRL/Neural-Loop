@@ -62,6 +62,8 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(body.instructions, "You are a helpful assistant.")
         XCTAssertEqual(body.text.verbosity, "medium")
         XCTAssertNil(body.text.format)
+        XCTAssertNil(body.tools)
+        XCTAssertNil(body.tool_choice)
         XCTAssertEqual(body.input.first?.role, "user")
         XCTAssertEqual(body.input.first?.content.first?.type, "input_text")
         XCTAssertEqual(body.input.first?.content.first?.text, "Write a haiku")
@@ -71,6 +73,135 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(json["model"] as? String, "gpt-5.1-codex")
         XCTAssertEqual(json["stream"] as? Bool, true)
         XCTAssertEqual(json["store"] as? Bool, false)
+    }
+
+    func testCodexToolEncodesOpenAICompatibleFunctionPayload() throws {
+        let tool = CodexTool(
+            name: "create_task",
+            description: "Create a to-do item.",
+            parameters: .object([
+                "type": .string("object"),
+                "properties": .object([
+                    "title": .object([
+                        "type": .string("string")
+                    ]),
+                    "description": .object([
+                        "type": .string("string")
+                    ])
+                ]),
+                "required": .array([
+                    .string("title"),
+                    .string("description")
+                ])
+            ])
+        )
+
+        let encoded = try JSONEncoder().encode(tool)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        XCTAssertEqual(json["type"] as? String, "function")
+
+        let function = try XCTUnwrap(json["function"] as? [String: Any])
+        XCTAssertEqual(function["name"] as? String, "create_task")
+        XCTAssertEqual(function["description"] as? String, "Create a to-do item.")
+
+        let parameters = try XCTUnwrap(function["parameters"] as? [String: Any])
+        XCTAssertEqual(parameters["type"] as? String, "object")
+        XCTAssertEqual(parameters["required"] as? [String], ["title", "description"])
+    }
+
+    func testIntentRequestIncludesToolDefinitionsAndAutoChoice() async throws {
+        var capturedRequests: [URLRequest] = []
+
+        let tool = CodexStructuredTool(
+            access_token: "token",
+            account_id: "account",
+            streamingChunksProvider: { request in
+                capturedRequests.append(request)
+                return [
+                    "data: {\"type\":\"response.completed\",\"response\":{\"output\":[{\"content\":[{\"text\":\"Which task do you want me to create?\"}]}]}}\n".data(using: .utf8)!
+                ]
+            }
+        )
+
+        let action = try await tool.executeIntent("make something")
+        guard case .clarify(let text) = action else {
+            return XCTFail("Expected clarification response")
+        }
+        XCTAssertEqual(text, "Which task do you want me to create?")
+
+        let request = try XCTUnwrap(capturedRequests.first)
+        let body = try XCTUnwrap(request.httpBody)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        XCTAssertEqual(json["instructions"] as? String, "You are an assistant with two tools: create_task for to-dos and Notes for general info. If the user's intent is clear, call the appropriate tool. If the input is vague or missing details, do not call a tool; instead, respond with a clarification question.")
+        XCTAssertEqual(json["tool_choice"] as? String, "auto")
+
+        let tools = try XCTUnwrap(json["tools"] as? [[String: Any]])
+        XCTAssertEqual(tools.count, 2)
+        XCTAssertEqual((tools[0]["function"] as? [String: Any])?["name"] as? String, "create_task")
+        XCTAssertEqual((tools[1]["function"] as? [String: Any])?["name"] as? String, "Notes")
+    }
+
+    func testExecuteIntentReturnsToolCallFromChunkedArguments() async throws {
+        let tool = CodexStructuredTool(
+            access_token: "token",
+            account_id: "account",
+            streamingChunksProvider: { _ in
+                [
+                    "data: {\"type\":\"response.output_text.delta\",\"delta\":{\"tool_calls\":[{\"id\":\"call_1\",\"index\":0,\"function\":{\"name\":\"create_task\",\"arguments\":\"{\\\"title\\\":\\\"Buy \"}}]}}\n".data(using: .utf8)!,
+                    "data: {\"type\":\"response.output_text.delta\",\"delta\":{\"tool_calls\":[{\"id\":\"call_1\",\"index\":0,\"function\":{\"arguments\":\"milk\\\",\\\"description\\\":\\\"From the store\\\"}\"}}]}}\n".data(using: .utf8)!,
+                    "data: [DONE]\n".data(using: .utf8)!
+                ]
+            }
+        )
+
+        let action = try await tool.executeIntent("remind me")
+        guard case .callTool(let name, let arguments) = action else {
+            return XCTFail("Expected tool call")
+        }
+
+        XCTAssertEqual(name, "create_task")
+        XCTAssertEqual(arguments["title"] as? String, "Buy milk")
+        XCTAssertEqual(arguments["description"] as? String, "From the store")
+    }
+
+    func testExecuteIntentNormalizesFencedToolArguments() async throws {
+        let tool = CodexStructuredTool(
+            access_token: "token",
+            account_id: "account",
+            streamingChunksProvider: { _ in
+                [
+                    "data: {\"type\":\"response.output_text.delta\",\"delta\":{\"tool_calls\":[{\"id\":\"call_1\",\"index\":0,\"function\":{\"name\":\"Notes\",\"arguments\":\"```json\\n{\\\"content\\\":\\\"Remember the keys\\\"}\\n```\"}}]}}\n".data(using: .utf8)!,
+                    "data: [DONE]\n".data(using: .utf8)!
+                ]
+            }
+        )
+
+        let action = try await tool.executeIntent("save this")
+        guard case .callTool(let name, let arguments) = action else {
+            return XCTFail("Expected tool call")
+        }
+
+        XCTAssertEqual(name, "Notes")
+        XCTAssertEqual(arguments["content"] as? String, "Remember the keys")
+    }
+
+    func testExecuteIntentFallsBackToClarificationWhenNoToolCallIsEmitted() async throws {
+        let tool = CodexStructuredTool(
+            access_token: "token",
+            account_id: "account",
+            streamingChunksProvider: { _ in
+                [
+                    "data: {\"type\":\"response.completed\",\"response\":{\"output\":[{\"content\":[{\"text\":\"What would you like me to do?\"}]}]}}\n".data(using: .utf8)!
+                ]
+            }
+        )
+
+        let action = try await tool.executeIntent("something vague")
+        guard case .clarify(let text) = action else {
+            return XCTFail("Expected clarification")
+        }
+
+        XCTAssertEqual(text, "What would you like me to do?")
     }
 
     func testBuildBodyProducesStructuredFormat() throws {
