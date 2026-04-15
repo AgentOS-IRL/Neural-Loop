@@ -12,6 +12,7 @@ protocol AudioModeCodexExecuting {
 }
 
 protocol AudioModeCodexModel: AnyObject {
+    var canUseAudioMode: Bool { get }
     var llm_enabled: Bool { get }
     var codexAccessToken: String? { get }
     var codexAccountID: String? { get }
@@ -136,6 +137,11 @@ final class AudioModeCodexCoordinator: ObservableObject {
             return
         }
 
+        guard hasAvailableCodexClient else {
+            appendError("Codex client is unavailable.")
+            return
+        }
+
         guard let client = resolvedCodexClient() else {
             appendError("Codex client is unavailable.")
             return
@@ -170,12 +176,20 @@ final class AudioModeCodexCoordinator: ObservableObject {
         } catch is CancellationError {
             return
         } catch {
-            if Task.isCancelled {
+            if shouldIgnoreErrorAfterCancellation {
                 return
             }
 
             appendError(error.localizedDescription)
         }
+    }
+
+    private var hasAvailableCodexClient: Bool {
+        codexClient != nil || model.canUseAudioMode
+    }
+
+    private var shouldIgnoreErrorAfterCancellation: Bool {
+        Task.isCancelled || drainTask == nil || drainTask?.isCancelled == true
     }
 
     private func handle(_ action: CodexAction) async throws {

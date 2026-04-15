@@ -142,6 +142,25 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertTrue(coordinator.isLLMDisabled)
     }
 
+    func testMissingAudioModeSecretsBlockCodexRequestBeforeClientResolution() async {
+        let model = FakeAudioModeCodexModel(
+            llmEnabled: true,
+            canUseAudioMode: false,
+            codexAccountID: nil
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model)
+
+        coordinator.handleCommittedTranscript("Make a task")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .error])
+        XCTAssertEqual(coordinator.errorMessage, "Codex client is unavailable.")
+        XCTAssertFalse(coordinator.isSending)
+        XCTAssertEqual(coordinator.bannerText, "Codex client is unavailable.")
+        XCTAssertEqual(coordinator.bannerTone, .error)
+    }
+
     func testCodexFailureSurfacesErrorWithoutCrashing() async {
         let model = FakeAudioModeCodexModel(llmEnabled: true)
         let client = FakeAudioModeCodexClient(error: TestError.codexFailure)
@@ -189,6 +208,7 @@ private enum TestError: LocalizedError {
 }
 
 private final class FakeAudioModeCodexModel: AudioModeCodexModel {
+    var canUseAudioMode: Bool
     var llm_enabled: Bool
     var codexAccessToken: String?
     var codexAccountID: String?
@@ -196,9 +216,11 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
 
     init(
         llmEnabled: Bool,
+        canUseAudioMode: Bool = true,
         codexAccessToken: String? = "token",
         codexAccountID: String? = "account"
     ) {
+        self.canUseAudioMode = canUseAudioMode
         self.llm_enabled = llmEnabled
         self.codexAccessToken = codexAccessToken
         self.codexAccountID = codexAccountID
