@@ -13,7 +13,6 @@ struct AudioModeView: View {
     @StateObject private var transcriptionManager = AudioTranscriptionManager()
     @StateObject private var coordinator: AudioModeCodexCoordinator
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
 
     @State private var pulse = false
 
@@ -23,77 +22,44 @@ struct AudioModeView: View {
     }
 
     var body: some View {
+        let viewState = AudioModeViewState(
+            transcription: transcriptionManager.viewData,
+            conversation: coordinator.viewData,
+            isAudioModeAvailable: model.canUseAudioMode
+        )
+
         ZStack {
             ModeBackdropView()
 
-            VStack(spacing: 24) {
-                Spacer(minLength: 0)
+            GeometryReader { geometry in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: AudioModeTheme.Metrics.sectionSpacing) {
+                        AudioModeHeroCard(
+                            state: viewState.hero,
+                            isReduceMotionEnabled: reduceMotion,
+                            isPulsing: pulse,
+                            onTapMic: toggleMicrophone
+                        )
 
-                VStack(spacing: 22) {
-                    microphoneButton
-
-                    VStack(spacing: 10) {
-                        Text("Audio Mode")
-                            .font(.system(size: 30, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.white)
-
-                        Text("Voice stays active across pauses until you stop it.")
-                            .font(.headline)
-                            .foregroundStyle(.white.opacity(0.72))
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 20)
+                        contentLayout(for: geometry.size, viewState: viewState)
                     }
-                    .accessibilityElement(children: .combine)
-
-                    transcriptFeed
-                }
-
-                Spacer(minLength: 16)
-
-                Button {
-                    transcriptionManager.stopRecording()
-                    transcriptionManager.onCommittedTranscript = nil
-                    coordinator.resetConversation()
-                    withAnimation(.easeInOut(duration: 0.24)) {
-                        isAudioMode = false
-                    }
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "rectangle.grid.2x2")
-                            .font(.system(size: 18, weight: .semibold))
-                        Text("Switch to Manual Mode")
-                            .font(.system(size: 18, weight: .semibold, design: .rounded))
-                    }
+                    .padding(.horizontal, AudioModeTheme.Metrics.screenPadding)
+                    .padding(.top, 20)
+                    .padding(.bottom, 150)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
-                    .foregroundStyle(.black)
-                    .background(switchBackBackground)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.55),
-                                        Color.white.opacity(0.12)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                    .shadow(
-                        color: .black.opacity(colorScheme == .dark ? 0.32 : 0.24),
-                        radius: 18,
-                        y: 10
-                    )
+                    .frame(minHeight: geometry.size.height, alignment: .top)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Switch to Manual Mode")
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    AudioModeActionBar(
+                        state: viewState.actionBar,
+                        onSwitchToManualMode: exitAudioMode
+                    )
+                    .padding(.horizontal, AudioModeTheme.Metrics.screenPadding)
+                    .padding(.top, 8)
+                    .padding(.bottom, 10)
+                    .background(Color.clear)
+                }
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 28)
         }
         .onAppear {
             transcriptionManager.refreshPermissionState()
@@ -102,7 +68,9 @@ struct AudioModeView: View {
             }
             reconcileAuthorizationState()
             guard !reduceMotion else { return }
-            pulse = true
+            withAnimation(.easeInOut(duration: 1.7).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
         }
         .onDisappear {
             transcriptionManager.stopRecording()
@@ -117,379 +85,50 @@ struct AudioModeView: View {
         }
     }
 
-    private var microphoneButton: some View {
-        Button {
-            Task {
-                if transcriptionManager.isRecording {
-                    transcriptionManager.stopRecording()
-                    transcriptionManager.onCommittedTranscript = nil
-                    coordinator.resetConversation()
-                } else {
-                    coordinator.resetConversation()
-                    transcriptionManager.onCommittedTranscript = { [coordinator] transcript in
-                        coordinator.handleCommittedTranscript(transcript)
-                    }
-                    await transcriptionManager.startRecording()
-                }
-            }
-        } label: {
-            ZStack {
-                if !reduceMotion {
-                    Circle()
-                        .strokeBorder(micOuterColor.opacity(micOuterOpacity), lineWidth: 2)
-                        .frame(width: 214, height: 214)
-                        .scaleEffect(micOuterScale)
-                        .opacity(micOuterVisibility)
-                        .animation(.easeInOut(duration: 1.9).repeatForever(autoreverses: true), value: pulse)
-
-                    Circle()
-                        .strokeBorder(micInnerColor.opacity(micInnerOpacity), lineWidth: 10)
-                        .frame(width: 164, height: 164)
-                        .scaleEffect(micInnerScale)
-                        .opacity(micInnerVisibility)
-                        .animation(.easeInOut(duration: 1.55).repeatForever(autoreverses: true), value: pulse)
-                }
-
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.20),
-                                Color.white.opacity(0.08)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .background(
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                    )
-                    .overlay {
-                        Circle()
-                            .strokeBorder(
-                                transcriptionManager.sessionState == .inactive ? Color.white.opacity(0.18) : Color.white.opacity(0.28),
-                                lineWidth: 1
-                            )
-                    }
-                    .frame(width: 178, height: 178)
-                    .shadow(color: .black.opacity(0.22), radius: 20, y: 10)
-
-                Image(systemName: transcriptionManager.microphoneSystemImage)
-                    .font(.system(size: transcriptionManager.sessionState == .inactive ? 70 : 58, weight: .bold))
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
-            }
-            .frame(width: 230, height: 230)
-        }
-        .buttonStyle(.plain)
-        .disabled(transcriptionManager.isActionDisabled)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(transcriptionManager.micButtonLabel)
-        .accessibilityHint(transcriptionManager.isRecording ? "Stops the current session and clears saved transcript history." : "Starts a new continuous voice session.")
-    }
-
-    private var transcriptFeed: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if coordinator.isSending || coordinator.errorMessage != nil || coordinator.statusMessage == "LLM access is disabled." {
-                processingBanner
-            }
-
-            if !coordinator.conversationFeed.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "bubble.left.and.bubble.right.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.76))
-
-                        Text("Codex conversation")
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.82))
-
-                        Spacer()
-
-                        if coordinator.isSending {
-                            Text("Sending")
-                                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.58))
-                        }
-                    }
-
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(coordinator.conversationFeed) { message in
-                                conversationRow(message)
-                            }
-                        }
-                        .padding(.vertical, 2)
-                    }
-                    .scrollIndicators(.hidden)
-                    .frame(maxHeight: 240)
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(.ultraThinMaterial.opacity(0.9))
-                )
-                .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-                }
-                .shadow(color: .black.opacity(0.15), radius: 16, y: 8)
-            }
-
-            liveTranscriptCard
-        }
-    }
-
-    private func conversationRow(_ message: AudioTranscriptMessage) -> some View {
-        HStack {
-            if message.role == .user {
-                Spacer(minLength: 32)
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    Image(systemName: iconName(for: message.role))
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(iconColor(for: message.role))
-
-                    Text(label(for: message.role))
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(labelColor(for: message.role))
-
+    @ViewBuilder
+    private func contentLayout(for size: CGSize, viewState: AudioModeViewState) -> some View {
+        if size.width >= 780 {
+            HStack(alignment: .top, spacing: AudioModeTheme.Metrics.sectionSpacing) {
+                VStack(spacing: AudioModeTheme.Metrics.sectionSpacing) {
+                    AudioModeTranscriptCard(state: viewState.transcript)
                     Spacer(minLength: 0)
                 }
+                .frame(maxWidth: .infinity, alignment: .top)
 
-                Text(message.content)
-                    .font(.system(size: 18, weight: .medium, design: .rounded))
-                    .foregroundStyle(bodyColor(for: message.role))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .fixedSize(horizontal: false, vertical: true)
+                AudioModeConversationCard(state: viewState.conversation)
+                    .frame(maxWidth: .infinity, alignment: .top)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(rowBackground(for: message.role))
-            .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(borderColor(for: message.role), lineWidth: 1)
-            }
-            .shadow(color: .black.opacity(0.12), radius: 10, y: 5)
-
-            if message.role != .user {
-                Spacer(minLength: 32)
+        } else {
+            VStack(spacing: AudioModeTheme.Metrics.sectionSpacing) {
+                AudioModeTranscriptCard(state: viewState.transcript)
+                AudioModeConversationCard(state: viewState.conversation)
             }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(message.content)
     }
 
-    private var processingBanner: some View {
-        HStack(spacing: 12) {
-            if coordinator.isSending {
-                ProgressView()
-                    .tint(.white)
+    private func toggleMicrophone() {
+        Task {
+            if transcriptionManager.isRecording {
+                transcriptionManager.stopRecording()
+                transcriptionManager.onCommittedTranscript = nil
+                coordinator.resetConversation()
             } else {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(coordinator.errorMessage == nil ? .cyan.opacity(0.95) : .yellow.opacity(0.95))
-            }
-
-            Text(
-                coordinator.isSending
-                ? (coordinator.statusMessage ?? "Sending to Codex...")
-                : (coordinator.errorMessage ?? coordinator.statusMessage ?? "")
-            )
-                .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.92))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial.opacity(0.8))
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(
-                    coordinator.isSending
-                    ? Color.white.opacity(0.16)
-                    : (coordinator.errorMessage == nil ? Color.cyan.opacity(0.28) : Color.red.opacity(0.28)),
-                    lineWidth: 1
-                )
-        }
-    }
-
-    private func label(for role: AudioTranscriptMessageRole) -> String {
-        switch role {
-        case .user:
-            return "User"
-        case .assistant:
-            return "Codex"
-        case .toolResult:
-            return "Tool result"
-        case .status:
-            return "Status"
-        case .error:
-            return "Error"
-        }
-    }
-
-    private func iconName(for role: AudioTranscriptMessageRole) -> String {
-        switch role {
-        case .user:
-            return "person.fill"
-        case .assistant:
-            return "sparkles"
-        case .toolResult:
-            return "checkmark.seal.fill"
-        case .status:
-            return "hourglass"
-        case .error:
-            return "exclamationmark.triangle.fill"
-        }
-    }
-
-    private func iconColor(for role: AudioTranscriptMessageRole) -> Color {
-        switch role {
-        case .user:
-            return Color(red: 0.92, green: 0.97, blue: 1.0)
-        case .assistant:
-            return .mint.opacity(0.95)
-        case .toolResult:
-            return .green.opacity(0.95)
-        case .status:
-            return .cyan.opacity(0.9)
-        case .error:
-            return .red.opacity(0.95)
-        }
-    }
-
-    private func labelColor(for role: AudioTranscriptMessageRole) -> Color {
-        switch role {
-        case .error:
-            return .red.opacity(0.86)
-        default:
-            return .white.opacity(0.72)
-        }
-    }
-
-    private func bodyColor(for role: AudioTranscriptMessageRole) -> Color {
-        switch role {
-        case .error:
-            return .white.opacity(0.96)
-        case .status:
-            return .white.opacity(0.88)
-        default:
-            return .white
-        }
-    }
-
-    private func borderColor(for role: AudioTranscriptMessageRole) -> Color {
-        switch role {
-        case .user:
-            return Color.white.opacity(0.1)
-        case .assistant:
-            return Color.mint.opacity(0.22)
-        case .toolResult:
-            return Color.green.opacity(0.24)
-        case .status:
-            return Color.cyan.opacity(0.24)
-        case .error:
-            return Color.red.opacity(0.28)
-        }
-    }
-
-    private func rowBackground(for role: AudioTranscriptMessageRole) -> some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: backgroundColors(for: role),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-    }
-
-    private func backgroundColors(for role: AudioTranscriptMessageRole) -> [Color] {
-        switch role {
-        case .user:
-            return [
-                Color.white.opacity(0.18),
-                Color.white.opacity(0.08)
-            ]
-        case .assistant:
-            return [
-                Color(red: 0.18, green: 0.36, blue: 0.32).opacity(0.8),
-                Color(red: 0.12, green: 0.22, blue: 0.28).opacity(0.86)
-            ]
-        case .toolResult:
-            return [
-                Color(red: 0.12, green: 0.33, blue: 0.22).opacity(0.8),
-                Color(red: 0.08, green: 0.22, blue: 0.16).opacity(0.88)
-            ]
-        case .status:
-            return [
-                Color(red: 0.18, green: 0.22, blue: 0.3).opacity(0.85),
-                Color(red: 0.11, green: 0.15, blue: 0.22).opacity(0.9)
-            ]
-        case .error:
-            return [
-                Color(red: 0.36, green: 0.12, blue: 0.16).opacity(0.86),
-                Color(red: 0.23, green: 0.08, blue: 0.11).opacity(0.92)
-            ]
-        }
-    }
-
-    private var liveTranscriptCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: transcriptCardSymbol)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.78))
-
-                Text(transcriptCardTitle)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.8))
-
-                Spacer()
-
-                if transcriptionManager.isTranscriptFinal {
-                    Text("Final")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.58))
-                } else if transcriptionManager.sessionState == .cooldownPending {
-                    Text("Listening")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.58))
+                coordinator.resetConversation()
+                transcriptionManager.onCommittedTranscript = { [coordinator] transcript in
+                    coordinator.handleCommittedTranscript(transcript)
                 }
+                await transcriptionManager.startRecording()
             }
+        }
+    }
 
-            Text(transcriptionManager.transcriptCardText)
-                .font(.system(size: 20, weight: .medium, design: .rounded))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 6)
-                .accessibilityLabel(transcriptionManager.transcriptCardText)
+    private func exitAudioMode() {
+        transcriptionManager.stopRecording()
+        transcriptionManager.onCommittedTranscript = nil
+        coordinator.resetConversation()
+        withAnimation(.easeInOut(duration: 0.24)) {
+            isAudioMode = false
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(.ultraThinMaterial.opacity(0.92))
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-        }
-        .shadow(color: .black.opacity(0.15), radius: 16, y: 8)
     }
 
     private func reconcileAuthorizationState() {
@@ -507,149 +146,6 @@ struct AudioModeView: View {
             }
             return
         }
-    }
-
-    private var micOuterColor: Color {
-        switch transcriptionManager.sessionState {
-        case .inactive:
-            return .cyan
-        case .checking, .listening:
-            return .cyan
-        case .transcribing:
-            return .mint
-        case .cooldownPending:
-            return .cyan
-        }
-    }
-
-    private var micOuterOpacity: Double {
-        switch transcriptionManager.sessionState {
-        case .inactive:
-            return 0.35
-        case .checking, .listening:
-            return 0.48
-        case .transcribing:
-            return 0.7
-        case .cooldownPending:
-            return 0.48
-        }
-    }
-
-    private var micOuterScale: CGFloat {
-        switch transcriptionManager.sessionState {
-        case .inactive:
-            return pulse ? 1.18 : 0.92
-        case .checking, .listening:
-            return pulse ? 1.14 : 0.96
-        case .transcribing:
-            return pulse ? 1.24 : 0.98
-        case .cooldownPending:
-            return pulse ? 1.12 : 0.98
-        }
-    }
-
-    private var micOuterVisibility: Double {
-        switch transcriptionManager.sessionState {
-        case .inactive:
-            return pulse ? 0.0 : 0.65
-        case .checking, .listening:
-            return 0.95
-        case .transcribing:
-            return 0.98
-        case .cooldownPending:
-            return 0.95
-        }
-    }
-
-    private var micInnerColor: Color {
-        switch transcriptionManager.sessionState {
-        case .inactive:
-            return .blue
-        case .checking, .listening:
-            return .blue
-        case .transcribing:
-            return .green
-        case .cooldownPending:
-            return .blue
-        }
-    }
-
-    private var micInnerOpacity: Double {
-        switch transcriptionManager.sessionState {
-        case .inactive:
-            return 0.22
-        case .checking, .listening:
-            return 0.34
-        case .transcribing:
-            return 0.5
-        case .cooldownPending:
-            return 0.34
-        }
-    }
-
-    private var micInnerScale: CGFloat {
-        switch transcriptionManager.sessionState {
-        case .inactive:
-            return pulse ? 1.08 : 0.98
-        case .checking, .listening:
-            return pulse ? 1.08 : 1.0
-        case .transcribing:
-            return pulse ? 1.14 : 1.04
-        case .cooldownPending:
-            return pulse ? 1.08 : 1.0
-        }
-    }
-
-    private var micInnerVisibility: Double {
-        switch transcriptionManager.sessionState {
-        case .inactive:
-            return 0.72
-        case .checking, .listening:
-            return 0.88
-        case .transcribing:
-            return 0.94
-        case .cooldownPending:
-            return 0.88
-        }
-    }
-
-    private var transcriptCardSymbol: String {
-        switch transcriptionManager.sessionState {
-        case .inactive:
-            return "text.quote"
-        case .checking, .listening:
-            return "waveform"
-        case .transcribing:
-            return "waveform.and.mic"
-        case .cooldownPending:
-            return "waveform"
-        }
-    }
-
-    private var transcriptCardTitle: String {
-        switch transcriptionManager.sessionState {
-        case .inactive:
-            return "Transcript"
-        case .checking:
-            return "Checking"
-        case .listening:
-            return "Listening"
-        case .transcribing:
-            return "Transcribing"
-        case .cooldownPending:
-            return "Listening"
-        }
-    }
-
-    private var switchBackBackground: some View {
-        LinearGradient(
-            colors: [
-                Color(red: 0.79, green: 0.93, blue: 1.0),
-                Color(red: 0.55, green: 0.83, blue: 0.99)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
     }
 }
 
