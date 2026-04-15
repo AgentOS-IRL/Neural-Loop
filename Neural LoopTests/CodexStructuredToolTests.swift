@@ -251,4 +251,33 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(capturedRequests.count, 1)
         XCTAssertEqual(parsed, ExampleResponse(name: "Grace"))
     }
+
+    func testNetworkPathFailsWhenResponseIsNotSSE() throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockStreamingURLProtocol.self]
+
+        MockStreamingURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.httpMethod, "POST")
+            return .init(
+                statusCode: 500,
+                headers: ["Content-Type": "application/json"],
+                chunks: [
+                    #"{"error":"server failure"}"#.data(using: .utf8)!
+                ]
+            )
+        }
+
+        let tool = CodexStructuredTool(
+            access_token: "token",
+            account_id: "account",
+            sessionConfiguration: configuration
+        )
+
+        XCTAssertThrowsError(try tool.executeSync("hello")) { error in
+            guard case CodexStructuredToolError.transport(let message) = error else {
+                return XCTFail("Expected transport error, got \(error)")
+            }
+            XCTAssertTrue(message.contains("HTTP 500") || message.contains("event-stream"))
+        }
+    }
 }

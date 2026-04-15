@@ -64,6 +64,7 @@ public final class CodexStructuredTool {
     private let streamingChunksProvider: ((URLRequest) throws -> [Data])?
 
     private let requestEncoder = JSONEncoder()
+    private let responseDecoder = JSONDecoder()
 
     public init(
         access_token: String,
@@ -500,6 +501,43 @@ private final class CodexStreamingCollector: NSObject, URLSessionDataDelegate {
         try handleIncomingData(data)
     }
 
+    func urlSession(
+        _ session: URLSession,
+        dataTask: URLSessionDataTask,
+        didReceive response: URLResponse,
+        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+    ) {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard terminalError == nil else {
+            completionHandler(.cancel)
+            return
+        }
+
+        if let httpResponse = response as? HTTPURLResponse {
+            if httpResponse.statusCode >= 400 {
+                terminalError = CodexStructuredToolError.transport(
+                    "Codex request failed with HTTP \(httpResponse.statusCode)."
+                )
+                signalIfNeeded()
+                completionHandler(.cancel)
+                return
+            }
+        }
+
+        if let mimeType = response.mimeType, !mimeType.lowercased().contains("event-stream") {
+            terminalError = CodexStructuredToolError.transport(
+                "Expected SSE text/event-stream response but received \(mimeType)."
+            )
+            signalIfNeeded()
+            completionHandler(.cancel)
+            return
+        }
+
+        completionHandler(.allow)
+    }
+
     func finish() {
         lock.lock()
         defer { lock.unlock() }
@@ -560,6 +598,7 @@ private final class CodexStreamingCollector: NSObject, URLSessionDataDelegate {
 
     private func processLine(_ line: String) throws {
         let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedLine.isEmpty else { return }
         guard trimmedLine.hasPrefix("data:") else { return }
 
         let payload = trimmedLine.dropFirst("data:".count).trimmingCharacters(in: .whitespaces)
