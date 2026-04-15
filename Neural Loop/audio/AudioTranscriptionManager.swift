@@ -2,7 +2,6 @@ import Foundation
 import AVFoundation
 import Combine
 import Speech
-import SwiftUI
 
 enum AudioTranscriptionPermissionState: Equatable {
     case unknown
@@ -18,12 +17,22 @@ enum AudioTranscriptionPermissionState: Equatable {
     }
 }
 
+enum AudioTranscriptionSessionState: Equatable {
+    case inactive
+    case checking
+    case listening
+    case transcribing
+    case cooldownPending
+}
+
 struct AudioTranscriptionUpdate: Equatable {
     let transcript: String
     let isFinal: Bool
 }
 
 enum AudioTranscriptionEvent: Equatable {
+    case speechDetected
+    case speechEnded
     case update(AudioTranscriptionUpdate)
     case failure(String)
 }
@@ -34,6 +43,7 @@ enum AudioTranscriptionError: LocalizedError, Equatable {
     case audioSessionUnavailable
     case permissionDenied(AudioTranscriptionPermissionState)
     case failedToStartAudioEngine
+    case failedToStartRecognitionTask
 
     var errorDescription: String? {
         switch self {
@@ -47,6 +57,8 @@ enum AudioTranscriptionError: LocalizedError, Equatable {
             return audioTranscriptionPermissionMessage(for: state)
         case .failedToStartAudioEngine:
             return "Unable to start the audio engine."
+        case .failedToStartRecognitionTask:
+            return "Unable to start speech recognition."
         }
     }
 }
@@ -61,9 +73,18 @@ protocol AudioTranscribingSession {
     func stop()
 }
 
+protocol AudioCooldownTimerControlling {
+    func cancel()
+}
+
+protocol AudioCooldownTimerScheduling {
+    func schedule(after delay: TimeInterval, _ handler: @escaping () -> Void) -> any AudioCooldownTimerControlling
+}
+
 @MainActor
 final class AudioTranscriptionManager: ObservableObject {
     @Published private(set) var permissionState: AudioTranscriptionPermissionState
+    @Published private(set) var sessionState: AudioTranscriptionSessionState = .inactive
     @Published private(set) var isRecording = false
     @Published private(set) var transcriptText = ""
     @Published private(set) var isTranscriptFinal = false
@@ -71,14 +92,19 @@ final class AudioTranscriptionManager: ObservableObject {
 
     private let session: any AudioTranscribingSession
     private let preferOnDeviceRecognition: Bool
+    private let cooldownScheduler: any AudioCooldownTimerScheduling
+    private var cooldownTimer: (any AudioCooldownTimerControlling)?
     private var activeSession = false
+    private var isStartingSession = false
 
     init(
         session: (any AudioTranscribingSession)? = nil,
-        preferOnDeviceRecognition: Bool = false
+        preferOnDeviceRecognition: Bool = false,
+        cooldownScheduler: (any AudioCooldownTimerScheduling)? = nil
     ) {
         self.session = session ?? LiveAudioTranscriptionSession()
         self.preferOnDeviceRecognition = preferOnDeviceRecognition
+        self.cooldownScheduler = cooldownScheduler ?? MainQueueAudioCooldownTimerScheduler()
         self.permissionState = self.session.currentPermissionState()
     }
 
@@ -89,7 +115,18 @@ final class AudioTranscriptionManager: ObservableObject {
     var micButtonLabel: String {
         switch permissionState {
         case .authorized, .unknown:
-            return isRecording ? "Stop Recording" : "Start Recording"
+            switch sessionState {
+            case .inactive:
+                return "Start Voice Detection"
+            case .checking:
+                return "Checking for speech"
+            case .listening:
+                return "Listening for speech"
+            case .transcribing:
+                return "Transcribing speech"
+            case .cooldownPending:
+                return "Listening for more speech"
+            }
         case .requesting:
             return "Checking Permissions"
         case .microphoneDenied, .speechDenied, .restricted, .unavailable:
@@ -106,29 +143,30 @@ final class AudioTranscriptionManager: ObservableObject {
             return errorMessage
         }
 
-        if isRecording && transcriptText.isEmpty {
-            return "Listening..."
-        }
-
-        if !transcriptText.isEmpty {
-            return isTranscriptFinal ? "Transcript ready." : "Listening..."
-        }
-
-        switch permissionState {
-        case .authorized:
-            return "Tap the mic to start speaking."
-        case .unknown:
-            return "Tap the mic to start speaking."
-        case .requesting:
-            return "Requesting access..."
-        case .microphoneDenied:
-            return "Microphone access is required to record speech."
-        case .speechDenied:
-            return "Speech recognition access is required to transcribe text."
-        case .restricted:
-            return "Speech and microphone access are restricted on this device."
-        case .unavailable:
-            return "Speech transcription is unavailable on this device."
+        switch sessionState {
+        case .inactive:
+            switch permissionState {
+            case .authorized, .unknown:
+                return "Tap the mic to start speaking."
+            case .requesting:
+                return "Requesting access..."
+            case .microphoneDenied:
+                return "Microphone access is required to record speech."
+            case .speechDenied:
+                return "Speech recognition access is required to transcribe text."
+            case .restricted:
+                return "Speech and microphone access are restricted on this device."
+            case .unavailable:
+                return "Speech transcription is unavailable on this device."
+            }
+        case .checking:
+            return "Checking for speech..."
+        case .listening:
+            return "Listening for speech..."
+        case .transcribing:
+            return "Transcribing speech..."
+        case .cooldownPending:
+            return "Waiting for silence..."
         }
     }
 
@@ -155,45 +193,44 @@ final class AudioTranscriptionManager: ObservableObject {
     }
 
     func startRecording() async {
-        guard !activeSession else {
+        guard !activeSession, !isStartingSession else {
             return
         }
 
         resetTranscript()
+        setSessionState(.checking)
         permissionState = .requesting
+        isStartingSession = true
 
         let permission = await session.requestPermissions()
         permissionState = permission
 
         guard permission.isAuthorized else {
             errorMessage = audioTranscriptionPermissionMessage(for: permission)
+            setSessionState(.inactive)
+            isStartingSession = false
             return
         }
 
         do {
             activeSession = true
-            isRecording = true
-            isTranscriptFinal = false
             try await session.start(
                 onDeviceRecognition: preferOnDeviceRecognition,
                 resultHandler: handleEvent
             )
+            setSessionState(.listening)
         } catch {
             activeSession = false
-            isRecording = false
+            setSessionState(.inactive)
             errorMessage = error.localizedDescription
             session.stop()
         }
+
+        isStartingSession = false
     }
 
     func stopRecording() {
-        guard activeSession || isRecording else {
-            return
-        }
-
-        session.stop()
-        activeSession = false
-        isRecording = false
+        stopRecording(finalizeTranscript: true)
     }
 
     func resetTranscript() {
@@ -214,22 +251,75 @@ final class AudioTranscriptionManager: ObservableObject {
         return transcriptText
     }
 
+    private func stopRecording(finalizeTranscript: Bool) {
+        guard activeSession || isStartingSession || sessionState != .inactive else {
+            return
+        }
+
+        invalidateCooldownTimer()
+        session.stop()
+        activeSession = false
+        isStartingSession = false
+        setSessionState(.inactive)
+        isTranscriptFinal = finalizeTranscript && !transcriptText.isEmpty
+    }
+
     private func handleEvent(_ event: AudioTranscriptionEvent) {
         switch event {
+        case .speechDetected:
+            handleSpeechDetected()
+        case .speechEnded:
+            handleSpeechEnded()
         case .update(let update):
             transcriptText = update.transcript
-            isTranscriptFinal = update.isFinal
             errorMessage = nil
-
-            if update.isFinal {
-                stopRecording()
-            }
         case .failure(let message):
             errorMessage = message
-            stopRecording()
+            stopRecording(finalizeTranscript: false)
         }
     }
 
+    private func handleSpeechDetected() {
+        guard activeSession else {
+            return
+        }
+
+        invalidateCooldownTimer()
+        errorMessage = nil
+        setSessionState(.transcribing)
+    }
+
+    private func handleSpeechEnded() {
+        guard activeSession else {
+            return
+        }
+
+        invalidateCooldownTimer()
+        setSessionState(.cooldownPending)
+        cooldownTimer = cooldownScheduler.schedule(after: 5) { [weak self] in
+            Task { @MainActor in
+                self?.completeCooldown()
+            }
+        }
+    }
+
+    private func completeCooldown() {
+        guard activeSession else {
+            return
+        }
+
+        stopRecording(finalizeTranscript: true)
+    }
+
+    private func invalidateCooldownTimer() {
+        cooldownTimer?.cancel()
+        cooldownTimer = nil
+    }
+
+    private func setSessionState(_ state: AudioTranscriptionSessionState) {
+        sessionState = state
+        isRecording = state != .inactive
+    }
 }
 
 func audioTranscriptionPermissionMessage(for state: AudioTranscriptionPermissionState) -> String {
@@ -247,15 +337,43 @@ func audioTranscriptionPermissionMessage(for state: AudioTranscriptionPermission
     }
 }
 
+final class MainQueueAudioCooldownTimerScheduler: AudioCooldownTimerScheduling {
+    func schedule(after delay: TimeInterval, _ handler: @escaping () -> Void) -> any AudioCooldownTimerControlling {
+        let token = DispatchAudioCooldownTimerToken()
+        let workItem = DispatchWorkItem {
+            Task { @MainActor in
+                handler()
+            }
+        }
+
+        token.workItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+        return token
+    }
+}
+
+final class DispatchAudioCooldownTimerToken: AudioCooldownTimerControlling {
+    fileprivate var workItem: DispatchWorkItem?
+
+    func cancel() {
+        workItem?.cancel()
+        workItem = nil
+    }
+}
+
 final class LiveAudioTranscriptionSession: AudioTranscribingSession {
     private let audioSession: AudioSessionControlling
     private let audioEngine: AudioEngineControlling
     private let recognizerFactory: () -> (any SpeechRecognizerControlling)?
     private let speechAuthorization: SpeechAuthorizationControlling
+    private let detector: any SpeechDetecting
     private var activeRequest: (any SpeechRecognitionRequestControlling)?
     private var activeTask: (any SpeechRecognitionTaskControlling)?
+    private var activeRecognizer: (any SpeechRecognizerControlling)?
     private var activeResultHandler: ((AudioTranscriptionEvent) -> Void)?
     private var isRunning = false
+    private var isCapturingAudio = false
+    private var requiresOnDeviceRecognition = false
 
     init(
         audioSession: AudioSessionControlling = LiveAudioSessionAdapter(),
@@ -263,12 +381,22 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
         speechAuthorization: SpeechAuthorizationControlling = LiveSpeechAuthorizationAdapter(),
         recognizerFactory: @escaping () -> (any SpeechRecognizerControlling)? = {
             LiveSpeechRecognizerAdapter(locale: nil)
-        }
+        },
+        detector: any SpeechDetecting = SpeechDetector()
     ) {
         self.audioSession = audioSession
         self.audioEngine = audioEngine
         self.speechAuthorization = speechAuthorization
         self.recognizerFactory = recognizerFactory
+        self.detector = detector
+
+        self.detector.onSpeechDetected = { [weak self] in
+            self?.handleSpeechDetected()
+        }
+
+        self.detector.onSpeechEnded = { [weak self] in
+            self?.handleSpeechEnded()
+        }
     }
 
     func currentPermissionState() -> AudioTranscriptionPermissionState {
@@ -341,77 +469,142 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
         )
         try audioSession.setActive(true)
 
-        let request = LiveSpeechRecognitionRequestAdapter()
-        request.shouldReportPartialResults = true
-        request.requiresOnDeviceRecognition = onDeviceRecognition
-        activeRequest = request
+        activeRecognizer = recognizer
+        requiresOnDeviceRecognition = onDeviceRecognition
         activeResultHandler = resultHandler
+        activeRequest = nil
+        activeTask = nil
+        isCapturingAudio = false
+        detector.reset()
 
         let inputNode = audioEngine.inputNode
         let inputFormat = inputNode.inputFormat(forBus: 0)
 
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak request] buffer, _ in
-            request?.append(buffer)
-        }
-
-        audioEngine.prepare()
-
-        do {
-            try audioEngine.start()
-        } catch {
-            inputNode.removeTap(onBus: 0)
-            activeRequest = nil
-            activeResultHandler = nil
-            try? audioSession.setActive(false)
-            throw AudioTranscriptionError.failedToStartAudioEngine
-        }
-
-        let task = recognizer.recognitionTask(with: request) { [weak self] recognitionResult, error in
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak self] buffer, _ in
             guard let self else {
                 return
             }
 
-            if let error {
-                Task { @MainActor in
-                    self.activeResultHandler?(.failure(error.localizedDescription))
-                }
+            self.detector.process(buffer)
+
+            guard self.isCapturingAudio else {
                 return
             }
 
-            guard let recognitionResult else {
-                return
-            }
-
-            let update = AudioTranscriptionUpdate(
-                transcript: recognitionResult.transcript,
-                isFinal: recognitionResult.isFinal
-            )
-
-            Task { @MainActor in
-                self.activeResultHandler?(.update(update))
-            }
+            self.activeRequest?.append(buffer)
         }
 
-        activeTask = task
+        audioEngine.prepare()
         isRunning = true
+
+        do {
+            try audioEngine.start()
+        } catch {
+            cleanupAfterFailedStart()
+            throw AudioTranscriptionError.failedToStartAudioEngine
+        }
     }
 
     func stop() {
-        guard isRunning || activeRequest != nil || activeTask != nil else {
+        guard isRunning || activeRequest != nil || activeTask != nil || activeRecognizer != nil else {
             return
         }
 
+        cleanup()
+    }
+
+    private func handleSpeechDetected() {
+        guard isRunning else {
+            return
+        }
+
+        if activeRequest == nil {
+            guard let recognizer = activeRecognizer else {
+                emit(.failure(AudioTranscriptionError.recognizerUnavailable.localizedDescription))
+                return
+            }
+
+            let request = LiveSpeechRecognitionRequestAdapter()
+            request.shouldReportPartialResults = true
+            request.requiresOnDeviceRecognition = requiresOnDeviceRecognition
+            activeRequest = request
+
+            let task = recognizer.recognitionTask(with: request) { [weak self] recognitionResult, error in
+                guard let self else {
+                    return
+                }
+
+                if let error {
+                    self.emit(.failure(error.localizedDescription))
+                    return
+                }
+
+                guard let recognitionResult else {
+                    return
+                }
+
+                let update = AudioTranscriptionUpdate(
+                    transcript: recognitionResult.transcript,
+                    isFinal: recognitionResult.isFinal
+                )
+
+                self.emit(.update(update))
+            }
+
+            guard let task else {
+                activeRequest = nil
+                emit(.failure(AudioTranscriptionError.failedToStartRecognitionTask.localizedDescription))
+                return
+            }
+
+            activeTask = task
+        }
+
+        isCapturingAudio = true
+        emit(.speechDetected)
+    }
+
+    private func handleSpeechEnded() {
+        guard isRunning else {
+            return
+        }
+
+        emit(.speechEnded)
+    }
+
+    private func cleanupAfterFailedStart() {
+        audioEngine.inputNode.removeTap(onBus: 0)
+        activeRequest = nil
+        activeTask = nil
+        activeRecognizer = nil
+        isCapturingAudio = false
+        detector.reset()
+        activeResultHandler = nil
+        try? audioSession.setActive(false)
+        isRunning = false
+    }
+
+    private func cleanup() {
         activeTask?.cancel()
         activeTask = nil
         activeRequest?.endAudio()
         activeRequest = nil
         audioEngine.inputNode.removeTap(onBus: 0)
         audioEngine.stop()
-        try? audioSession.setActive(false)
+        detector.reset()
+        isCapturingAudio = false
+        activeRecognizer = nil
         isRunning = false
+        try? audioSession.setActive(false)
         activeResultHandler = nil
     }
 
+    private func emit(_ event: AudioTranscriptionEvent) {
+        let handler = activeResultHandler
+        Task { @MainActor in
+            handler?(event)
+        }
+    }
 }
 
 protocol SpeechAuthorizationControlling {
@@ -623,23 +816,13 @@ final class LiveSpeechRecognizerAdapter: SpeechRecognizerControlling {
         }
 
         let task = recognizer.recognitionTask(with: request.request) { result, error in
-            if let error {
-                resultHandler(nil, error)
-                return
-            }
-
-            guard let result else {
-                resultHandler(nil, nil)
-                return
-            }
-
-            resultHandler(
+            let mappedResult = result.map {
                 SpeechRecognitionResult(
-                    transcript: result.bestTranscription.formattedString,
-                    isFinal: result.isFinal
-                ),
-                nil
-            )
+                    transcript: $0.bestTranscription.formattedString,
+                    isFinal: $0.isFinal
+                )
+            }
+            resultHandler(mappedResult, error)
         }
 
         return LiveSpeechRecognitionTaskAdapter(task: task)
