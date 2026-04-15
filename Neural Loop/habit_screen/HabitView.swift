@@ -10,6 +10,11 @@ import SwiftData
 import Combine
 
 struct HabitView: View {
+    let embeddedInTaskHub: Bool
+
+    init(embeddedInTaskHub: Bool = false) {
+        self.embeddedInTaskHub = embeddedInTaskHub
+    }
 
 //    @StateObject private var vm = HabitViewModel()
     
@@ -18,105 +23,165 @@ struct HabitView: View {
     @State private var selectedHabit: Habits? = nil
     
     @EnvironmentObject var model: UnifiedDataModel
-    
+
+    private var bottomInsetHeight: CGFloat {
+        embeddedInTaskHub ? SAFE_AREA_INSET + 104 : SAFE_AREA_INSET
+    }
+
+    @ViewBuilder
+    private var habitRootContent: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                if embeddedInTaskHub {
+                    habitEmbeddedHeader
+                }
+
+                ForEach(model.habits, id: \.id) { habit in
+                    if let id = habit.id,
+                       let progress = model.currentHabitProgressMap[id] {
+                        HabitCardView(
+                            habit: habit,
+                            progress: progress,
+                            onIncrement: {
+                                Task {
+                                    await model.incrementHabit(habit, value: 1)
+                                }
+                            }
+                        )
+                        .onTapGesture {
+                            addProgressToHabit = habit
+                        }
+                        .contextMenu {
+                            Button {
+                                selectedHabit = habit
+                            } label: {
+                                Label("Edit Habit", systemImage: "pencil")
+                            }
+
+                            Button(role: .destructive) {
+                                Task {
+                                    await model.deleteHabit(habit)
+                                }
+                            } label: {
+                                Label("Delete Habit", systemImage: "trash")
+                            }
+                        }
+                    }
+                }
+            }
+            .padding()
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Color.clear.frame(height: bottomInsetHeight)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var habitEmbeddedHeader: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Habits")
+                    .font(.title3.weight(.semibold))
+                Text("Track recurring actions and streaks.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button {
+                showAddHabit = true
+            } label: {
+                Image(systemName: "plus")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 32, height: 32)
+                    .background(
+                        Circle()
+                            .fill(Color(.secondarySystemBackground))
+                    )
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                Task {
+                    do {
+                        try await model.manager.reloadHabitEntries(refresh: true)
+                    } catch {
+                        print("Error Refreshing the Habit Entries")
+                    }
+                }
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 32, height: 32)
+                    .background(
+                        Circle()
+                            .fill(Color(.secondarySystemBackground))
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(16)
+    }
 
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 16) {
-                    ForEach(model.habits , id: \.id) { habit in
-                        if let id = habit.id,
-                           let progress = model.currentHabitProgressMap[id]{
-                            HabitCardView(
-                                habit: habit,
-                                progress: progress,
-                                onIncrement: {
-                                    Task {
-                                        await model.incrementHabit(habit, value:1)
+        Group {
+            if embeddedInTaskHub {
+                habitRootContent
+            } else {
+                NavigationView {
+                    habitRootContent
+                        .toolbar {
+                            ToolbarItem(placement: .topBarLeading) {
+                                Text("Habits")
+                                    .font(.title3.weight(.semibold))
+                                    .lineLimit(1)
+                                    .fixedSize(horizontal: true, vertical: false)
+                                    .layoutPriority(1)
+                                    .padding(.horizontal, 12)
+                            }
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Image(systemName: "plus")
+                                    .foregroundColor(.secondary)
+                                    .onTapGesture {
+                                        showAddHabit = true
                                     }
-                                }
-                            )
-                            .onTapGesture {
-                                addProgressToHabit = habit
                             }
-                            .contextMenu {
-                                Button {
-                                    selectedHabit = habit
-                                } label: {
-                                    Label("Edit Habit", systemImage: "pencil")
-                                }
-
-                                Button(role: .destructive) {
-                                    Task {
-                                        await model.deleteHabit(habit)
-                                        
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Image(systemName: "arrow.clockwise.square")
+                                    .foregroundColor(.secondary)
+                                    .onTapGesture {
+                                        Task {
+                                            do {
+                                                try await model.manager.reloadHabitEntries(refresh: true)
+                                            } catch {
+                                                print("Error Refreshing the Habit Entries")
+                                            }
+                                        }
                                     }
-                                } label: {
-                                    Label("Delete Habit", systemImage: "trash")
-                                }
-                            }
-                        }
-                    }
-                    
-                }
-                .padding()
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                        Color.clear.frame(height: SAFE_AREA_INSET)
-                    }
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Text("Habits")
-                        .font(.title3.weight(.semibold))
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)  // don’t compress horizontally
-                        .layoutPriority(1)                             // fight for space
-                        .padding(.horizontal, 12)
-                    
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Image(systemName: "plus")
-                        .foregroundColor(.secondary)
-                        .onTapGesture {
-                             showAddHabit = true
-                        }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Image(systemName: "arrow.clockwise.square")
-                        .foregroundColor(.secondary)
-                        .onTapGesture {
-                            Task {
-                                do {
-                                    try await model.manager.reloadHabitEntries(refresh: true)
-                                }
-                                catch {
-                                    print("Error Refreshing the Habit Entries")
-                                }
                             }
                         }
                 }
             }
-            
-            .sheet(isPresented: $showAddHabit) {
-                AddEditHabitView(habit: nil){new_habit in
-                    Task {
-                        await model.saveNewHabit(new_habit)
-                        
-                    }
-                    
+        }
+        .sheet(isPresented: $showAddHabit) {
+            AddEditHabitView(habit: nil) { new_habit in
+                Task {
+                    await model.saveNewHabit(new_habit)
                 }
             }
-            .sheet(item: $selectedHabit) { habit in
-                AddEditHabitView(habit: habit) { updatedHabit in
-                    Task {
-                        await model.updateHabit(updatedHabit)
-                        
-                    }
+        }
+        .sheet(item: $selectedHabit) { habit in
+            AddEditHabitView(habit: habit) { updatedHabit in
+                Task {
+                    await model.updateHabit(updatedHabit)
                 }
             }
-            .sheet(item: $addProgressToHabit) { habit in
-                AddProgressView(habit: habit) {}
-            }
+        }
+        .sheet(item: $addProgressToHabit) { habit in
+            AddProgressView(habit: habit) {}
         }
     }
 }
