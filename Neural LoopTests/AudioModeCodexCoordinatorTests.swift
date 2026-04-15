@@ -137,6 +137,9 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.statusMessage, "LLM access is disabled.")
         XCTAssertNil(coordinator.errorMessage)
         XCTAssertFalse(coordinator.isSending)
+        XCTAssertEqual(coordinator.bannerText, "LLM access is disabled.")
+        XCTAssertEqual(coordinator.bannerTone, .warning)
+        XCTAssertTrue(coordinator.isLLMDisabled)
     }
 
     func testCodexFailureSurfacesErrorWithoutCrashing() async {
@@ -152,6 +155,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .error])
         XCTAssertEqual(coordinator.errorMessage, TestError.codexFailure.localizedDescription)
         XCTAssertFalse(coordinator.isSending)
+        XCTAssertEqual(coordinator.bannerText, TestError.codexFailure.localizedDescription)
+        XCTAssertEqual(coordinator.bannerTone, .error)
     }
 
     func testCancelledDrainDoesNotAppendErrorAfterReset() async {

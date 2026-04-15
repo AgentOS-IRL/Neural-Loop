@@ -35,6 +35,40 @@ final class AudioModeCodexCoordinator: ObservableObject {
     let intentTools: [CodexTool]
     let intentInstructions: String
 
+    var bannerText: String? {
+        if isSending {
+            return statusMessage ?? "Sending to Codex..."
+        }
+        return errorMessage ?? statusMessage
+    }
+
+    var bannerTone: AudioModeBannerTone? {
+        if errorMessage != nil {
+            return .error
+        }
+        if statusMessage == "LLM access is disabled." {
+            return .warning
+        }
+        if statusMessage != nil {
+            return .info
+        }
+        return nil
+    }
+
+    var isLLMDisabled: Bool {
+        statusMessage == "LLM access is disabled."
+    }
+
+    var viewData: AudioModeConversationViewData {
+        AudioModeConversationViewData(
+            messages: conversationFeed,
+            bannerText: bannerText,
+            bannerTone: bannerTone,
+            isSending: isSending,
+            isLLMDisabled: isLLMDisabled
+        )
+    }
+
     init(
         model: any AudioModeCodexModel,
         codexClient: (any AudioModeCodexExecuting)? = nil,

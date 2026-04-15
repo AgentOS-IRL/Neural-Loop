@@ -25,6 +25,15 @@ enum AudioTranscriptionSessionState: Equatable {
     case cooldownPending
 }
 
+enum AudioTranscriptionDisplayState: Equatable {
+    case inactive
+    case checkingPermissions
+    case listening
+    case transcribing
+    case cooldown
+    case unavailable
+}
+
 struct AudioTranscriptionUpdate: Equatable {
     let transcript: String
     let isFinal: Bool
@@ -141,6 +150,160 @@ final class AudioTranscriptionManager: ObservableObject {
 
     var microphoneSystemImage: String {
         isRecording ? "stop.fill" : "mic.fill"
+    }
+
+    var displayState: AudioTranscriptionDisplayState {
+        switch permissionState {
+        case .requesting:
+            return .checkingPermissions
+        case .microphoneDenied, .speechDenied, .restricted, .unavailable:
+            return .unavailable
+        case .unknown, .authorized:
+            switch sessionState {
+            case .inactive:
+                return .inactive
+            case .checking, .listening:
+                return .listening
+            case .transcribing:
+                return .transcribing
+            case .cooldownPending:
+                return .cooldown
+            }
+        }
+    }
+
+    var primaryStatusTitle: String {
+        if errorMessage != nil {
+            return "Microphone unavailable"
+        }
+
+        switch displayState {
+        case .inactive:
+            return "Audio Mode"
+        case .checkingPermissions:
+            return "Checking permissions"
+        case .listening:
+            return sessionState == .checking ? "Stand by for speech" : "Listening for your next phrase"
+        case .transcribing:
+            return "Transcribing live speech"
+        case .cooldown:
+            return "Holding the floor open"
+        case .unavailable:
+            return "Microphone unavailable"
+        }
+    }
+
+    var secondaryStatusText: String {
+        if let errorMessage {
+            return errorMessage
+        }
+
+        switch sessionState {
+        case .inactive:
+            switch permissionState {
+            case .authorized, .unknown:
+                return "Voice stays active across pauses until you stop the session."
+            case .requesting:
+                return "Requesting audio permissions so the session can begin."
+            case .microphoneDenied:
+                return "Microphone access is required to record speech."
+            case .speechDenied:
+                return "Speech recognition access is required to transcribe text."
+            case .restricted:
+                return "Speech and microphone access are restricted on this device."
+            case .unavailable:
+                return "Speech transcription is unavailable on this device."
+            }
+        case .checking:
+            return "Waiting for the first phrase before speech is committed."
+        case .listening:
+            return transcriptHistory.isEmpty
+            ? "Speak naturally. The session remains open across pauses."
+            : "The session is still live and ready for the next segment."
+        case .transcribing:
+            return "Speech is being converted into text and prepared for Codex."
+        case .cooldownPending:
+            return "Pause briefly to commit this segment, or keep talking to continue."
+        }
+    }
+
+    var statusBadgeText: String? {
+        switch displayState {
+        case .inactive:
+            return transcriptHistory.isEmpty ? "Ready" : "Reset to start again"
+        case .checkingPermissions:
+            return "Checking"
+        case .listening:
+            return transcriptHistory.isEmpty ? "Listening" : "Open session"
+        case .transcribing:
+            return "Transcribing"
+        case .cooldown:
+            return "Listening"
+        case .unavailable:
+            return "Mic unavailable"
+        }
+    }
+
+    var transcriptStatusTitle: String {
+        switch sessionState {
+        case .inactive:
+            return "Live transcript"
+        case .checking:
+            return "Waiting for speech"
+        case .listening:
+            return transcriptHistory.isEmpty ? "Listening" : "Listening for more"
+        case .transcribing:
+            return "Transcribing"
+        case .cooldownPending:
+            return "Finalizing segment"
+        }
+    }
+
+    var transcriptStatusIconName: String {
+        switch sessionState {
+        case .inactive:
+            return "text.quote"
+        case .checking, .listening:
+            return "waveform"
+        case .transcribing:
+            return "waveform.and.mic"
+        case .cooldownPending:
+            return "waveform.badge.clock"
+        }
+    }
+
+    var transcriptStatusBadgeText: String? {
+        if errorMessage != nil {
+            return "Issue"
+        }
+        if isTranscriptFinal {
+            return "Final"
+        }
+        if sessionState == .cooldownPending {
+            return "Listening"
+        }
+        if transcriptText.isEmpty {
+            return statusBadgeText
+        }
+        return "Live"
+    }
+
+    var viewData: AudioModeTranscriptionViewData {
+        AudioModeTranscriptionViewData(
+            displayState: displayState,
+            title: primaryStatusTitle,
+            detail: secondaryStatusText,
+            badgeText: statusBadgeText,
+            transcriptTitle: transcriptStatusTitle,
+            transcriptIconName: transcriptStatusIconName,
+            transcriptBadgeText: transcriptStatusBadgeText,
+            transcriptBody: transcriptCardText,
+            microphoneSystemImage: microphoneSystemImage,
+            micButtonLabel: micButtonLabel,
+            isActionDisabled: isActionDisabled,
+            isRecording: isRecording,
+            transcriptHistoryCount: transcriptHistory.count
+        )
     }
 
     var promptText: String {
