@@ -238,12 +238,11 @@ final class AudioModeCodexCoordinator: ObservableObject {
     }
 
     private func handleCreateNote(arguments: [String: Any]) async {
-        guard let noteText = stringValue(for: ["content", "note"], in: arguments) else {
+        guard let trimmedNote = firstNonEmptyTrimmedStringValue(for: ["content", "note"], in: arguments) else {
             appendError("Codex did not provide note content.")
             return
         }
 
-        let trimmedNote = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedNote.isEmpty else {
             appendError("Codex did not provide note content.")
             return
@@ -331,6 +330,21 @@ final class AudioModeCodexCoordinator: ObservableObject {
 
     private func optionalStringValue(for keys: [String], in arguments: [String: Any]) -> String? {
         stringValue(for: keys, in: arguments)?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func firstNonEmptyTrimmedStringValue(for keys: [String], in arguments: [String: Any]) -> String? {
+        for key in keys {
+            guard let value = arguments[key] as? String else {
+                continue
+            }
+
+            let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedValue.isEmpty {
+                return trimmedValue
+            }
+        }
+
+        return nil
     }
 
     private func makeCodexMessages(
