@@ -92,8 +92,9 @@ struct SettingsView: View {
                     }
 
                     Button {
+                        guard !isRefreshingSecrets else { return }
+                        isRefreshingSecrets = true
                         Task { @MainActor in
-                            isRefreshingSecrets = true
                             defer { isRefreshingSecrets = false }
                             await model.refreshSecrets()
                         }
