@@ -80,6 +80,40 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.conversationFeed.last?.content, "Task created: Join standup")
     }
 
+    func testCreateTaskToolCallParsesTimezoneLessStartDateInLocalTimezone() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "create_task",
+                arguments: [
+                    "title": "Join standup",
+                    "start_date": "2026-04-16T09:30:00"
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Join standup tomorrow at 9:30")
+        await Task.yield()
+        await Task.yield()
+
+        guard let savedStartDate = model.savedTasks.first?.start_date else {
+            return XCTFail("Expected saved task start date")
+        }
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: savedStartDate)
+
+        XCTAssertEqual(components.year, 2026)
+        XCTAssertEqual(components.month, 4)
+        XCTAssertEqual(components.day, 16)
+        XCTAssertEqual(components.hour, 9)
+        XCTAssertEqual(components.minute, 30)
+        XCTAssertEqual(components.second, 0)
+        XCTAssertEqual(model.savedTasks.first?.duration, 900)
+    }
+
     func testCreateTaskToolCallDefaultsDateOnlyScheduleToAfternoon() async {
         let model = FakeAudioModeCodexModel(llmEnabled: true)
         let client = FakeAudioModeCodexClient(
