@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10000012F90000100000001 /* CodexCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000012F90000100000004 /* CodexCore */; };
+		A10000012F90000100000002 /* CodexCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000012F90000100000005 /* CodexCore */; };
 		346ACF072F0C75C3008187C1 /* RRuleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 346ACF062F0C75C3008187C1 /* RRuleKit */; };
 		349D25E22F24020A0001589F /* Neural Loop Watch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 349D25D82F2402090001589F /* Neural Loop Watch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		349D25EA2F24039E0001589F /* ConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349D25E92F2403890001589F /* ConnectivityManager.swift */; };
@@ -91,6 +93,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000012F90000100000001 /* CodexCore in Frameworks */,
 				34EB1E652F0FFD5400F5B247 /* Realtime in Frameworks */,
 				34EB1E632F0FFD5400F5B247 /* PostgREST in Frameworks */,
 				34EB1E612F0FFD5400F5B247 /* Functions in Frameworks */,
@@ -113,15 +116,24 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000012F90000100000002 /* CodexCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		269388B72F8FFD3700C94FA5 /* Codex */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Codex;
+			sourceTree = "<group>";
+		};
 		34237FB52F0AF4CA002E0D02 = {
 			isa = PBXGroup;
 			children = (
+				269388B72F8FFD3700C94FA5 /* Codex */,
 				349D25E82F2403620001589F /* Shared */,
 				34237FC02F0AF4CA002E0D02 /* Neural Loop */,
 				34B495972F138D78000FAD6D /* Neural LoopTests */,
@@ -179,6 +191,7 @@
 			);
 			name = "Neural Loop";
 			packageProductDependencies = (
+				A10000012F90000100000004 /* CodexCore */,
 				346ACF062F0C75C3008187C1 /* RRuleKit */,
 				34EB1E5E2F0FFD5400F5B247 /* Auth */,
 				34EB1E602F0FFD5400F5B247 /* Functions */,
@@ -232,6 +245,7 @@
 			);
 			name = "Neural LoopTests";
 			packageProductDependencies = (
+				A10000012F90000100000005 /* CodexCore */,
 			);
 			productName = "Neural LoopTests";
 			productReference = 34B495962F138D78000FAD6D /* Neural LoopTests.xctest */;
@@ -269,6 +283,7 @@
 			mainGroup = 34237FB52F0AF4CA002E0D02;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				A10000012F90000100000003 /* XCLocalSwiftPackageReference "Packages/CodexCore" */,
 				346ACF052F0C75C3008187C1 /* XCRemoteSwiftPackageReference "RRuleKit" */,
 				34EB1E5D2F0FFD5400F5B247 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				34B5B1772F1E7A8D00D44FEF /* XCRemoteSwiftPackageReference "GRDB.swift" */,
@@ -685,6 +700,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		A10000012F90000100000003 /* XCLocalSwiftPackageReference "Packages/CodexCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/CodexCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		346ACF052F0C75C3008187C1 /* XCRemoteSwiftPackageReference "RRuleKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -713,6 +735,16 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A10000012F90000100000004 /* CodexCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000012F90000100000003 /* XCLocalSwiftPackageReference "Packages/CodexCore" */;
+			productName = CodexCore;
+		};
+		A10000012F90000100000005 /* CodexCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000012F90000100000003 /* XCLocalSwiftPackageReference "Packages/CodexCore" */;
+			productName = CodexCore;
+		};
 		346ACF062F0C75C3008187C1 /* RRuleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 346ACF052F0C75C3008187C1 /* XCRemoteSwiftPackageReference "RRuleKit" */;

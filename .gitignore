@@ -16,3 +16,5 @@ DerivedData/
 # Swift Package Manager
 .swiftpm/xcode/package.pull-requests
 .swiftpm/xcode/xcuserdata/
+Packages/CodexCore/.build/**
+Neural Loop/.DS_Store

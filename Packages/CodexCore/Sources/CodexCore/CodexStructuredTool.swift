@@ -47,6 +47,7 @@ public struct CodexIntentResult {
 public protocol CodexSchemaProviding {
     static var codexSchemaPayload: CodexJSONSchemaPayload { get }
 }
+
 public struct CodexTool: Codable, Equatable {
     public let name: String
     public let description: String
@@ -58,7 +59,6 @@ public struct CodexTool: Codable, Equatable {
         self.parameters = parameters
     }
 
-    // Simplified CodingKeys to flatten the structure
     private enum CodingKeys: String, CodingKey {
         case name
         case description
@@ -75,8 +75,6 @@ public struct CodexTool: Codable, Equatable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        
-        // Encode everything at the top level
         try container.encode("function", forKey: .type)
         try container.encode(name, forKey: .name)
         try container.encode(description, forKey: .description)
@@ -157,7 +155,7 @@ public final class CodexStructuredTool {
         self.requestEncoder.outputFormatting = []
     }
 
-    public func executeSync(_ prompt: String, url: URL? = nil) async throws -> String {
+    public func invoke(_ prompt: String, url: URL? = nil) async throws -> String {
         try await _post_and_collect_text(
             prompt: prompt,
             url: url,
@@ -166,27 +164,20 @@ public final class CodexStructuredTool {
         )
     }
 
-    public func executeIntent(_ prompt: String, url: URL? = nil) async throws -> CodexAction {
-        let result = try await executeIntent(
-            messages: [Self.userMessage(prompt)],
-            state: nil,
-            url: url
-        )
-        return result.action
-    }
-
-    public func executeIntent(
+    public func converse(
         messages: [CodexInputMessage],
         state: CodexConversationState? = nil,
+        tools: [CodexTool],
+        instructions: String,
         url: URL? = nil
     ) async throws -> CodexIntentResult {
         var accumulator = CodexIntentAccumulator()
         let clarification = try await _post_and_collect_text(
             messages: messages,
             url: url,
-            instructions: Self.intentInstructions,
+            instructions: instructions,
             text_format: nil,
-            tools: Self.intentTools,
+            tools: tools,
             tool_choice: "auto",
             parallel_tool_calls: false,
             store: false,
@@ -198,7 +189,7 @@ public final class CodexStructuredTool {
         let fallback = clarification.trimmingCharacters(in: .whitespacesAndNewlines)
         let action = accumulator.finalizedAction()
             ?? (!fallback.isEmpty ? .clarify(text: fallback) : nil)
-            ?? .clarify(text: "Could you clarify whether you want me to create a task or save a note?")
+            ?? .clarify(text: "Could you clarify what you'd like me to do?")
 
         return CodexIntentResult(
             action: action,
@@ -209,7 +200,7 @@ public final class CodexStructuredTool {
         )
     }
 
-    public func executeStructured<T: Decodable>(
+    public func invokeStructured<T: Decodable>(
         _ prompt: String,
         as type: T.Type = T.self,
         method: CodexStructuredMethod = .jsonSchema,
@@ -217,7 +208,7 @@ public final class CodexStructuredTool {
         schema: CodexJSONSchemaPayload? = nil,
         url: URL? = nil
     ) async throws -> T {
-        let result = try await executeStructuredWithRaw(
+        let result = try await invokeStructuredWithRaw(
             prompt,
             as: type,
             method: method,
@@ -228,7 +219,7 @@ public final class CodexStructuredTool {
         return result.parsed
     }
 
-    public func executeStructuredWithRaw<T: Decodable>(
+    public func invokeStructuredWithRaw<T: Decodable>(
         _ prompt: String,
         as type: T.Type = T.self,
         method: CodexStructuredMethod = .jsonSchema,
@@ -549,55 +540,11 @@ private func normalizedCodexStructuredText(_ raw: String) -> String {
 }
 
 private extension CodexStructuredTool {
-    static var intentInstructions: String {
-        "You are an assistant with two tools: create_task for to-dos and Notes for general info. If the user's intent is clear, call the appropriate tool. If the input is vague or missing details, do not call a tool; instead, respond with a clarification question."
-    }
-
-    static var intentTools: [CodexTool] {
-        [
-            CodexTool(
-                name: "create_task",
-                description: "Create a to-do item when the user wants to add a task.",
-                parameters: .object([
-                    "type": .string("object"),
-                    "properties": .object([
-                        "title": .object([
-                            "type": .string("string")
-                        ]),
-                        "description": .object([
-                            "type": .string("string")
-                        ])
-                    ]),
-                    "required": .array([
-                        .string("title"),
-                        .string("description")
-                    ])
-                ])
-            ),
-            CodexTool(
-                name: "Notes",
-                description: "Capture general information or notes from the user.",
-                parameters: .object([
-                    "type": .string("object"),
-                    "properties": .object([
-                        "content": .object([
-                            "type": .string("string")
-                        ])
-                    ]),
-                    "required": .array([
-                        .string("content")
-                    ])
-                ])
-            )
-        ]
-    }
-
     func validate(bytes: URLSession.AsyncBytes, response: URLResponse) async throws {
         if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
             print("HTTP \(httpResponse.statusCode) response received.")
-                        
+
             var data = Data()
-            // 2. This 'await' requires the function to be 'async'
             for try await byte in bytes {
                 data.append(byte)
             }
@@ -605,7 +552,7 @@ private extension CodexStructuredTool {
             if let bodyString = String(data: data, encoding: .utf8) {
                 print("Response Body: \(bodyString)")
             }
-            
+
             throw CodexStructuredToolError.transport(
                 "Codex request failed with HTTP \(httpResponse.statusCode)."
             )

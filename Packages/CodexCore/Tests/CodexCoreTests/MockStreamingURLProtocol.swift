@@ -20,8 +20,8 @@ final class MockStreamingURLProtocol: URLProtocol {
         }
     }
 
-    static var requestHandler: ((URLRequest) throws -> Stub)?
-    static var capturedRequests: [URLRequest] = []
+    nonisolated(unsafe) static var requestHandler: ((URLRequest) throws -> Stub)?
+    nonisolated(unsafe) static var capturedRequests: [URLRequest] = []
 
     override class func canInit(with request: URLRequest) -> Bool {
         true
