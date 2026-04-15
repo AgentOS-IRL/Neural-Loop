@@ -113,17 +113,17 @@ struct AudioModeView: View {
             ZStack {
                 if !reduceMotion {
                     Circle()
-                        .strokeBorder(Color.cyan.opacity(0.35), lineWidth: 2)
+                        .strokeBorder(micOuterColor.opacity(micOuterOpacity), lineWidth: 2)
                         .frame(width: 214, height: 214)
-                        .scaleEffect(pulse ? 1.18 : 0.92)
-                        .opacity(transcriptionManager.isRecording ? 0.98 : (pulse ? 0.0 : 0.65))
+                        .scaleEffect(micOuterScale)
+                        .opacity(micOuterVisibility)
                         .animation(.easeInOut(duration: 1.9).repeatForever(autoreverses: true), value: pulse)
 
                     Circle()
-                        .strokeBorder(Color.blue.opacity(0.22), lineWidth: 10)
+                        .strokeBorder(micInnerColor.opacity(micInnerOpacity), lineWidth: 10)
                         .frame(width: 164, height: 164)
-                        .scaleEffect(transcriptionManager.isRecording ? 1.12 : (pulse ? 1.08 : 0.98))
-                        .opacity(transcriptionManager.isRecording ? 0.86 : (pulse ? 0.45 : 0.72))
+                        .scaleEffect(micInnerScale)
+                        .opacity(micInnerVisibility)
                         .animation(.easeInOut(duration: 1.55).repeatForever(autoreverses: true), value: pulse)
                 }
 
@@ -145,7 +145,7 @@ struct AudioModeView: View {
                     .overlay {
                         Circle()
                             .strokeBorder(
-                                transcriptionManager.isRecording ? Color.white.opacity(0.28) : Color.white.opacity(0.18),
+                                transcriptionManager.sessionState == .inactive ? Color.white.opacity(0.18) : Color.white.opacity(0.28),
                                 lineWidth: 1
                             )
                     }
@@ -153,7 +153,7 @@ struct AudioModeView: View {
                     .shadow(color: .black.opacity(0.22), radius: 20, y: 10)
 
                 Image(systemName: transcriptionManager.microphoneSystemImage)
-                    .font(.system(size: transcriptionManager.isRecording ? 58 : 70, weight: .bold))
+                    .font(.system(size: transcriptionManager.sessionState == .inactive ? 70 : 58, weight: .bold))
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
             }
@@ -168,11 +168,11 @@ struct AudioModeView: View {
     private var transcriptCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Image(systemName: transcriptionManager.isRecording ? "waveform" : "text.quote")
+                Image(systemName: transcriptCardSymbol)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.78))
 
-                Text(transcriptionManager.isRecording ? "Transcribing" : "Transcript")
+                Text(transcriptCardTitle)
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white.opacity(0.8))
 
@@ -180,6 +180,10 @@ struct AudioModeView: View {
 
                 if transcriptionManager.isTranscriptFinal {
                     Text("Final")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.58))
+                } else if transcriptionManager.sessionState == .cooldownPending {
+                    Text("Cooldown")
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(0.58))
                 }
@@ -220,6 +224,138 @@ struct AudioModeView: View {
                 isAudioMode = false
             }
             return
+        }
+    }
+
+    private var micOuterColor: Color {
+        switch transcriptionManager.sessionState {
+        case .inactive:
+            return .cyan
+        case .checking, .listening:
+            return .cyan
+        case .transcribing:
+            return .mint
+        case .cooldownPending:
+            return .orange
+        }
+    }
+
+    private var micOuterOpacity: Double {
+        switch transcriptionManager.sessionState {
+        case .inactive:
+            return 0.35
+        case .checking, .listening:
+            return 0.48
+        case .transcribing:
+            return 0.7
+        case .cooldownPending:
+            return 0.6
+        }
+    }
+
+    private var micOuterScale: CGFloat {
+        switch transcriptionManager.sessionState {
+        case .inactive:
+            return pulse ? 1.18 : 0.92
+        case .checking, .listening:
+            return pulse ? 1.14 : 0.96
+        case .transcribing:
+            return pulse ? 1.24 : 0.98
+        case .cooldownPending:
+            return pulse ? 1.08 : 0.98
+        }
+    }
+
+    private var micOuterVisibility: Double {
+        switch transcriptionManager.sessionState {
+        case .inactive:
+            return pulse ? 0.0 : 0.65
+        case .checking, .listening:
+            return 0.95
+        case .transcribing:
+            return 0.98
+        case .cooldownPending:
+            return 0.88
+        }
+    }
+
+    private var micInnerColor: Color {
+        switch transcriptionManager.sessionState {
+        case .inactive:
+            return .blue
+        case .checking, .listening:
+            return .blue
+        case .transcribing:
+            return .green
+        case .cooldownPending:
+            return .orange
+        }
+    }
+
+    private var micInnerOpacity: Double {
+        switch transcriptionManager.sessionState {
+        case .inactive:
+            return 0.22
+        case .checking, .listening:
+            return 0.34
+        case .transcribing:
+            return 0.5
+        case .cooldownPending:
+            return 0.42
+        }
+    }
+
+    private var micInnerScale: CGFloat {
+        switch transcriptionManager.sessionState {
+        case .inactive:
+            return pulse ? 1.08 : 0.98
+        case .checking, .listening:
+            return pulse ? 1.08 : 1.0
+        case .transcribing:
+            return pulse ? 1.14 : 1.04
+        case .cooldownPending:
+            return pulse ? 1.05 : 1.0
+        }
+    }
+
+    private var micInnerVisibility: Double {
+        switch transcriptionManager.sessionState {
+        case .inactive:
+            return 0.72
+        case .checking, .listening:
+            return 0.88
+        case .transcribing:
+            return 0.94
+        case .cooldownPending:
+            return 0.9
+        }
+    }
+
+    private var transcriptCardSymbol: String {
+        switch transcriptionManager.sessionState {
+        case .inactive:
+            return "text.quote"
+        case .checking, .listening:
+            return "waveform"
+        case .transcribing:
+            return "waveform.and.mic"
+        case .cooldownPending:
+            return "clock.arrow.circlepath"
+        }
+    }
+
+    private var transcriptCardTitle: String {
+        switch transcriptionManager.sessionState {
+        case .inactive:
+            return "Transcript"
+        case .checking:
+            return "Checking"
+        case .listening:
+            return "Listening"
+        case .transcribing:
+            return "Transcribing"
+        case .cooldownPending:
+            return "Cooldown"
         }
     }
 
