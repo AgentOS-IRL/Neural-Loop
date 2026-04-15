@@ -14,7 +14,24 @@ struct FleetingNote: Codable, Identifiable, Equatable {
     let note: String
 }
 
+struct CreateFleetingNoteRequest: Codable, Equatable {
+    let note: String
+}
+
+enum FleetingNotesError: LocalizedError, Equatable {
+    case insertReturnedNoRows
+
+    var errorDescription: String? {
+        switch self {
+        case .insertReturnedNoRows:
+            return "Fleeting note could not be saved."
+        }
+    }
+}
+
 extension FleetingNote {
+    static let tableName = "fleeting notes"
+
     static func sortedNewestFirst(_ notes: [FleetingNote]) -> [FleetingNote] {
         notes.sorted {
             if $0.created_at == $1.created_at {
@@ -27,18 +44,29 @@ extension FleetingNote {
 }
 
 extension DBManager {
-    // The backing Postgres table is `public."fleeting notes"`, so the space
-    // stays centralized here instead of being duplicated across queries.
-    fileprivate var fleetingNotesTableName: String { "fleeting notes" }
-
     func fetchFleetingNotes() async throws -> [FleetingNote] {
         let rows: [FleetingNote] = try await customsupabase
-            .from(fleetingNotesTableName)
+            .from(FleetingNote.tableName)
             .select("id, created_at, note")
             .order("created_at", ascending: false)
             .execute()
             .value
 
         return FleetingNote.sortedNewestFirst(rows)
+    }
+
+    func createFleetingNote(_ request: CreateFleetingNoteRequest) async throws -> FleetingNote {
+        let inserted: [FleetingNote] = try await customsupabase
+            .from(FleetingNote.tableName)
+            .insert(request)
+            .select("id, created_at, note")
+            .execute()
+            .value
+
+        guard let note = inserted.first else {
+            throw FleetingNotesError.insertReturnedNoRows
+        }
+
+        return note
     }
 }
