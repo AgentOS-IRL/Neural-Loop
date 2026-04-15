@@ -7,8 +7,8 @@ jobs:
     # Only run if the comment or issue body contains '@agentos'
     if: >-
       github.event.issue.pull_request != null && 
-      (contains(github.event.comment.body, 'Codex Review: Didn''t find any major issues. Swish!') || 
-       contains(github.event.issue.body, 'Codex Review: Didn''t find any major issues. Swish!'))
+      (contains(github.event.comment.body, 'Codex Review: Didn''t find any major issues.') || 
+       contains(github.event.issue.body, 'Codex Review: Didn''t find any major issues.'))
     runs-on: ubuntu-latest
     steps:
       - name: Install dependencies
