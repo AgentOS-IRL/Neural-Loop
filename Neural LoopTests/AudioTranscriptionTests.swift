@@ -214,15 +214,24 @@ final class AudioTranscriptionTests: XCTestCase {
         try await session.start(onDeviceRecognition: true) { _ in }
         XCTAssertEqual(recognizer.recognitionTaskCallCount, 0)
 
+        let preRollBuffers = [makeBuffer(amplitude: 0.08), makeBuffer(amplitude: 0.08), makeBuffer(amplitude: 0.08)]
+        preRollBuffers.forEach { buffer in
+            engine.inputNodeBox.installedBlock?(buffer, nil)
+        }
+
         detector.emitSpeechDetected()
         XCTAssertEqual(recognizer.recognitionTaskCallCount, 1)
+        XCTAssertEqual(
+            (recognizer.capturedRequest as? LiveSpeechRecognitionRequestAdapter)?.appendCallCount,
+            3
+        )
 
         let buffer = makeBuffer(amplitude: 0.4)
         engine.inputNodeBox.installedBlock?(buffer, nil)
 
         XCTAssertEqual(
             (recognizer.capturedRequest as? LiveSpeechRecognitionRequestAdapter)?.appendCallCount,
-            1
+            4
         )
 
         session.stop()
@@ -238,6 +247,82 @@ final class AudioTranscriptionTests: XCTestCase {
         XCTAssertEqual(recognizer.capturedRequest?.shouldReportPartialResults, true)
         XCTAssertEqual(recognizer.capturedRequest?.requiresOnDeviceRecognition, true)
         XCTAssertEqual((recognizer.capturedRequest as? LiveSpeechRecognitionRequestAdapter)?.endAudioCallCount, 1)
+    }
+
+    func testLiveSessionReplaysPreRollOnlyOncePerSession() async throws {
+        let audioSession = FakeAudioSession(recordPermission: .granted)
+        let engine = FakeAudioEngine()
+        let speechAuthorization = FakeSpeechAuthorization(status: .authorized)
+        let recognizer = FakeSpeechRecognizer(isAvailable: true)
+        let detector = FakeSpeechDetector()
+        let session = LiveAudioTranscriptionSession(
+            audioSession: audioSession,
+            audioEngine: engine,
+            speechAuthorization: speechAuthorization,
+            recognizerFactory: { recognizer },
+            detector: detector
+        )
+
+        try await session.start(onDeviceRecognition: false) { _ in }
+
+        engine.inputNodeBox.installedBlock?(makeBuffer(amplitude: 0.06), nil)
+        engine.inputNodeBox.installedBlock?(makeBuffer(amplitude: 0.06), nil)
+
+        detector.emitSpeechDetected()
+
+        XCTAssertEqual(
+            (recognizer.capturedRequest as? LiveSpeechRecognitionRequestAdapter)?.appendCallCount,
+            2
+        )
+
+        engine.inputNodeBox.installedBlock?(makeBuffer(amplitude: 0.4), nil)
+
+        XCTAssertEqual(
+            (recognizer.capturedRequest as? LiveSpeechRecognitionRequestAdapter)?.appendCallCount,
+            3
+        )
+
+        detector.emitSpeechDetected()
+
+        XCTAssertEqual(
+            (recognizer.capturedRequest as? LiveSpeechRecognitionRequestAdapter)?.appendCallCount,
+            3
+        )
+    }
+
+    func testLiveSessionClearsPreRollBetweenRuns() async throws {
+        let audioSession = FakeAudioSession(recordPermission: .granted)
+        let engine = FakeAudioEngine()
+        let speechAuthorization = FakeSpeechAuthorization(status: .authorized)
+        let recognizer = FakeSpeechRecognizer(isAvailable: true)
+        let detector = FakeSpeechDetector()
+        let session = LiveAudioTranscriptionSession(
+            audioSession: audioSession,
+            audioEngine: engine,
+            speechAuthorization: speechAuthorization,
+            recognizerFactory: { recognizer },
+            detector: detector
+        )
+
+        try await session.start(onDeviceRecognition: false) { _ in }
+
+        engine.inputNodeBox.installedBlock?(makeBuffer(amplitude: 0.06), nil)
+        engine.inputNodeBox.installedBlock?(makeBuffer(amplitude: 0.06), nil)
+        detector.emitSpeechDetected()
+
+        let firstRequest = recognizer.capturedRequest as? LiveSpeechRecognitionRequestAdapter
+        XCTAssertEqual(firstRequest?.appendCallCount, 2)
+
+        session.stop()
+
+        try await session.start(onDeviceRecognition: false) { _ in }
+
+        engine.inputNodeBox.installedBlock?(makeBuffer(amplitude: 0.06), nil)
+        detector.emitSpeechDetected()
+
+        let secondRequest = recognizer.capturedRequest as? LiveSpeechRecognitionRequestAdapter
+        XCTAssertEqual(recognizer.recognitionTaskCallCount, 2)
+        XCTAssertEqual(secondRequest?.appendCallCount, 1)
     }
 }
 
