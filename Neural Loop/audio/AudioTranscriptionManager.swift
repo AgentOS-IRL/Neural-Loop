@@ -159,7 +159,7 @@ final class AudioTranscriptionManager: ObservableObject {
             return
         }
 
-        errorMessage = nil
+        resetTranscript()
         permissionState = .requesting
 
         let permission = await session.requestPermissions()
@@ -200,6 +200,18 @@ final class AudioTranscriptionManager: ObservableObject {
         transcriptText = ""
         isTranscriptFinal = false
         errorMessage = nil
+    }
+
+    var transcriptCardText: String {
+        if let errorMessage {
+            return errorMessage
+        }
+
+        if transcriptText.isEmpty {
+            return promptText
+        }
+
+        return transcriptText
     }
 
     private func handleEvent(_ event: AudioTranscriptionEvent) {

@@ -18,6 +18,24 @@ final class AudioTranscriptionTests: XCTestCase {
         XCTAssertEqual(manager.promptText, "Listening...")
     }
 
+    func testStartRecordingClearsPreviousTranscriptBeforeNewSession() async {
+        let session = FakeTranscribingSession(permissionState: .authorized)
+        let manager = AudioTranscriptionManager(session: session)
+
+        await manager.startRecording()
+        session.emit(.update(AudioTranscriptionUpdate(transcript: "first pass", isFinal: false)))
+        await Task.yield()
+
+        manager.stopRecording()
+        XCTAssertEqual(manager.transcriptText, "first pass")
+
+        await manager.startRecording()
+
+        XCTAssertEqual(manager.transcriptText, "")
+        XCTAssertEqual(manager.transcriptCardText, "Listening...")
+        XCTAssertEqual(session.requestPermissionsCallCount, 2)
+    }
+
     func testDeniedPermissionPreventsStartAndSurfacesExplanation() async {
         let session = FakeTranscribingSession(permissionState: .microphoneDenied)
         let manager = AudioTranscriptionManager(session: session)
@@ -30,6 +48,25 @@ final class AudioTranscriptionTests: XCTestCase {
         XCTAssertEqual(manager.permissionState, .microphoneDenied)
         XCTAssertEqual(manager.promptText, "Microphone access is required to record speech.")
         XCTAssertTrue(manager.isActionDisabled)
+    }
+
+    func testTranscriptCardTextPrioritizesErrorsOverStaleTranscript() async {
+        let session = FakeTranscribingSession(permissionState: .authorized)
+        let manager = AudioTranscriptionManager(session: session)
+
+        await manager.startRecording()
+        session.emit(.update(AudioTranscriptionUpdate(transcript: "old transcript", isFinal: false)))
+        await Task.yield()
+
+        XCTAssertEqual(manager.transcriptCardText, "old transcript")
+
+        session.emit(.failure("Speech recognition access is required to transcribe text."))
+        await Task.yield()
+
+        XCTAssertEqual(
+            manager.transcriptCardText,
+            "Speech recognition access is required to transcribe text."
+        )
     }
 
     func testPartialRecognitionUpdatesTranscriptString() async {
