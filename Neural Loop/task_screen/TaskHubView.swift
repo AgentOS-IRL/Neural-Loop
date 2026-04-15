@@ -39,7 +39,7 @@ struct TaskHubView: View {
             }
             .navigationTitle("Tasks")
             .navigationBarTitleDisplayMode(.inline)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
+            .safeAreaInset(edge: .top, spacing: 0) {
                 TaskHubSectionBar(
                     selectedSection: $navigationModel.selectedSection,
                     selectAction: navigationModel.select
