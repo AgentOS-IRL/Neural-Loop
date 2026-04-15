@@ -4,6 +4,8 @@ import CodexCore
 
 @MainActor
 final class AudioModeCodexCoordinatorTests: XCTestCase {
+    private let iso8601Formatter = ISO8601DateFormatter()
+
     func testClarificationResponseIsShownInFeed() async {
         let model = FakeAudioModeCodexModel(llmEnabled: true)
         let client = FakeAudioModeCodexClient(
@@ -44,10 +46,149 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertEqual(client.converseCallCount, 1)
         XCTAssertEqual(model.savedTasks.count, 1)
         XCTAssertEqual(model.savedTasks.first?.title, "Buy milk")
+        XCTAssertEqual(model.savedTasks.first?.description, "From the store")
+        XCTAssertNil(model.savedTasks.first?.start_date)
+        XCTAssertNil(model.savedTasks.first?.duration)
         XCTAssertTrue(model.savedFleetingNotes.isEmpty)
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .toolResult])
         XCTAssertEqual(coordinator.conversationFeed.last?.content, "Task created: Buy milk")
         XCTAssertFalse(coordinator.isSending)
+    }
+
+    func testCreateTaskToolCallPersistsScheduledTaskWithExplicitTimeAndDefaultDuration() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "create_task",
+                arguments: [
+                    "title": "Join standup",
+                    "description": "Team sync at the office",
+                    "start_date": "2026-04-16T09:30:00Z"
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Join standup tomorrow at 9:30")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(model.savedTasks.count, 1)
+        XCTAssertEqual(model.savedTasks.first?.title, "Join standup")
+        XCTAssertEqual(model.savedTasks.first?.start_date, iso8601Formatter.date(from: "2026-04-16T09:30:00Z"))
+        XCTAssertEqual(model.savedTasks.first?.duration, 900)
+        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Task created: Join standup")
+    }
+
+    func testCreateTaskToolCallParsesTimezoneLessStartDateInLocalTimezone() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "create_task",
+                arguments: [
+                    "title": "Join standup",
+                    "start_date": "2026-04-16T09:30:00"
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Join standup tomorrow at 9:30")
+        await Task.yield()
+        await Task.yield()
+
+        guard let savedStartDate = model.savedTasks.first?.start_date else {
+            return XCTFail("Expected saved task start date")
+        }
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: savedStartDate)
+
+        XCTAssertEqual(components.year, 2026)
+        XCTAssertEqual(components.month, 4)
+        XCTAssertEqual(components.day, 16)
+        XCTAssertEqual(components.hour, 9)
+        XCTAssertEqual(components.minute, 30)
+        XCTAssertEqual(components.second, 0)
+        XCTAssertEqual(model.savedTasks.first?.duration, 900)
+    }
+
+    func testCreateTaskToolCallDefaultsDateOnlyScheduleToAfternoon() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "create_task",
+                arguments: [
+                    "title": "Call dentist",
+                    "description": "Scheduled for the afternoon by default",
+                    "start_date": "2026-04-20"
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Call dentist on April 20")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(model.savedTasks.count, 1)
+        guard let savedTask = model.savedTasks.first else {
+            return XCTFail("Expected saved task")
+        }
+        XCTAssertEqual(savedTask.duration, 900)
+
+        let calendar = Calendar.current
+        let startDate = savedTask.start_date ?? .distantPast
+        XCTAssertEqual(calendar.component(.year, from: startDate), 2026)
+        XCTAssertEqual(calendar.component(.month, from: startDate), 4)
+        XCTAssertEqual(calendar.component(.day, from: startDate), 20)
+        XCTAssertEqual(calendar.component(.hour, from: startDate), 12)
+        XCTAssertEqual(calendar.component(.minute, from: startDate), 0)
+    }
+
+    func testCreateTaskToolCallPreservesExplicitDurationWhenProvided() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "create_task",
+                arguments: [
+                    "title": "Deep work",
+                    "start_date": "2026-04-18T13:00:00Z",
+                    "duration": 1800
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Schedule deep work Saturday at 1 PM for 30 minutes")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(model.savedTasks.count, 1)
+        XCTAssertEqual(model.savedTasks.first?.duration, 1800)
+    }
+
+    func testCreateTaskToolCallRejectsInvalidStartDate() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "create_task",
+                arguments: [
+                    "title": "Plan trip",
+                    "start_date": "next blursday"
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Plan trip next blursday")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertTrue(model.savedTasks.isEmpty)
+        XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .error])
+        XCTAssertEqual(coordinator.errorMessage, "Codex provided an invalid task start date: next blursday")
     }
 
     func testFollowupTurnReusesCodexHistoryAndResponseState() async throws {
