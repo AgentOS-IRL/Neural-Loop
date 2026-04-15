@@ -16,6 +16,7 @@ protocol AudioModeCodexModel: AnyObject {
     var codexAccessToken: String? { get }
     var codexAccountID: String? { get }
     func saveTask(_ task: Tasks) async -> Tasks?
+    func saveFleetingNote(_ request: CreateFleetingNoteRequest) async -> FleetingNote?
 }
 
 @MainActor
@@ -192,7 +193,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
         case "create_task":
             try await handleCreateTask(arguments: arguments)
         case "notes":
-            appendToolResult("Fleeting notes is created.")
+            await handleCreateNote(arguments: arguments)
         default:
             appendError("Unknown Codex tool call: \(name)")
         }
@@ -234,6 +235,27 @@ final class AudioModeCodexCoordinator: ObservableObject {
         }
 
         appendToolResult("Task created: \(savedTask.title)")
+    }
+
+    private func handleCreateNote(arguments: [String: Any]) async {
+        guard let noteText = stringValue(for: ["content", "note"], in: arguments) else {
+            appendError("Codex did not provide note content.")
+            return
+        }
+
+        let trimmedNote = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedNote.isEmpty else {
+            appendError("Codex did not provide note content.")
+            return
+        }
+
+        let request = CreateFleetingNoteRequest(note: trimmedNote)
+        guard let savedNote = await model.saveFleetingNote(request) else {
+            appendError("Fleeting note could not be saved.")
+            return
+        }
+
+        appendToolResult("Fleeting note created: \(savedNote.note)")
     }
 
     private func resolvedCodexClient() -> (any AudioModeCodexExecuting)? {
@@ -365,7 +387,7 @@ final class CodexStructuredToolAudioModeAdapter: AudioModeCodexExecuting {
 
 extension AudioModeCodexCoordinator {
     static let defaultIntentInstructions: String =
-        "You are an assistant with two tools: create_task for to-dos and Notes for general info. If the user's intent is clear, call the appropriate tool. If the input is vague or missing details, do not call a tool; instead, respond with a clarification question."
+        "You are an assistant with two tools: create_task for to-dos and Notes for fleeting notes saved in the app. If the user's intent is clear, call the appropriate tool. If the input is vague or missing details, do not call a tool; instead, respond with a clarification question."
 
     static let defaultIntentTools: [CodexTool] = [
         CodexTool(
@@ -389,11 +411,14 @@ extension AudioModeCodexCoordinator {
         ),
         CodexTool(
             name: "Notes",
-            description: "Capture general information or notes from the user.",
+            description: "Create a fleeting note in the app when the user wants to save general information or a note.",
             parameters: .object([
                 "type": .string("object"),
                 "properties": .object([
                     "content": .object([
+                        "type": .string("string")
+                    ]),
+                    "note": .object([
                         "type": .string("string")
                     ])
                 ]),
