@@ -2,18 +2,20 @@ import XCTest
 @testable import CodexCore
 
 private enum CodexStructuredToolTestFixtures {
-    static let defaultIntentInstructions = "You are an assistant with two tools: create_task for to-dos and Notes for general info. If the user's intent is clear, call the appropriate tool. If the input is vague or missing details, do not call a tool; instead, respond with a clarification question."
+    static let defaultIntentInstructions = "You are an assistant with two tools: create_task for to-dos and Notes for fleeting notes saved in the app. If the user's intent is clear, call the appropriate tool. For create_task, watch for dates, days, times, and dayparts like morning, afternoon, and evening. If the user gives timing information, include start_date as a normalized ISO-8601 string. If the user gives only a date and no time, treat it as afternoon. Mention any important scheduling assumption in the description so the saved task preserves the user's intent. If start_date is present and duration is omitted, the app will default duration to 900 seconds. If the input is vague or missing details, do not call a tool; instead, respond with a clarification question."
 
     static var defaultIntentTools: [CodexTool] {
         [
             CodexTool(
                 name: "create_task",
-                description: "Create a task with a title and optional description.",
+                description: "Create a to-do item when the user wants to add a task. Include start_date when the user mentions a date, time, morning, afternoon, or evening. Use an ISO-8601 string when possible. If only a date is known, assume afternoon and mention that assumption in description. If start_date is present and duration is omitted, the app defaults duration to 900 seconds.",
                 parameters: .object([
                     "type": .string("object"),
                     "properties": .object([
                         "title": .object(["type": .string("string")]),
-                        "description": .object(["type": .string("string")])
+                        "description": .object(["type": .string("string")]),
+                        "start_date": .object(["type": .string("string")]),
+                        "duration": .object(["type": .string("number")])
                     ]),
                     "required": .array([.string("title")])
                 ])
@@ -119,11 +121,16 @@ final class CodexStructuredToolTests: XCTestCase {
                     ]),
                     "description": .object([
                         "type": .string("string")
+                    ]),
+                    "start_date": .object([
+                        "type": .string("string")
+                    ]),
+                    "duration": .object([
+                        "type": .string("number")
                     ])
                 ]),
                 "required": .array([
-                    .string("title"),
-                    .string("description")
+                    .string("title")
                 ])
             ])
         )
@@ -136,7 +143,11 @@ final class CodexStructuredToolTests: XCTestCase {
 
         let parameters = try XCTUnwrap(json["parameters"] as? [String: Any])
         XCTAssertEqual(parameters["type"] as? String, "object")
-        XCTAssertEqual(parameters["required"] as? [String], ["title", "description"])
+        XCTAssertEqual(parameters["required"] as? [String], ["title"])
+
+        let properties = try XCTUnwrap(parameters["properties"] as? [String: Any])
+        XCTAssertNotNil(properties["start_date"])
+        XCTAssertNotNil(properties["duration"])
     }
 
     func testIntentRequestIncludesToolDefinitionsAndAutoChoice() async throws {
@@ -243,6 +254,34 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(name, "create_task")
         XCTAssertEqual(arguments["title"] as? String, "Buy milk")
         XCTAssertEqual(arguments["description"] as? String, "From the store")
+    }
+
+    func testConverseReturnsToolCallWithOptionalSchedulingArguments() async throws {
+        let tool = CodexStructuredTool(
+            access_token: "token",
+            account_id: "account",
+            streamingChunksProvider: { _ in
+                [
+                    "data: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"function_call\",\"id\":\"call_1\",\"name\":\"create_task\",\"arguments\":\"{\\\"title\\\":\\\"Call dentist\\\",\\\"description\\\":\\\"Defaulted to afternoon\\\",\\\"start_date\\\":\\\"2026-04-20\\\",\\\"duration\\\":900}\"}}\n".data(using: .utf8)!,
+                    "data: [DONE]\n".data(using: .utf8)!
+                ]
+            }
+        )
+
+        let result = try await tool.converse(
+            messages: [CodexStructuredTool.userMessage("schedule a call")],
+            tools: CodexStructuredToolTestFixtures.defaultIntentTools,
+            instructions: CodexStructuredToolTestFixtures.defaultIntentInstructions
+        )
+        guard case .callTool(let name, let arguments) = result.action else {
+            return XCTFail("Expected tool call")
+        }
+
+        XCTAssertEqual(name, "create_task")
+        XCTAssertEqual(arguments["title"] as? String, "Call dentist")
+        XCTAssertEqual(arguments["description"] as? String, "Defaulted to afternoon")
+        XCTAssertEqual(arguments["start_date"] as? String, "2026-04-20")
+        XCTAssertEqual(arguments["duration"] as? Int, 900)
     }
 
     func testConverseReturnsToolCallFromOutputItemAddedEvent() async throws {

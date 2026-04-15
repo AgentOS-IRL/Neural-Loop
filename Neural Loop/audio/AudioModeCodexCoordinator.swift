@@ -212,6 +212,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
         }
 
         let description = optionalStringValue(for: ["description", "content"], in: arguments)
+        let parsedSchedule = try parseTaskSchedule(arguments: arguments)
         let task = Tasks(
             id: nil,
             title: trimmedTitle,
@@ -223,8 +224,8 @@ final class AudioModeCodexCoordinator: ObservableObject {
             is_deadline: false,
             completed_at: nil,
             recursion_rule: nil,
-            start_date: nil,
-            duration: nil,
+            start_date: parsedSchedule.startDate,
+            duration: parsedSchedule.duration,
             created_at: nil,
             updated_at: nil
         )
@@ -235,6 +236,75 @@ final class AudioModeCodexCoordinator: ObservableObject {
         }
 
         appendToolResult("Task created: \(savedTask.title)")
+    }
+
+    private func parseTaskSchedule(arguments: [String: Any]) throws -> (startDate: Date?, duration: Double?) {
+        guard let rawStartDate = optionalStringValue(for: ["start_date"], in: arguments), !rawStartDate.isEmpty else {
+            return (nil, nil)
+        }
+
+        guard let startDate = parseStartDate(rawStartDate) else {
+            throw AudioModeCodexCoordinatorError.invalidTaskStartDate(rawStartDate)
+        }
+
+        if let explicitDuration = durationValue(in: arguments) {
+            return (startDate, explicitDuration)
+        }
+
+        return (startDate, 900)
+    }
+
+    private func parseStartDate(_ rawValue: String) -> Date? {
+        let trimmedValue = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedValue.isEmpty else {
+            return nil
+        }
+
+        for formatter in Self.iso8601DateFormatters {
+            if let date = formatter.date(from: trimmedValue) {
+                return date
+            }
+        }
+
+        guard let dateOnly = Self.dateOnlyFormatter.date(from: trimmedValue) else {
+            return nil
+        }
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = Self.dateOnlyFormatter.timeZone
+        let components = calendar.dateComponents([.year, .month, .day], from: dateOnly)
+        return calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: components.year,
+            month: components.month,
+            day: components.day,
+            hour: 12,
+            minute: 0,
+            second: 0
+        ))
+    }
+
+    private func durationValue(in arguments: [String: Any]) -> Double? {
+        for key in ["duration"] {
+            if let value = arguments[key] as? Double {
+                return value
+            }
+            if let value = arguments[key] as? Int {
+                return Double(value)
+            }
+            if let value = arguments[key] as? String {
+                let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmedValue.isEmpty else {
+                    continue
+                }
+
+                if let parsedValue = Double(trimmedValue) {
+                    return parsedValue
+                }
+            }
+        }
+
+        return nil
     }
 
     private func handleCreateNote(arguments: [String: Any]) async {
@@ -377,6 +447,17 @@ final class AudioModeCodexCoordinator: ObservableObject {
     }
 }
 
+private enum AudioModeCodexCoordinatorError: LocalizedError {
+    case invalidTaskStartDate(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidTaskStartDate(let value):
+            return "Codex provided an invalid task start date: \(value)"
+        }
+    }
+}
+
 final class CodexStructuredToolAudioModeAdapter: AudioModeCodexExecuting {
     private let tool: CodexStructuredTool
 
@@ -401,25 +482,34 @@ final class CodexStructuredToolAudioModeAdapter: AudioModeCodexExecuting {
 
 extension AudioModeCodexCoordinator {
     static let defaultIntentInstructions: String =
-        "You are an assistant with two tools: create_task for to-dos and Notes for fleeting notes saved in the app. If the user's intent is clear, call the appropriate tool. If the input is vague or missing details, do not call a tool; instead, respond with a clarification question."
+        "You are an assistant with two tools: create_task for to-dos and Notes for fleeting notes saved in the app. If the user's intent is clear, call the appropriate tool. For create_task, watch for dates, days, times, and dayparts like morning, afternoon, and evening. If the user gives timing information, include start_date as a normalized ISO-8601 string. If the user gives only a date and no time, treat it as afternoon. Mention any important scheduling assumption in the description so the saved task preserves the user's intent. If start_date is present and duration is omitted, the app will default duration to 900 seconds. If the input is vague or missing details, do not call a tool; instead, respond with a clarification question."
 
     static let defaultIntentTools: [CodexTool] = [
         CodexTool(
             name: "create_task",
-            description: "Create a to-do item when the user wants to add a task.",
+            description: "Create a to-do item when the user wants to add a task. Include start_date when the user mentions a date, time, morning, afternoon, or evening. Use an ISO-8601 string when possible. If only a date is known, assume afternoon and mention that assumption in description. If start_date is present and duration is omitted, the app defaults duration to 900 seconds.",
             parameters: .object([
                 "type": .string("object"),
                 "properties": .object([
                     "title": .object([
-                        "type": .string("string")
+                        "type": .string("string"),
+                        "description": .string("Short task title.")
                     ]),
                     "description": .object([
-                        "type": .string("string")
+                        "type": .string("string"),
+                        "description": .string("Optional task details. Mention scheduling assumptions here when you infer a default time such as afternoon.")
+                    ]),
+                    "start_date": .object([
+                        "type": .string("string"),
+                        "description": .string("Optional normalized ISO-8601 start date. If the user gives only a date and no time, use that date with an afternoon time.")
+                    ]),
+                    "duration": .object([
+                        "type": .string("number"),
+                        "description": .string("Optional task duration in seconds. If omitted for scheduled tasks, the app defaults to 900 seconds.")
                     ])
                 ]),
                 "required": .array([
-                    .string("title"),
-                    .string("description")
+                    .string("title")
                 ])
             ])
         ),
@@ -442,4 +532,30 @@ extension AudioModeCodexCoordinator {
             ])
         )
     ]
+
+    private static let iso8601DateFormatters: [ISO8601DateFormatter] = {
+        let formatterWithInternetDateTime = ISO8601DateFormatter()
+        formatterWithInternetDateTime.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        let formatterWithoutFractionalSeconds = ISO8601DateFormatter()
+        formatterWithoutFractionalSeconds.formatOptions = [.withInternetDateTime]
+
+        let formatterWithoutTimezoneSeparator = ISO8601DateFormatter()
+        formatterWithoutTimezoneSeparator.formatOptions = [.withFullDate, .withTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
+
+        return [
+            formatterWithInternetDateTime,
+            formatterWithoutFractionalSeconds,
+            formatterWithoutTimezoneSeparator
+        ]
+    }()
+
+    private static let dateOnlyFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 }
