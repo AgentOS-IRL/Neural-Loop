@@ -301,7 +301,6 @@ final class AudioTranscriptionTests: XCTestCase {
             recognizerFactory: { recognizer },
             detector: detector
         )
-
         try await session.start(onDeviceRecognition: false) { _ in }
 
         engine.inputNodeBox.installedBlock?(makeBuffer(amplitude: 0.06), nil)
@@ -342,8 +341,13 @@ final class AudioTranscriptionTests: XCTestCase {
             recognizerFactory: { recognizer },
             detector: detector
         )
+        var failureMessages: [String] = []
 
-        try await session.start(onDeviceRecognition: false) { _ in }
+        try await session.start(onDeviceRecognition: false) { event in
+            if case .failure(let message) = event {
+                failureMessages.append(message)
+            }
+        }
 
         engine.inputNodeBox.installedBlock?(makeBuffer(amplitude: 0.06), nil)
         detector.emitSpeechDetected()
@@ -359,6 +363,14 @@ final class AudioTranscriptionTests: XCTestCase {
         XCTAssertEqual(audioSession.setActiveValues, [true])
         XCTAssertEqual(engine.stopCallCount, 0)
         XCTAssertEqual(engine.inputNodeBox.removeTapCallCount, 0)
+
+        recognizer.task.resultHandler?(
+            nil,
+            NSError(domain: NSCocoaErrorDomain, code: NSUserCancelledError)
+        )
+        await Task.yield()
+
+        XCTAssertTrue(failureMessages.isEmpty)
 
         engine.inputNodeBox.installedBlock?(makeBuffer(amplitude: 0.06), nil)
         detector.emitSpeechDetected()
