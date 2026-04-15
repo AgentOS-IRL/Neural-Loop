@@ -584,6 +584,7 @@ final class DispatchAudioCooldownTimerToken: AudioCooldownTimerControlling {
 }
 
 final class LiveAudioTranscriptionSession: AudioTranscribingSession {
+    private static let inputTapBufferSize: AVAudioFrameCount = 256
     private let audioSession: AudioSessionControlling
     private let audioEngine: AudioEngineControlling
     private let recognizerFactory: () -> (any SpeechRecognizerControlling)?
@@ -708,7 +709,11 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
         let inputNode = audioEngine.inputNode
         let inputFormat = inputNode.inputFormat(forBus: 0)
 
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak self] buffer, _ in
+        inputNode.installTap(
+            onBus: 0,
+            bufferSize: Self.inputTapBufferSize,
+            format: inputFormat
+        ) { [weak self] buffer, _ in
             guard let self else {
                 return
             }
