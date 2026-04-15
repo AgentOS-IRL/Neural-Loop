@@ -86,6 +86,7 @@ final class UnifiedDataModel: ObservableObject {
         }
     }
     @Published var secrets: [Secrets] = []
+    @Published private(set) var secretsLoaded = false
     
     @Published var currentHabitProgressMap: [Int64: HabitProgress] = [:] {
         didSet {
@@ -245,6 +246,10 @@ final class UnifiedDataModel: ObservableObject {
     }
 
     func loadSecrets(fetcher: (any SecretsFetching)? = nil) async {
+        defer {
+            secretsLoaded = true
+        }
+
         do {
             print("Loading Secrets")
             let source = fetcher ?? secretsFetcher
@@ -257,6 +262,10 @@ final class UnifiedDataModel: ObservableObject {
 
     var loadedSecretKeys: [String] {
         secrets.map(\.key).sorted()
+    }
+
+    var canUseAudioMode: Bool {
+        secretsLoaded && secrets.containsSecretKey(codexAuthTokenSecretKey)
     }
 
     
