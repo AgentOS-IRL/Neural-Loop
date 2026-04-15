@@ -201,14 +201,20 @@ final class AudioTranscriptionManager: ObservableObject {
         setSessionState(.checking)
         permissionState = .requesting
         isStartingSession = true
+        defer {
+            isStartingSession = false
+        }
 
         let permission = await session.requestPermissions()
         permissionState = permission
 
+        guard isStartingSession else {
+            return
+        }
+
         guard permission.isAuthorized else {
             errorMessage = audioTranscriptionPermissionMessage(for: permission)
             setSessionState(.inactive)
-            isStartingSession = false
             return
         }
 
@@ -218,15 +224,26 @@ final class AudioTranscriptionManager: ObservableObject {
                 onDeviceRecognition: preferOnDeviceRecognition,
                 resultHandler: handleEvent
             )
+
+            guard isStartingSession else {
+                activeSession = false
+                session.stop()
+                return
+            }
+
             setSessionState(.listening)
         } catch {
             activeSession = false
+            session.stop()
+
+            if !isStartingSession {
+                setSessionState(.inactive)
+                return
+            }
+
             setSessionState(.inactive)
             errorMessage = error.localizedDescription
-            session.stop()
         }
-
-        isStartingSession = false
     }
 
     func stopRecording() {
@@ -600,9 +617,12 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
     }
 
     private func emit(_ event: AudioTranscriptionEvent) {
-        let handler = activeResultHandler
         Task { @MainActor in
-            handler?(event)
+            guard self.isRunning else {
+                return
+            }
+
+            self.activeResultHandler?(event)
         }
     }
 }
