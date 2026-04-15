@@ -43,20 +43,20 @@ struct LiquidGlassTabBar: View {
                     if isTouchingBar, let hoveredTab {
                         touchFollowBubble
                             .frame(
-                                width: tabSlotWidth(in: geo) - 8,
+                                width: bubbleWidth(in: geo),
                                 height: 44
                             )
-                            .offset(x: tabSlotX(for: hoveredTab, in: geo) + 4, y: 10)
+                            .offset(x: bubbleX(for: hoveredTab, in: geo), y: 10)
                             .transition(.opacity)
                             .allowsHitTesting(false)
                     }
 
-                    HStack(spacing: 6) {
+                    HStack(spacing: tabSpacing) {
                         ForEach(AppTab.allCases, id: \.self) { tab in
                             tabButton(tab)
                         }
                     }
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, horizontalPadding)
                     .padding(.vertical, 10)
                     .compositingGroup() // keeps text + SF Symbols sharp over glass
                 }
@@ -121,13 +121,15 @@ struct LiquidGlassTabBar: View {
                     )
                 
                 Text(tab.rawValue)
-                    .font(.caption2)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .fontWeight(.semibold)
                     .foregroundStyle(tabTextColor(isSelected))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 9)
-            .padding(.horizontal, 6)
+            .padding(.horizontal, 4)
             .background(alignment: .center) {
                 if isSelected && !isTouchingBar {
                     interactiveBubble
@@ -244,13 +246,14 @@ struct LiquidGlassTabBar: View {
 
     // MARK: - Touch -> Tab mapping helpers
     private func tabSlotWidth(in geo: GeometryProxy) -> CGFloat {
-        let total = geo.size.width
-        return total / CGFloat(AppTab.allCases.count)
+        let availableWidth = geo.size.width - (horizontalPadding * 2) - (CGFloat(AppTab.allCases.count - 1) * tabSpacing)
+        return max(availableWidth / CGFloat(AppTab.allCases.count), 1)
     }
 
     private func tabFromTouch(x: CGFloat, in geo: GeometryProxy) -> AppTab {
         let width = tabSlotWidth(in: geo)
-        let idx = Int((x / max(width, 1)).rounded(.down))
+        let normalizedX = x - horizontalPadding
+        let idx = Int((normalizedX / max(width + tabSpacing, 1)).rounded(.down))
         let clamped = min(max(idx, 0), AppTab.allCases.count - 1)
         return AppTab.allCases[clamped]
     }
@@ -258,6 +261,22 @@ struct LiquidGlassTabBar: View {
     private func tabSlotX(for tab: AppTab, in geo: GeometryProxy) -> CGFloat {
         let width = tabSlotWidth(in: geo)
         let idx = AppTab.allCases.firstIndex(of: tab) ?? 0
-        return CGFloat(idx) * width
+        return horizontalPadding + CGFloat(idx) * (width + tabSpacing)
+    }
+
+    private func bubbleWidth(in geo: GeometryProxy) -> CGFloat {
+        max(tabSlotWidth(in: geo) - 2, 1)
+    }
+
+    private func bubbleX(for tab: AppTab, in geo: GeometryProxy) -> CGFloat {
+        tabSlotX(for: tab, in: geo)
+    }
+
+    private var horizontalPadding: CGFloat {
+        AppTab.allCases.count > 4 ? 10 : 14
+    }
+
+    private var tabSpacing: CGFloat {
+        AppTab.allCases.count > 4 ? 2 : 6
     }
 }
