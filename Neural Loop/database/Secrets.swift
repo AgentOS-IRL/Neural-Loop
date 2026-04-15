@@ -10,6 +10,7 @@ import Supabase
 
 // Startup-only secrets metadata loaded from public.secrets.
 let codexAuthTokenSecretKey = "codex_auth_token"
+let llmEnabledOverrideStorageKey = "llm_enabled_override"
 
 struct Secrets: Codable, Identifiable, Equatable {
     static let databasePrimaryKey = ["key"]
@@ -24,6 +25,14 @@ extension Array where Element == Secrets {
     func containsSecretKey(_ key: String) -> Bool {
         contains { $0.key == key }
     }
+}
+
+func shouldEnableLLMFeature(
+    secretsLoaded: Bool,
+    hasCodexAuthToken: Bool,
+    overrideEnabled: Bool
+) -> Bool {
+    secretsLoaded && hasCodexAuthToken && overrideEnabled
 }
 
 protocol SecretsFetching {

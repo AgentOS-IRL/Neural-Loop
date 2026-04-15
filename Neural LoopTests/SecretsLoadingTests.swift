@@ -106,6 +106,117 @@ final class SecretsLoadingTests: XCTestCase {
         XCTAssertFalse(model.canUseAudioMode)
     }
 
+    func testShouldEnableLLMFeatureRequiresSecretAndOverride() {
+        XCTAssertTrue(
+            shouldEnableLLMFeature(
+                secretsLoaded: true,
+                hasCodexAuthToken: true,
+                overrideEnabled: true
+            )
+        )
+
+        XCTAssertFalse(
+            shouldEnableLLMFeature(
+                secretsLoaded: true,
+                hasCodexAuthToken: true,
+                overrideEnabled: false
+            )
+        )
+
+        XCTAssertFalse(
+            shouldEnableLLMFeature(
+                secretsLoaded: true,
+                hasCodexAuthToken: false,
+                overrideEnabled: true
+            )
+        )
+
+        XCTAssertFalse(
+            shouldEnableLLMFeature(
+                secretsLoaded: false,
+                hasCodexAuthToken: true,
+                overrideEnabled: true
+            )
+        )
+    }
+
+    func testLLMEnabledMatchesLoadedSecretsAndOverrideState() async {
+        defer {
+            UserDefaults.standard.removeObject(forKey: llmEnabledOverrideStorageKey)
+        }
+
+        let cases: [(rows: [Secrets], overrideEnabled: Bool, expected: Bool)] = [
+            (
+                rows: [Secrets(key: codexAuthTokenSecretKey, value: "hidden-token")],
+                overrideEnabled: true,
+                expected: true
+            ),
+            (
+                rows: [Secrets(key: codexAuthTokenSecretKey, value: "hidden-token")],
+                overrideEnabled: false,
+                expected: false
+            ),
+            (
+                rows: [Secrets(key: "settings_flag", value: "do-not-render")],
+                overrideEnabled: true,
+                expected: false
+            ),
+            (
+                rows: [Secrets(key: "settings_flag", value: "do-not-render")],
+                overrideEnabled: false,
+                expected: false
+            )
+        ]
+
+        for testCase in cases {
+            UserDefaults.standard.set(testCase.overrideEnabled, forKey: llmEnabledOverrideStorageKey)
+
+            let model = UnifiedDataModel(
+                manager: DBManager.newInstance(),
+                secretsFetcher: MockSecretsFetcher(rows: testCase.rows),
+                autoStart: false
+            )
+
+            await model.loadSecrets()
+
+            XCTAssertTrue(model.secretsLoaded)
+            XCTAssertEqual(model.llm_enabled, testCase.expected)
+        }
+    }
+
+    func testRefreshSecretsRefetchesAndUpdatesLLMEnabled() async {
+        defer {
+            UserDefaults.standard.removeObject(forKey: llmEnabledOverrideStorageKey)
+        }
+
+        UserDefaults.standard.set(true, forKey: llmEnabledOverrideStorageKey)
+
+        let firstRows = [
+            Secrets(key: codexAuthTokenSecretKey, value: "hidden-token")
+        ]
+        let secondRows = [
+            Secrets(key: "settings_flag", value: "do-not-render")
+        ]
+        let fetcher = SequencedSecretsFetcher(responses: [firstRows, secondRows])
+        let model = UnifiedDataModel(
+            manager: DBManager.newInstance(),
+            secretsFetcher: fetcher,
+            autoStart: false
+        )
+
+        await model.loadSecrets()
+
+        XCTAssertEqual(fetcher.fetchCount, 1)
+        XCTAssertEqual(model.loadedSecretKeys, [codexAuthTokenSecretKey])
+        XCTAssertTrue(model.llm_enabled)
+
+        await model.refreshSecrets()
+
+        XCTAssertEqual(fetcher.fetchCount, 2)
+        XCTAssertEqual(model.loadedSecretKeys, ["settings_flag"])
+        XCTAssertFalse(model.llm_enabled)
+    }
+
     func testAudioModeRoutingRequiresAuthorization() {
         XCTAssertFalse(
             shouldShowAudioModeShell(
@@ -151,5 +262,20 @@ private struct MockSecretsFetcher: SecretsFetching {
 
     func fetchAllSecrets() async throws -> [Secrets] {
         rows
+    }
+}
+
+private final class SequencedSecretsFetcher: SecretsFetching {
+    private let responses: [[Secrets]]
+    private(set) var fetchCount = 0
+
+    init(responses: [[Secrets]]) {
+        self.responses = responses
+    }
+
+    func fetchAllSecrets() async throws -> [Secrets] {
+        let index = min(fetchCount, responses.count - 1)
+        defer { fetchCount += 1 }
+        return responses[index]
     }
 }

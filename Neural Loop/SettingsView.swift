@@ -17,6 +17,8 @@ struct SettingsView: View {
     @EnvironmentObject private var model: UnifiedDataModel
     @State private var pendingRequests: [UNNotificationRequest] = []
     @AppStorage("isAudioMode") private var isAudioMode = false
+    @AppStorage(llmEnabledOverrideStorageKey) private var llmEnabledOverride = false
+    @State private var isRefreshingSecrets = false
 
     // Mirror the custom tab bar height (78) with extra cushion so list content stays above the overlay.
     private let bottomInsetHeight: CGFloat = 88
@@ -50,9 +52,70 @@ struct SettingsView: View {
         )
     }
 
+    private var llmModeToggleBinding: Binding<Bool> {
+        Binding(
+            get: { llmEnabledOverride },
+            set: { newValue in
+                llmEnabledOverride = newValue
+                model.setLLMOverrideEnabled(newValue)
+            }
+        )
+    }
+
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    Toggle(isOn: llmModeToggleBinding) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("LLM Access")
+                                .font(.headline)
+                            Text("Enable LLM features only when the `codex_auth_token` secret is loaded.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .toggleStyle(.switch)
+
+                    HStack(spacing: 8) {
+                        Image(systemName: model.llm_enabled ? "checkmark.seal.fill" : "xmark.seal")
+                            .foregroundStyle(model.llm_enabled ? .green : .secondary)
+                        Text(model.secretsLoaded ? (model.llm_enabled ? "LLM enabled" : "LLM disabled") : "Checking LLM entitlement...")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack(spacing: 8) {
+                        Image(systemName: model.secretsLoaded && model.hasCodexAuthTokenSecret ? "checkmark.seal.fill" : "xmark.seal")
+                            .foregroundStyle(model.secretsLoaded && model.hasCodexAuthTokenSecret ? .green : .secondary)
+                        Text(model.secretsLoaded ? (model.hasCodexAuthTokenSecret ? "\(codexAuthTokenSecretKey) present" : "\(codexAuthTokenSecretKey) missing") : "Refreshing secrets...")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Button {
+                        guard !isRefreshingSecrets else { return }
+                        isRefreshingSecrets = true
+                        Task { @MainActor in
+                            defer { isRefreshingSecrets = false }
+                            await model.refreshSecrets()
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            if isRefreshingSecrets {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Image(systemName: "arrow.clockwise")
+                            }
+                            Text("Refresh Secrets")
+                        }
+                    }
+                    .disabled(isRefreshingSecrets)
+                } header: {
+                    Text("LLM")
+                } footer: {
+                    Text("LLM access is enabled only when the codex_auth_token secret exists and this switch is on. Use Refresh Secrets if the table changed externally.")
+                }
+
                 Section {
                     Toggle(isOn: audioModeToggleBinding) {
                         VStack(alignment: .leading, spacing: 4) {
