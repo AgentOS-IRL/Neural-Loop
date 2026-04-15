@@ -58,7 +58,8 @@ final class SecretsLoadingTests: XCTestCase {
     func testCanUseAudioModeWhenCodexAuthTokenIsPresent() async {
         let rows = [
             Secrets(key: "settings_flag", value: "do-not-render"),
-            Secrets(key: codexAuthTokenSecretKey, value: "hidden-token")
+            Secrets(key: codexAuthTokenSecretKey, value: "hidden-token"),
+            Secrets(key: chatgptAccountIDSecretKey, value: "hidden-account")
         ]
         let model = UnifiedDataModel(
             manager: DBManager.newInstance(),
@@ -72,6 +73,22 @@ final class SecretsLoadingTests: XCTestCase {
 
         XCTAssertTrue(model.secretsLoaded)
         XCTAssertTrue(model.canUseAudioMode)
+    }
+
+    func testCanUseAudioModeIsFalseWhenChatGPTAccountIDIsMissing() async {
+        let rows = [
+            Secrets(key: codexAuthTokenSecretKey, value: "hidden-token")
+        ]
+        let model = UnifiedDataModel(
+            manager: DBManager.newInstance(),
+            secretsFetcher: MockSecretsFetcher(rows: rows),
+            autoStart: false
+        )
+
+        await model.loadSecrets()
+
+        XCTAssertTrue(model.secretsLoaded)
+        XCTAssertFalse(model.canUseAudioMode)
     }
 
     func testCanUseAudioModeIsFalseWhenCodexAuthTokenIsMissing() async {
@@ -104,6 +121,25 @@ final class SecretsLoadingTests: XCTestCase {
 
         XCTAssertTrue(model.secretsLoaded)
         XCTAssertFalse(model.canUseAudioMode)
+    }
+
+    func testCanUseAudioModeRequiresBothSecrets() async {
+        let rows = [
+            Secrets(key: codexAuthTokenSecretKey, value: "hidden-token"),
+            Secrets(key: chatgptAccountIDSecretKey, value: "hidden-account")
+        ]
+        let model = UnifiedDataModel(
+            manager: DBManager.newInstance(),
+            secretsFetcher: MockSecretsFetcher(rows: rows),
+            autoStart: false
+        )
+
+        await model.loadSecrets()
+
+        XCTAssertTrue(model.secretsLoaded)
+        XCTAssertTrue(model.hasCodexAuthTokenSecret)
+        XCTAssertTrue(model.hasChatGPTAccountIDSecret)
+        XCTAssertTrue(model.canUseAudioMode)
     }
 
     func testShouldEnableLLMFeatureRequiresSecretAndOverride() {

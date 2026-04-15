@@ -111,6 +111,10 @@ final class AudioModeCodexCoordinator: ObservableObject {
         } catch is CancellationError {
             return
         } catch {
+            if Task.isCancelled {
+                return
+            }
+
             appendError(error.localizedDescription)
         }
     }
