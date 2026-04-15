@@ -621,8 +621,8 @@ public struct CodexStreamToolCall: Decodable, Equatable {
     }
 
     fileprivate var identityKey: String {
-        if let id, !id.isEmpty { return id }
         if let index { return "index:\(index)" }
+        if let id, !id.isEmpty { return id }
         if let name { return "name:\(name)" }
         return UUID().uuidString
     }
