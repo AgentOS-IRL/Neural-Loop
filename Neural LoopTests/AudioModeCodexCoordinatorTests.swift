@@ -1,4 +1,5 @@
 import XCTest
+import CodexCore
 @testable import Neural_Loop
 
 @MainActor
@@ -15,7 +16,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         await Task.yield()
         await Task.yield()
 
-        XCTAssertEqual(client.executeIntentCallCount, 1)
+        XCTAssertEqual(client.converseCallCount, 1)
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .assistant])
         XCTAssertEqual(coordinator.conversationFeed.last?.content, "Which task should I create?")
         XCTAssertEqual(coordinator.codexState.previousResponseID, "resp_1")
@@ -40,7 +41,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         await Task.yield()
         await Task.yield()
 
-        XCTAssertEqual(client.executeIntentCallCount, 1)
+        XCTAssertEqual(client.converseCallCount, 1)
         XCTAssertEqual(model.savedTasks.count, 1)
         XCTAssertEqual(model.savedTasks.first?.title, "Buy milk")
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .toolResult])
@@ -91,7 +92,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         await Task.yield()
         await Task.yield()
 
-        XCTAssertEqual(client.executeIntentCallCount, 2)
+        XCTAssertEqual(client.converseCallCount, 2)
         XCTAssertEqual(coordinator.codexState.previousResponseID, "resp_2")
         XCTAssertEqual(
             coordinator.conversationFeed.map(\.role),
@@ -116,7 +117,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         await Task.yield()
         await Task.yield()
 
-        XCTAssertEqual(client.executeIntentCallCount, 1)
+        XCTAssertEqual(client.converseCallCount, 1)
         XCTAssertTrue(model.savedTasks.isEmpty)
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .toolResult])
         XCTAssertEqual(coordinator.conversationFeed.last?.content, "Fleeting notes is created.")
@@ -131,7 +132,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         await Task.yield()
         await Task.yield()
 
-        XCTAssertEqual(client.executeIntentCallCount, 0)
+        XCTAssertEqual(client.converseCallCount, 0)
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status])
         XCTAssertEqual(coordinator.statusMessage, "LLM access is disabled.")
         XCTAssertNil(coordinator.errorMessage)
@@ -147,7 +148,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         await Task.yield()
         await Task.yield()
 
-        XCTAssertEqual(client.executeIntentCallCount, 1)
+        XCTAssertEqual(client.converseCallCount, 1)
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .error])
         XCTAssertEqual(coordinator.errorMessage, TestError.codexFailure.localizedDescription)
         XCTAssertFalse(coordinator.isSending)
@@ -164,7 +165,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         await Task.yield()
         await Task.yield()
 
-        XCTAssertEqual(client.executeIntentCallCount, 1)
+        XCTAssertEqual(client.converseCallCount, 1)
         XCTAssertTrue(coordinator.conversationFeed.isEmpty)
         XCTAssertNil(coordinator.errorMessage)
         XCTAssertFalse(coordinator.isSending)
@@ -214,7 +215,7 @@ private final class FakeAudioModeCodexClient: AudioModeCodexExecuting {
     typealias Handler = (_ messages: [CodexInputMessage], _ state: CodexConversationState, _ callCount: Int) async throws -> CodexIntentResult
 
     private let handler: Handler
-    private(set) var executeIntentCallCount = 0
+    private(set) var converseCallCount = 0
     private(set) var capturedMessages: [[CodexInputMessage]] = []
     private(set) var capturedStates: [CodexConversationState] = []
 
@@ -258,13 +259,15 @@ private final class FakeAudioModeCodexClient: AudioModeCodexExecuting {
         self.handler = handler
     }
 
-    func executeIntent(
+    func converse(
         messages: [CodexInputMessage],
-        state: CodexConversationState
+        state: CodexConversationState,
+        tools: [CodexTool],
+        instructions: String
     ) async throws -> CodexIntentResult {
-        executeIntentCallCount += 1
+        converseCallCount += 1
         capturedMessages.append(messages)
         capturedStates.append(state)
-        return try await handler(messages, state, executeIntentCallCount)
+        return try await handler(messages, state, converseCallCount)
     }
 }

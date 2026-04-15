@@ -1,10 +1,13 @@
 import Foundation
 import Combine
+import CodexCore
 
 protocol AudioModeCodexExecuting {
-    func executeIntent(
+    func converse(
         messages: [CodexInputMessage],
-        state: CodexConversationState
+        state: CodexConversationState,
+        tools: [CodexTool],
+        instructions: String
     ) async throws -> CodexIntentResult
 }
 
@@ -29,12 +32,19 @@ final class AudioModeCodexCoordinator: ObservableObject {
     private var drainTask: Task<Void, Never>?
     private var codexMessages: [CodexInputMessage] = []
 
+    let intentTools: [CodexTool]
+    let intentInstructions: String
+
     init(
         model: any AudioModeCodexModel,
-        codexClient: (any AudioModeCodexExecuting)? = nil
+        codexClient: (any AudioModeCodexExecuting)? = nil,
+        tools: [CodexTool] = AudioModeCodexCoordinator.defaultIntentTools,
+        instructions: String = AudioModeCodexCoordinator.defaultIntentInstructions
     ) {
         self.model = model
         self.codexClient = codexClient
+        self.intentTools = tools
+        self.intentInstructions = instructions
     }
 
     func resetConversation() {
@@ -109,9 +119,11 @@ final class AudioModeCodexCoordinator: ObservableObject {
 
         do {
             let requestMessages = codexMessages + makeCodexMessages(role: .user, content: transcript)
-            let result = try await client.executeIntent(
+            let result = try await client.converse(
                 messages: requestMessages,
-                state: codexState
+                state: codexState,
+                tools: intentTools,
+                instructions: intentInstructions
             )
 
             if Task.isCancelled {
@@ -302,10 +314,59 @@ final class CodexStructuredToolAudioModeAdapter: AudioModeCodexExecuting {
         self.tool = tool
     }
 
-    func executeIntent(
+    func converse(
         messages: [CodexInputMessage],
-        state: CodexConversationState
+        state: CodexConversationState,
+        tools: [CodexTool],
+        instructions: String
     ) async throws -> CodexIntentResult {
-        try await tool.executeIntent(messages: messages, state: state)
+        try await tool.converse(
+            messages: messages,
+            state: state,
+            tools: tools,
+            instructions: instructions
+        )
     }
+}
+
+extension AudioModeCodexCoordinator {
+    static let defaultIntentInstructions: String =
+        "You are an assistant with two tools: create_task for to-dos and Notes for general info. If the user's intent is clear, call the appropriate tool. If the input is vague or missing details, do not call a tool; instead, respond with a clarification question."
+
+    static let defaultIntentTools: [CodexTool] = [
+        CodexTool(
+            name: "create_task",
+            description: "Create a to-do item when the user wants to add a task.",
+            parameters: .object([
+                "type": .string("object"),
+                "properties": .object([
+                    "title": .object([
+                        "type": .string("string")
+                    ]),
+                    "description": .object([
+                        "type": .string("string")
+                    ])
+                ]),
+                "required": .array([
+                    .string("title"),
+                    .string("description")
+                ])
+            ])
+        ),
+        CodexTool(
+            name: "Notes",
+            description: "Capture general information or notes from the user.",
+            parameters: .object([
+                "type": .string("object"),
+                "properties": .object([
+                    "content": .object([
+                        "type": .string("string")
+                    ])
+                ]),
+                "required": .array([
+                    .string("content")
+                ])
+            ])
+        )
+    ]
 }

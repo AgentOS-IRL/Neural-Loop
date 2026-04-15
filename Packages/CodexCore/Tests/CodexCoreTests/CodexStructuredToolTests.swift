@@ -1,5 +1,37 @@
 import XCTest
-@testable import Neural_Loop
+@testable import CodexCore
+
+private enum CodexStructuredToolTestFixtures {
+    static let defaultIntentInstructions = "You are an assistant with two tools: create_task for to-dos and Notes for general info. If the user's intent is clear, call the appropriate tool. If the input is vague or missing details, do not call a tool; instead, respond with a clarification question."
+
+    static var defaultIntentTools: [CodexTool] {
+        [
+            CodexTool(
+                name: "create_task",
+                description: "Create a task with a title and optional description.",
+                parameters: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "title": .object(["type": .string("string")]),
+                        "description": .object(["type": .string("string")])
+                    ]),
+                    "required": .array([.string("title")])
+                ])
+            ),
+            CodexTool(
+                name: "Notes",
+                description: "Create a fleeting note.",
+                parameters: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "content": .object(["type": .string("string")])
+                    ]),
+                    "required": .array([.string("content")])
+                ])
+            )
+        ]
+    }
+}
 
 final class CodexStructuredToolTests: XCTestCase {
     override func setUp() {
@@ -19,7 +51,7 @@ final class CodexStructuredToolTests: XCTestCase {
         )
 
         XCTAssertEqual(tool.baseURL.absoluteString, "https://chatgpt.com/backend-api/codex/responses")
-        XCTAssertEqual(tool.model, "gpt-5.1-codex")
+        XCTAssertEqual(tool.model, "gpt-5.4-mini")
         XCTAssertEqual(tool.instructions, "You are a helpful assistant.")
         XCTAssertEqual(tool.timeout, 60)
     }
@@ -56,7 +88,7 @@ final class CodexStructuredToolTests: XCTestCase {
             text_format: nil
         )
 
-        XCTAssertEqual(body.model, "gpt-5.1-codex")
+        XCTAssertEqual(body.model, "gpt-5.4-mini")
         XCTAssertTrue(body.stream)
         XCTAssertFalse(body.store)
         XCTAssertEqual(body.instructions, "You are a helpful assistant.")
@@ -70,7 +102,7 @@ final class CodexStructuredToolTests: XCTestCase {
 
         let encoded = try JSONEncoder().encode(body)
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
-        XCTAssertEqual(json["model"] as? String, "gpt-5.1-codex")
+        XCTAssertEqual(json["model"] as? String, "gpt-5.4-mini")
         XCTAssertEqual(json["stream"] as? Bool, true)
         XCTAssertEqual(json["store"] as? Bool, false)
     }
@@ -99,12 +131,10 @@ final class CodexStructuredToolTests: XCTestCase {
         let encoded = try JSONEncoder().encode(tool)
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
         XCTAssertEqual(json["type"] as? String, "function")
+        XCTAssertEqual(json["name"] as? String, "create_task")
+        XCTAssertEqual(json["description"] as? String, "Create a to-do item.")
 
-        let function = try XCTUnwrap(json["function"] as? [String: Any])
-        XCTAssertEqual(function["name"] as? String, "create_task")
-        XCTAssertEqual(function["description"] as? String, "Create a to-do item.")
-
-        let parameters = try XCTUnwrap(function["parameters"] as? [String: Any])
+        let parameters = try XCTUnwrap(json["parameters"] as? [String: Any])
         XCTAssertEqual(parameters["type"] as? String, "object")
         XCTAssertEqual(parameters["required"] as? [String], ["title", "description"])
     }
@@ -123,14 +153,16 @@ final class CodexStructuredToolTests: XCTestCase {
             }
         )
 
-        let result = try await tool.executeIntent(
+        let result = try await tool.converse(
             messages: [
                 CodexInputMessage(
                     role: "user",
                     content: [CodexInputContent(type: "input_text", text: "make something")]
                 )
             ],
-            state: CodexConversationState(previousResponseID: "resp_prev")
+            state: CodexConversationState(previousResponseID: "resp_prev"),
+            tools: CodexStructuredToolTestFixtures.defaultIntentTools,
+            instructions: CodexStructuredToolTestFixtures.defaultIntentInstructions
         )
         guard case .clarify(let text) = result.action else {
             return XCTFail("Expected clarification response")
@@ -141,7 +173,7 @@ final class CodexStructuredToolTests: XCTestCase {
         let request = try XCTUnwrap(capturedRequests.first)
         let body = try XCTUnwrap(request.httpBody)
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
-        XCTAssertEqual(json["instructions"] as? String, "You are an assistant with two tools: create_task for to-dos and Notes for general info. If the user's intent is clear, call the appropriate tool. If the input is vague or missing details, do not call a tool; instead, respond with a clarification question.")
+        XCTAssertEqual(json["instructions"] as? String, CodexStructuredToolTestFixtures.defaultIntentInstructions)
         XCTAssertEqual(json["tool_choice"] as? String, "auto")
         XCTAssertEqual(json["parallel_tool_calls"] as? Bool, false)
         XCTAssertEqual(json["store"] as? Bool, false)
@@ -149,11 +181,11 @@ final class CodexStructuredToolTests: XCTestCase {
 
         let tools = try XCTUnwrap(json["tools"] as? [[String: Any]])
         XCTAssertEqual(tools.count, 2)
-        XCTAssertEqual((tools[0]["function"] as? [String: Any])?["name"] as? String, "create_task")
-        XCTAssertEqual((tools[1]["function"] as? [String: Any])?["name"] as? String, "Notes")
+        XCTAssertEqual(tools[0]["name"] as? String, "create_task")
+        XCTAssertEqual(tools[1]["name"] as? String, "Notes")
     }
 
-    func testStatefulExecuteIntentCapturesLatestResponseID() async throws {
+    func testStatefulConverseCapturesLatestResponseID() async throws {
         let tool = CodexStructuredTool(
             access_token: "token",
             account_id: "account",
@@ -164,14 +196,16 @@ final class CodexStructuredToolTests: XCTestCase {
             }
         )
 
-        let result = try await tool.executeIntent(
+        let result = try await tool.converse(
             messages: [
                 CodexInputMessage(
                     role: "user",
                     content: [CodexInputContent(type: "input_text", text: "something vague")]
                 )
             ],
-            state: CodexConversationState(previousResponseID: "resp_old", conversationID: "conv_1")
+            state: CodexConversationState(previousResponseID: "resp_old", conversationID: "conv_1"),
+            tools: CodexStructuredToolTestFixtures.defaultIntentTools,
+            instructions: CodexStructuredToolTestFixtures.defaultIntentInstructions
         )
 
         guard case .clarify(let text) = result.action else {
@@ -183,7 +217,7 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(result.state.conversationID, "conv_1")
     }
 
-    func testExecuteIntentReturnsToolCallFromChunkedArguments() async throws {
+    func testConverseReturnsToolCallFromChunkedArguments() async throws {
         let tool = CodexStructuredTool(
             access_token: "token",
             account_id: "account",
@@ -196,7 +230,12 @@ final class CodexStructuredToolTests: XCTestCase {
             }
         )
 
-        let action = try await tool.executeIntent("remind me")
+        let result = try await tool.converse(
+            messages: [CodexStructuredTool.userMessage("remind me")],
+            tools: CodexStructuredToolTestFixtures.defaultIntentTools,
+            instructions: CodexStructuredToolTestFixtures.defaultIntentInstructions
+        )
+        let action = result.action
         guard case .callTool(let name, let arguments) = action else {
             return XCTFail("Expected tool call")
         }
@@ -206,7 +245,7 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(arguments["description"] as? String, "From the store")
     }
 
-    func testExecuteIntentReturnsToolCallFromOutputItemAddedEvent() async throws {
+    func testConverseReturnsToolCallFromOutputItemAddedEvent() async throws {
         let tool = CodexStructuredTool(
             access_token: "token",
             account_id: "account",
@@ -218,7 +257,12 @@ final class CodexStructuredToolTests: XCTestCase {
             }
         )
 
-        let action = try await tool.executeIntent("save this")
+        let result = try await tool.converse(
+            messages: [CodexStructuredTool.userMessage("save this")],
+            tools: CodexStructuredToolTestFixtures.defaultIntentTools,
+            instructions: CodexStructuredToolTestFixtures.defaultIntentInstructions
+        )
+        let action = result.action
         guard case .callTool(let name, let arguments) = action else {
             return XCTFail("Expected tool call")
         }
@@ -227,21 +271,27 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(arguments["content"] as? String, "Remember the keys")
     }
 
-    func testExecuteIntentUsesFinalArgumentsInsteadOfAppendingThemTwice() async throws {
+    func testConverseUsesFinalArgumentsInsteadOfAppendingThemTwice() async throws {
         let tool = CodexStructuredTool(
             access_token: "token",
             account_id: "account",
             streamingChunksProvider: { _ in
                 [
+                    "data: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"function_call\",\"id\":\"call_1\",\"name\":\"create_task\",\"arguments\":\"\"}}\n".data(using: .utf8)!,
                     "data: {\"type\":\"response.function_call_arguments.delta\",\"item_id\":\"call_1\",\"output_index\":0,\"delta\":\"{\\\"title\\\":\\\"Buy \"}\n".data(using: .utf8)!,
-                    "data: {\"type\":\"response.function_call_arguments.delta\",\"item_id\":\"call_1\",\"output_index\":0,\"delta\":\"milk\\\",\\\"description\\\":\\\"From the store\\\"\"}\n".data(using: .utf8)!,
+                    "data: {\"type\":\"response.function_call_arguments.delta\",\"item_id\":\"call_1\",\"output_index\":0,\"delta\":\"milk\\\",\\\"description\\\":\\\"From the store\\\"}\"}\n".data(using: .utf8)!,
                     "data: {\"type\":\"response.function_call_arguments.done\",\"item_id\":\"call_1\",\"output_index\":0,\"arguments\":\"{\\\"title\\\":\\\"Buy milk\\\",\\\"description\\\":\\\"From the store\\\"}\"}\n".data(using: .utf8)!,
                     "data: [DONE]\n".data(using: .utf8)!
                 ]
             }
         )
 
-        let action = try await tool.executeIntent("remind me")
+        let result = try await tool.converse(
+            messages: [CodexStructuredTool.userMessage("remind me")],
+            tools: CodexStructuredToolTestFixtures.defaultIntentTools,
+            instructions: CodexStructuredToolTestFixtures.defaultIntentInstructions
+        )
+        let action = result.action
         guard case .callTool(let name, let arguments) = action else {
             return XCTFail("Expected tool call")
         }
@@ -251,7 +301,7 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(arguments["description"] as? String, "From the store")
     }
 
-    func testExecuteIntentNormalizesFencedToolArguments() async throws {
+    func testConverseNormalizesFencedToolArguments() async throws {
         let tool = CodexStructuredTool(
             access_token: "token",
             account_id: "account",
@@ -263,7 +313,12 @@ final class CodexStructuredToolTests: XCTestCase {
             }
         )
 
-        let action = try await tool.executeIntent("save this")
+        let result = try await tool.converse(
+            messages: [CodexStructuredTool.userMessage("save this")],
+            tools: CodexStructuredToolTestFixtures.defaultIntentTools,
+            instructions: CodexStructuredToolTestFixtures.defaultIntentInstructions
+        )
+        let action = result.action
         guard case .callTool(let name, let arguments) = action else {
             return XCTFail("Expected tool call")
         }
@@ -272,7 +327,7 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(arguments["content"] as? String, "Remember the keys")
     }
 
-    func testExecuteIntentFallsBackToClarificationWhenNoToolCallIsEmitted() async throws {
+    func testConverseFallsBackToClarificationWhenNoToolCallIsEmitted() async throws {
         let tool = CodexStructuredTool(
             access_token: "token",
             account_id: "account",
@@ -283,7 +338,12 @@ final class CodexStructuredToolTests: XCTestCase {
             }
         )
 
-        let action = try await tool.executeIntent("something vague")
+        let result = try await tool.converse(
+            messages: [CodexStructuredTool.userMessage("something vague")],
+            tools: CodexStructuredToolTestFixtures.defaultIntentTools,
+            instructions: CodexStructuredToolTestFixtures.defaultIntentInstructions
+        )
+        let action = result.action
         guard case .clarify(let text) = action else {
             return XCTFail("Expected clarification")
         }
@@ -386,7 +446,7 @@ final class CodexStructuredToolTests: XCTestCase {
             }
         )
 
-        let result = try await tool.executeSync("hello world")
+        let result = try await tool.invoke("hello world")
         XCTAssertEqual(result, "Hello!")
         XCTAssertEqual(capturedRequests.count, 1)
     }
@@ -398,20 +458,22 @@ final class CodexStructuredToolTests: XCTestCase {
         }
 
         struct ExampleSchema: CodexSchemaProviding {
-            static let codexSchemaPayload = CodexJSONSchemaPayload(
-                name: "ExampleResponse",
-                schema: .object([
-                    "type": .string("object"),
-                    "properties": .object([
-                        "name": .object([
-                            "type": .string("string")
-                        ]),
-                        "count": .object([
-                            "type": .string("integer")
+            static var codexSchemaPayload: CodexJSONSchemaPayload {
+                CodexJSONSchemaPayload(
+                    name: "ExampleResponse",
+                    schema: .object([
+                        "type": .string("object"),
+                        "properties": .object([
+                            "name": .object([
+                                "type": .string("string")
+                            ]),
+                            "count": .object([
+                                "type": .string("integer")
+                            ])
                         ])
                     ])
-                ])
-            )
+                )
+            }
         }
 
         var capturedRequests: [URLRequest] = []
@@ -429,7 +491,7 @@ final class CodexStructuredToolTests: XCTestCase {
             }
         )
 
-        let result = try await tool.executeStructuredWithRaw(
+        let result = try await tool.invokeStructuredWithRaw(
             "Give me a structured response",
             as: ExampleResponse.self,
             method: .jsonMode,
@@ -460,7 +522,7 @@ final class CodexStructuredToolTests: XCTestCase {
             }
         )
 
-        let parsed = try await tool.executeStructured(
+        let parsed = try await tool.invokeStructured(
             "Return one field",
             as: ExampleResponse.self,
             method: .functionCalling
@@ -494,7 +556,7 @@ final class CodexStructuredToolTests: XCTestCase {
             sessionConfiguration: configuration
         )
 
-        let result = try await tool.executeSync("hello")
+        let result = try await tool.invoke("hello")
         XCTAssertEqual(result, "Hello!")
         XCTAssertEqual(MockStreamingURLProtocol.capturedRequests.count, 1)
     }
@@ -520,7 +582,7 @@ final class CodexStructuredToolTests: XCTestCase {
         )
 
         do {
-            _ = try await tool.executeSync("hello")
+            _ = try await tool.invoke("hello")
             XCTFail("Expected transport error")
         } catch let error as CodexStructuredToolError {
             guard case .transport(let message) = error else {
