@@ -85,9 +85,9 @@ struct SettingsView: View {
                     }
 
                     HStack(spacing: 8) {
-                        Image(systemName: model.secretsLoaded && model.hasCodexAuthTokenSecret ? "checkmark.seal.fill" : "xmark.seal")
-                            .foregroundStyle(model.secretsLoaded && model.hasCodexAuthTokenSecret ? .green : .secondary)
-                        Text(model.secretsLoaded ? (model.hasCodexAuthTokenSecret ? "\(codexAuthTokenSecretKey) present" : "\(codexAuthTokenSecretKey) missing") : "Refreshing secrets...")
+                        Image(systemName: model.secretsLoaded && model.canUseAudioMode ? "checkmark.seal.fill" : "xmark.seal")
+                            .foregroundStyle(model.secretsLoaded && model.canUseAudioMode ? .green : .secondary)
+                        Text(model.secretsLoaded ? (model.canUseAudioMode ? "Audio mode secrets present" : "Audio mode secrets missing") : "Refreshing secrets...")
                             .foregroundStyle(.secondary)
                     }
 
@@ -131,7 +131,7 @@ struct SettingsView: View {
                 } header: {
                     Text("App Mode")
                 } footer: {
-                    Text(model.secretsLoaded ? "Audio mode requires the codex_auth_token secret to be present in public.secrets." : "Audio mode stays unavailable until secrets finish loading.")
+                    Text(model.secretsLoaded ? "Audio mode requires both the codex_auth_token and chatgpt_account_id secrets to be present in public.secrets." : "Audio mode stays unavailable until secrets finish loading.")
                 }
 
                 Section {

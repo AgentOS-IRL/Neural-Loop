@@ -96,6 +96,23 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.errorMessage, TestError.codexFailure.localizedDescription)
         XCTAssertFalse(coordinator.isSending)
     }
+
+    func testCancelledDrainDoesNotAppendErrorAfterReset() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(result: .cancelledAfterYield(error: TestError.codexFailure))
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Cancel me")
+        await Task.yield()
+        coordinator.resetConversation()
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(client.executeIntentCallCount, 1)
+        XCTAssertTrue(coordinator.conversationFeed.isEmpty)
+        XCTAssertNil(coordinator.errorMessage)
+        XCTAssertFalse(coordinator.isSending)
+    }
 }
 
 private enum TestError: LocalizedError {
@@ -135,6 +152,7 @@ private final class FakeAudioModeCodexClient: AudioModeCodexExecuting {
     enum Outcome {
         case clarify(text: String)
         case callTool(name: String, arguments: [String: Any])
+        case cancelledAfterYield(error: Error)
     }
 
     private let outcome: Outcome?
@@ -167,6 +185,13 @@ private final class FakeAudioModeCodexClient: AudioModeCodexExecuting {
             return .clarify(text: text)
         case .callTool(let name, let arguments):
             return .callTool(name: name, arguments: arguments)
+        case .cancelledAfterYield(let error):
+            await Task.yield()
+            if Task.isCancelled {
+                throw error
+            }
+
+            return .clarify(text: "Unused")
         }
     }
 }

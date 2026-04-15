@@ -274,8 +274,12 @@ final class UnifiedDataModel: ObservableObject {
         secrets.containsSecretKey(codexAuthTokenSecretKey)
     }
 
+    var hasChatGPTAccountIDSecret: Bool {
+        secrets.containsSecretKey(chatgptAccountIDSecretKey)
+    }
+
     var canUseAudioMode: Bool {
-        secretsLoaded && hasCodexAuthTokenSecret
+        secretsLoaded && hasCodexAuthTokenSecret && hasChatGPTAccountIDSecret
     }
 
     var llm_enabled: Bool {
