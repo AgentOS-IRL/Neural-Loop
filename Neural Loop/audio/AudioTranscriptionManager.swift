@@ -384,6 +384,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
     private let recognizerFactory: () -> (any SpeechRecognizerControlling)?
     private let speechAuthorization: SpeechAuthorizationControlling
     private let detector: any SpeechDetecting
+    private let preRollHistory = AudioPCMBufferHistory(maxDuration: 0.45)
     private var activeRequest: (any SpeechRecognitionRequestControlling)?
     private var activeTask: (any SpeechRecognitionTaskControlling)?
     private var activeRecognizer: (any SpeechRecognizerControlling)?
@@ -391,6 +392,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
     private var isRunning = false
     private var isCapturingAudio = false
     private var requiresOnDeviceRecognition = false
+    private var hasFlushedPreRoll = false
 
     init(
         audioSession: AudioSessionControlling = LiveAudioSessionAdapter(),
@@ -492,6 +494,8 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
         activeRequest = nil
         activeTask = nil
         isCapturingAudio = false
+        hasFlushedPreRoll = false
+        preRollHistory.reset()
         detector.reset()
 
         let inputNode = audioEngine.inputNode
@@ -503,6 +507,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
             }
 
             self.detector.process(buffer)
+            self.preRollHistory.append(buffer)
 
             guard self.isCapturingAudio else {
                 return
@@ -577,6 +582,11 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
             activeTask = task
         }
 
+        if !hasFlushedPreRoll {
+            flushPreRollHistory()
+            hasFlushedPreRoll = true
+        }
+
         isCapturingAudio = true
         emit(.speechDetected)
     }
@@ -595,6 +605,8 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
         activeTask = nil
         activeRecognizer = nil
         isCapturingAudio = false
+        hasFlushedPreRoll = false
+        preRollHistory.reset()
         detector.reset()
         activeResultHandler = nil
         try? audioSession.setActive(false)
@@ -610,10 +622,22 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
         audioEngine.stop()
         detector.reset()
         isCapturingAudio = false
+        hasFlushedPreRoll = false
+        preRollHistory.reset()
         activeRecognizer = nil
         isRunning = false
         try? audioSession.setActive(false)
         activeResultHandler = nil
+    }
+
+    private func flushPreRollHistory() {
+        guard let request = activeRequest else {
+            return
+        }
+
+        for buffer in preRollHistory.drain() {
+            request.append(buffer)
+        }
     }
 
     private func emit(_ event: AudioTranscriptionEvent) {
@@ -624,6 +648,87 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
 
             self.activeResultHandler?(event)
         }
+    }
+}
+
+final class AudioPCMBufferHistory {
+    private let maxDuration: TimeInterval
+    private var buffers: [AVAudioPCMBuffer] = []
+    private var accumulatedDuration: TimeInterval = 0
+
+    init(maxDuration: TimeInterval) {
+        self.maxDuration = maxDuration
+    }
+
+    func append(_ buffer: AVAudioPCMBuffer) {
+        guard let copy = buffer.deepCopy(), let duration = bufferDuration(for: copy), duration > 0 else {
+            return
+        }
+
+        buffers.append(copy)
+        accumulatedDuration += duration
+        trimToWindow()
+    }
+
+    func drain() -> [AVAudioPCMBuffer] {
+        defer { reset() }
+        return buffers
+    }
+
+    func reset() {
+        buffers.removeAll()
+        accumulatedDuration = 0
+    }
+
+    private func trimToWindow() {
+        guard maxDuration > 0 else {
+            return
+        }
+
+        while accumulatedDuration > maxDuration, let first = buffers.first {
+            if let duration = bufferDuration(for: first) {
+                accumulatedDuration -= duration
+            }
+            buffers.removeFirst()
+        }
+    }
+
+    private func bufferDuration(for buffer: AVAudioPCMBuffer) -> TimeInterval? {
+        guard buffer.format.sampleRate > 0 else {
+            return nil
+        }
+
+        return TimeInterval(buffer.frameLength) / buffer.format.sampleRate
+    }
+}
+
+private extension AVAudioPCMBuffer {
+    func deepCopy() -> AVAudioPCMBuffer? {
+        guard frameLength > 0 else {
+            return nil
+        }
+
+        guard let copy = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameLength) else {
+            return nil
+        }
+
+        copy.frameLength = frameLength
+
+        guard let sourceChannelData = floatChannelData,
+              let destinationChannelData = copy.floatChannelData else {
+            return nil
+        }
+
+        let channelCount = Int(format.channelCount)
+        let sampleCount = Int(frameLength)
+
+        for channel in 0..<channelCount {
+            let sourceChannel = sourceChannelData[channel]
+            let destinationChannel = destinationChannelData[channel]
+            destinationChannel.update(from: sourceChannel, count: sampleCount)
+        }
+
+        return copy
     }
 }
 
