@@ -84,10 +84,15 @@ final class TodoViewModel: ObservableObject {
 
 
 struct TodoView: View {
-    
+    let embeddedInTaskHub: Bool
+
     @StateObject private var vm = TodoViewModel()
     @Environment(\.modelContext) private var context
     @EnvironmentObject var model: UnifiedDataModel
+
+    init(embeddedInTaskHub: Bool = false) {
+        self.embeddedInTaskHub = embeddedInTaskHub
+    }
     
     
     @ViewBuilder
@@ -451,104 +456,118 @@ struct TodoView: View {
             return "New"
         }
     }
-    
+
+    private var bottomInsetHeight: CGFloat {
+        embeddedInTaskHub ? SAFE_AREA_INSET + 104 : SAFE_AREA_INSET
+    }
+
+    @ViewBuilder
+    private var todoRootContent: some View {
+        ZStack {
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    searchBar()
+
+                    switch vm.viewMode {
+                    case .menu:
+                        menuView()
+
+                    case .today:
+                        todayTasks()
+
+                    case .upcoming:
+                        upcomingTasks()
+
+                    case .all:
+                        allTasksView()
+
+                    case .new:
+                        newTasksView()
+
+                    case .inbox:
+                        inboxView()
+
+                    case .completed:
+                        completedView()
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear.frame(height: bottomInsetHeight)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     var body: some View {
-        NavigationView {
-            ZStack {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        searchBar()
+        Group {
+            if embeddedInTaskHub {
+                todoRootContent
+            } else {
+                NavigationView {
+                    todoRootContent
+                        .navigationBarBackButtonHidden(vm.viewMode == .menu)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button {
+                                    vm.showAddTask = true
+                                } label: {
+                                    Image(systemName: "plus")
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
 
-                        switch vm.viewMode {
-                        case .menu:
-                            menuView()
-
-                        case .today:
-                            todayTasks()
-
-                        case .upcoming:
-                            upcomingTasks()
-
-                        case .all:
-                            allTasksView()
-
-                        case .new:
-                            newTasksView()
-
-                        case .inbox:
-                            inboxView()
-
-                        case .completed:
-                            completedView()
+                            ToolbarItem(placement: .navigationBarLeading) {
+                                Button {
+                                    vm.viewMode = .menu
+                                } label: {
+                                    if vm.viewMode != .menu {
+                                        Image(systemName: "chevron.left")
+                                            .font(.system(size: 17, weight: .semibold))
+                                    }
+                                    Text(toolbarTitle(for: vm.viewMode))
+                                        .font(.title3.weight(.semibold))
+                                        .lineLimit(1)
+                                        .fixedSize(horizontal: true, vertical: false)
+                                        .layoutPriority(1)
+                                        .padding(.trailing, 12)
+                                        .padding(.leading, vm.viewMode == .menu ? 12 : 0)
+                                }
+                            }
                         }
-                    }
-                    .padding(.horizontal)
-                    .padding(.top)
-                }
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    Color.clear.frame(height: SAFE_AREA_INSET)
                 }
             }
-            .navigationBarBackButtonHidden(vm.viewMode == .menu)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        vm.showAddTask = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        vm.viewMode = .menu
-                    } label: {
-                        if vm.viewMode != .menu {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 17, weight: .semibold))
-                        }
-                        Text(toolbarTitle(for: vm.viewMode))
-                        .font(.title3.weight(.semibold))
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                        .layoutPriority(1)
-                        .padding(.trailing, 12)
-                        .padding(.leading, vm.viewMode == .menu ? 12 : 0)
-                    }
+        }
+        .onAppear {
+            refreshBucketsFromModel()
+        }
+        .onChange(of: vm.viewMode) { _ in
+            refreshBucketsFromModel()
+        }
+        .onReceive(model.$tasks) { tasks in
+            let buckets = model.shortTermTaskBuckets(from: tasks)
+            vm.refreshCurrentBuckets(using: buckets, allTasks: tasks)
+        }
+        .sheet(isPresented: $vm.showAddTask) {
+            AddEditTodoView(
+                task: nil, initialTiming: vm.initializationTiming
+            ) { newTask in
+                Task {
+                    await model.saveTask(newTask)
                 }
             }
-            .onAppear {
-                refreshBucketsFromModel()
-            }
-            .onChange(of: vm.viewMode) { _ in
-                refreshBucketsFromModel()
-            }
-            .onReceive(model.$tasks) { tasks in
-                let buckets = model.shortTermTaskBuckets(from: tasks)
-                vm.refreshCurrentBuckets(using: buckets, allTasks: tasks)
-            }
-            .sheet(
-                isPresented: $vm.showAddTask
-            ) {
-                AddEditTodoView(
-                    task: nil, initialTiming: vm.initializationTiming
-                ) { newTask in
-                    Task {
-                        await model.saveTask(newTask)
-                    }
+        }
+        .sheet(item: $vm.selectedTaskForEdit) { task in
+            AddEditTodoView(task: task) { modified_task in
+                Task {
+                    await model.updateTask(task: task, modified_task: modified_task)
                 }
             }
-            .sheet(item: $vm.selectedTaskForEdit) { task in
-                AddEditTodoView(task: task) { modified_task in
-                    Task {
-                        await model.updateTask(task: task, modified_task: modified_task)
-                    }
-                }
-            }
-            .sheet(item: $vm.selectedTaskForViewer) { task in
-                IndividualTodoView(task: task)
-            }
+        }
+        .sheet(item: $vm.selectedTaskForViewer) { task in
+            IndividualTodoView(task: task)
         }
     }
 }
