@@ -61,7 +61,7 @@ public final class CodexStructuredTool {
     public let instructions: String
     public let timeout: TimeInterval
     public let sessionConfiguration: URLSessionConfiguration
-    private let streamingChunksProvider: ((URLRequest) throws -> [Data])?
+    private let streamingChunksProvider: ((URLRequest) async throws -> [Data])?
 
     private let requestEncoder = JSONEncoder()
     private let responseDecoder = JSONDecoder()
@@ -74,7 +74,7 @@ public final class CodexStructuredTool {
         instructions: String? = nil,
         timeout: TimeInterval = 60,
         sessionConfiguration: URLSessionConfiguration = .default,
-        streamingChunksProvider: ((URLRequest) throws -> [Data])? = nil
+        streamingChunksProvider: ((URLRequest) async throws -> [Data])? = nil
     ) {
         self.accessToken = access_token
         self.accountID = account_id
@@ -90,8 +90,8 @@ public final class CodexStructuredTool {
         self.requestEncoder.outputFormatting = []
     }
 
-    public func executeSync(_ prompt: String, url: URL? = nil) throws -> String {
-        try _post_and_collect_text(
+    public func executeSync(_ prompt: String, url: URL? = nil) async throws -> String {
+        try await _post_and_collect_text(
             prompt: prompt,
             url: url,
             instructions: nil,
@@ -106,15 +106,16 @@ public final class CodexStructuredTool {
         strict: Bool = false,
         schema: CodexJSONSchemaPayload? = nil,
         url: URL? = nil
-    ) throws -> T {
-        try executeStructuredWithRaw(
+    ) async throws -> T {
+        let result = try await executeStructuredWithRaw(
             prompt,
             as: type,
             method: method,
             strict: strict,
             schema: schema,
             url: url
-        ).parsed
+        )
+        return result.parsed
     }
 
     public func executeStructuredWithRaw<T: Decodable>(
@@ -124,7 +125,7 @@ public final class CodexStructuredTool {
         strict: Bool = false,
         schema: CodexJSONSchemaPayload? = nil,
         url: URL? = nil
-    ) throws -> CodexStructuredResult<T> {
+    ) async throws -> CodexStructuredResult<T> {
         let textFormat: JSONValue?
         let finalPrompt: String
 
@@ -149,7 +150,7 @@ public final class CodexStructuredTool {
             finalPrompt = prompt + "\nReturn only JSON.\n" + parserGuidance
         }
 
-        let raw = try _post_and_collect_text(
+        let raw = try await _post_and_collect_text(
             prompt: finalPrompt,
             url: url,
             instructions: nil,
@@ -214,7 +215,7 @@ public final class CodexStructuredTool {
         url: URL?,
         instructions: String?,
         text_format: JSONValue?
-    ) throws -> String {
+    ) async throws -> String {
         let request = try _build_request(
             prompt: prompt,
             url: url,
@@ -222,26 +223,37 @@ public final class CodexStructuredTool {
             text_format: text_format
         )
 
-        let delegate = CodexStreamingCollector(
-            timeout: timeout,
-            extractText: { [weak self] event in
-                self?._extract_text_from_event(event) ?? ""
-            }
-        )
-
         if let streamingChunksProvider {
-            let chunks = try streamingChunksProvider(request)
-            for chunk in chunks {
-                try delegate.ingest(chunk)
+            do {
+                let chunks = try await streamingChunksProvider(request)
+                return try collectText(
+                    from: chunks,
+                    extractText: { [weak self] event in
+                        self?._extract_text_from_event(event) ?? ""
+                    }
+                )
+            } catch let error as CodexStructuredToolError {
+                throw error
+            } catch {
+                throw CodexStructuredToolError.transport(error.localizedDescription)
             }
-            delegate.finish()
-            return try delegate.waitForCollectedText()
         }
 
-        let session = URLSession(configuration: sessionConfiguration, delegate: delegate, delegateQueue: delegate.queue)
-        let task = session.dataTask(with: request)
-        task.resume()
-        return try delegate.waitForCollectedText()
+        let session = URLSession(configuration: sessionConfiguration)
+        do {
+            let (bytes, response) = try await session.bytes(for: request)
+            try validate(response: response)
+            return try await collectText(
+                from: bytes,
+                extractText: { [weak self] event in
+                    self?._extract_text_from_event(event) ?? ""
+                }
+            )
+        } catch let error as CodexStructuredToolError {
+            throw error
+        } catch {
+            throw CodexStructuredToolError.transport(error.localizedDescription)
+        }
     }
 
     private func _build_request(
@@ -326,6 +338,44 @@ public final class CodexStructuredTool {
             return nil
         }
         return start..<text.index(after: end)
+    }
+
+    private func validate(response: URLResponse) throws {
+        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+            throw CodexStructuredToolError.transport(
+                "Codex request failed with HTTP \(httpResponse.statusCode)."
+            )
+        }
+
+        if let mimeType = response.mimeType, !mimeType.lowercased().contains("event-stream") {
+            throw CodexStructuredToolError.transport(
+                "Expected SSE text/event-stream response but received \(mimeType)."
+            )
+        }
+    }
+
+    private func collectText(
+        from chunks: [Data],
+        extractText: @escaping (CodexStreamEvent) -> String
+    ) throws -> String {
+        var collector = CodexSSECollector(extractText: extractText)
+        for chunk in chunks {
+            try collector.ingest(chunk)
+        }
+        try collector.finish()
+        return collector.collectedText
+    }
+
+    private func collectText(
+        from bytes: URLSession.AsyncBytes,
+        extractText: @escaping (CodexStreamEvent) -> String
+    ) async throws -> String {
+        var collector = CodexSSECollector(extractText: extractText)
+        for try await byte in bytes {
+            try collector.ingest(byte)
+        }
+        try collector.finish()
+        return collector.collectedText
     }
 }
 
@@ -462,154 +512,55 @@ public enum JSONValue: Codable, Equatable {
     }
 }
 
-private final class CodexStreamingCollector: NSObject, URLSessionDataDelegate {
-    let queue: OperationQueue = {
-        let queue = OperationQueue()
-        queue.maxConcurrentOperationCount = 1
-        queue.name = "CodexStreamingCollector.queue"
-        return queue
-    }()
+private struct CodexSSECollector {
+    let extractText: (CodexStreamEvent) -> String
+    private var pendingData = Data()
+    private(set) var collectedChunks: [String] = []
 
-    private let timeout: TimeInterval
-    private let extractText: (CodexStreamEvent) -> String
-    private let semaphore = DispatchSemaphore(value: 0)
-    private let lock = NSLock()
-    private var pendingText = ""
-    private var collectedChunks: [String] = []
-    private var terminalError: Error?
-    private var didSignal = false
-
-    init(timeout: TimeInterval, extractText: @escaping (CodexStreamEvent) -> String) {
-        self.timeout = timeout
+    init(extractText: @escaping (CodexStreamEvent) -> String) {
         self.extractText = extractText
     }
 
-    func waitForCollectedText() throws -> String {
-        let result = semaphore.wait(timeout: .now() + timeout)
-        if result == .timedOut {
-            throw CodexStructuredToolError.transport("Timed out waiting for Codex SSE completion.")
+    mutating func ingest(_ data: Data) throws {
+        for byte in data {
+            try ingest(byte)
         }
-        if let terminalError {
-            throw terminalError
-        }
-        return collectedChunks.joined()
     }
 
-    func ingest(_ data: Data) throws {
-        lock.lock()
-        defer { lock.unlock() }
-        try handleIncomingData(data)
-    }
-
-    func urlSession(
-        _ session: URLSession,
-        dataTask: URLSessionDataTask,
-        didReceive response: URLResponse,
-        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
-    ) {
-        lock.lock()
-        defer { lock.unlock() }
-
-        guard terminalError == nil else {
-            completionHandler(.cancel)
+    mutating func ingest(_ byte: UInt8) throws {
+        if byte == 0x0A {
+            try finishPendingLine()
             return
         }
-
-        if let httpResponse = response as? HTTPURLResponse {
-            if httpResponse.statusCode >= 400 {
-                terminalError = CodexStructuredToolError.transport(
-                    "Codex request failed with HTTP \(httpResponse.statusCode)."
-                )
-                signalIfNeeded()
-                completionHandler(.cancel)
-                return
-            }
-        }
-
-        if let mimeType = response.mimeType, !mimeType.lowercased().contains("event-stream") {
-            terminalError = CodexStructuredToolError.transport(
-                "Expected SSE text/event-stream response but received \(mimeType)."
-            )
-            signalIfNeeded()
-            completionHandler(.cancel)
-            return
-        }
-
-        completionHandler(.allow)
+        pendingData.append(byte)
     }
 
-    func finish() {
-        lock.lock()
-        defer { lock.unlock() }
-
-        if terminalError == nil, !pendingText.isEmpty {
-            do {
-                try processLine(pendingText)
-            } catch {
-                terminalError = error
-            }
-            pendingText = ""
-        }
-        signalIfNeeded()
+    mutating func finish() throws {
+        try finishPendingLine()
     }
 
-    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-        lock.lock()
-        defer { lock.unlock() }
-
-        guard terminalError == nil else { return }
-        do {
-            try handleIncomingData(data)
-        } catch {
-            terminalError = error
-            dataTask.cancel()
-            signalIfNeeded()
-        }
+    var collectedText: String {
+        collectedChunks.joined()
     }
 
-    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        lock.lock()
-        defer { lock.unlock() }
-
-        if terminalError == nil {
-            if let error {
-                terminalError = CodexStructuredToolError.transport(error.localizedDescription)
-            } else if !pendingText.isEmpty {
-                do {
-                    try processLine(pendingText)
-                } catch {
-                    terminalError = error
-                }
-            }
-        }
-        signalIfNeeded()
+    private mutating func finishPendingLine() throws {
+        guard !pendingData.isEmpty else { return }
+        try processLine(pendingData)
+        pendingData.removeAll(keepingCapacity: true)
     }
 
-    private func handleIncomingData(_ data: Data) throws {
-        guard terminalError == nil else { return }
-        pendingText += String(decoding: data, as: UTF8.self)
-
-        while let newlineRange = pendingText.firstIndex(of: "\n") {
-            let line = String(pendingText[..<newlineRange])
-            pendingText = String(pendingText[pendingText.index(after: newlineRange)...])
-            try processLine(line)
-        }
-    }
-
-    private func processLine(_ line: String) throws {
-        let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+    private mutating func processLine(_ data: Data) throws {
+        let trimmedLine = String(decoding: data, as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedLine.isEmpty else { return }
         guard trimmedLine.hasPrefix("data:") else { return }
 
         let payload = trimmedLine.dropFirst("data:".count).trimmingCharacters(in: .whitespaces)
         guard !payload.isEmpty, payload != "[DONE]" else { return }
 
-        guard let data = String(payload).data(using: .utf8) else {
-            throw CodexStructuredToolError.malformedStreamEvent(String(payload))
-        }
-
+        let payloadData = Data(payload.utf8)
         do {
-            let event = try CodexStreamEvent.parse(from: data)
+            let event = try CodexStreamEvent.parse(from: payloadData)
             let text = extractText(event)
             if !text.isEmpty {
                 collectedChunks.append(text)
@@ -617,11 +568,5 @@ private final class CodexStreamingCollector: NSObject, URLSessionDataDelegate {
         } catch {
             throw CodexStructuredToolError.malformedStreamEvent(String(payload))
         }
-    }
-
-    private func signalIfNeeded() {
-        guard !didSignal else { return }
-        didSignal = true
-        semaphore.signal()
     }
 }
