@@ -20,7 +20,7 @@ struct AudioModeView: View {
         ZStack {
             ModeBackdropView()
 
-            VStack(spacing: 28) {
+            VStack(spacing: 24) {
                 Spacer(minLength: 0)
 
                 VStack(spacing: 22) {
@@ -31,7 +31,7 @@ struct AudioModeView: View {
                             .font(.system(size: 30, weight: .semibold, design: .rounded))
                             .foregroundStyle(.white)
 
-                        Text("A simplified voice-first interface is active.")
+                        Text("Voice stays active across pauses until you stop it.")
                             .font(.headline)
                             .foregroundStyle(.white.opacity(0.72))
                             .multilineTextAlignment(.center)
@@ -39,7 +39,7 @@ struct AudioModeView: View {
                     }
                     .accessibilityElement(children: .combine)
 
-                    transcriptCard
+                    transcriptFeed
                 }
 
                 Spacer(minLength: 16)
@@ -163,9 +163,104 @@ struct AudioModeView: View {
         .disabled(transcriptionManager.isActionDisabled)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(transcriptionManager.micButtonLabel)
+        .accessibilityHint(transcriptionManager.isRecording ? "Stops the current session and clears saved transcript history." : "Starts a new continuous voice session.")
     }
 
-    private var transcriptCard: some View {
+    private var transcriptFeed: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if !transcriptionManager.transcriptHistory.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "message.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.76))
+
+                        Text("Saved utterances")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.82))
+
+                        Spacer()
+                    }
+
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            ForEach(transcriptionManager.transcriptHistory) { message in
+                                transcriptHistoryRow(message)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .scrollIndicators(.hidden)
+                    .frame(maxHeight: 220)
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(.ultraThinMaterial.opacity(0.9))
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                }
+                .shadow(color: .black.opacity(0.15), radius: 16, y: 8)
+            }
+
+            liveTranscriptCard
+        }
+    }
+
+    private func transcriptHistoryRow(_ message: AudioTranscriptMessage) -> some View {
+        HStack {
+            Spacer(minLength: 32)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color(red: 0.92, green: 0.97, blue: 1.0))
+
+                    Text(message.role.rawValue.capitalized)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.72))
+
+                    Spacer(minLength: 0)
+                }
+
+                Text(message.content)
+                    .font(.system(size: 18, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.18),
+                                Color.white.opacity(0.08)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.12), radius: 10, y: 5)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(message.content)
+    }
+
+    private var liveTranscriptCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: transcriptCardSymbol)
@@ -183,7 +278,7 @@ struct AudioModeView: View {
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(0.58))
                 } else if transcriptionManager.sessionState == .cooldownPending {
-                    Text("Cooldown")
+                    Text("Listening")
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(0.58))
                 }
@@ -236,7 +331,7 @@ struct AudioModeView: View {
         case .transcribing:
             return .mint
         case .cooldownPending:
-            return .orange
+            return .cyan
         }
     }
 
@@ -249,7 +344,7 @@ struct AudioModeView: View {
         case .transcribing:
             return 0.7
         case .cooldownPending:
-            return 0.6
+            return 0.48
         }
     }
 
@@ -262,7 +357,7 @@ struct AudioModeView: View {
         case .transcribing:
             return pulse ? 1.24 : 0.98
         case .cooldownPending:
-            return pulse ? 1.08 : 0.98
+            return pulse ? 1.12 : 0.98
         }
     }
 
@@ -275,7 +370,7 @@ struct AudioModeView: View {
         case .transcribing:
             return 0.98
         case .cooldownPending:
-            return 0.88
+            return 0.95
         }
     }
 
@@ -288,7 +383,7 @@ struct AudioModeView: View {
         case .transcribing:
             return .green
         case .cooldownPending:
-            return .orange
+            return .blue
         }
     }
 
@@ -301,7 +396,7 @@ struct AudioModeView: View {
         case .transcribing:
             return 0.5
         case .cooldownPending:
-            return 0.42
+            return 0.34
         }
     }
 
@@ -314,7 +409,7 @@ struct AudioModeView: View {
         case .transcribing:
             return pulse ? 1.14 : 1.04
         case .cooldownPending:
-            return pulse ? 1.05 : 1.0
+            return pulse ? 1.08 : 1.0
         }
     }
 
@@ -327,7 +422,7 @@ struct AudioModeView: View {
         case .transcribing:
             return 0.94
         case .cooldownPending:
-            return 0.9
+            return 0.88
         }
     }
 
@@ -340,7 +435,7 @@ struct AudioModeView: View {
         case .transcribing:
             return "waveform.and.mic"
         case .cooldownPending:
-            return "clock.arrow.circlepath"
+            return "waveform"
         }
     }
 
@@ -355,7 +450,7 @@ struct AudioModeView: View {
         case .transcribing:
             return "Transcribing"
         case .cooldownPending:
-            return "Cooldown"
+            return "Listening"
         }
     }
 
