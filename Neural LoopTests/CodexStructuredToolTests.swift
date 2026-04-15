@@ -147,7 +147,7 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(tool._extract_text_from_event(ignoredEvent), "")
     }
 
-    func testStreamingCollectorConcatenatesChunksAndSkipsDonePayloads() throws {
+    func testStreamingCollectorConcatenatesChunksAndSkipsDonePayloads() async throws {
         var capturedRequests: [URLRequest] = []
 
         let tool = CodexStructuredTool(
@@ -168,12 +168,12 @@ final class CodexStructuredToolTests: XCTestCase {
             }
         )
 
-        let result = try tool.executeSync("hello world")
+        let result = try await tool.executeSync("hello world")
         XCTAssertEqual(result, "Hello!")
         XCTAssertEqual(capturedRequests.count, 1)
     }
 
-    func testStructuredOutputParsesDecodedTypeAndKeepsRawPayload() throws {
+    func testStructuredOutputParsesDecodedTypeAndKeepsRawPayload() async throws {
         struct ExampleResponse: Codable, Equatable {
             let name: String
             let count: Int
@@ -211,7 +211,7 @@ final class CodexStructuredToolTests: XCTestCase {
             }
         )
 
-        let result = try tool.executeStructuredWithRaw(
+        let result = try await tool.executeStructuredWithRaw(
             "Give me a structured response",
             as: ExampleResponse.self,
             method: .jsonMode,
@@ -223,7 +223,7 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(result.parsed, ExampleResponse(name: "Ada", count: 2))
     }
 
-    func testFunctionCallingModeOmitsTextFormatAndStillDecodesJSON() throws {
+    func testFunctionCallingModeOmitsTextFormatAndStillDecodesJSON() async throws {
         struct ExampleResponse: Codable, Equatable {
             let name: String
         }
@@ -242,7 +242,7 @@ final class CodexStructuredToolTests: XCTestCase {
             }
         )
 
-        let parsed = try tool.executeStructured(
+        let parsed = try await tool.executeStructured(
             "Return one field",
             as: ExampleResponse.self,
             method: .functionCalling
@@ -252,13 +252,41 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(parsed, ExampleResponse(name: "Grace"))
     }
 
-    func testNetworkPathFailsWhenResponseIsNotSSE() throws {
+    func testNetworkPathStreamsChunksThroughMockProtocol() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockStreamingURLProtocol.self]
 
         MockStreamingURLProtocol.requestHandler = { request in
             XCTAssertEqual(request.httpMethod, "POST")
             return .init(
+                statusCode: 200,
+                headers: ["Content-Type": "text/event-stream"],
+                chunks: [
+                    "data: {\"type\":\"response.output_text.delta\",\"delta\":\"Hel\"}\n".data(using: .utf8)!,
+                    "data: {\"type\":\"response.output_text.delta\",\"delta\":\"lo\"}\n".data(using: .utf8)!,
+                    "data: {\"type\":\"response.output_text.done\",\"response\":{\"output\":[{\"content\":[{\"text\":\"!\"}]}]}}\n".data(using: .utf8)!,
+                    "data: [DONE]\n".data(using: .utf8)!
+                ]
+            )
+        }
+
+        let tool = CodexStructuredTool(
+            access_token: "token",
+            account_id: "account",
+            sessionConfiguration: configuration
+        )
+
+        let result = try await tool.executeSync("hello")
+        XCTAssertEqual(result, "Hello!")
+        XCTAssertEqual(MockStreamingURLProtocol.capturedRequests.count, 1)
+    }
+
+    func testNetworkPathFailsWhenResponseIsNotSSE() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockStreamingURLProtocol.self]
+
+        MockStreamingURLProtocol.requestHandler = { _ in
+            .init(
                 statusCode: 500,
                 headers: ["Content-Type": "application/json"],
                 chunks: [
@@ -273,11 +301,17 @@ final class CodexStructuredToolTests: XCTestCase {
             sessionConfiguration: configuration
         )
 
-        XCTAssertThrowsError(try tool.executeSync("hello")) { error in
-            guard case CodexStructuredToolError.transport(let message) = error else {
-                return XCTFail("Expected transport error, got \(error)")
+        do {
+            _ = try await tool.executeSync("hello")
+            XCTFail("Expected transport error")
+        } catch let error as CodexStructuredToolError {
+            guard case .transport(let message) = error else {
+                XCTFail("Expected transport error, got \(error)")
+                return
             }
             XCTAssertTrue(message.contains("HTTP 500") || message.contains("event-stream"))
+        } catch {
+            XCTFail("Expected CodexStructuredToolError, got \(error)")
         }
     }
 }
