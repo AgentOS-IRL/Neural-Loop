@@ -16,8 +16,54 @@ public struct CodexStructuredResult<Parsed> {
     }
 }
 
+public enum CodexAction {
+    case callTool(name: String, arguments: [String: Any])
+    case clarify(text: String)
+}
+
 public protocol CodexSchemaProviding {
     static var codexSchemaPayload: CodexJSONSchemaPayload { get }
+}
+
+public struct CodexTool: Codable, Equatable {
+    public let name: String
+    public let description: String
+    public let parameters: JSONValue
+
+    public init(name: String, description: String, parameters: JSONValue) {
+        self.name = name
+        self.description = description
+        self.parameters = parameters
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case function
+    }
+
+    private enum FunctionCodingKeys: String, CodingKey {
+        case name
+        case description
+        case parameters
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let function = try container.nestedContainer(keyedBy: FunctionCodingKeys.self, forKey: .function)
+        self.name = try function.decode(String.self, forKey: .name)
+        self.description = try function.decode(String.self, forKey: .description)
+        self.parameters = try function.decode(JSONValue.self, forKey: .parameters)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode("function", forKey: .type)
+
+        var function = container.nestedContainer(keyedBy: FunctionCodingKeys.self, forKey: .function)
+        try function.encode(name, forKey: .name)
+        try function.encode(description, forKey: .description)
+        try function.encode(parameters, forKey: .parameters)
+    }
 }
 
 public struct CodexJSONSchemaPayload: Equatable {
@@ -35,6 +81,7 @@ public enum CodexStructuredToolError: Error, LocalizedError, Equatable {
     case missingSchemaPayload
     case malformedStreamEvent(String)
     case malformedStructuredResponse(String)
+    case malformedToolArguments(String)
     case transport(String)
 
     public var errorDescription: String? {
@@ -47,6 +94,8 @@ public enum CodexStructuredToolError: Error, LocalizedError, Equatable {
             return "Malformed Codex SSE event: \(payload)"
         case .malformedStructuredResponse(let raw):
             return "Could not decode structured Codex response: \(raw)"
+        case .malformedToolArguments(let raw):
+            return "Could not decode Codex tool arguments: \(raw)"
         case .transport(let message):
             return "Codex transport error: \(message)"
         }
@@ -97,6 +146,26 @@ public final class CodexStructuredTool {
             instructions: nil,
             text_format: nil
         )
+    }
+
+    public func executeIntent(_ prompt: String, url: URL? = nil) async throws -> CodexAction {
+        var accumulator = CodexIntentAccumulator()
+        let clarification = try await _post_and_collect_text(
+            prompt: prompt,
+            url: url,
+            instructions: Self.intentInstructions,
+            text_format: nil,
+            tools: Self.intentTools,
+            tool_choice: "auto",
+            handleEvent: { event in
+                accumulator.ingest(event)
+            }
+        )
+
+        if let action = try accumulator.finalizedAction() {
+            return action
+        }
+        return .clarify(text: clarification)
     }
 
     public func executeStructured<T: Decodable>(
@@ -176,7 +245,9 @@ public final class CodexStructuredTool {
     func _build_body(
         prompt: String,
         instructions: String? = nil,
-        text_format: JSONValue? = nil
+        text_format: JSONValue? = nil,
+        tools: [CodexTool]? = nil,
+        tool_choice: String? = nil
     ) -> CodexRequestBody {
         CodexRequestBody(
             model: model,
@@ -184,6 +255,8 @@ public final class CodexStructuredTool {
             store: false,
             instructions: instructions ?? self.instructions,
             text: CodexTextConfig(verbosity: "medium", format: text_format),
+            tools: tools,
+            tool_choice: tool_choice,
             input: [
                 CodexInputMessage(
                     role: "user",
@@ -214,13 +287,18 @@ public final class CodexStructuredTool {
         prompt: String,
         url: URL?,
         instructions: String?,
-        text_format: JSONValue?
+        text_format: JSONValue?,
+        tools: [CodexTool]? = nil,
+        tool_choice: String? = nil,
+        handleEvent: ((CodexStreamEvent) throws -> Void)? = nil
     ) async throws -> String {
         let request = try _build_request(
             prompt: prompt,
             url: url,
             instructions: instructions,
-            text_format: text_format
+            text_format: text_format,
+            tools: tools,
+            tool_choice: tool_choice
         )
 
         if let streamingChunksProvider {
@@ -228,6 +306,7 @@ public final class CodexStructuredTool {
                 let chunks = try await streamingChunksProvider(request)
                 return try collectText(
                     from: chunks,
+                    handleEvent: handleEvent,
                     extractText: { [weak self] event in
                         self?._extract_text_from_event(event) ?? ""
                     }
@@ -245,6 +324,7 @@ public final class CodexStructuredTool {
             try validate(response: response)
             return try await collectText(
                 from: bytes,
+                handleEvent: handleEvent,
                 extractText: { [weak self] event in
                     self?._extract_text_from_event(event) ?? ""
                 }
@@ -260,7 +340,9 @@ public final class CodexStructuredTool {
         prompt: String,
         url: URL? = nil,
         instructions: String? = nil,
-        text_format: JSONValue? = nil
+        text_format: JSONValue? = nil,
+        tools: [CodexTool]? = nil,
+        tool_choice: String? = nil
     ) throws -> URLRequest {
         let requestURL = url ?? baseURL
 
@@ -273,7 +355,13 @@ public final class CodexStructuredTool {
             request.setValue(value, forHTTPHeaderField: key)
         }
 
-        let body = _build_body(prompt: prompt, instructions: instructions, text_format: text_format)
+        let body = _build_body(
+            prompt: prompt,
+            instructions: instructions,
+            text_format: text_format,
+            tools: tools,
+            tool_choice: tool_choice
+        )
         request.httpBody = try requestEncoder.encode(body)
         return request
     }
@@ -289,7 +377,7 @@ public final class CodexStructuredTool {
     }
 
     private func decodeStructuredResponse<T: Decodable>(_ raw: String, as type: T.Type) throws -> T {
-        let normalized = normalizedStructuredText(raw)
+        let normalized = normalizedCodexStructuredText(raw)
         guard let data = normalized.data(using: .utf8) else {
             throw CodexStructuredToolError.malformedStructuredResponse(raw)
         }
@@ -305,42 +393,80 @@ public final class CodexStructuredTool {
     }
 
     private func normalizedStructuredText(_ raw: String) -> String {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let fenced = extractFirstCodeFence(in: trimmed) {
-            return fenced.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
+        normalizedCodexStructuredText(raw)
+    }
+}
 
-        let candidates: [(Character, Character)] = [("{", "}"), ("[", "]")]
-        for (open, close) in candidates {
-            if let range = extractBalancedJSONRange(in: trimmed, opening: open, closing: close) {
-                return String(trimmed[range]).trimmingCharacters(in: .whitespacesAndNewlines)
+private func normalizedCodexStructuredText(_ raw: String) -> String {
+    let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    if let start = trimmed.range(of: "```") {
+        let remainder = trimmed[start.upperBound...]
+        if let end = remainder.range(of: "```") {
+            var content = String(remainder[..<end.lowerBound])
+            if let firstNewline = content.firstIndex(of: "\n") {
+                let prefix = content[..<firstNewline]
+                if prefix.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().hasPrefix("json") {
+                    content = String(content[content.index(after: firstNewline)...])
+                }
             }
+            return content.trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        return trimmed
     }
 
-    private func extractFirstCodeFence(in text: String) -> String? {
-        guard let start = text.range(of: "```") else { return nil }
-        let remainder = text[start.upperBound...]
-        guard let end = remainder.range(of: "```") else { return nil }
-        var content = String(remainder[..<end.lowerBound])
-        if let firstNewline = content.firstIndex(of: "\n") {
-            let prefix = content[..<firstNewline]
-            if prefix.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().hasPrefix("json") {
-                content = String(content[content.index(after: firstNewline)...])
-            }
+    let candidates: [(Character, Character)] = [("{", "}"), ("[", "]")]
+    for (open, close) in candidates {
+        if let start = trimmed.firstIndex(of: open), let end = trimmed.lastIndex(of: close), start < end {
+            return String(trimmed[start..<trimmed.index(after: end)]).trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        return content
+    }
+    return trimmed
+}
+
+private extension CodexStructuredTool {
+    static var intentInstructions: String {
+        "You are an assistant with two tools: create_task for to-dos and Notes for general info. If the user's intent is clear, call the appropriate tool. If the input is vague or missing details, do not call a tool; instead, respond with a clarification question."
     }
 
-    private func extractBalancedJSONRange(in text: String, opening: Character, closing: Character) -> Range<String.Index>? {
-        guard let start = text.firstIndex(of: opening), let end = text.lastIndex(of: closing), start < end else {
-            return nil
-        }
-        return start..<text.index(after: end)
+    static var intentTools: [CodexTool] {
+        [
+            CodexTool(
+                name: "create_task",
+                description: "Create a to-do item when the user wants to add a task.",
+                parameters: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "title": .object([
+                            "type": .string("string")
+                        ]),
+                        "description": .object([
+                            "type": .string("string")
+                        ])
+                    ]),
+                    "required": .array([
+                        .string("title"),
+                        .string("description")
+                    ])
+                ])
+            ),
+            CodexTool(
+                name: "Notes",
+                description: "Capture general information or notes from the user.",
+                parameters: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "content": .object([
+                            "type": .string("string")
+                        ])
+                    ]),
+                    "required": .array([
+                        .string("content")
+                    ])
+                ])
+            )
+        ]
     }
 
-    private func validate(response: URLResponse) throws {
+    func validate(response: URLResponse) throws {
         if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
             throw CodexStructuredToolError.transport(
                 "Codex request failed with HTTP \(httpResponse.statusCode)."
@@ -354,11 +480,12 @@ public final class CodexStructuredTool {
         }
     }
 
-    private func collectText(
+    func collectText(
         from chunks: [Data],
+        handleEvent: ((CodexStreamEvent) throws -> Void)? = nil,
         extractText: @escaping (CodexStreamEvent) -> String
     ) throws -> String {
-        var collector = CodexSSECollector(extractText: extractText)
+        var collector = CodexSSECollector(extractText: extractText, handleEvent: handleEvent)
         for chunk in chunks {
             try collector.ingest(chunk)
         }
@@ -366,11 +493,12 @@ public final class CodexStructuredTool {
         return collector.collectedText
     }
 
-    private func collectText(
+    func collectText(
         from bytes: URLSession.AsyncBytes,
+        handleEvent: ((CodexStreamEvent) throws -> Void)? = nil,
         extractText: @escaping (CodexStreamEvent) -> String
     ) async throws -> String {
-        var collector = CodexSSECollector(extractText: extractText)
+        var collector = CodexSSECollector(extractText: extractText, handleEvent: handleEvent)
         for try await byte in bytes {
             try collector.ingest(byte)
         }
@@ -385,6 +513,8 @@ public struct CodexRequestBody: Codable, Equatable {
     public let store: Bool
     public let instructions: String
     public let text: CodexTextConfig
+    public let tools: [CodexTool]?
+    public let tool_choice: String?
     public let input: [CodexInputMessage]
 }
 
@@ -406,7 +536,20 @@ public struct CodexInputContent: Codable, Equatable {
 public struct CodexStreamEvent: Decodable, Equatable {
     public let type: String
     public let delta: String?
+    public let toolCalls: [CodexStreamToolCall]?
     public let response: CodexStreamResponse?
+
+    public init(
+        type: String,
+        delta: String? = nil,
+        toolCalls: [CodexStreamToolCall]? = nil,
+        response: CodexStreamResponse? = nil
+    ) {
+        self.type = type
+        self.delta = delta
+        self.toolCalls = toolCalls
+        self.response = response
+    }
 
     static func parse(from data: Data) throws -> CodexStreamEvent {
         let payload = try JSONSerialization.jsonObject(with: data, options: [])
@@ -416,7 +559,13 @@ public struct CodexStreamEvent: Decodable, Equatable {
 
         let delta = dictionary["delta"] as? String
         let response = try CodexStreamResponse.parse(dictionary["response"])
-        return CodexStreamEvent(type: type, delta: delta, response: response)
+        let toolCalls = try CodexStreamToolCall.parse(dictionary["delta"]) + CodexStreamToolCall.parse(dictionary["response"])
+        return CodexStreamEvent(
+            type: type,
+            delta: delta,
+            toolCalls: toolCalls.isEmpty ? nil : toolCalls,
+            response: response
+        )
     }
 }
 
@@ -446,6 +595,84 @@ public struct CodexStreamContent: Decodable, Equatable {
 
     static func parse(_ value: [String: Any]) throws -> CodexStreamContent {
         CodexStreamContent(text: value["text"] as? String)
+    }
+}
+
+public struct CodexStreamToolCall: Decodable, Equatable {
+    public let id: String?
+    public let index: Int?
+    public let name: String?
+    public let arguments: String?
+
+    public init(id: String? = nil, index: Int? = nil, name: String? = nil, arguments: String? = nil) {
+        self.id = id
+        self.index = index
+        self.name = name
+        self.arguments = arguments
+    }
+
+    fileprivate func merged(with fragment: CodexStreamToolCall) -> CodexStreamToolCall {
+        CodexStreamToolCall(
+            id: fragment.id ?? id,
+            index: fragment.index ?? index,
+            name: fragment.name ?? name,
+            arguments: (arguments ?? "") + (fragment.arguments ?? "")
+        )
+    }
+
+    fileprivate var identityKey: String {
+        if let id, !id.isEmpty { return id }
+        if let index { return "index:\(index)" }
+        if let name { return "name:\(name)" }
+        return UUID().uuidString
+    }
+
+    static func parse(_ value: Any?) throws -> [CodexStreamToolCall] {
+        guard let value else { return [] }
+        if let array = value as? [Any] {
+            return try array.flatMap(parse)
+        }
+        if let dictionary = value as? [String: Any] {
+            var result: [CodexStreamToolCall] = []
+            if let nestedToolCalls = dictionary["tool_calls"] {
+                result.append(contentsOf: try parse(nestedToolCalls))
+            }
+
+            if let call = parseCall(from: dictionary) {
+                result.append(call)
+            }
+
+            if let output = dictionary["output"] {
+                result.append(contentsOf: try parse(output))
+            }
+            if let content = dictionary["content"] {
+                result.append(contentsOf: try parse(content))
+            }
+            if let delta = dictionary["delta"] {
+                result.append(contentsOf: try parse(delta))
+            }
+            return result
+        }
+        return []
+    }
+
+    private static func parseCall(from dictionary: [String: Any]) -> CodexStreamToolCall? {
+        let id = dictionary["id"] as? String
+        let index = dictionary["index"] as? Int
+        if let function = dictionary["function"] as? [String: Any] {
+            let name = function["name"] as? String
+            let arguments = function["arguments"] as? String
+            if id != nil || index != nil || name != nil || arguments != nil {
+                return CodexStreamToolCall(id: id, index: index, name: name, arguments: arguments)
+            }
+        }
+
+        let name = dictionary["name"] as? String
+        let arguments = dictionary["arguments"] as? String
+        if id != nil || index != nil || name != nil || arguments != nil {
+            return CodexStreamToolCall(id: id, index: index, name: name, arguments: arguments)
+        }
+        return nil
     }
 }
 
@@ -514,11 +741,16 @@ public enum JSONValue: Codable, Equatable {
 
 private struct CodexSSECollector {
     let extractText: (CodexStreamEvent) -> String
+    let handleEvent: ((CodexStreamEvent) throws -> Void)?
     private var pendingData = Data()
     private(set) var collectedChunks: [String] = []
 
-    init(extractText: @escaping (CodexStreamEvent) -> String) {
+    init(
+        extractText: @escaping (CodexStreamEvent) -> String,
+        handleEvent: ((CodexStreamEvent) throws -> Void)? = nil
+    ) {
         self.extractText = extractText
+        self.handleEvent = handleEvent
     }
 
     mutating func ingest(_ data: Data) throws {
@@ -561,12 +793,62 @@ private struct CodexSSECollector {
         let payloadData = Data(payload.utf8)
         do {
             let event = try CodexStreamEvent.parse(from: payloadData)
+            try handleEvent?(event)
             let text = extractText(event)
             if !text.isEmpty {
                 collectedChunks.append(text)
             }
         } catch {
             throw CodexStructuredToolError.malformedStreamEvent(String(payload))
+        }
+    }
+}
+
+private struct CodexIntentAccumulator {
+    private var orderedKeys: [String] = []
+    private var toolCalls: [String: CodexStreamToolCall] = [:]
+
+    mutating func ingest(_ event: CodexStreamEvent) {
+        for fragment in event.toolCalls ?? [] {
+            ingest(fragment)
+        }
+    }
+
+    mutating func ingest(_ fragment: CodexStreamToolCall) {
+        let key = fragment.identityKey
+        if let existing = toolCalls[key] {
+            toolCalls[key] = existing.merged(with: fragment)
+        } else {
+            orderedKeys.append(key)
+            toolCalls[key] = fragment
+        }
+    }
+
+    func finalizedAction() throws -> CodexAction? {
+        for key in orderedKeys {
+            guard let call = toolCalls[key] else { continue }
+            guard let name = call.name, !name.isEmpty else { continue }
+            guard let arguments = call.arguments, !arguments.isEmpty else { continue }
+            return .callTool(name: name, arguments: try decodeToolArguments(arguments))
+        }
+        return nil
+    }
+
+    private func decodeToolArguments(_ raw: String) throws -> [String: Any] {
+        let normalized = normalizedCodexStructuredText(raw)
+        guard let data = normalized.data(using: .utf8) else {
+            throw CodexStructuredToolError.malformedToolArguments(raw)
+        }
+        do {
+            let object = try JSONSerialization.jsonObject(with: data, options: [])
+            guard let dictionary = object as? [String: Any] else {
+                throw CodexStructuredToolError.malformedToolArguments(raw)
+            }
+            return dictionary
+        } catch let error as CodexStructuredToolError {
+            throw error
+        } catch {
+            throw CodexStructuredToolError.malformedToolArguments(raw)
         }
     }
 }
