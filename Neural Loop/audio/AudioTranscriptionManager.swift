@@ -507,7 +507,9 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
             }
 
             self.detector.process(buffer)
-            self.preRollHistory.append(buffer)
+            if !self.hasFlushedPreRoll {
+                self.preRollHistory.append(buffer)
+            }
 
             guard self.isCapturingAudio else {
                 return
