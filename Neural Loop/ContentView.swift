@@ -57,10 +57,8 @@ struct ContentView: View {
             switch selectedTab {
             case .goals:
                 GoalScreenView()
-            case .todo:
-                TodoView()
-            case .habits:
-                HabitView()
+            case .tasks:
+                TaskHubView()
             case .calendar:
                 CalendarDayView()
             case .settings:
