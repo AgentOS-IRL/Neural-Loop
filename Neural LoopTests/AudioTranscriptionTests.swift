@@ -143,6 +143,34 @@ final class AudioTranscriptionTests: XCTestCase {
         XCTAssertEqual(manager.transcriptCardText, "Listening for more speech...")
     }
 
+    func testCommittedTranscriptCallbackFiresOncePerFinalizedSegment() async {
+        let session = FakeTranscribingSession(permissionState: .authorized)
+        let scheduler = FakeCooldownTimerScheduler()
+        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+        var committedTranscripts: [String] = []
+
+        manager.onCommittedTranscript = { transcript in
+            committedTranscripts.append(transcript)
+        }
+
+        await manager.startRecording()
+
+        session.emit(.speechDetected)
+        session.emit(.update(AudioTranscriptionUpdate(transcript: "first segment", isFinal: false)))
+        session.emit(.speechEnded)
+        scheduler.fireLast()
+        await Task.yield()
+
+        session.emit(.speechDetected)
+        session.emit(.update(AudioTranscriptionUpdate(transcript: "second segment", isFinal: false)))
+        session.emit(.speechEnded)
+        scheduler.fireLast()
+        await Task.yield()
+
+        XCTAssertEqual(committedTranscripts, ["first segment", "second segment"])
+        XCTAssertEqual(manager.transcriptHistory.map(\.content), ["first segment", "second segment"])
+    }
+
     func testSpeechDetectedDuringCooldownKeepsSessionAlive() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()

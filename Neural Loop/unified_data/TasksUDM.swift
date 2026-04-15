@@ -92,13 +92,15 @@ extension  UnifiedDataModel {
         }
     }
     
-    func saveTask(_ task: Tasks) async {
+    func saveTask(_ task: Tasks) async -> Tasks? {
         do {
             let newTask = try await manager.addTask(task)
             tasks.append(newTask)
+            return newTask
         }
         catch {
             print("Error saving task", error)
+            return nil
         }
     }
     
