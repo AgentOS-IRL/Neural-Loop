@@ -14,6 +14,7 @@ import UserNotifications
 struct SettingsView: View {
     @StateObject private var notificationTester = NotificationManager.shared
     @Environment(\.openURL) private var openURL
+    @EnvironmentObject private var model: UnifiedDataModel
     @State private var pendingRequests: [UNNotificationRequest] = []
     @AppStorage("isAudioMode") private var isAudioMode = false
 
@@ -106,6 +107,21 @@ struct SettingsView: View {
                 } footer: {
                     Text("Use “Send Test Notification” to verify notifications are working on your device.")
                 }
+
+                Section {
+                    if model.loadedSecretKeys.isEmpty {
+                        Text("No secrets loaded")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(model.loadedSecretKeys, id: \.self) { key in
+                            Text(key)
+                        }
+                    }
+                } header: {
+                    Text("Loaded Secrets")
+                } footer: {
+                    Text("This section intentionally shows secret names only. Secret values stay in app state and are not rendered here.")
+                }
                 
                 VStack{
                     Text(ConnectivityManager.shared.receivedMessage)
@@ -166,4 +182,5 @@ struct SettingsView: View {
 
 #Preview {
     SettingsView()
+        .environmentObject(UnifiedDataModel.shared)
 }
