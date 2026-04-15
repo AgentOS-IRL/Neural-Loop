@@ -59,7 +59,7 @@ final class SpeechDetector: SpeechDetecting {
             speechAccumulatedDuration += duration
             silenceAccumulatedDuration = 0
 
-            if amplitude >= configuration.speechOnsetThreshold {
+            if amplitude > configuration.speechOnsetThreshold {
                 onsetAccumulatedDuration += duration
             } else {
                 onsetAccumulatedDuration = 0
