@@ -5,7 +5,10 @@ import XCTest
 final class AudioModeCodexCoordinatorTests: XCTestCase {
     func testClarificationResponseIsShownInFeed() async {
         let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(result: .clarify(text: "Which task should I create?"))
+        let client = FakeAudioModeCodexClient(
+            result: .clarify(text: "Which task should I create?"),
+            returnedState: CodexConversationState(previousResponseID: "resp_1")
+        )
         let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Create something")
@@ -15,6 +18,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertEqual(client.executeIntentCallCount, 1)
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .assistant])
         XCTAssertEqual(coordinator.conversationFeed.last?.content, "Which task should I create?")
+        XCTAssertEqual(coordinator.codexState.previousResponseID, "resp_1")
         XCTAssertFalse(coordinator.isSending)
         XCTAssertNil(coordinator.errorMessage)
     }
@@ -42,6 +46,58 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .toolResult])
         XCTAssertEqual(coordinator.conversationFeed.last?.content, "Task created: Buy milk")
         XCTAssertFalse(coordinator.isSending)
+    }
+
+    func testFollowupTurnReusesCodexHistoryAndResponseState() async throws {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient { messages, state, callCount in
+            switch callCount {
+            case 1:
+                XCTAssertEqual(messages.count, 1)
+                XCTAssertEqual(messages.first?.role, "user")
+                XCTAssertEqual(messages.first?.content.first?.text, "Create a task")
+                XCTAssertNil(state.previousResponseID)
+                return CodexIntentResult(
+                    action: .clarify(text: "What should the task be called?"),
+                    state: CodexConversationState(previousResponseID: "resp_1")
+                )
+            case 2:
+                XCTAssertEqual(state.previousResponseID, "resp_1")
+                XCTAssertEqual(messages.map(\.role), ["user", "assistant", "user"])
+                XCTAssertEqual(messages[0].content.first?.text, "Create a task")
+                XCTAssertEqual(messages[1].content.first?.text, "What should the task be called?")
+                XCTAssertEqual(messages[2].content.first?.text, "Buy milk")
+                return CodexIntentResult(
+                    action: .clarify(text: "Should I add a description too?"),
+                    state: CodexConversationState(previousResponseID: "resp_2")
+                )
+            default:
+                XCTFail("Unexpected call count \(callCount)")
+                return CodexIntentResult(
+                    action: .clarify(text: "Unexpected"),
+                    state: state
+                )
+            }
+        }
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Create a task")
+        await Task.yield()
+        await Task.yield()
+
+        coordinator.handleCommittedTranscript("Buy milk")
+        await Task.yield()
+        await Task.yield()
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(client.executeIntentCallCount, 2)
+        XCTAssertEqual(coordinator.codexState.previousResponseID, "resp_2")
+        XCTAssertEqual(
+            coordinator.conversationFeed.map(\.role),
+            [.user, .status, .assistant, .user, .status, .assistant]
+        )
+        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Should I add a description too?")
     }
 
     func testNotesToolCallShowsDummyConfirmation() async {
@@ -155,43 +211,60 @@ private final class FakeAudioModeCodexClient: AudioModeCodexExecuting {
         case cancelledAfterYield(error: Error)
     }
 
-    private let outcome: Outcome?
-    private let error: Error?
-    private(set) var executeIntentCallCount = 0
+    typealias Handler = (_ messages: [CodexInputMessage], _ state: CodexConversationState, _ callCount: Int) async throws -> CodexIntentResult
 
-    init(result: Outcome) {
-        self.outcome = result
-        self.error = nil
+    private let handler: Handler
+    private(set) var executeIntentCallCount = 0
+    private(set) var capturedMessages: [[CodexInputMessage]] = []
+    private(set) var capturedStates: [CodexConversationState] = []
+
+    init(
+        result: Outcome,
+        returnedState: CodexConversationState = CodexConversationState()
+    ) {
+        self.handler = { _, _, _ in
+            switch result {
+            case .clarify(let text):
+                return CodexIntentResult(
+                    action: .clarify(text: text),
+                    state: returnedState
+                )
+            case .callTool(let name, let arguments):
+                return CodexIntentResult(
+                    action: .callTool(name: name, arguments: arguments),
+                    state: returnedState
+                )
+            case .cancelledAfterYield(let error):
+                await Task.yield()
+                if Task.isCancelled {
+                    throw error
+                }
+
+                return CodexIntentResult(
+                    action: .clarify(text: "Unused"),
+                    state: returnedState
+                )
+            }
+        }
     }
 
     init(error: Error) {
-        self.outcome = nil
-        self.error = error
-    }
-
-    func executeIntent(_ prompt: String) async throws -> CodexAction {
-        executeIntentCallCount += 1
-
-        if let error {
+        self.handler = { _, _, _ in
             throw error
         }
+    }
 
-        guard let outcome else {
-            throw TestError.codexFailure
-        }
+    init(handler: @escaping Handler) {
+        self.handler = handler
+    }
 
-        switch outcome {
-        case .clarify(let text):
-            return .clarify(text: text)
-        case .callTool(let name, let arguments):
-            return .callTool(name: name, arguments: arguments)
-        case .cancelledAfterYield(let error):
-            await Task.yield()
-            if Task.isCancelled {
-                throw error
-            }
-
-            return .clarify(text: "Unused")
-        }
+    func executeIntent(
+        messages: [CodexInputMessage],
+        state: CodexConversationState
+    ) async throws -> CodexIntentResult {
+        executeIntentCallCount += 1
+        capturedMessages.append(messages)
+        capturedStates.append(state)
+        return try await handler(messages, state, executeIntentCallCount)
     }
 }

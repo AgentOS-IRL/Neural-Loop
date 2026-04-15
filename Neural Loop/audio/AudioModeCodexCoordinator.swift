@@ -2,7 +2,10 @@ import Foundation
 import Combine
 
 protocol AudioModeCodexExecuting {
-    func executeIntent(_ prompt: String) async throws -> CodexAction
+    func executeIntent(
+        messages: [CodexInputMessage],
+        state: CodexConversationState
+    ) async throws -> CodexIntentResult
 }
 
 protocol AudioModeCodexModel: AnyObject {
@@ -15,6 +18,7 @@ protocol AudioModeCodexModel: AnyObject {
 @MainActor
 final class AudioModeCodexCoordinator: ObservableObject {
     @Published private(set) var conversationFeed: [AudioTranscriptMessage] = []
+    @Published private(set) var codexState = CodexConversationState()
     @Published private(set) var isSending = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var statusMessage: String?
@@ -23,6 +27,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
     private let codexClient: (any AudioModeCodexExecuting)?
     private var pendingTranscripts: [String] = []
     private var drainTask: Task<Void, Never>?
+    private var codexMessages: [CodexInputMessage] = []
 
     init(
         model: any AudioModeCodexModel,
@@ -37,6 +42,8 @@ final class AudioModeCodexCoordinator: ObservableObject {
         drainTask = nil
         pendingTranscripts.removeAll()
         conversationFeed.removeAll()
+        codexMessages.removeAll()
+        codexState = CodexConversationState()
         isSending = false
         errorMessage = nil
         statusMessage = nil
@@ -101,13 +108,19 @@ final class AudioModeCodexCoordinator: ObservableObject {
         }
 
         do {
-            let action = try await client.executeIntent(transcript)
+            let requestMessages = codexMessages + makeCodexMessages(role: .user, content: transcript)
+            let result = try await client.executeIntent(
+                messages: requestMessages,
+                state: codexState
+            )
 
             if Task.isCancelled {
                 return
             }
 
-            try await handle(action)
+            codexMessages = requestMessages
+            codexState = result.state
+            try await handle(result.action)
         } catch is CancellationError {
             return
         } catch {
@@ -201,6 +214,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
         }
 
         conversationFeed.append(.init(role: .assistant, content: trimmed))
+        codexMessages.append(contentsOf: makeCodexMessages(role: .assistant, content: trimmed))
     }
 
     private func appendToolResult(_ text: String) {
@@ -210,6 +224,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
         }
 
         conversationFeed.append(.init(role: .toolResult, content: trimmed))
+        codexMessages.append(contentsOf: makeCodexMessages(role: .toolResult, content: trimmed))
     }
 
     private func appendStatus(_ text: String) {
@@ -249,6 +264,35 @@ final class AudioModeCodexCoordinator: ObservableObject {
     private func optionalStringValue(for keys: [String], in arguments: [String: Any]) -> String? {
         stringValue(for: keys, in: arguments)?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
+
+    private func makeCodexMessages(
+        role: AudioTranscriptMessageRole,
+        content: String
+    ) -> [CodexInputMessage] {
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return []
+        }
+
+        switch role {
+        case .user:
+            return [
+                CodexInputMessage(
+                    role: "user",
+                    content: [CodexInputContent(type: "input_text", text: trimmed)]
+                )
+            ]
+        case .assistant, .toolResult:
+            return [
+                CodexInputMessage(
+                    role: "assistant",
+                    content: [CodexInputContent(type: "output_text", text: trimmed)]
+                )
+            ]
+        case .status, .error:
+            return []
+        }
+    }
 }
 
 final class CodexStructuredToolAudioModeAdapter: AudioModeCodexExecuting {
@@ -258,7 +302,10 @@ final class CodexStructuredToolAudioModeAdapter: AudioModeCodexExecuting {
         self.tool = tool
     }
 
-    func executeIntent(_ prompt: String) async throws -> CodexAction {
-        try await tool.executeIntent(prompt)
+    func executeIntent(
+        messages: [CodexInputMessage],
+        state: CodexConversationState
+    ) async throws -> CodexIntentResult {
+        try await tool.executeIntent(messages: messages, state: state)
     }
 }
