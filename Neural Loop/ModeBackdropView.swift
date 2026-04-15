@@ -12,51 +12,65 @@ struct ModeBackdropView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.03, green: 0.06, blue: 0.09),
-                    Color(red: 0.02, green: 0.02, blue: 0.04),
-                    Color(red: 0.00, green: 0.00, blue: 0.01)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            AudioModeTheme.baseBackground
 
             RadialGradient(
                 colors: [
-                    Color.cyan.opacity(0.24),
+                    Color(red: 0.43, green: 0.86, blue: 0.96).opacity(reduceTransparency ? 0.16 : 0.28),
                     Color.clear
                 ],
                 center: .topLeading,
-                startRadius: 20,
-                endRadius: 260
+                startRadius: 18,
+                endRadius: 310
             )
-            .offset(x: -120, y: -180)
-            .blur(radius: 30)
+            .offset(x: -110, y: -170)
+            .blur(radius: 24)
 
             RadialGradient(
                 colors: [
-                    Color.blue.opacity(0.18),
+                    Color(red: 0.32, green: 0.62, blue: 1.0).opacity(reduceTransparency ? 0.12 : 0.22),
+                    Color.clear
+                ],
+                center: .center,
+                startRadius: 30,
+                endRadius: 340
+            )
+            .offset(x: 150, y: -30)
+            .blur(radius: 38)
+
+            RadialGradient(
+                colors: [
+                    Color(red: 0.30, green: 0.95, blue: 0.78).opacity(reduceTransparency ? 0.10 : 0.18),
                     Color.clear
                 ],
                 center: .bottomTrailing,
-                startRadius: 10,
-                endRadius: 280
+                startRadius: 20,
+                endRadius: 320
             )
-            .offset(x: 140, y: 180)
-            .blur(radius: 36)
+            .offset(x: 120, y: 220)
+            .blur(radius: 42)
 
             if !reduceTransparency {
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(0.04),
-                        Color.clear,
-                        Color.white.opacity(0.02)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .blendMode(.screen)
+                Rectangle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.08),
+                                Color.clear,
+                                Color.white.opacity(0.03)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .blendMode(.screen)
+
+                Circle()
+                    .fill(Color.white.opacity(0.10))
+                    .frame(width: 360, height: 360)
+                    .blur(radius: 80)
+                    .offset(x: 0, y: -250)
+                    .blendMode(.screen)
             }
         }
         .ignoresSafeArea()

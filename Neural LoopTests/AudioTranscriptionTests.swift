@@ -62,6 +62,44 @@ final class AudioTranscriptionTests: XCTestCase {
         XCTAssertTrue(manager.isActionDisabled)
     }
 
+    func testPresentationHelpersReflectUnavailableMicState() {
+        let session = FakeTranscribingSession(permissionState: .speechDenied)
+        let scheduler = FakeCooldownTimerScheduler()
+        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+
+        XCTAssertEqual(manager.displayState, .unavailable)
+        XCTAssertEqual(manager.primaryStatusTitle, "Microphone unavailable")
+        XCTAssertEqual(
+            manager.secondaryStatusText,
+            "Speech recognition access is required to transcribe text."
+        )
+        XCTAssertEqual(manager.statusBadgeText, "Mic unavailable")
+        XCTAssertEqual(manager.transcriptStatusBadgeText, "Mic unavailable")
+    }
+
+    func testPresentationHelpersReflectCooldownStateAndHistoryCount() async {
+        let session = FakeTranscribingSession(permissionState: .authorized)
+        let scheduler = FakeCooldownTimerScheduler()
+        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+
+        await manager.startRecording()
+        session.emit(.speechDetected)
+        session.emit(.update(AudioTranscriptionUpdate(transcript: "hello world", isFinal: false)))
+        session.emit(.speechEnded)
+
+        XCTAssertEqual(manager.displayState, .cooldown)
+        XCTAssertEqual(manager.primaryStatusTitle, "Holding the floor open")
+        XCTAssertEqual(manager.statusBadgeText, "Listening")
+        XCTAssertEqual(manager.transcriptStatusTitle, "Finalizing segment")
+        XCTAssertEqual(manager.transcriptStatusBadgeText, "Listening")
+
+        scheduler.fireLast()
+        await Task.yield()
+
+        XCTAssertEqual(manager.viewData.transcriptHistoryCount, 1)
+        XCTAssertEqual(manager.viewData.title, "Listening for your next phrase")
+    }
+
     func testTranscriptCardTextPrioritizesErrorsOverStaleTranscript() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()
