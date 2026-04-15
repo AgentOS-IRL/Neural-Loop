@@ -70,6 +70,7 @@ protocol AudioTranscribingSession {
         onDeviceRecognition: Bool,
         resultHandler: @escaping (AudioTranscriptionEvent) -> Void
     ) async throws
+    func rolloverSegment()
     func stop()
 }
 
@@ -88,6 +89,7 @@ final class AudioTranscriptionManager: ObservableObject {
     @Published private(set) var isRecording = false
     @Published private(set) var transcriptText = ""
     @Published private(set) var isTranscriptFinal = false
+    @Published private(set) var transcriptHistory: [AudioTranscriptMessage] = []
     @Published private(set) var errorMessage: String?
 
     private let session: any AudioTranscribingSession
@@ -96,6 +98,8 @@ final class AudioTranscriptionManager: ObservableObject {
     private var cooldownTimer: (any AudioCooldownTimerControlling)?
     private var activeSession = false
     private var isStartingSession = false
+    private var isAwaitingSegmentCommit = false
+    private var isSegmentOpen = false
 
     init(
         session: (any AudioTranscribingSession)? = nil,
@@ -118,14 +122,14 @@ final class AudioTranscriptionManager: ObservableObject {
             switch sessionState {
             case .inactive:
                 return "Start Voice Detection"
-            case .checking:
-                return "Checking for speech"
-            case .listening:
-                return "Listening for speech"
-            case .transcribing:
-                return "Transcribing speech"
-            case .cooldownPending:
-                return "Listening for more speech"
+        case .checking:
+            return "Checking for speech"
+        case .listening:
+            return transcriptHistory.isEmpty ? "Listening for speech" : "Listening for more speech"
+        case .transcribing:
+            return "Transcribing speech"
+        case .cooldownPending:
+            return "Listening for more speech"
             }
         case .requesting:
             return "Checking Permissions"
@@ -162,11 +166,11 @@ final class AudioTranscriptionManager: ObservableObject {
         case .checking:
             return "Checking for speech..."
         case .listening:
-            return "Listening for speech..."
+            return transcriptHistory.isEmpty ? "Listening for speech..." : "Listening for more speech..."
         case .transcribing:
             return "Transcribing speech..."
         case .cooldownPending:
-            return "Waiting for silence..."
+            return "Listening for more speech..."
         }
     }
 
@@ -198,6 +202,8 @@ final class AudioTranscriptionManager: ObservableObject {
         }
 
         resetTranscript()
+        isAwaitingSegmentCommit = false
+        isSegmentOpen = false
         setSessionState(.checking)
         permissionState = .requesting
         isStartingSession = true
@@ -247,7 +253,7 @@ final class AudioTranscriptionManager: ObservableObject {
     }
 
     func stopRecording() {
-        stopRecording(finalizeTranscript: true)
+        stopRecording(clearTranscript: true, clearHistory: true)
     }
 
     func resetTranscript() {
@@ -268,7 +274,7 @@ final class AudioTranscriptionManager: ObservableObject {
         return transcriptText
     }
 
-    private func stopRecording(finalizeTranscript: Bool) {
+    private func stopRecording(clearTranscript: Bool, clearHistory: Bool) {
         guard activeSession || isStartingSession || sessionState != .inactive else {
             return
         }
@@ -277,8 +283,19 @@ final class AudioTranscriptionManager: ObservableObject {
         session.stop()
         activeSession = false
         isStartingSession = false
+        isAwaitingSegmentCommit = false
+        isSegmentOpen = false
         setSessionState(.inactive)
-        isTranscriptFinal = finalizeTranscript && !transcriptText.isEmpty
+
+        if clearHistory {
+            transcriptHistory.removeAll()
+        }
+
+        if clearTranscript {
+            resetTranscript()
+        } else {
+            isTranscriptFinal = false
+        }
     }
 
     private func handleEvent(_ event: AudioTranscriptionEvent) {
@@ -288,11 +305,16 @@ final class AudioTranscriptionManager: ObservableObject {
         case .speechEnded:
             handleSpeechEnded()
         case .update(let update):
+            guard isSegmentOpen || isAwaitingSegmentCommit else {
+                return
+            }
+
             transcriptText = update.transcript
+            isTranscriptFinal = update.isFinal
             errorMessage = nil
         case .failure(let message):
             errorMessage = message
-            stopRecording(finalizeTranscript: false)
+            stopRecording(clearTranscript: false, clearHistory: false)
         }
     }
 
@@ -302,6 +324,8 @@ final class AudioTranscriptionManager: ObservableObject {
         }
 
         invalidateCooldownTimer()
+        isAwaitingSegmentCommit = false
+        isSegmentOpen = true
         errorMessage = nil
         setSessionState(.transcribing)
     }
@@ -312,6 +336,7 @@ final class AudioTranscriptionManager: ObservableObject {
         }
 
         invalidateCooldownTimer()
+        isAwaitingSegmentCommit = true
         setSessionState(.cooldownPending)
         cooldownTimer = cooldownScheduler.schedule(after: 5) { [weak self] in
             Task { @MainActor in
@@ -321,16 +346,31 @@ final class AudioTranscriptionManager: ObservableObject {
     }
 
     private func completeCooldown() {
-        guard activeSession else {
+        guard activeSession, isAwaitingSegmentCommit else {
             return
         }
 
-        stopRecording(finalizeTranscript: true)
+        isAwaitingSegmentCommit = false
+        session.rolloverSegment()
+        commitCurrentTranscriptIfNeeded()
+        isSegmentOpen = false
+        setSessionState(.listening)
     }
 
     private func invalidateCooldownTimer() {
         cooldownTimer?.cancel()
         cooldownTimer = nil
+    }
+
+    private func commitCurrentTranscriptIfNeeded() {
+        let trimmedTranscript = transcriptText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTranscript.isEmpty else {
+            resetTranscript()
+            return
+        }
+
+        transcriptHistory.append(AudioTranscriptMessage(content: trimmedTranscript))
+        resetTranscript()
     }
 
     private func setSessionState(_ state: AudioTranscriptionSessionState) {
@@ -535,6 +575,21 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
         }
 
         cleanup()
+    }
+
+    func rolloverSegment() {
+        guard isRunning else {
+            return
+        }
+
+        activeTask?.cancel()
+        activeTask = nil
+        activeRequest?.endAudio()
+        activeRequest = nil
+        isCapturingAudio = false
+        hasFlushedPreRoll = false
+        preRollHistory.reset()
+        detector.reset()
     }
 
     private func handleSpeechDetected() {

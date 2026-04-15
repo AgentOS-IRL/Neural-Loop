@@ -20,7 +20,7 @@ final class AudioTranscriptionTests: XCTestCase {
         XCTAssertEqual(manager.promptText, "Listening for speech...")
     }
 
-    func testStartRecordingClearsPreviousTranscriptBeforeNewSession() async {
+    func testManualStopClearsTranscriptHistoryBeforeNewSession() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()
         let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
@@ -28,14 +28,21 @@ final class AudioTranscriptionTests: XCTestCase {
         await manager.startRecording()
         session.emit(.speechDetected)
         session.emit(.update(AudioTranscriptionUpdate(transcript: "first pass", isFinal: false)))
+        session.emit(.speechEnded)
+        scheduler.fireLast()
+        await Task.yield()
 
         manager.stopRecording()
-        XCTAssertEqual(manager.transcriptText, "first pass")
-        XCTAssertTrue(manager.isTranscriptFinal)
+        XCTAssertEqual(manager.transcriptText, "")
+        XCTAssertTrue(manager.transcriptHistory.isEmpty)
+        XCTAssertFalse(manager.isRecording)
+        XCTAssertEqual(manager.sessionState, .inactive)
+        XCTAssertEqual(session.stopCallCount, 1)
 
         await manager.startRecording()
 
         XCTAssertEqual(manager.transcriptText, "")
+        XCTAssertTrue(manager.transcriptHistory.isEmpty)
         XCTAssertEqual(manager.transcriptCardText, "Listening for speech...")
         XCTAssertEqual(session.requestPermissionsCallCount, 2)
     }
@@ -109,7 +116,7 @@ final class AudioTranscriptionTests: XCTestCase {
         XCTAssertTrue(scheduler.lastToken?.isCancelled ?? false)
     }
 
-    func testSpeechEndedStartsFiveSecondCooldownBeforeStopping() async {
+    func testSpeechEndedCommitsTranscriptAndKeepsSessionActive() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()
         let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
@@ -121,16 +128,19 @@ final class AudioTranscriptionTests: XCTestCase {
 
         XCTAssertEqual(manager.sessionState, .cooldownPending)
         XCTAssertEqual(scheduler.scheduleCallCount, 1)
-        XCTAssertEqual(session.stopCallCount, 0)
 
         scheduler.fireLast()
         await Task.yield()
 
-        XCTAssertEqual(session.stopCallCount, 1)
-        XCTAssertEqual(manager.sessionState, .inactive)
-        XCTAssertFalse(manager.isRecording)
-        XCTAssertTrue(manager.isTranscriptFinal)
-        XCTAssertEqual(manager.transcriptText, "hello world")
+        XCTAssertEqual(session.stopCallCount, 0)
+        XCTAssertEqual(session.rolloverSegmentCallCount, 1)
+        XCTAssertTrue(manager.isRecording)
+        XCTAssertEqual(manager.sessionState, .listening)
+        XCTAssertEqual(manager.transcriptText, "")
+        XCTAssertFalse(manager.isTranscriptFinal)
+        XCTAssertEqual(manager.transcriptHistory.count, 1)
+        XCTAssertEqual(manager.transcriptHistory.first?.content, "hello world")
+        XCTAssertEqual(manager.transcriptCardText, "Listening for more speech...")
     }
 
     func testSpeechDetectedDuringCooldownKeepsSessionAlive() async {
@@ -151,9 +161,10 @@ final class AudioTranscriptionTests: XCTestCase {
 
         scheduler.fireLast()
         XCTAssertEqual(session.stopCallCount, 0)
+        XCTAssertTrue(manager.transcriptHistory.isEmpty)
     }
 
-    func testFinalRecognitionDoesNotStopSessionImmediately() async {
+    func testFinalRecognitionStillRollsIntoHistoryOnCooldown() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()
         let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
@@ -163,20 +174,19 @@ final class AudioTranscriptionTests: XCTestCase {
         session.emit(.update(AudioTranscriptionUpdate(transcript: "hello world", isFinal: true)))
 
         XCTAssertEqual(manager.transcriptText, "hello world")
-        XCTAssertFalse(manager.isTranscriptFinal)
+        XCTAssertTrue(manager.isTranscriptFinal)
         XCTAssertEqual(manager.sessionState, .transcribing)
-        XCTAssertEqual(session.stopCallCount, 0)
 
         session.emit(.speechEnded)
         scheduler.fireLast()
         await Task.yield()
 
-        XCTAssertEqual(session.stopCallCount, 1)
-        XCTAssertTrue(manager.isTranscriptFinal)
-        XCTAssertEqual(manager.sessionState, .inactive)
+        XCTAssertEqual(session.stopCallCount, 0)
+        XCTAssertEqual(manager.sessionState, .listening)
+        XCTAssertTrue(manager.transcriptHistory.map(\.content).contains("hello world"))
     }
 
-    func testManualStopTearsDownRunningSessionButKeepsTranscriptVisible() async {
+    func testManualStopClearsSessionStateAndSavedHistory() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()
         let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
@@ -184,14 +194,43 @@ final class AudioTranscriptionTests: XCTestCase {
         await manager.startRecording()
         session.emit(.speechDetected)
         session.emit(.update(AudioTranscriptionUpdate(transcript: "keep this text", isFinal: false)))
+        session.emit(.speechEnded)
+        scheduler.fireLast()
+        await Task.yield()
 
         manager.stopRecording()
 
         XCTAssertEqual(session.stopCallCount, 1)
         XCTAssertFalse(manager.isRecording)
         XCTAssertEqual(manager.sessionState, .inactive)
-        XCTAssertEqual(manager.transcriptText, "keep this text")
-        XCTAssertTrue(manager.isTranscriptFinal)
+        XCTAssertEqual(manager.transcriptText, "")
+        XCTAssertTrue(manager.transcriptHistory.isEmpty)
+        XCTAssertFalse(manager.isTranscriptFinal)
+    }
+
+    func testMultipleSegmentsAppendSavedMessagesInOrder() async {
+        let session = FakeTranscribingSession(permissionState: .authorized)
+        let scheduler = FakeCooldownTimerScheduler()
+        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+
+        await manager.startRecording()
+
+        session.emit(.speechDetected)
+        session.emit(.update(AudioTranscriptionUpdate(transcript: "first segment", isFinal: false)))
+        session.emit(.speechEnded)
+        scheduler.fireLast()
+        await Task.yield()
+
+        session.emit(.speechDetected)
+        session.emit(.update(AudioTranscriptionUpdate(transcript: "second segment", isFinal: false)))
+        session.emit(.speechEnded)
+        scheduler.fireLast()
+        await Task.yield()
+
+        XCTAssertEqual(manager.transcriptHistory.count, 2)
+        XCTAssertEqual(manager.transcriptHistory.map(\.content), ["first segment", "second segment"])
+        XCTAssertEqual(session.stopCallCount, 0)
+        XCTAssertEqual(manager.sessionState, .listening)
     }
 
     func testLiveSessionStartsRecognitionOnlyAfterSpeechDetected() async throws {
@@ -290,6 +329,45 @@ final class AudioTranscriptionTests: XCTestCase {
         )
     }
 
+    func testLiveSessionRolloverResetsRecognitionStateForNextSegment() async throws {
+        let audioSession = FakeAudioSession(recordPermission: .granted)
+        let engine = FakeAudioEngine()
+        let speechAuthorization = FakeSpeechAuthorization(status: .authorized)
+        let recognizer = FakeSpeechRecognizer(isAvailable: true)
+        let detector = FakeSpeechDetector()
+        let session = LiveAudioTranscriptionSession(
+            audioSession: audioSession,
+            audioEngine: engine,
+            speechAuthorization: speechAuthorization,
+            recognizerFactory: { recognizer },
+            detector: detector
+        )
+
+        try await session.start(onDeviceRecognition: false) { _ in }
+
+        engine.inputNodeBox.installedBlock?(makeBuffer(amplitude: 0.06), nil)
+        detector.emitSpeechDetected()
+
+        let firstRequest = recognizer.capturedRequest as? LiveSpeechRecognitionRequestAdapter
+        XCTAssertEqual(recognizer.recognitionTaskCallCount, 1)
+        XCTAssertEqual(firstRequest?.appendCallCount, 1)
+
+        session.rolloverSegment()
+
+        XCTAssertEqual(firstRequest?.endAudioCallCount, 1)
+        XCTAssertEqual(recognizer.task.cancelCallCount, 1)
+        XCTAssertEqual(audioSession.setActiveValues, [true])
+        XCTAssertEqual(engine.stopCallCount, 0)
+        XCTAssertEqual(engine.inputNodeBox.removeTapCallCount, 0)
+
+        engine.inputNodeBox.installedBlock?(makeBuffer(amplitude: 0.06), nil)
+        detector.emitSpeechDetected()
+
+        let secondRequest = recognizer.capturedRequest as? LiveSpeechRecognitionRequestAdapter
+        XCTAssertEqual(recognizer.recognitionTaskCallCount, 2)
+        XCTAssertEqual(secondRequest?.appendCallCount, 1)
+    }
+
     func testLiveSessionClearsPreRollBetweenRuns() async throws {
         let audioSession = FakeAudioSession(recordPermission: .granted)
         let engine = FakeAudioEngine()
@@ -331,6 +409,7 @@ private final class FakeTranscribingSession: AudioTranscribingSession {
     var permissionState: AudioTranscriptionPermissionState
     var requestPermissionsCallCount = 0
     var startCallCount = 0
+    var rolloverSegmentCallCount = 0
     var stopCallCount = 0
     private var resultHandler: ((AudioTranscriptionEvent) -> Void)?
 
@@ -353,6 +432,10 @@ private final class FakeTranscribingSession: AudioTranscribingSession {
     ) async throws {
         startCallCount += 1
         self.resultHandler = resultHandler
+    }
+
+    func rolloverSegment() {
+        rolloverSegmentCallCount += 1
     }
 
     func stop() {
