@@ -542,6 +542,7 @@ extension AudioModeCodexCoordinator {
 
         let formatterWithoutTimezoneSeparator = ISO8601DateFormatter()
         formatterWithoutTimezoneSeparator.formatOptions = [.withFullDate, .withTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
+        formatterWithoutTimezoneSeparator.timeZone = .current
 
         return [
             formatterWithInternetDateTime,
