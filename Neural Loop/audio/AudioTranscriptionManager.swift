@@ -433,6 +433,8 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
     private var isCapturingAudio = false
     private var requiresOnDeviceRecognition = false
     private var hasFlushedPreRoll = false
+    private var activeTaskIdentifier: UUID?
+    private var pendingCancellationTaskIdentifier: UUID?
 
     init(
         audioSession: AudioSessionControlling = LiveAudioSessionAdapter(),
@@ -582,7 +584,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
             return
         }
 
-        activeTask?.cancel()
+        cancelActiveRecognitionTask()
         activeTask = nil
         activeRequest?.endAudio()
         activeRequest = nil
@@ -608,8 +610,14 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
             request.requiresOnDeviceRecognition = requiresOnDeviceRecognition
             activeRequest = request
 
+            let taskIdentifier = UUID()
+            activeTaskIdentifier = taskIdentifier
             let task = recognizer.recognitionTask(with: request) { [weak self] recognitionResult, error in
                 guard let self else {
+                    return
+                }
+
+                guard self.pendingCancellationTaskIdentifier != taskIdentifier else {
                     return
                 }
 
@@ -632,6 +640,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
 
             guard let task else {
                 activeRequest = nil
+                activeTaskIdentifier = nil
                 emit(.failure(AudioTranscriptionError.failedToStartRecognitionTask.localizedDescription))
                 return
             }
@@ -671,7 +680,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
     }
 
     private func cleanup() {
-        activeTask?.cancel()
+        cancelActiveRecognitionTask()
         activeTask = nil
         activeRequest?.endAudio()
         activeRequest = nil
@@ -685,6 +694,16 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
         isRunning = false
         try? audioSession.setActive(false)
         activeResultHandler = nil
+    }
+
+    private func cancelActiveRecognitionTask() {
+        guard let task = activeTask else {
+            return
+        }
+
+        pendingCancellationTaskIdentifier = activeTaskIdentifier
+        task.cancel()
+        activeTaskIdentifier = nil
     }
 
     private func flushPreRollHistory() {
