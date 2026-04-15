@@ -59,6 +59,8 @@ struct ContentView: View {
                 GoalScreenView()
             case .tasks:
                 TaskHubView()
+            case .notes:
+                FleetingNotesView()
             case .calendar:
                 CalendarDayView()
             case .settings:
