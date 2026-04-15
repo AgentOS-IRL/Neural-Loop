@@ -12,6 +12,8 @@ protocol SpeechDetecting: AnyObject {
 final class SpeechDetector: SpeechDetecting {
     struct Configuration: Equatable {
         var speechThreshold: Float = 0.02
+        var speechOnsetThreshold: Float = 0.05
+        var speechOnsetDuration: TimeInterval = 0.03
         var speechStartDuration: TimeInterval = 0.12
         var silenceDuration: TimeInterval = 0.45
     }
@@ -22,6 +24,7 @@ final class SpeechDetector: SpeechDetecting {
     private let configuration: Configuration
     private var isSpeaking = false
     private var speechAccumulatedDuration: TimeInterval = 0
+    private var onsetAccumulatedDuration: TimeInterval = 0
     private var silenceAccumulatedDuration: TimeInterval = 0
 
     init(configuration: Configuration = Configuration()) {
@@ -31,6 +34,7 @@ final class SpeechDetector: SpeechDetecting {
     func reset() {
         isSpeaking = false
         speechAccumulatedDuration = 0
+        onsetAccumulatedDuration = 0
         silenceAccumulatedDuration = 0
     }
 
@@ -42,13 +46,30 @@ final class SpeechDetector: SpeechDetecting {
 
         let amplitude = peakAmplitude(for: buffer)
 
+        if isSpeaking {
+            handleSpeakingBuffer(amplitude: amplitude, duration: duration)
+            return
+        }
+
+        handleListeningBuffer(amplitude: amplitude, duration: duration)
+    }
+
+    private func handleListeningBuffer(amplitude: Float, duration: TimeInterval) {
         if amplitude >= configuration.speechThreshold {
             speechAccumulatedDuration += duration
             silenceAccumulatedDuration = 0
 
-            if !isSpeaking, speechAccumulatedDuration >= configuration.speechStartDuration {
+            if amplitude > configuration.speechOnsetThreshold {
+                onsetAccumulatedDuration += duration
+            } else {
+                onsetAccumulatedDuration = 0
+            }
+
+            if onsetAccumulatedDuration >= configuration.speechOnsetDuration
+                || speechAccumulatedDuration >= configuration.speechStartDuration {
                 isSpeaking = true
                 speechAccumulatedDuration = 0
+                onsetAccumulatedDuration = 0
                 onSpeechDetected?()
             }
 
@@ -56,8 +77,12 @@ final class SpeechDetector: SpeechDetecting {
         }
 
         speechAccumulatedDuration = 0
+        onsetAccumulatedDuration = 0
+        silenceAccumulatedDuration = 0
+    }
 
-        guard isSpeaking else {
+    private func handleSpeakingBuffer(amplitude: Float, duration: TimeInterval) {
+        if amplitude >= configuration.speechThreshold {
             silenceAccumulatedDuration = 0
             return
         }

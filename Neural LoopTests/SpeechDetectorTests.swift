@@ -7,6 +7,8 @@ final class SpeechDetectorTests: XCTestCase {
         let detector = SpeechDetector(
             configuration: .init(
                 speechThreshold: 0.1,
+                speechOnsetThreshold: 0.2,
+                speechOnsetDuration: 0.01,
                 speechStartDuration: 0.02,
                 silenceDuration: 0.02
             )
@@ -31,6 +33,8 @@ final class SpeechDetectorTests: XCTestCase {
         let detector = SpeechDetector(
             configuration: .init(
                 speechThreshold: 0.1,
+                speechOnsetThreshold: 0.2,
+                speechOnsetDuration: 0.01,
                 speechStartDuration: 0.02,
                 silenceDuration: 0.02
             )
@@ -56,6 +60,8 @@ final class SpeechDetectorTests: XCTestCase {
         let detector = SpeechDetector(
             configuration: .init(
                 speechThreshold: 0.1,
+                speechOnsetThreshold: 0.2,
+                speechOnsetDuration: 0.01,
                 speechStartDuration: 0.02,
                 silenceDuration: 0.02
             )
@@ -80,6 +86,95 @@ final class SpeechDetectorTests: XCTestCase {
 
         XCTAssertEqual(endedCount, 0)
         XCTAssertEqual(detectedCount, 1)
+    }
+
+    func testSpeechStartDetectionUsesFasterOnsetWindowForStrongSpeech() {
+        let detector = SpeechDetector(
+            configuration: .init(
+                speechThreshold: 0.1,
+                speechOnsetThreshold: 0.2,
+                speechOnsetDuration: 0.01,
+                speechStartDuration: 0.03,
+                silenceDuration: 0.02
+            )
+        )
+
+        var detectedCount = 0
+        detector.onSpeechDetected = {
+            detectedCount += 1
+        }
+
+        detector.process(makeBuffer(amplitude: 0.24))
+
+        XCTAssertEqual(detectedCount, 1)
+    }
+
+    func testSpeechStartDetectionDoesNotUseFastOnsetAtThresholdBoundary() {
+        let detector = SpeechDetector(
+            configuration: .init(
+                speechThreshold: 0.1,
+                speechOnsetThreshold: 0.2,
+                speechOnsetDuration: 0.01,
+                speechStartDuration: 0.02,
+                silenceDuration: 0.02
+            )
+        )
+
+        var detectedCount = 0
+        detector.onSpeechDetected = {
+            detectedCount += 1
+        }
+
+        detector.process(makeBuffer(amplitude: 0.2))
+        XCTAssertEqual(detectedCount, 0)
+
+        detector.process(makeBuffer(amplitude: 0.2))
+        XCTAssertEqual(detectedCount, 1)
+    }
+
+    func testSpeechStartDetectionIgnoresSingleTransientAboveOnsetThreshold() {
+        let detector = SpeechDetector(
+            configuration: .init(
+                speechThreshold: 0.1,
+                speechOnsetThreshold: 0.2,
+                speechOnsetDuration: 0.02,
+                speechStartDuration: 0.03,
+                silenceDuration: 0.02
+            )
+        )
+
+        var detectedCount = 0
+        detector.onSpeechDetected = {
+            detectedCount += 1
+        }
+
+        detector.process(makeBuffer(amplitude: 0.3))
+        detector.process(makeBuffer(amplitude: 0.0))
+
+        XCTAssertEqual(detectedCount, 0)
+    }
+
+    func testResetClearsOnsetProgress() {
+        let detector = SpeechDetector(
+            configuration: .init(
+                speechThreshold: 0.1,
+                speechOnsetThreshold: 0.2,
+                speechOnsetDuration: 0.02,
+                speechStartDuration: 0.03,
+                silenceDuration: 0.02
+            )
+        )
+
+        var detectedCount = 0
+        detector.onSpeechDetected = {
+            detectedCount += 1
+        }
+
+        detector.process(makeBuffer(amplitude: 0.3))
+        detector.reset()
+        detector.process(makeBuffer(amplitude: 0.3))
+
+        XCTAssertEqual(detectedCount, 0)
     }
 
     private func makeBuffer(
