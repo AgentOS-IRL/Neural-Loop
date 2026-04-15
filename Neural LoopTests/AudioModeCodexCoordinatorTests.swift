@@ -148,6 +148,30 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.errorMessage, "Codex did not provide note content.")
     }
 
+    func testNotesToolCallFallsBackToNoteWhenContentIsBlank() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "Notes",
+                arguments: [
+                    "content": "   ",
+                    "note": "Remember the passport"
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Remember the passport")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(client.converseCallCount, 1)
+        XCTAssertTrue(model.savedTasks.isEmpty)
+        XCTAssertEqual(model.savedFleetingNotes.map(\.note), ["Remember the passport"])
+        XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .toolResult])
+        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Fleeting note created: Remember the passport")
+    }
+
     func testNotesToolCallShowsFailureWhenPersistenceFails() async {
         let model = FakeAudioModeCodexModel(
             llmEnabled: true,
