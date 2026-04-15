@@ -466,6 +466,10 @@ struct TodoView: View {
         ZStack {
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    if embeddedInTaskHub {
+                        todoEmbeddedHeader
+                    }
+
                     searchBar()
 
                     switch vm.viewMode {
@@ -499,6 +503,53 @@ struct TodoView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var todoEmbeddedHeader: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(toolbarTitle(for: vm.viewMode))
+                    .font(.title3.weight(.semibold))
+                Text("Switch between todo lists and menu views.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            if vm.viewMode != .menu {
+                Button {
+                    vm.viewMode = .menu
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(Color(.secondarySystemBackground))
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Back to menu")
+            }
+
+            Button {
+                vm.showAddTask = true
+            } label: {
+                Image(systemName: "plus")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 32, height: 32)
+                    .background(
+                        Circle()
+                            .fill(Color(.secondarySystemBackground))
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(16)
     }
 
     var body: some View {
