@@ -27,8 +27,6 @@ final class TaskHubNavigationModel: ObservableObject {
 struct TaskHubView: View {
     @StateObject private var navigationModel = TaskHubNavigationModel()
 
-    private let bottomContentInset: CGFloat = SAFE_AREA_INSET + 96
-
     var body: some View {
         NavigationStack {
             ZStack {
@@ -49,9 +47,6 @@ struct TaskHubView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, 8)
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                Color.clear.frame(height: bottomContentInset)
             }
         }
     }
