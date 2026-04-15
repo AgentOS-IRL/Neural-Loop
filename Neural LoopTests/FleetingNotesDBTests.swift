@@ -2,6 +2,16 @@ import XCTest
 @testable import Neural_Loop
 
 final class FleetingNotesDBTests: XCTestCase {
+    func testCreateFleetingNoteRequestEncodesOnlyWritableColumns() throws {
+        let request = CreateFleetingNoteRequest(note: "Ship the notes tab.")
+
+        let data = try JSONEncoder().encode(request)
+        let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+
+        XCTAssertEqual(payload?["note"] as? String, "Ship the notes tab.")
+        XCTAssertEqual(payload?.count, 1)
+    }
+
     func testFleetingNoteDecodesRequestedColumns() throws {
         let data = """
         [

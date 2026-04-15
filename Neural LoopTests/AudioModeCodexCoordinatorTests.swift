@@ -44,6 +44,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertEqual(client.converseCallCount, 1)
         XCTAssertEqual(model.savedTasks.count, 1)
         XCTAssertEqual(model.savedTasks.first?.title, "Buy milk")
+        XCTAssertTrue(model.savedFleetingNotes.isEmpty)
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .toolResult])
         XCTAssertEqual(coordinator.conversationFeed.last?.content, "Task created: Buy milk")
         XCTAssertFalse(coordinator.isSending)
@@ -101,7 +102,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.conversationFeed.last?.content, "Should I add a description too?")
     }
 
-    func testNotesToolCallShowsDummyConfirmation() async {
+    func testNotesToolCallPersistsFleetingNoteAndShowsConfirmation() async {
         let model = FakeAudioModeCodexModel(llmEnabled: true)
         let client = FakeAudioModeCodexClient(
             result: .callTool(
@@ -119,8 +120,58 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(client.converseCallCount, 1)
         XCTAssertTrue(model.savedTasks.isEmpty)
+        XCTAssertEqual(model.savedFleetingNotes.map(\.note), ["Remember the keys"])
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .toolResult])
-        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Fleeting notes is created.")
+        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Fleeting note created: Remember the keys")
+    }
+
+    func testNotesToolCallRejectsBlankContent() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "Notes",
+                arguments: [
+                    "content": "   "
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Save a note")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(client.converseCallCount, 1)
+        XCTAssertTrue(model.savedTasks.isEmpty)
+        XCTAssertTrue(model.savedFleetingNotes.isEmpty)
+        XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .error])
+        XCTAssertEqual(coordinator.errorMessage, "Codex did not provide note content.")
+    }
+
+    func testNotesToolCallShowsFailureWhenPersistenceFails() async {
+        let model = FakeAudioModeCodexModel(
+            llmEnabled: true,
+            fleetingNoteSaveResult: nil
+        )
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "Notes",
+                arguments: [
+                    "note": "Remember the passport"
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Remember the passport")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(client.converseCallCount, 1)
+        XCTAssertTrue(model.savedTasks.isEmpty)
+        XCTAssertEqual(model.savedFleetingNotes.map(\.note), ["Remember the passport"])
+        XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .error])
+        XCTAssertEqual(coordinator.errorMessage, "Fleeting note could not be saved.")
     }
 
     func testDisabledLLMBlocksCodexRequestAndSurfacesStatus() async {
@@ -193,13 +244,21 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
     var codexAccessToken: String?
     var codexAccountID: String?
     private(set) var savedTasks: [Tasks] = []
+    private(set) var savedFleetingNotes: [CreateFleetingNoteRequest] = []
+    private let fleetingNoteSaveResult: FleetingNote?
 
     init(
         llmEnabled: Bool,
+        fleetingNoteSaveResult: FleetingNote? = FleetingNote(
+            id: 1,
+            created_at: ISO8601DateFormatter().date(from: "2026-04-15T09:30:00Z")!,
+            note: "Remember the keys"
+        ),
         codexAccessToken: String? = "token",
         codexAccountID: String? = "account"
     ) {
         self.llm_enabled = llmEnabled
+        self.fleetingNoteSaveResult = fleetingNoteSaveResult
         self.codexAccessToken = codexAccessToken
         self.codexAccountID = codexAccountID
     }
@@ -207,6 +266,20 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
     func saveTask(_ task: Tasks) async -> Tasks? {
         savedTasks.append(task)
         return task
+    }
+
+    func saveFleetingNote(_ request: CreateFleetingNoteRequest) async -> FleetingNote? {
+        savedFleetingNotes.append(request)
+
+        guard let fleetingNoteSaveResult else {
+            return nil
+        }
+
+        return FleetingNote(
+            id: fleetingNoteSaveResult.id,
+            created_at: fleetingNoteSaveResult.created_at,
+            note: request.note
+        )
     }
 }
 
