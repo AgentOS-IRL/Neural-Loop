@@ -28,11 +28,33 @@ struct SettingsView: View {
         }
     }
 
+    private var audioModeToggleBinding: Binding<Bool> {
+        Binding(
+            get: {
+                shouldEnableAudioModeToggle(
+                    secretsLoaded: model.secretsLoaded,
+                    canUseAudioMode: model.canUseAudioMode
+                ) ? isAudioMode : false
+            },
+            set: { newValue in
+                guard shouldEnableAudioModeToggle(
+                    secretsLoaded: model.secretsLoaded,
+                    canUseAudioMode: model.canUseAudioMode
+                ) else {
+                    isAudioMode = false
+                    return
+                }
+
+                isAudioMode = newValue
+            }
+        )
+    }
+
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    Toggle(isOn: $isAudioMode) {
+                    Toggle(isOn: audioModeToggleBinding) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Audio Mode")
                                 .font(.headline)
@@ -42,13 +64,21 @@ struct SettingsView: View {
                         }
                     }
                     .toggleStyle(.switch)
+                    .disabled(!shouldEnableAudioModeToggle(secretsLoaded: model.secretsLoaded, canUseAudioMode: model.canUseAudioMode))
                 } header: {
                     Text("App Mode")
                 } footer: {
-                    Text("Switching modes updates the main app shell immediately and remembers your choice across launches.")
+                    Text(model.secretsLoaded ? "Audio mode requires the codex_auth_token secret to be present in public.secrets." : "Audio mode stays unavailable until secrets finish loading.")
                 }
 
                 Section {
+                    HStack(spacing: 8) {
+                        Image(systemName: model.canUseAudioMode ? "checkmark.seal.fill" : "xmark.seal")
+                            .foregroundStyle(model.canUseAudioMode ? .green : .secondary)
+                        Text(model.secretsLoaded ? (model.canUseAudioMode ? "\(codexAuthTokenSecretKey) present" : "\(codexAuthTokenSecretKey) missing") : "Checking audio entitlement...")
+                            .foregroundStyle(.secondary)
+                    }
+
                     HStack(spacing: 12) {
                         Image(systemName: notificationTester.statusSymbol)
                             .font(.title3)
@@ -109,7 +139,10 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    if model.loadedSecretKeys.isEmpty {
+                    if !model.secretsLoaded {
+                        Text("Secrets are still loading")
+                            .foregroundStyle(.secondary)
+                    } else if model.loadedSecretKeys.isEmpty {
                         Text("No secrets loaded")
                             .foregroundStyle(.secondary)
                     } else {
@@ -175,12 +208,34 @@ struct SettingsView: View {
                 await notificationTester.refreshAuthorizationStatus()
                 await loadPendingNotifications()
             }
+            .onAppear {
+                if model.secretsLoaded, !model.canUseAudioMode {
+                    isAudioMode = false
+                }
+            }
+            .onChange(of: model.secretsLoaded) { _, _ in
+                if model.secretsLoaded, !model.canUseAudioMode {
+                    isAudioMode = false
+                }
+            }
+            .onChange(of: model.canUseAudioMode) { _, _ in
+                if model.secretsLoaded, !model.canUseAudioMode {
+                    isAudioMode = false
+                }
+            }
         }
     }
+}
+
+func shouldEnableAudioModeToggle(
+    secretsLoaded: Bool,
+    canUseAudioMode: Bool
+) -> Bool {
+    secretsLoaded && canUseAudioMode
 }
 
 
 #Preview {
     SettingsView()
-        .environmentObject(UnifiedDataModel.shared)
+        .environmentObject(UnifiedDataModel(autoStart: false))
 }
