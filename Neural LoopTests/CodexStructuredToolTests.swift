@@ -134,6 +134,7 @@ final class CodexStructuredToolTests: XCTestCase {
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
         XCTAssertEqual(json["instructions"] as? String, "You are an assistant with two tools: create_task for to-dos and Notes for general info. If the user's intent is clear, call the appropriate tool. If the input is vague or missing details, do not call a tool; instead, respond with a clarification question.")
         XCTAssertEqual(json["tool_choice"] as? String, "auto")
+        XCTAssertEqual(json["parallel_tool_calls"] as? Bool, false)
 
         let tools = try XCTUnwrap(json["tools"] as? [[String: Any]])
         XCTAssertEqual(tools.count, 2)
@@ -149,6 +150,51 @@ final class CodexStructuredToolTests: XCTestCase {
                 [
                     "data: {\"type\":\"response.output_text.delta\",\"delta\":{\"tool_calls\":[{\"id\":\"call_1\",\"index\":0,\"function\":{\"name\":\"create_task\",\"arguments\":\"{\\\"title\\\":\\\"Buy \"}}]}}\n".data(using: .utf8)!,
                     "data: {\"type\":\"response.output_text.delta\",\"delta\":{\"tool_calls\":[{\"id\":\"call_1\",\"index\":0,\"function\":{\"arguments\":\"milk\\\",\\\"description\\\":\\\"From the store\\\"}\"}}]}}\n".data(using: .utf8)!,
+                    "data: [DONE]\n".data(using: .utf8)!
+                ]
+            }
+        )
+
+        let action = try await tool.executeIntent("remind me")
+        guard case .callTool(let name, let arguments) = action else {
+            return XCTFail("Expected tool call")
+        }
+
+        XCTAssertEqual(name, "create_task")
+        XCTAssertEqual(arguments["title"] as? String, "Buy milk")
+        XCTAssertEqual(arguments["description"] as? String, "From the store")
+    }
+
+    func testExecuteIntentReturnsToolCallFromOutputItemAddedEvent() async throws {
+        let tool = CodexStructuredTool(
+            access_token: "token",
+            account_id: "account",
+            streamingChunksProvider: { _ in
+                [
+                    "data: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"function_call\",\"id\":\"call_1\",\"name\":\"Notes\",\"arguments\":\"{\\\"content\\\":\\\"Remember the keys\\\"}\"}}\n".data(using: .utf8)!,
+                    "data: [DONE]\n".data(using: .utf8)!
+                ]
+            }
+        )
+
+        let action = try await tool.executeIntent("save this")
+        guard case .callTool(let name, let arguments) = action else {
+            return XCTFail("Expected tool call")
+        }
+
+        XCTAssertEqual(name, "Notes")
+        XCTAssertEqual(arguments["content"] as? String, "Remember the keys")
+    }
+
+    func testExecuteIntentUsesFinalArgumentsInsteadOfAppendingThemTwice() async throws {
+        let tool = CodexStructuredTool(
+            access_token: "token",
+            account_id: "account",
+            streamingChunksProvider: { _ in
+                [
+                    "data: {\"type\":\"response.function_call_arguments.delta\",\"item_id\":\"call_1\",\"output_index\":0,\"delta\":\"{\\\"title\\\":\\\"Buy \"}\n".data(using: .utf8)!,
+                    "data: {\"type\":\"response.function_call_arguments.delta\",\"item_id\":\"call_1\",\"output_index\":0,\"delta\":\"milk\\\",\\\"description\\\":\\\"From the store\\\"\"}\n".data(using: .utf8)!,
+                    "data: {\"type\":\"response.function_call_arguments.done\",\"item_id\":\"call_1\",\"output_index\":0,\"arguments\":\"{\\\"title\\\":\\\"Buy milk\\\",\\\"description\\\":\\\"From the store\\\"}\"}\n".data(using: .utf8)!,
                     "data: [DONE]\n".data(using: .utf8)!
                 ]
             }

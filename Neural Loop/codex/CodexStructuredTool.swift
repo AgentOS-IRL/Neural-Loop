@@ -152,15 +152,21 @@ public final class CodexStructuredTool {
             text_format: nil,
             tools: Self.intentTools,
             tool_choice: "auto",
+            parallel_tool_calls: false,
             handleEvent: { event in
                 accumulator.ingest(event)
             }
         )
 
-        if let action = try accumulator.finalizedAction() {
+        if let action = accumulator.finalizedAction() {
             return action
         }
-        return .clarify(text: clarification)
+
+        let fallback = clarification.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !fallback.isEmpty {
+            return .clarify(text: fallback)
+        }
+        return .clarify(text: "Could you clarify whether you want me to create a task or save a note?")
     }
 
     public func executeStructured<T: Decodable>(
@@ -242,7 +248,8 @@ public final class CodexStructuredTool {
         instructions: String? = nil,
         text_format: JSONValue? = nil,
         tools: [CodexTool]? = nil,
-        tool_choice: String? = nil
+        tool_choice: String? = nil,
+        parallel_tool_calls: Bool? = nil
     ) -> CodexRequestBody {
         CodexRequestBody(
             model: model,
@@ -252,6 +259,7 @@ public final class CodexStructuredTool {
             text: CodexTextConfig(verbosity: "medium", format: text_format),
             tools: tools,
             tool_choice: tool_choice,
+            parallel_tool_calls: parallel_tool_calls,
             input: [
                 CodexInputMessage(
                     role: "user",
@@ -285,6 +293,7 @@ public final class CodexStructuredTool {
         text_format: JSONValue?,
         tools: [CodexTool]? = nil,
         tool_choice: String? = nil,
+        parallel_tool_calls: Bool? = nil,
         handleEvent: ((CodexStreamEvent) throws -> Void)? = nil
     ) async throws -> String {
         let request = try _build_request(
@@ -293,7 +302,8 @@ public final class CodexStructuredTool {
             instructions: instructions,
             text_format: text_format,
             tools: tools,
-            tool_choice: tool_choice
+            tool_choice: tool_choice,
+            parallel_tool_calls: parallel_tool_calls
         )
 
         if let streamingChunksProvider {
@@ -337,7 +347,8 @@ public final class CodexStructuredTool {
         instructions: String? = nil,
         text_format: JSONValue? = nil,
         tools: [CodexTool]? = nil,
-        tool_choice: String? = nil
+        tool_choice: String? = nil,
+        parallel_tool_calls: Bool? = nil
     ) throws -> URLRequest {
         let requestURL = url ?? baseURL
 
@@ -355,7 +366,8 @@ public final class CodexStructuredTool {
             instructions: instructions,
             text_format: text_format,
             tools: tools,
-            tool_choice: tool_choice
+            tool_choice: tool_choice,
+            parallel_tool_calls: parallel_tool_calls
         )
         request.httpBody = try requestEncoder.encode(body)
         return request
@@ -522,6 +534,7 @@ public struct CodexRequestBody: Codable, Equatable {
     public let text: CodexTextConfig
     public let tools: [CodexTool]?
     public let tool_choice: String?
+    public let parallel_tool_calls: Bool?
     public let input: [CodexInputMessage]
 }
 
@@ -566,13 +579,61 @@ public struct CodexStreamEvent: Decodable, Equatable {
 
         let delta = dictionary["delta"] as? String
         let response = try CodexStreamResponse.parse(dictionary["response"])
-        let toolCalls = try CodexStreamToolCall.parse(dictionary["delta"]) + CodexStreamToolCall.parse(dictionary["response"])
+        var toolCalls = try CodexStreamToolCall.parse(dictionary["delta"])
+        toolCalls += try CodexStreamToolCall.parse(dictionary["response"])
+
+        if let explicit = parseResponsesToolCalls(type: type, payload: dictionary) {
+            toolCalls += explicit
+        }
+
         return CodexStreamEvent(
             type: type,
             delta: delta,
             toolCalls: toolCalls.isEmpty ? nil : toolCalls,
             response: response
         )
+    }
+
+    private static func parseResponsesToolCalls(type: String, payload: [String: Any]) -> [CodexStreamToolCall]? {
+        switch type {
+        case "response.output_item.added", "response.output_item.done":
+            guard let item = payload["item"] as? [String: Any] else { return nil }
+            guard (item["type"] as? String) == "function_call" else { return nil }
+
+            let outputIndex = payload["output_index"] as? Int ?? item["index"] as? Int
+            return [
+                CodexStreamToolCall(
+                    id: item["id"] as? String,
+                    index: outputIndex,
+                    name: item["name"] as? String,
+                    arguments: item["arguments"] as? String,
+                    argumentsFinal: type == "response.output_item.done"
+                )
+            ]
+
+        case "response.function_call_arguments.delta":
+            return [
+                CodexStreamToolCall(
+                    id: payload["item_id"] as? String,
+                    index: payload["output_index"] as? Int,
+                    arguments: payload["delta"] as? String,
+                    argumentsFinal: false
+                )
+            ]
+
+        case "response.function_call_arguments.done":
+            return [
+                CodexStreamToolCall(
+                    id: payload["item_id"] as? String,
+                    index: payload["output_index"] as? Int,
+                    arguments: payload["arguments"] as? String,
+                    argumentsFinal: true
+                )
+            ]
+
+        default:
+            return nil
+        }
     }
 }
 
@@ -610,26 +671,44 @@ public struct CodexStreamToolCall: Decodable, Equatable {
     public let index: Int?
     public let name: String?
     public let arguments: String?
+    public let argumentsFinal: Bool
 
-    public init(id: String? = nil, index: Int? = nil, name: String? = nil, arguments: String? = nil) {
+    public init(
+        id: String? = nil,
+        index: Int? = nil,
+        name: String? = nil,
+        arguments: String? = nil,
+        argumentsFinal: Bool = false
+    ) {
         self.id = id
         self.index = index
         self.name = name
         self.arguments = arguments
+        self.argumentsFinal = argumentsFinal
     }
 
     fileprivate func merged(with fragment: CodexStreamToolCall) -> CodexStreamToolCall {
-        CodexStreamToolCall(
+        let mergedArguments: String?
+        if argumentsFinal {
+            mergedArguments = arguments
+        } else if fragment.argumentsFinal {
+            mergedArguments = fragment.arguments ?? arguments
+        } else {
+            mergedArguments = (arguments ?? "") + (fragment.arguments ?? "")
+        }
+
+        return CodexStreamToolCall(
             id: fragment.id ?? id,
             index: fragment.index ?? index,
             name: fragment.name ?? name,
-            arguments: (arguments ?? "") + (fragment.arguments ?? "")
+            arguments: mergedArguments,
+            argumentsFinal: argumentsFinal || fragment.argumentsFinal
         )
     }
 
     fileprivate var identityKey: String {
-        if let index { return "index:\(index)" }
         if let id, !id.isEmpty { return id }
+        if let index { return "index:\(index)" }
         if let name { return "name:\(name)" }
         return UUID().uuidString
     }
@@ -658,6 +737,9 @@ public struct CodexStreamToolCall: Decodable, Equatable {
             if let delta = dictionary["delta"] {
                 result.append(contentsOf: try parse(delta))
             }
+            if let item = dictionary["item"] {
+                result.append(contentsOf: try parse(item))
+            }
             return result
         }
         return []
@@ -665,7 +747,7 @@ public struct CodexStreamToolCall: Decodable, Equatable {
 
     private static func parseCall(from dictionary: [String: Any]) -> CodexStreamToolCall? {
         let id = dictionary["id"] as? String
-        let index = dictionary["index"] as? Int
+        let index = dictionary["index"] as? Int ?? dictionary["output_index"] as? Int
         if let function = dictionary["function"] as? [String: Any] {
             let name = function["name"] as? String
             let arguments = function["arguments"] as? String
@@ -831,12 +913,14 @@ private struct CodexIntentAccumulator {
         }
     }
 
-    func finalizedAction() throws -> CodexAction? {
+    func finalizedAction() -> CodexAction? {
         for key in orderedKeys {
             guard let call = toolCalls[key] else { continue }
             guard let name = call.name, !name.isEmpty else { continue }
             guard let arguments = call.arguments, !arguments.isEmpty else { continue }
-            return .callTool(name: name, arguments: try decodeToolArguments(arguments))
+            if let decoded = try? decodeToolArguments(arguments) {
+                return .callTool(name: name, arguments: decoded)
+            }
         }
         return nil
     }
