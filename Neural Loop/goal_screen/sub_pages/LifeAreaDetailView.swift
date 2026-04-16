@@ -239,9 +239,11 @@ struct LifeAreaDetailView: View {
             if enableSaveVisionButton {
                 Button {
                     Task {
-                        await model.updateLifeAreaVision(id: area.id!, vision: visionText)
-                        withAnimation {
-                            enableSaveVisionButton = false
+                        let success = await model.updateLifeAreaVision(id: area.id!, vision: visionText)
+                        if success {
+                            withAnimation {
+                                enableSaveVisionButton = false
+                            }
                         }
                     }
                 } label: {
