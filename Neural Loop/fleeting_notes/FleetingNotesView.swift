@@ -191,7 +191,7 @@ struct FleetingNotesView: View {
                 .offset(x: 120, y: -260)
 
             Circle()
-                .fill(Color.white.opacity(0.24))
+                .fill(Color.adaptive(light: Color.white.opacity(0.24), dark: Color.white.opacity(0.08)))
                 .frame(width: 280, height: 280)
                 .blur(radius: 60)
                 .offset(x: -140, y: -320)

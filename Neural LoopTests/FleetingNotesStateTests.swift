@@ -1,4 +1,5 @@
 import XCTest
+import SwiftUI
 @testable import Neural_Loop
 
 final class FleetingNotesStateTests: XCTestCase {
@@ -97,5 +98,18 @@ final class FleetingNotesStateTests: XCTestCase {
         calendar.timeZone = timeZoneUTC
         calendar.locale = locale
         return calendar
+    }
+}
+
+final class ThemeColorTests: XCTestCase {
+    func testThemeColorsAreAccessible() {
+        XCTAssertNotNil(FleetingNotesTheme.backgroundGradient)
+        XCTAssertNotNil(FleetingNotesTheme.textPrimary)
+        XCTAssertNotNil(FleetingNotesTheme.textSecondary)
+        XCTAssertNotNil(FleetingNotesTheme.glowColor)
+        XCTAssertNotNil(FleetingNotesTheme.accentGradient)
+        
+        let adaptive = Color.adaptive(light: .red, dark: .blue)
+        XCTAssertNotNil(adaptive)
     }
 }
