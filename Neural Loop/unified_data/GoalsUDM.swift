@@ -74,12 +74,20 @@ extension  UnifiedDataModel {
         }
     }
     
-    func updateLifeAreaVision(id: Int64, vision: String) async{
+    func updateLifeAreaVision(id: Int64, vision: String) async -> Bool {
         do {
             try await manager.updateVision(id: id, vision: vision)
+            if let index = lifeAreas.firstIndex(where: { $0.id == id }) {
+                var updatedArea = lifeAreas[index]
+                updatedArea.vision = vision
+                lifeAreas.remove(at: index)
+                lifeAreas.insert(updatedArea, at: index)
+            }
+            return true
         }
         catch {
             print("Error updating life area: \(error)")
+            return false
         }
         
     }
