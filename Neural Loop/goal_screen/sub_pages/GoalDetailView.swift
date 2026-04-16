@@ -60,146 +60,185 @@ struct GoalDetailView: View {
     @EnvironmentObject var model: UnifiedDataModel
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                // Header
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack(alignment: .center, spacing: 16) {
-                        iconTitle(icon: goal.icon, name: goal.title, size: 22, subText: goalDateText)
-                        
-                        Spacer()
+        ZStack {
+            FleetingNotesTheme.backgroundGradient
+                .ignoresSafeArea()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Header
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(alignment: .center, spacing: 16) {
+                            iconTitle(icon: goal.icon, name: goal.title, size: 28, subText: goalDateText)
+                            
+                            Spacer()
+                        }
                     }
-                }
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 24)
-                        .fill(Color(.systemBackground))
-                        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
-                )
-                .padding(.horizontal)
-                
-                // Sub Goals Section
-                VStack(alignment: .leading, spacing: 16) {
+                    .padding(24)
+                    .background(
+                        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.heroCornerRadius, style: .continuous)
+                            .fill(FleetingNotesTheme.heroGradient)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.heroCornerRadius, style: .continuous)
+                            .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                    )
+                    .padding(.horizontal)
                     
+                    // Progress Section
                     ProgressCard()
-                    
-                    HStack{
-                        NavigationLink{
-                            roadmapView()
-                            
-                        } label: {
-                            HStack{
-                                Text("Roadmap")
-                                    .font(.headline)
-                                    .padding(.horizontal)
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .heavy))
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        Spacer()
+
+                    // Sub Goals Section
+                    VStack(alignment: .leading, spacing: 16) {
                         
-                        NavigationLink {
-                            AddEditGoal(lifeAreas: [], goal: nil, deadline: nil, parent_goal_id: goal.id!, fixed_lifearea: goal.lifearea_id, fixed_lifearea_name: lifeAreaName) {}
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.system(size: 18, weight: .bold))
-                                .padding(8)
-                        }
-                    }
-                    
-                    
-                    VStack(spacing: 12) {
-                        if subGoals.count == 0 {
-                            Text("All subgoals are completed.").frame(maxWidth: .infinity, alignment: .center)
-                        }
-                        else{
-                            ForEach(subGoals, id: \.id) { goal in
-                                goalRow(goal)
-                            }
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-                
-                // Todo Section
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack {
-                        NavigationLink{
-                            upcomingTasks()
-                            
-                        } label: {
-                            HStack{
-                                Text("Todo")
-                                    .font(.headline)
-                                    .padding(.horizontal)
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .heavy))
-                                    .foregroundColor(.secondary)
+                        HStack{
+                            NavigationLink{
+                                roadmapView()
                                 
-                            }
-                        }
-                        Spacer()
-                        
-                        NavigationLink {
-                            AddEditTodoView(task: nil, goalId: goal.id!) { updatedTask in
-                                Task {
-                                    await model.saveTask(updatedTask)
+                            } label: {
+                                HStack{
+                                    Text("Roadmap")
+                                        .font(.system(.headline, design: .rounded, weight: .bold))
+                                        .foregroundStyle(FleetingNotesTheme.textPrimary)
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12, weight: .heavy))
+                                        .foregroundColor(FleetingNotesTheme.textSecondary)
                                 }
                             }
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.system(size: 18, weight: .bold))
-                                .padding(8)
+                            Spacer()
+                            
+                            NavigationLink {
+                                AddEditGoal(lifeAreas: [], goal: nil, deadline: nil, parent_goal_id: goal.id!, fixed_lifearea: goal.lifearea_id, fixed_lifearea_name: lifeAreaName) {}
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                                    .padding(8)
+                            }
                         }
-                    }
-                    
-                    VStack(spacing: 12) {
-                        if tasks.isEmpty {
-                            // Empty State Card
-                            VStack(spacing: 16) {
-                                
-                                Image(systemName: "list.bullet")
-                                    .font(.system(size: 32))
-                                    .foregroundColor(.secondary)
-                                
-                                Text("Create tasks and habits")
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
-                                
-                                Text("Break your goal down into tasks and habits.")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                                
-                                NavigationLink {
-                                    AddEditTodoView(task: nil) { updatedTask in
-                                        // handle saved task
+                        .padding(.horizontal)
+                        
+                        
+                        VStack(spacing: 0) {
+                            if subGoals.count == 0 {
+                                Text("All subgoals are completed.")
+                                    .font(.system(.subheadline, design: .rounded))
+                                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .padding()
+                            }
+                            else{
+                                ForEach(subGoals) { subGoal in
+                                    NavigationLink {
+                                        GoalDetailView(
+                                            lifeAreaName: lifeAreaName,
+                                            goal: subGoal,
+                                            tasks: model.getTasks(goalId: subGoal.id!),
+                                            habits: model.getHabits(goalId: subGoal.id!)
+                                        )
+                                    } label: {
+                                        goalRow(subGoal)
                                     }
-                                } label: {
-                                    Text("Create task")
-                                        .font(.headline)
-                                        .padding(.horizontal, 24)
-                                        .padding(.vertical, 10)
-                                        .background(Color.secondary.opacity(0.15))
-                                        .foregroundColor(.primary)
-                                        .clipShape(Capsule())
+                                    
+                                    if subGoal.id != subGoals.last?.id {
+                                        Divider()
+                                            .padding(.leading, 70)
+                                    }
                                 }
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color(.secondarySystemBackground))
-                            .clipShape(RoundedRectangle(cornerRadius: 20))
-                            .padding(.horizontal)
                         }
-                        else{
-                            ForEach(tasks) { task in
-                                taskView(task: task)
+                        .background(FleetingNotesTheme.cardGradient)
+                        .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
+                                .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                        )
+                        .padding(.horizontal)
+                    }
+                    
+                    // Todo Section
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            NavigationLink{
+                                upcomingTasks()
+                                
+                            } label: {
+                                HStack{
+                                    Text("Todo")
+                                        .font(.system(.headline, design: .rounded, weight: .bold))
+                                        .foregroundStyle(FleetingNotesTheme.textPrimary)
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12, weight: .heavy))
+                                        .foregroundColor(FleetingNotesTheme.textSecondary)
+                                    
+                                }
+                            }
+                            Spacer()
+                            
+                            NavigationLink {
+                                AddEditTodoView(task: nil, goalId: goal.id!) { updatedTask in
+                                    Task {
+                                        await model.saveTask(updatedTask)
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                                    .padding(8)
                             }
                         }
+                        .padding(.horizontal)
+                        
+                        VStack(spacing: 12) {
+                            if tasks.isEmpty {
+                                // Empty State Card
+                                VStack(spacing: 16) {
+                                    
+                                    Image(systemName: "list.bullet")
+                                        .font(.system(size: 32))
+                                        .foregroundStyle(FleetingNotesTheme.accentGradient)
+                                    
+                                    Text("Create tasks")
+                                        .font(.system(.headline, design: .rounded, weight: .bold))
+                                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                                    
+                                    Text("Break your goal down into tasks.")
+                                        .font(.system(.subheadline, design: .rounded))
+                                        .foregroundColor(FleetingNotesTheme.textSecondary)
+                                        .multilineTextAlignment(.center)
+                                    
+                                    NavigationLink {
+                                        AddEditTodoView(task: nil) { updatedTask in
+                                            // handle saved task
+                                        }
+                                    } label: {
+                                        Text("Create task")
+                                            .font(.system(.subheadline, design: .rounded, weight: .bold))
+                                            .padding(.horizontal, 24)
+                                            .padding(.vertical, 10)
+                                            .background(FleetingNotesTheme.accentGradient)
+                                            .foregroundColor(.white)
+                                            .clipShape(Capsule())
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(24)
+                                .background(FleetingNotesTheme.cardGradient)
+                                .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
+                                        .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                                )
+                            }
+                            else{
+                                ForEach(tasks) { task in
+                                    taskView(task: task)
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
-                    
                     
                     // Habits Section
                     VStack(alignment: .leading, spacing: 16) {
@@ -209,11 +248,11 @@ struct GoalDetailView: View {
                             } label: {
                                 HStack {
                                     Text("Habits")
-                                        .font(.headline)
-                                        .padding(.horizontal)
+                                        .font(.system(.headline, design: .rounded, weight: .bold))
+                                        .foregroundStyle(FleetingNotesTheme.textPrimary)
                                     Image(systemName: "chevron.right")
                                         .font(.system(size: 12, weight: .heavy))
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(FleetingNotesTheme.textSecondary)
                                 }
                             }
                             
@@ -225,9 +264,11 @@ struct GoalDetailView: View {
                             } label: {
                                 Image(systemName: "plus")
                                     .font(.system(size: 18, weight: .bold))
+                                    .foregroundStyle(FleetingNotesTheme.textSecondary)
                                     .padding(8)
                             }
                         }
+                        .padding(.horizontal)
                         
                         VStack(spacing: 12) {
                             if habits.isEmpty {
@@ -235,39 +276,40 @@ struct GoalDetailView: View {
                                 VStack(spacing: 16) {
                                     Image(systemName: "repeat")
                                         .font(.system(size: 32))
-                                        .foregroundColor(.secondary)
+                                        .foregroundStyle(FleetingNotesTheme.accentGradient)
                                     
                                     Text("Create habits")
-                                        .font(.headline)
-                                        .foregroundColor(.primary)
+                                        .font(.system(.headline, design: .rounded, weight: .bold))
+                                        .foregroundColor(FleetingNotesTheme.textPrimary)
                                     
-                                    Text("Build habits to make progress on this goal consistently.")
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
+                                    Text("Build habits to make progress consistently.")
+                                        .font(.system(.subheadline, design: .rounded))
+                                        .foregroundColor(FleetingNotesTheme.textSecondary)
                                         .multilineTextAlignment(.center)
                                     
                                     NavigationLink {
                                         Text("Add Habit")
                                     } label: {
                                         Text("Create habit")
-                                            .font(.headline)
+                                            .font(.system(.subheadline, design: .rounded, weight: .bold))
                                             .padding(.horizontal, 24)
                                             .padding(.vertical, 10)
-                                            .background(Color.secondary.opacity(0.15))
-                                            .foregroundColor(.primary)
+                                            .background(FleetingNotesTheme.accentGradient)
+                                            .foregroundColor(.white)
                                             .clipShape(Capsule())
                                     }
                                 }
                                 .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color(.secondarySystemBackground))
-                                .clipShape(RoundedRectangle(cornerRadius: 20))
-                                .padding(.horizontal)
+                                .padding(24)
+                                .background(FleetingNotesTheme.cardGradient)
+                                .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
+                                        .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                                )
                             }
                             else{
-                                
                                 ForEach(habits) { habit in
-                                    //                                    EmptyView()
                                     if let progress = model.currentHabitProgressMap[habit.id!]{
                                         HabitCardView(
                                             habit: habit,
@@ -279,35 +321,31 @@ struct GoalDetailView: View {
                                             }
                                         )
                                     }
-                                    
                                 }
                             }
                         }
-                        
+                        .padding(.horizontal)
                     }
                 }
-                .padding(.top)
-            }.onAppear()
-            {
-                Task{
-                    await fetchSubGoals()
-                    setTasksDateBuckets()
-                    setGoalsDateBuclets()
-                    await setGoalTrackingRecords()
-                }
-                for task in tasks {
-                    tasksMapping[task.id!] = task
-                }
-                Task {
-                    print("Fetching goal tracking")
-                    
-                }
-                
+                .padding(.top, 16)
+                .padding(.bottom, 100)
+            }
+        }
+        .onAppear()
+        {
+            Task{
+                await fetchSubGoals()
+                setTasksDateBuckets()
+                setGoalsDateBuclets()
+                await setGoalTrackingRecords()
+            }
+            for task in tasks {
+                tasksMapping[task.id!] = task
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-                    Color.clear.frame(height: SAFE_AREA_INSET)
-                }
+            Color.clear.frame(height: SAFE_AREA_INSET)
+        }
     }
     private func setCustomGoalTrackingRecords(goalTracking: GoalsTracking) async {
         
@@ -438,32 +476,26 @@ struct GoalDetailView: View {
 //            // Strong outer glow
             ChartShape()
                 .stroke(
-                    Color.blue.opacity(0.9),
+                    FleetingNotesTheme.accentGradient,
                     style: StrokeStyle(lineWidth: 10, lineCap: .round)
                 )
+                .opacity(0.9)
                 .blur(radius: 10)
                 .offset(y: 6)
 
 
             // Gradient fill under the line
-            LinearGradient(
-                colors: [
-                    Color.blue.opacity(0.6),
-                    Color.blue.opacity(0.15),
-                    .clear
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .mask(
-                ChartShape()
-                    .stroke(style: StrokeStyle(lineWidth: 6, lineCap: .round))
-            )
+            FleetingNotesTheme.accentGradient
+                .opacity(0.3)
+                .mask(
+                    ChartShape()
+                        .stroke(style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                )
 
             // Main line
             ChartShape()
                 .stroke(
-                    Color.blue,
+                    FleetingNotesTheme.accentGradient,
                     style: StrokeStyle(lineWidth: 5, lineCap: .round)
                 )
         }
@@ -522,7 +554,8 @@ struct GoalDetailView: View {
             HStack {
                 
                     Text("Target")
-                        .font(.headline)
+                        .font(.system(.headline, design: .rounded, weight: .bold))
+                        .foregroundStyle(FleetingNotesTheme.textPrimary)
                     
                     
                     Spacer()
@@ -556,7 +589,7 @@ struct GoalDetailView: View {
                     } label: {
                         Image(systemName: "ellipsis")
                             .font(.title3)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(FleetingNotesTheme.textSecondary)
                             .padding(8)
                     }
                 
@@ -565,14 +598,15 @@ struct GoalDetailView: View {
                     
                     
                     Text("\(totalProgress) \(label)")
-                        .font(.subheadline)
+                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .foregroundStyle(FleetingNotesTheme.textSecondary)
                     
                     
                     Spacer()
                     
                     Text("\(Int(progressPercent * 100))%")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .foregroundStyle(FleetingNotesTheme.accentGradient)
                 
             }
             
@@ -585,13 +619,14 @@ struct GoalDetailView: View {
                         x: .value("Date", $0.date),
                         y: .value("Progress", $0.value)
                     )
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(FleetingNotesTheme.accentGradient)
                     .lineStyle(.init(lineWidth: 3))
 
                     PointMark(
                         x: .value("Date", $0.date),
                         y: .value("Progress", $0.value)
                     )
+                    .foregroundStyle(FleetingNotesTheme.accentGradient)
                     .symbolSize(80)
                 }
                 .chartYScale(domain: 0...targetValue)
@@ -610,21 +645,25 @@ struct GoalDetailView: View {
                     }
                 }  label: {
                     Text("Update progress")
-                        .font(.headline)
-                        .foregroundColor(.accentColor)
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .foregroundColor(.white)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
                         .background(
-                            Capsule().fill(Color.accentColor.opacity(0.12))
+                            Capsule().fill(FleetingNotesTheme.accentGradient)
                         )
                 }
                 .frame(maxWidth: .infinity)
             }
         }
-        .padding()
+        .padding(24)
         .background(
-            RoundedRectangle(cornerRadius: 28)
-                .fill(Color(.systemBackground))
+            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
+                .fill(FleetingNotesTheme.cardGradient)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
+                .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
         )
         .padding(.horizontal)
     }
@@ -640,12 +679,12 @@ struct GoalDetailView: View {
                 
                 VStack(spacing: 8) {
                     Text("Measure your progress")
-                        .font(.title2)
-                        .fontWeight(.bold)
+                        .font(.system(.title3, design: .rounded, weight: .bold))
+                        .foregroundStyle(FleetingNotesTheme.textPrimary)
                     
                     Text("Select the most accurate way to track your progress for this goal.")
-                        .font(.body)
-                        .foregroundColor(.secondary)
+                        .font(.system(.body, design: .rounded))
+                        .foregroundColor(FleetingNotesTheme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
                 }
@@ -659,13 +698,13 @@ struct GoalDetailView: View {
                     
                 } label: {
                     Text("Select metric")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
                         .background(
                             Capsule()
-                                .fill(Color.accentColor)
+                                .fill(FleetingNotesTheme.accentGradient)
                         )
                 }
                 .padding(.top, 8)
@@ -673,11 +712,14 @@ struct GoalDetailView: View {
             .padding(.vertical, 32)
             .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: 28)
-                    .fill(Color(.systemBackground))
-                    .shadow(color: .black.opacity(0.05), radius: 10, y: 4)
+                RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
+                    .fill(FleetingNotesTheme.cardGradient)
             )
-            .padding()
+            .overlay(
+                RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
+                    .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+            )
+            .padding(.horizontal)
     }
     
     @ViewBuilder
@@ -814,51 +856,12 @@ struct GoalDetailView: View {
     
     func goalRow(_ goal: Goals) -> some View {
         HStack(spacing: 16) {
-
             // Icon container
-            ZStack {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.systemGray5))
-                    .frame(width: 56, height: 56)
-
-                Image(systemName: goal.icon)
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(.gray)
-            }
-
-            // Text content
-            VStack(alignment: .leading, spacing: 6) {
-                Text(goal.title)
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                HStack{
-                    Text(
-                        ((goal.start_date != nil)
-                        ? goal.start_date!.formatted() : "") + " -"
-                    )
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    Text(
-                        (goal.deadline != nil)
-                        ? goal.deadline!.formatted() : "No deadline"
-                    )
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                }
-
-            }
+            iconTitle(icon: goal.icon, name: goal.title, size: 28)
             Spacer()
-
         }
         .padding(.horizontal)
-        .padding(.vertical, 12)
-    //        .onTapGesture {
-    //            hydrateGoalDeadline = nil
-    //            hydrateGoal = goal
-    //            addGoalSheetID = UUID()
-    //            showAddGoal = true
-    //        }
-
+        .padding(.vertical, 16)
     }
     
     private func buildProgressPoints(
