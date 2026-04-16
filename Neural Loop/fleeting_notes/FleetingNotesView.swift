@@ -11,7 +11,13 @@ struct FleetingNotesView: View {
     private let manager: DBManager
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @State private var notes: [FleetingNote] = []
     @State private var screenState: FleetingNotesScreenState = .loading
+    @State private var selectedNoteForEdit: FleetingNoteCardState?
+    @State private var selectedNoteForDelete: FleetingNoteCardState?
+    @State private var showDeleteConfirmation = false
+    @State private var mutationErrorMessage: String?
+    @State private var isMutatingNote = false
 
     init(manager: DBManager = .newInstance()) {
         self.manager = manager
@@ -38,6 +44,46 @@ struct FleetingNotesView: View {
         .task {
             await loadNotes()
         }
+        .confirmationDialog(
+            "Delete this note?",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete Note", role: .destructive) {
+                Task {
+                    await deleteSelectedNote()
+                }
+            }
+            .disabled(isMutatingNote)
+
+            Button("Cancel", role: .cancel) {
+                selectedNoteForDelete = nil
+            }
+        } message: {
+            Text("This action cannot be undone.")
+        }
+        .sheet(item: $selectedNoteForEdit) { card in
+            EditFleetingNoteView(note: card) { text in
+                try await updateNote(id: card.id, text: text)
+            }
+        }
+        .alert(
+            "Note action failed",
+            isPresented: Binding(
+                get: { mutationErrorMessage != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        mutationErrorMessage = nil
+                    }
+                }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                mutationErrorMessage = nil
+            }
+        } message: {
+            Text(mutationErrorMessage ?? "Please try again.")
+        }
     }
 
     @ViewBuilder
@@ -51,6 +97,21 @@ struct FleetingNotesView: View {
             VStack(alignment: .leading, spacing: AppTheme.Metrics.cardSpacing) {
                 ForEach(content.cards) { card in
                     FleetingNotesRow(card: card)
+                        .contentShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous))
+                        .contextMenu {
+                            Button {
+                                selectedNoteForEdit = card
+                            } label: {
+                                Label("Edit Note", systemImage: "pencil")
+                            }
+
+                            Button(role: .destructive) {
+                                selectedNoteForDelete = card
+                                showDeleteConfirmation = true
+                            } label: {
+                                Label("Delete Note", systemImage: "trash")
+                            }
+                        }
                 }
             }
         case .error(let errorState):
@@ -221,10 +282,68 @@ struct FleetingNotesView: View {
         screenState = .loading
 
         do {
-            let notes = try await manager.fetchFleetingNotes()
-            screenState = FleetingNotesStateMapper.makeLoadedState(notes: notes)
+            let fetchedNotes = try await manager.fetchFleetingNotes()
+            notes = fetchedNotes
+            screenState = FleetingNotesStateMapper.makeLoadedState(notes: fetchedNotes)
+            selectedNoteForEdit = nil
+            selectedNoteForDelete = nil
         } catch {
             screenState = FleetingNotesStateMapper.makeErrorState(error)
+        }
+    }
+
+    @MainActor
+    private func deleteSelectedNote() async {
+        guard let selectedNoteForDelete, !isMutatingNote else { return }
+
+        isMutatingNote = true
+        defer { isMutatingNote = false }
+
+        do {
+            try await manager.deleteFleetingNote(id: selectedNoteForDelete.id)
+            notes.removeAll { $0.id == selectedNoteForDelete.id }
+            rebuildScreenState()
+            self.selectedNoteForDelete = nil
+        } catch {
+            mutationErrorMessage = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func updateNote(id: Int64, text: String) async throws {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedText.isEmpty else {
+            throw FleetingNoteMutationError.emptyNote
+        }
+
+        let updatedNote = try await manager.updateFleetingNote(
+            id: id,
+            request: UpdateFleetingNoteRequest(note: trimmedText)
+        )
+
+        if let index = notes.firstIndex(where: { $0.id == id }) {
+            notes[index] = updatedNote
+        } else {
+            notes.append(updatedNote)
+        }
+
+        rebuildScreenState()
+    }
+
+    @MainActor
+    private func rebuildScreenState() {
+        screenState = FleetingNotesStateMapper.makeLoadedState(notes: notes)
+    }
+}
+
+private enum FleetingNoteMutationError: LocalizedError {
+    case emptyNote
+
+    var errorDescription: String? {
+        switch self {
+        case .emptyNote:
+            return "Note content cannot be empty."
         }
     }
 }
