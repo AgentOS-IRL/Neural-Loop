@@ -17,4 +17,7 @@ DerivedData/
 .swiftpm/xcode/package.pull-requests
 .swiftpm/xcode/xcuserdata/
 Packages/CodexCore/.build/**
+Packages/CodexCore/.env
+Packages/CodexCore/.env.*
+!Packages/CodexCore/.env.example
 Neural Loop/.DS_Store
