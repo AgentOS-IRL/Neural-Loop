@@ -45,4 +45,10 @@ extension Color {
         )
     }
 
+    static func adaptive(light: Color, dark: Color) -> Color {
+        Color(uiColor: UIColor { traitCollection in
+            traitCollection.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light)
+        })
+    }
+
 }
