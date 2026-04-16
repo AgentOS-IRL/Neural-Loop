@@ -73,6 +73,8 @@ enum FleetingNotesTheme {
         endPoint: .bottomTrailing
     )
 
+    static let accentColor = Color(red: 0.14, green: 0.49, blue: 0.53)
+
     static let glowColor = Color.adaptive(light: Color(red: 0.97, green: 0.77, blue: 0.42), dark: Color(red: 0.99, green: 0.80, blue: 0.45))
     static let textPrimary = Color.adaptive(light: Color(red: 0.12, green: 0.16, blue: 0.18), dark: Color(red: 0.94, green: 0.96, blue: 0.99))
     static let textSecondary = Color.adaptive(light: Color(red: 0.27, green: 0.34, blue: 0.35), dark: Color(red: 0.55, green: 0.58, blue: 0.62))

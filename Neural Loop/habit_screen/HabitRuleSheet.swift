@@ -34,36 +34,61 @@ struct HabitRuleSheet: View {
     @State private var interval: Int = 1
 
     var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Repeat")) {
-                    Picker("Frequency", selection: $frequency) {
-                        ForEach(FrequencyUI.allCases) { freq in
-                            Text(freq.label).tag(freq)
+        NavigationStack {
+            ZStack {
+                FleetingNotesTheme.backgroundGradient
+                    .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: FleetingNotesTheme.Metrics.sectionSpacing) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            themedSectionHeader("Frequency")
+                            ThemedCard {
+                                Picker("Frequency", selection: $frequency) {
+                                    ForEach(FrequencyUI.allCases) { freq in
+                                        Text(freq.label).tag(freq)
+                                    }
+                                }
+                                .pickerStyle(.segmented)
+                                
+                                Divider()
+                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+
+                                Stepper(
+                                    value: $interval,
+                                    in: 1...30
+                                ) {
+                                    HStack {
+                                        Text("Interval")
+                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        Spacer()
+                                        Text("Every \(interval) \(frequency.label.lowercased())\(interval > 1 ? "s" : "")")
+                                            .font(.body.bold())
+                                            .foregroundColor(FleetingNotesTheme.accentColor)
+                                    }
+                                }
+                            }
                         }
                     }
-                    .pickerStyle(.segmented)
-
-                    Stepper(
-                        value: $interval,
-                        in: 1...30
-                    ) {
-                        Text("Every \(interval) \(frequency.label.lowercased())\(interval > 1 ? "s" : "")")
-                    }
+                    .padding(FleetingNotesTheme.Metrics.screenPadding)
                 }
             }
             .navigationTitle("Repeat")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         onSave(nil)
                     }
+                    .foregroundColor(FleetingNotesTheme.textPrimary)
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         onSave(buildRule())
                     }
+                    .font(.body.weight(.bold))
+                    .foregroundColor(FleetingNotesTheme.accentColor)
                 }
             }
         }
