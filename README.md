@@ -15,7 +15,6 @@ The repository also includes the supporting systems around that app: Supabase-ba
 | `Packages/CodexCore/` | Local Swift package with independent source and test targets for Codex structured-tool support. |
 | `tests/` | Shell-level regression tests, including deployment-script coverage. |
 | `package_deploy.sh` | Archive, install, and launch helper for a configured physical iOS device. |
-| `plan/` | Planning documents generated for implementation tasks. |
 
 ## Project Components
 
