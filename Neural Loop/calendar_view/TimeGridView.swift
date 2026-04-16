@@ -6,12 +6,12 @@ struct TimeGridView: View {
             ForEach(0..<hoursInDay, id: \.self) { hour in
                 HStack(alignment: .top) {
                     Text(timeLabel(for: hour))
-                        .font(.caption)
-                        .foregroundColor(.gray)
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundColor(FleetingNotesTheme.textSecondary)
                         .frame(width: 50, alignment: .trailing)
 
                     Rectangle()
-                        .fill(Color.gray.opacity(0.3))
+                        .fill(FleetingNotesTheme.textSecondary.opacity(0.15))
                         .frame(height: 0.5)
                 }
                 .frame(height: hourHeight)

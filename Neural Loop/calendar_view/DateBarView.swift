@@ -51,7 +51,8 @@ struct DateBarView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Text(selectedDate.formatted(.dateTime.month(.wide)))
-                    .font(.title3.weight(.semibold))
+                    .font(.system(.title3, design: .rounded).weight(.semibold))
+                    .foregroundStyle(FleetingNotesTheme.textPrimary)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
                     .layoutPriority(1)
@@ -66,7 +67,7 @@ struct DateBarView: View {
                 } label: {
                     Image(systemName: "\(Calendar.current.component(.day, from: today)).calendar")
                         .font(.system(size: 21, weight: .ultraLight))
-                        .foregroundStyle(.secondary.opacity(0.8))
+                        .foregroundStyle(FleetingNotesTheme.textSecondary)
                 }
             }
 
@@ -80,7 +81,7 @@ struct DateBarView: View {
                     }
                 } label: {
                     Image(systemName: "plus")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FleetingNotesTheme.textSecondary)
                 }
             }
         }
@@ -92,16 +93,15 @@ struct DateBarView: View {
 
         return ZStack {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(FleetingNotesTheme.sectionGradient)
                 .overlay(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                        .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
                 )
-                .shadow(color: .black.opacity(0.3), radius: 10, y: 4)
 
             Image(systemName: "\(day).calendar")
                 .font(.system(size: 26, weight: .light))
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(FleetingNotesTheme.textPrimary.opacity(0.5))
         }
         .frame(width: 50, height: 50)
         .onTapGesture {
@@ -116,24 +116,24 @@ struct DateBarView: View {
 
         return VStack(spacing: 4) {
             Text(date.formatted(.dateTime.weekday(.short)))
-                .font(.caption)
-                .foregroundColor(.gray)
+                .font(.system(.caption, design: .rounded))
+                .foregroundColor(isSelected ? .white : FleetingNotesTheme.textSecondary)
 
             Text(date.formatted(.dateTime.day()))
-                .font(.headline)
+                .font(.system(.headline, design: .rounded))
         }
         .frame(width: 44, height: 60)
         .background(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: 12)
                 .fill(
                     isSelected
-                    ? Color.blue
+                    ? AnyShapeStyle(FleetingNotesTheme.accentGradient)
                     : isToday
-                    ? Color.blue.opacity(0.3)
-                    : Color.clear
+                    ? AnyShapeStyle(FleetingNotesTheme.sectionGradient)
+                    : AnyShapeStyle(Color.clear)
                 )
         )
-        .foregroundColor(isSelected ? .white : .primary)
+        .foregroundColor(isSelected ? .white : FleetingNotesTheme.textPrimary)
         .onTapGesture {
             selectedDate = date
             onSelect(date)

@@ -10,12 +10,12 @@ struct WorkEventBlockView: View {
             HStack(alignment: .top, spacing: 6) {
                 if let icon = statusIcon {
                     Image(systemName: icon)
-                        .font(.caption2)
+                        .font(.system(.caption2, design: .rounded))
                         .opacity(0.9)
                 }
 
                 Text(event.title)
-                    .font(.caption)
+                    .font(.system(.caption, design: .rounded))
                     .fontWeight(.semibold)
                     .lineLimit(2)
                     .strikethrough(isDeclined)
@@ -23,7 +23,7 @@ struct WorkEventBlockView: View {
 
             if let statusLabel {
                 Text(statusLabel)
-                    .font(.caption2)
+                    .font(.system(.caption2, design: .rounded))
                     .opacity(0.75)
             }
         }
@@ -32,22 +32,27 @@ struct WorkEventBlockView: View {
         .background(background)
         .overlay(border)
         .foregroundStyle(.white)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: - Visuals
 
     private var background: some View {
-        LinearGradient(
-            colors: backgroundColors,
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        ZStack {
+            FleetingNotesTheme.cardGradient
+            
+            LinearGradient(
+                colors: backgroundColors,
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .opacity(0.7)
+        }
     }
 
     private var border: some View {
-        RoundedRectangle(cornerRadius: 10)
-            .strokeBorder(borderColor, style: StrokeStyle(
+        RoundedRectangle(cornerRadius: 12)
+            .strokeBorder(FleetingNotesTheme.borderGradient, style: StrokeStyle(
                 lineWidth: 1,
                 dash: isTentative ? [5] : []
             ))
@@ -86,20 +91,16 @@ struct WorkEventBlockView: View {
     private var backgroundColors: [Color] {
         switch event.acceptanceStatus {
         case .accepted:
-            return [.purple, .purple.opacity(0.8)]
+            return [Color(red: 0.14, green: 0.49, blue: 0.53), Color(red: 0.22, green: 0.67, blue: 0.60)]
         case .tentative:
-            return [.purple.opacity(0.7), .purple.opacity(0.5)]
+            return [Color(red: 0.14, green: 0.49, blue: 0.53).opacity(0.6), Color(red: 0.22, green: 0.67, blue: 0.60).opacity(0.4)]
         case .declined:
-            return [.gray.opacity(0.6), .gray.opacity(0.4)]
+            return [FleetingNotesTheme.errorTint.opacity(0.8), FleetingNotesTheme.errorTint.opacity(0.6)]
         case .pending:
-            return [.purple.opacity(0.4), .purple.opacity(0.3)]
+            return [FleetingNotesTheme.textSecondary.opacity(0.5), FleetingNotesTheme.textSecondary.opacity(0.3)]
         default:
-            return [event.event_type.color.opacity(0.5), event.event_type.color.opacity(0.35)]
+            return [event.event_type.color.opacity(0.7), event.event_type.color.opacity(0.5)]
         }
-    }
-
-    private var borderColor: Color {
-        isDeclined ? .gray.opacity(0.6) : .white.opacity(0.25)
     }
 
     // MARK: - Layout
