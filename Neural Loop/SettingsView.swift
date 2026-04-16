@@ -18,6 +18,7 @@ struct SettingsView: View {
     @State private var pendingRequests: [UNNotificationRequest] = []
     @AppStorage("isAudioMode") private var isAudioMode = false
     @AppStorage(llmEnabledOverrideStorageKey) private var llmEnabledOverride = false
+    @AppStorage(settingsDebugEnabledStorageKey) private var isDebugEnabled = false
     @State private var isRefreshingSecrets = false
 
     // Mirror the custom tab bar height (78) with extra cushion so list content stays above the overlay.
@@ -72,8 +73,10 @@ struct SettingsView: View {
                         llmSection
                         appModeSection
                         systemSection
-                        loadedSecretsSection
-                        scheduledNotificationsSection
+                        if shouldShowSettingsDebugSections(isDebugEnabled: isDebugEnabled) {
+                            loadedSecretsSection
+                            scheduledNotificationsSection
+                        }
                         
                         VStack {
                             Text(ConnectivityManager.shared.receivedMessage)
@@ -120,6 +123,10 @@ struct SettingsView: View {
                 if model.secretsLoaded, !model.canUseAudioMode {
                     isAudioMode = false
                 }
+            }
+            .onChange(of: isDebugEnabled) { _, newValue in
+                guard newValue else { return }
+                Task { await loadPendingNotifications() }
             }
         }
     }
@@ -282,8 +289,27 @@ struct SettingsView: View {
                 Text("Use “Send Test Notification” to verify notifications are working on your device.")
                     .font(.system(.caption, design: .rounded, weight: .medium))
                     .foregroundStyle(AppTheme.textSecondary)
+
+                Divider()
+                    .background(AppTheme.borderGradient)
+
+                debugToggleRow
             }
         }
+    }
+
+    private var debugToggleRow: some View {
+        Toggle(isOn: $isDebugEnabled) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Debug")
+                    .font(.system(.headline, design: .rounded, weight: .bold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                Text("Show loaded secrets and scheduled notifications.")
+                    .font(.system(.subheadline, design: .rounded, weight: .medium))
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+        }
+        .tint(Color(red: 0.14, green: 0.49, blue: 0.53))
     }
 
     private var loadedSecretsSection: some View {
@@ -438,6 +464,12 @@ func shouldEnableAudioModeToggle(
     canUseAudioMode: Bool
 ) -> Bool {
     secretsLoaded && canUseAudioMode
+}
+
+let settingsDebugEnabledStorageKey = "settingsDebugEnabled"
+
+func shouldShowSettingsDebugSections(isDebugEnabled: Bool) -> Bool {
+    isDebugEnabled
 }
 
 
