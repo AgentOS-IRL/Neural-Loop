@@ -30,49 +30,54 @@ struct HabitView: View {
 
     @ViewBuilder
     private var habitRootContent: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                if embeddedInTaskHub {
-                    habitEmbeddedHeader
-                }
+        ZStack {
+            FleetingNotesTheme.backgroundGradient
+                .ignoresSafeArea()
 
-                ForEach(model.habits, id: \.id) { habit in
-                    if let id = habit.id,
-                       let progress = model.currentHabitProgressMap[id] {
-                        HabitCardView(
-                            habit: habit,
-                            progress: progress,
-                            onIncrement: {
-                                Task {
-                                    await model.incrementHabit(habit, value: 1)
-                                }
-                            }
-                        )
-                        .onTapGesture {
-                            addProgressToHabit = habit
-                        }
-                        .contextMenu {
-                            Button {
-                                selectedHabit = habit
-                            } label: {
-                                Label("Edit Habit", systemImage: "pencil")
-                            }
+            ScrollView {
+                VStack(spacing: 20) {
+                    if embeddedInTaskHub {
+                        habitEmbeddedHeader
+                    }
 
-                            Button(role: .destructive) {
-                                Task {
-                                    await model.deleteHabit(habit)
+                    ForEach(model.habits, id: \.id) { habit in
+                        if let id = habit.id,
+                           let progress = model.currentHabitProgressMap[id] {
+                            HabitCardView(
+                                habit: habit,
+                                progress: progress,
+                                onIncrement: {
+                                    Task {
+                                        await model.incrementHabit(habit, value: 1)
+                                    }
                                 }
-                            } label: {
-                                Label("Delete Habit", systemImage: "trash")
+                            )
+                            .onTapGesture {
+                                addProgressToHabit = habit
+                            }
+                            .contextMenu {
+                                Button {
+                                    selectedHabit = habit
+                                } label: {
+                                    Label("Edit Habit", systemImage: "pencil")
+                                }
+
+                                Button(role: .destructive) {
+                                    Task {
+                                        await model.deleteHabit(habit)
+                                    }
+                                } label: {
+                                    Label("Delete Habit", systemImage: "trash")
+                                }
                             }
                         }
                     }
                 }
+                .padding()
             }
-            .padding()
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            Color.clear.frame(height: bottomInsetHeight)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear.frame(height: bottomInsetHeight)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -81,10 +86,11 @@ struct HabitView: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Habits")
-                    .font(.title3.weight(.semibold))
+                    .font(.system(.title3, design: .rounded, weight: .bold))
+                    .foregroundStyle(FleetingNotesTheme.textPrimary)
                 Text("Track recurring actions and streaks.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(.system(.subheadline, design: .rounded, weight: .medium))
+                    .foregroundStyle(FleetingNotesTheme.textSecondary)
             }
 
             Spacer()
@@ -93,11 +99,12 @@ struct HabitView: View {
                 showAddHabit = true
             } label: {
                 Image(systemName: "plus")
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(FleetingNotesTheme.textSecondary)
                     .frame(width: 32, height: 32)
                     .background(
                         Circle()
-                            .fill(Color(.secondarySystemBackground))
+                            .fill(FleetingNotesTheme.sectionGradient)
                     )
             }
             .buttonStyle(.plain)
@@ -112,18 +119,23 @@ struct HabitView: View {
                 }
             } label: {
                 Image(systemName: "arrow.clockwise")
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(FleetingNotesTheme.textSecondary)
                     .frame(width: 32, height: 32)
                     .background(
                         Circle()
-                            .fill(Color(.secondarySystemBackground))
+                            .fill(FleetingNotesTheme.sectionGradient)
                     )
             }
             .buttonStyle(.plain)
         }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(16)
+        .padding(20)
+        .background(FleetingNotesTheme.heroGradient)
+        .overlay {
+            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
+                .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+        }
+        .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
     }
 
     var body: some View {
@@ -136,7 +148,8 @@ struct HabitView: View {
                         .toolbar {
                             ToolbarItem(placement: .topBarLeading) {
                                 Text("Habits")
-                                    .font(.title3.weight(.semibold))
+                                    .font(.system(.title3, design: .rounded, weight: .bold))
+                                    .foregroundColor(FleetingNotesTheme.textPrimary)
                                     .lineLimit(1)
                                     .fixedSize(horizontal: true, vertical: false)
                                     .layoutPriority(1)
@@ -144,14 +157,16 @@ struct HabitView: View {
                             }
                             ToolbarItem(placement: .navigationBarTrailing) {
                                 Image(systemName: "plus")
-                                    .foregroundColor(.secondary)
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(FleetingNotesTheme.textSecondary)
                                     .onTapGesture {
                                         showAddHabit = true
                                     }
                             }
                             ToolbarItem(placement: .navigationBarTrailing) {
                                 Image(systemName: "arrow.clockwise.square")
-                                    .foregroundColor(.secondary)
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(FleetingNotesTheme.textSecondary)
                                     .onTapGesture {
                                         Task {
                                             do {
@@ -236,52 +251,63 @@ struct HabitCardView: View {
     let onIncrement: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text(habit.title)
-                    .font(.headline)
+                    .font(.system(.headline, design: .rounded, weight: .bold))
+                    .foregroundStyle(FleetingNotesTheme.textPrimary)
+                
                 statusLabel
+                
                 Spacer()
                 
-                Text("\(progress.current) / \(progress.target) \(progress.targetLabel)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Text(progress.window.label.uppercased())
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(progress.current) / \(progress.target) \(progress.targetLabel)")
+                        .font(.system(.caption, design: .rounded, weight: .bold))
+                        .foregroundStyle(FleetingNotesTheme.textSecondary)
+                    
+                    Text(progress.window.label.uppercased())
+                        .font(.system(.caption, design: .rounded, weight: .black))
+                        .foregroundStyle(FleetingNotesTheme.accentGradient)
+                        .opacity(0.8)
+                }
             }
 
             ProgressView(value: Double(progress.current), total: Double(progress.target))
                 .progressViewStyle(.linear)
+                .tint(FleetingNotesTheme.glowColor)
 
             HStack {
-
-//                Spacer()
                 if model.progressChartData[habit.id!] ?? nil != nil {
                     ProgressChartView(habit: habit, values: model.progressChartData[habit.id!]!)
-                        .padding()
+                        .padding(.vertical, 8)
                 }
                 
                 Button(action: onIncrement) {
                     Text("+1")
-                        .font(.callout.weight(.semibold))   // ⬆️ bigger text
-                        .foregroundStyle(Color.accentColor)
-                        .padding(.horizontal, 14)           // ⬆️ wider
-                        .padding(.vertical, 8)              // ⬆️ taller
+                        .font(.system(.callout, design: .rounded, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
                         .background(
-                            Capsule(style: .continuous)
-                                .fill(Color.accentColor.opacity(0.12))
+                            FleetingNotesTheme.accentGradient,
+                            in: Capsule(style: .continuous)
                         )
+                        .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
                 }
                 .buttonStyle(.plain)
 
                 
             }.frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(16)
+        .padding(20)
+        .background(FleetingNotesTheme.cardGradient)
+        .overlay {
+            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
+                .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous))
+        .shadow(color: .black.opacity(0.06), radius: 10, y: 6)
     }
 
     private var statusLabel: some View {
@@ -296,14 +322,17 @@ struct HabitCardView: View {
             color = .green
         case 0.7...:
             text = "On Track"
-            color = .yellow
+            color = FleetingNotesTheme.glowColor
         default:
             text = "Behind"
-            color = .orange
+            color = FleetingNotesTheme.errorTint
         }
 
         return Text(text)
-            .font(.caption.weight(.semibold))
+            .font(.system(.caption, design: .rounded, weight: .bold))
             .foregroundColor(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.12), in: Capsule())
     }
 }

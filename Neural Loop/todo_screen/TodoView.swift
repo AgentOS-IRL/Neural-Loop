@@ -250,12 +250,14 @@ struct TodoView: View {
 
     @ViewBuilder
     private func sectionView(title: String, tasks: [Tasks], initialTiming: TaskTiming) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text(title)
-                    .font(.headline)
+                    .font(.system(.title3, design: .rounded, weight: .bold))
+                    .foregroundStyle(FleetingNotesTheme.textPrimary)
                 Image(systemName: "plus")
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(FleetingNotesTheme.textSecondary)
                     .onTapGesture {
                         vm.initializationTiming = initialTiming
                         vm.showAddTask = true
@@ -271,9 +273,21 @@ struct TodoView: View {
 
     @ViewBuilder
     private func searchBar() -> some View {
-        TextField("Search tasks…", text: $vm.searchText)
-            .textFieldStyle(.roundedBorder)
-            .padding(.top, 8)
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(FleetingNotesTheme.textSecondary)
+            TextField("Search tasks…", text: $vm.searchText)
+                .font(.system(.body, design: .rounded, weight: .medium))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(FleetingNotesTheme.sectionGradient)
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+        }
+        .cornerRadius(16)
+        .padding(.top, 8)
     }
 
     @ViewBuilder
@@ -291,11 +305,7 @@ struct TodoView: View {
                     )
                 }
 
-                Divider()
-                    .padding(.leading, 56)
-                    .opacity(0.6)
-
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 16) {
                     Button {
                         vm.viewMode = .today
                     } label: {
@@ -307,8 +317,6 @@ struct TodoView: View {
                         )
                     }
 
-                    Divider().padding(.leading, 56)
-
                     Button {
                         vm.viewMode = .upcoming
                     } label: {
@@ -317,8 +325,6 @@ struct TodoView: View {
                             title: "Upcoming"
                         )
                     }
-
-                    Divider().padding(.leading, 56)
 
                     Button {
                         vm.viewMode = .new
@@ -330,8 +336,6 @@ struct TodoView: View {
                         )
                     }
 
-                    Divider().padding(.leading, 56)
-
                     Button {
                         vm.viewMode = .all
                     } label: {
@@ -341,8 +345,6 @@ struct TodoView: View {
                         )
                     }
                 }
-                .background(Color(.secondarySystemBackground))
-                .cornerRadius(16)
 
                 Button {
                     vm.viewMode = .completed
@@ -372,38 +374,45 @@ struct TodoView: View {
     ) -> some View {
         HStack(spacing: 16) {
             Image(systemName: icon)
-                .foregroundColor(.secondary)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(FleetingNotesTheme.textSecondary)
                 .frame(width: 24)
 
-            HStack(spacing: 3) {
+            HStack(spacing: 4) {
                 Text(title)
-                    .font(.headline)
-                    .foregroundColor(.primary)
+                    .font(.system(.headline, design: .rounded, weight: .semibold))
+                    .foregroundColor(FleetingNotesTheme.textPrimary)
 
                 if let count {
                     Text("(\(count))")
-                        .foregroundColor(.secondary)
+                        .font(.system(.subheadline, design: .rounded, weight: .medium))
+                        .foregroundColor(FleetingNotesTheme.textSecondary)
                 }
             }
             Spacer()
 
             if showPlus {
                 Image(systemName: "plus")
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(FleetingNotesTheme.textSecondary)
                     .onTapGesture {
                         vm.showAddTask = true
                     }
             }
         }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(16)
+        .padding(20)
+        .background(FleetingNotesTheme.cardGradient)
+        .overlay {
+            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
+                .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+        }
+        .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
     }
 
     @ViewBuilder
     private func newTasksView() -> some View {
         if let newBucket = vm.bucketsForCurrentViewMode.first(where: { $0.type == .new }) {
-            LazyVStack(alignment: .leading, spacing: 14) {
+            LazyVStack(alignment: .leading, spacing: 16) {
                 addTaskRowView()
                     .onTapGesture {
                         vm.initializationTiming = .init()
@@ -420,7 +429,7 @@ struct TodoView: View {
     @ViewBuilder
     private func allTasksView() -> some View {
         if let bucket = vm.bucketsForCurrentViewMode.first {
-            LazyVStack(alignment: .leading, spacing: 14) {
+            LazyVStack(alignment: .leading, spacing: 16) {
                 addTaskRowView()
                     .onTapGesture {
                         vm.initializationTiming = .init()
@@ -464,8 +473,11 @@ struct TodoView: View {
     @ViewBuilder
     private var todoRootContent: some View {
         ZStack {
+            FleetingNotesTheme.backgroundGradient
+                .ignoresSafeArea()
+
             ScrollView {
-                LazyVStack(spacing: 0) {
+                LazyVStack(spacing: 20) {
                     if embeddedInTaskHub {
                         todoEmbeddedHeader
                     }
@@ -509,10 +521,11 @@ struct TodoView: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(toolbarTitle(for: vm.viewMode))
-                    .font(.title3.weight(.semibold))
+                    .font(.system(.title3, design: .rounded, weight: .bold))
+                    .foregroundStyle(FleetingNotesTheme.textPrimary)
                 Text("Switch between todo lists and menu views.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(.system(.subheadline, design: .rounded, weight: .medium))
+                    .foregroundStyle(FleetingNotesTheme.textSecondary)
             }
 
             Spacer()
@@ -523,11 +536,11 @@ struct TodoView: View {
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(FleetingNotesTheme.textSecondary)
                         .frame(width: 32, height: 32)
                         .background(
                             Circle()
-                                .fill(Color(.secondarySystemBackground))
+                                .fill(FleetingNotesTheme.sectionGradient)
                         )
                 }
                 .buttonStyle(.plain)
@@ -538,18 +551,23 @@ struct TodoView: View {
                 vm.showAddTask = true
             } label: {
                 Image(systemName: "plus")
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(FleetingNotesTheme.textSecondary)
                     .frame(width: 32, height: 32)
                     .background(
                         Circle()
-                            .fill(Color(.secondarySystemBackground))
+                            .fill(FleetingNotesTheme.sectionGradient)
                     )
             }
             .buttonStyle(.plain)
         }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .cornerRadius(16)
+        .padding(20)
+        .background(FleetingNotesTheme.heroGradient)
+        .overlay {
+            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
+                .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+        }
+        .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
     }
 
     var body: some View {
@@ -579,7 +597,8 @@ struct TodoView: View {
                                             .font(.system(size: 17, weight: .semibold))
                                     }
                                     Text(toolbarTitle(for: vm.viewMode))
-                                        .font(.title3.weight(.semibold))
+                                        .font(.system(.title3, design: .rounded, weight: .bold))
+                                        .foregroundColor(FleetingNotesTheme.textPrimary)
                                         .lineLimit(1)
                                         .fixedSize(horizontal: true, vertical: false)
                                         .layoutPriority(1)
