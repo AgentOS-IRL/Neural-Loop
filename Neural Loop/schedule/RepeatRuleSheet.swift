@@ -182,124 +182,221 @@ struct RepeatRuleSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            ZStack {
+                FleetingNotesTheme.backgroundGradient
+                    .ignoresSafeArea()
 
-                Picker("Frequency", selection: $frequency) {
-                    Text("Weekly").tag(FrequencyUI.weekly)
-                    Text("Monthly").tag(FrequencyUI.monthly)
-                    Text("Yearly").tag(FrequencyUI.yearly)
-                }
-
-                Stepper(
-                    "Every \(interval) \(frequencyLabel)",
-                    value: $interval,
-                    in: 1...30
-                )
-
-                if frequency == .weekly {
-                    Section("Repeat every week on") {
-                        HStack(spacing: 12) {
-                            ForEach(WeekdayUI.allCases, id: \.self) { day in
-                                weekdayChip(for: day)
-                            }
-                        }
-                    }
-                }
-
-                if frequency == .monthly {
-                    Section("Repeat every month on") {
-
-                        Picker("", selection: $monthlyMode) {
-                            Text("Dates").tag(MonthlyMode.dates)
-                            Text("Weekday").tag(MonthlyMode.ordinal)
-                        }
-                        .pickerStyle(.segmented)
-
-                        if monthlyMode == .dates {
-                            LazyVGrid(columns: Array(repeating: .init(.flexible()), count: 7)) {
-                                ForEach(1...31, id: \.self) { day in
-                                    monthDayChip(day)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: FleetingNotesTheme.Metrics.sectionSpacing) {
+                        
+                        // Frequency & Interval
+                        VStack(alignment: .leading, spacing: 4) {
+                            themedSectionHeader("Frequency")
+                            ThemedCard {
+                                Picker("Frequency", selection: $frequency) {
+                                    Text("Weekly").tag(FrequencyUI.weekly)
+                                    Text("Monthly").tag(FrequencyUI.monthly)
+                                    Text("Yearly").tag(FrequencyUI.yearly)
                                 }
+                                .pickerStyle(.segmented)
 
-                                monthDayChip(-1).overlay(
-                                    Text("Last")
-                                )
-                            }
-                        } else {
-                            Picker("Ordinal", selection: $ordinal) {
-                                ForEach(OrdinalUI.allCases, id: \.self) { value in
-                                    Text(ordinalLabel(value)).tag(value)
-                                }
-                            }
+                                Divider()
+                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
 
-                            Picker("Weekday", selection: $ordinalWeekday) {
-                                ForEach(WeekdayUI.allCases, id: \.self) {
-                                    Text($0.short).tag($0)
+                                Stepper(value: $interval, in: 1...30) {
+                                    HStack {
+                                        Text("Interval")
+                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        Spacer()
+                                        Text("Every \(interval) \(frequencyLabel)")
+                                            .font(.body.bold())
+                                            .foregroundColor(FleetingNotesTheme.accentColor)
+                                    }
                                 }
                             }
                         }
-                    }
-                }
 
-                if frequency == .yearly {
-                    Section("Repeat every year on") {
-                        Picker("Ordinal", selection: $ordinal) {
-                            ForEach(OrdinalUI.allCases, id: \.self) {value in
-                                Text(ordinalLabel(value)).tag(value)
+                        if frequency == .weekly {
+                            VStack(alignment: .leading, spacing: 4) {
+                                themedSectionHeader("Repeat on")
+                                ThemedCard {
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 8) {
+                                            ForEach(WeekdayUI.allCases, id: \.self) { day in
+                                                weekdayChip(for: day)
+                                            }
+                                        }
+                                        .padding(.vertical, 4)
+                                    }
+                                }
                             }
                         }
 
-                        Picker("Weekday", selection: $ordinalWeekday) {
-                            ForEach(WeekdayUI.allCases, id: \.self) {
-                                Text($0.short).tag($0)
+                        if frequency == .monthly {
+                            VStack(alignment: .leading, spacing: 4) {
+                                themedSectionHeader("Repeat on")
+                                ThemedCard {
+                                    Picker("", selection: $monthlyMode) {
+                                        Text("Dates").tag(MonthlyMode.dates)
+                                        Text("Weekday").tag(MonthlyMode.ordinal)
+                                    }
+                                    .pickerStyle(.segmented)
+
+                                    if monthlyMode == .dates {
+                                        Divider()
+                                            .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                        
+                                        LazyVGrid(columns: Array(repeating: .init(.flexible()), count: 7), spacing: 10) {
+                                            ForEach(1...31, id: \.self) { day in
+                                                monthDayChip(day)
+                                            }
+                                            monthDayChip(-1)
+                                        }
+                                        .padding(.vertical, 8)
+                                    } else {
+                                        Divider()
+                                            .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                        
+                                        HStack {
+                                            Text("Ordinal")
+                                                .foregroundColor(FleetingNotesTheme.textPrimary)
+                                            Spacer()
+                                            Picker("Ordinal", selection: $ordinal) {
+                                                ForEach(OrdinalUI.allCases, id: \.self) { value in
+                                                    Text(ordinalLabel(value)).tag(value)
+                                                }
+                                            }
+                                            .pickerStyle(.menu)
+                                        }
+
+                                        Divider()
+                                            .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+
+                                        HStack {
+                                            Text("Weekday")
+                                                .foregroundColor(FleetingNotesTheme.textPrimary)
+                                            Spacer()
+                                            Picker("Weekday", selection: $ordinalWeekday) {
+                                                ForEach(WeekdayUI.allCases, id: \.self) {
+                                                    Text($0.short).tag($0)
+                                                }
+                                            }
+                                            .pickerStyle(.menu)
+                                        }
+                                    }
+                                }
                             }
                         }
 
-                        Picker("Month", selection: $selectedMonth) {
-                            ForEach(1...12, id: \.self) {
-                                Text(Calendar.current.monthSymbols[$0 - 1]).tag($0)
+                        if frequency == .yearly {
+                            VStack(alignment: .leading, spacing: 4) {
+                                themedSectionHeader("Repeat on")
+                                ThemedCard {
+                                    HStack {
+                                        Text("Ordinal")
+                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        Spacer()
+                                        Picker("Ordinal", selection: $ordinal) {
+                                            ForEach(OrdinalUI.allCases, id: \.self) { value in
+                                                Text(ordinalLabel(value)).tag(value)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                    }
+
+                                    Divider()
+                                        .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+
+                                    HStack {
+                                        Text("Weekday")
+                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        Spacer()
+                                        Picker("Weekday", selection: $ordinalWeekday) {
+                                            ForEach(WeekdayUI.allCases, id: \.self) {
+                                                Text($0.short).tag($0)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                    }
+
+                                    Divider()
+                                        .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+
+                                    HStack {
+                                        Text("Month")
+                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        Spacer()
+                                        Picker("Month", selection: $selectedMonth) {
+                                            ForEach(1...12, id: \.self) {
+                                                Text(Calendar.current.monthSymbols[$0 - 1]).tag($0)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                    }
+                                }
+                            }
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            themedSectionHeader("End")
+                            ThemedCard {
+                                Picker("End", selection: $endType) {
+                                    Text("Never").tag(EndType.never)
+                                    Text("On Date").tag(EndType.onDate)
+                                    Text("After").tag(EndType.after)
+                                }
+                                .pickerStyle(.segmented)
+
+                                if endType == .onDate {
+                                    Divider()
+                                        .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                    
+                                    DatePicker(
+                                        "End Date",
+                                        selection: $endDate,
+                                        displayedComponents: .date
+                                    )
+                                    .tint(FleetingNotesTheme.accentColor)
+                                }
+
+                                if endType == .after {
+                                    Divider()
+                                        .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                    
+                                    Stepper(value: $occurrenceCount, in: 1...999) {
+                                        HStack {
+                                            Text("Occurrences")
+                                                .foregroundColor(FleetingNotesTheme.textPrimary)
+                                            Spacer()
+                                            Text("\(occurrenceCount)")
+                                                .font(.body.bold())
+                                                .foregroundColor(FleetingNotesTheme.accentColor)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
-                }
-
-                Section("End") {
-                    Picker("End", selection: $endType) {
-                        Text("Never").tag(EndType.never)
-                        Text("On Date").tag(EndType.onDate)
-                        Text("After").tag(EndType.after)
-                    }
-
-                    if endType == .onDate {
-                        DatePicker(
-                            "End Date",
-                            selection: $endDate,
-                            displayedComponents: .date
-                        )
-                    }
-
-                    if endType == .after {
-                        Stepper(
-                            "After \(occurrenceCount) occurrences",
-                            value: $occurrenceCount,
-                            in: 1...999
-                        )
-                    }
+                    .padding(FleetingNotesTheme.Metrics.screenPadding)
                 }
             }
             .navigationTitle("Repeat")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         onSave(buildRule())
                         dismiss()
                     }
+                    .font(.body.weight(.bold))
+                    .foregroundColor(FleetingNotesTheme.accentColor)
                 }
 
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .foregroundColor(FleetingNotesTheme.textPrimary)
                 }
             }
         }
@@ -378,9 +475,9 @@ struct RepeatRuleSheet: View {
 
     private var frequencyLabel: String {
         switch frequency {
-        case .weekly: return "week(s)"
-        case .monthly: return "month(s)"
-        case .yearly: return "year(s)"
+        case .weekly: return interval > 1 ? "weeks" : "week"
+        case .monthly: return interval > 1 ? "months" : "month"
+        case .yearly: return interval > 1 ? "years" : "year"
         }
     }
 
@@ -389,10 +486,15 @@ struct RepeatRuleSheet: View {
         let isSelected = selectedWeekdays.contains(day)
 
         Text(day.short)
+            .font(.subheadline.bold())
             .frame(width: 44, height: 44)
-            .background(isSelected ? Color.violet : Color.clear)
-            .overlay(Circle().stroke(Color.gray))
+            .background(isSelected ? FleetingNotesTheme.accentGradient : LinearGradient(colors: [.clear], startPoint: .top, endPoint: .bottom))
+            .foregroundColor(isSelected ? .white : FleetingNotesTheme.textPrimary)
             .clipShape(Circle())
+            .overlay(
+                Circle()
+                    .stroke(isSelected ? Color.clear : FleetingNotesTheme.textSecondary.opacity(0.3), lineWidth: 1)
+            )
             .onTapGesture {
                 if isSelected {
                     selectedWeekdays.remove(day)
@@ -405,12 +507,18 @@ struct RepeatRuleSheet: View {
     @ViewBuilder
     private func monthDayChip(_ day: Int) -> some View {
         let isSelected = selectedMonthDays.contains(day)
+        let label = day == -1 ? "Last" : "\(day)"
 
-        Text("\(day)")
-            .frame(width: 44, height: 44)
-            .background(isSelected ? Color.purple : Color.clear)
-            .overlay(Circle().stroke(Color.gray))
+        Text(label)
+            .font(.system(size: day == -1 ? 10 : 14, weight: .bold))
+            .frame(width: 40, height: 40)
+            .background(isSelected ? FleetingNotesTheme.accentGradient : LinearGradient(colors: [.clear], startPoint: .top, endPoint: .bottom))
+            .foregroundColor(isSelected ? .white : FleetingNotesTheme.textPrimary)
             .clipShape(Circle())
+            .overlay(
+                Circle()
+                    .stroke(isSelected ? Color.clear : FleetingNotesTheme.textSecondary.opacity(0.3), lineWidth: 1)
+            )
             .onTapGesture {
                 if isSelected {
                     selectedMonthDays.remove(day)
