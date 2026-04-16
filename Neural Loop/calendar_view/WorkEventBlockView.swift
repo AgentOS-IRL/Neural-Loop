@@ -39,7 +39,7 @@ struct WorkEventBlockView: View {
 
     private var background: some View {
         ZStack {
-            FleetingNotesTheme.cardGradient
+            AppTheme.cardGradient
             
             LinearGradient(
                 colors: backgroundColors,
@@ -52,7 +52,7 @@ struct WorkEventBlockView: View {
 
     private var border: some View {
         RoundedRectangle(cornerRadius: 12)
-            .strokeBorder(FleetingNotesTheme.borderGradient, style: StrokeStyle(
+            .strokeBorder(AppTheme.borderGradient, style: StrokeStyle(
                 lineWidth: 1,
                 dash: isTentative ? [5] : []
             ))
@@ -91,13 +91,13 @@ struct WorkEventBlockView: View {
     private var backgroundColors: [Color] {
         switch event.acceptanceStatus {
         case .accepted:
-            return [Color(red: 0.14, green: 0.49, blue: 0.53), Color(red: 0.22, green: 0.67, blue: 0.60)]
+            return AppTheme.workEventGradientColors
         case .tentative:
-            return [Color(red: 0.14, green: 0.49, blue: 0.53).opacity(0.6), Color(red: 0.22, green: 0.67, blue: 0.60).opacity(0.4)]
+            return [AppTheme.workEventGradientColors[0].opacity(0.6), AppTheme.workEventGradientColors[1].opacity(0.4)]
         case .declined:
-            return [FleetingNotesTheme.errorTint.opacity(0.8), FleetingNotesTheme.errorTint.opacity(0.6)]
+            return [AppTheme.errorTint.opacity(0.8), AppTheme.errorTint.opacity(0.6)]
         case .pending:
-            return [FleetingNotesTheme.textSecondary.opacity(0.5), FleetingNotesTheme.textSecondary.opacity(0.3)]
+            return [AppTheme.textSecondary.opacity(0.5), AppTheme.textSecondary.opacity(0.3)]
         default:
             return [event.event_type.color.opacity(0.7), event.event_type.color.opacity(0.5)]
         }

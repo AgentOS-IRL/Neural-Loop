@@ -89,7 +89,7 @@ private struct TaskHubSectionBar: View {
                 .fill(backgroundFill)
                 .overlay {
                     RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                        .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
                 }
                 .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
         }
@@ -100,7 +100,7 @@ private struct TaskHubSectionBar: View {
             return AnyShapeStyle(Color(.secondarySystemBackground).opacity(0.96))
         }
 
-        return AnyShapeStyle(FleetingNotesTheme.sectionGradient)
+        return AnyShapeStyle(AppTheme.sectionGradient)
     }
 
     private var sectionFill: AnyShapeStyle {
@@ -108,14 +108,14 @@ private struct TaskHubSectionBar: View {
             return AnyShapeStyle(Color(.tertiarySystemBackground))
         }
 
-        return AnyShapeStyle(FleetingNotesTheme.heroGradient)
+        return AnyShapeStyle(AppTheme.heroGradient)
     }
 
     private func sectionForeground(isSelected: Bool) -> Color {
         if isSelected {
-            return FleetingNotesTheme.textPrimary
+            return AppTheme.textPrimary
         }
 
-        return FleetingNotesTheme.textSecondary
+        return AppTheme.textSecondary
     }
 }

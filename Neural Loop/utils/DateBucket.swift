@@ -214,11 +214,11 @@ func buildLongRangeDateBuckets(
                 HStack(spacing: 8) {
                     Text("Q\(quarter) \(year)")
                         .font(.system(.title3, design: .rounded, weight: .bold))
-                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                        .foregroundColor(AppTheme.textPrimary)
 
                     Text("\(quarterStart.formatted(.dateTime.month(.abbreviated).day()))–\(quarterEnd.formatted(.dateTime.month(.abbreviated).day()))")
                         .font(.system(.body, design: .rounded, weight: .medium))
-                        .foregroundColor(FleetingNotesTheme.textSecondary)
+                        .foregroundColor(AppTheme.textSecondary)
                 }
             )
 
@@ -252,7 +252,7 @@ func buildShortRangeDateBuckets(
         DateBucket(
             title: AnyView( Text("Tomorrow")
                     .font(.system(.title3, design: .rounded, weight: .bold))
-                .foregroundColor(FleetingNotesTheme.textPrimary)),
+                .foregroundColor(AppTheme.textPrimary)),
             start: tomorrow,
             end: calendar.endOfDay(tomorrow),
             type: .upcoming
@@ -270,11 +270,11 @@ func buildShortRangeDateBuckets(
                 title: AnyView(HStack(spacing: 8) {
                     Text(dayStart.formatted(.dateTime.weekday(.abbreviated)))
                         .font(.system(.title3, design: .rounded, weight: .bold))
-                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                        .foregroundColor(AppTheme.textPrimary)
                     
                     Text(dayStart.formatted(.dateTime.month(.abbreviated).day()))
                         .font(.system(.body, design: .rounded, weight: .medium))
-                        .foregroundColor(FleetingNotesTheme.textSecondary)
+                        .foregroundColor(AppTheme.textSecondary)
                 }),
                 start: dayStart,
                 end: dayEnd,
@@ -293,11 +293,11 @@ func buildShortRangeDateBuckets(
                 title: AnyView(HStack(spacing: 8) {
                     Text("Rest of \(restOfMonthStart.formatted(.dateTime.month(.wide)))")
                         .font(.system(.title3, design: .rounded, weight: .bold))
-                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                        .foregroundColor(AppTheme.textPrimary)
 
                     Text("\(restOfMonthStart.formatted(.dateTime.day()))–\(monthEnd.formatted(.dateTime.day()))")
                         .font(.system(.body, design: .rounded, weight: .medium))
-                        .foregroundColor(FleetingNotesTheme.textSecondary)
+                        .foregroundColor(AppTheme.textSecondary)
                 }),
                 start: restOfMonthStart,
                 end: monthEnd,
@@ -322,7 +322,7 @@ func buildShortRangeDateBuckets(
             DateBucket(
                 title: AnyView(Text(monthStart.formatted(.dateTime.month(.wide)))
                     .font(.system(.title3, design: .rounded, weight: .bold))
-                    .foregroundColor(FleetingNotesTheme.textPrimary)),
+                    .foregroundColor(AppTheme.textPrimary)),
                 start: monthStart,
                 end: monthEnd,
                 type: .upcoming
@@ -337,7 +337,7 @@ func buildShortRangeDateBuckets(
         DateBucket(
             title: AnyView(Text(nextMonth.formatted(.dateTime.year()))
                 .font(.system(.title3, design: .rounded, weight: .bold))
-                .foregroundColor(FleetingNotesTheme.textPrimary)),
+                .foregroundColor(AppTheme.textPrimary)),
             start: calendar.date(
                 from: DateComponents(
                     year: calendar.component(.year, from: nextMonth),

@@ -12,17 +12,17 @@ func progressMiniBar(percentage: Double) -> some View {
     return HStack(spacing: 6) {
         ZStack(alignment: .leading) {
             Capsule()
-                .fill(FleetingNotesTheme.sectionGradient)
+                .fill(AppTheme.sectionGradient)
 
             Capsule()
-                .fill(FleetingNotesTheme.accentGradient)
+                .fill(AppTheme.accentGradient)
                 .frame(width: 30 * clamped)
         }
         .frame(width: 30, height: 10)
 
         Text("\(Int(clamped * 100))%")
             .font(.system(.caption, design: .rounded))
-            .foregroundColor(FleetingNotesTheme.textSecondary)
+            .foregroundColor(AppTheme.textSecondary)
     }
 }
 
@@ -35,20 +35,20 @@ func topButton(
     Button(action: action) {
         Text(title)
             .font(.system(.subheadline, design: .rounded).weight(.medium))
-            .foregroundStyle(isSelected ? .white : FleetingNotesTheme.textPrimary)
+            .foregroundStyle(isSelected ? .white : AppTheme.textPrimary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(
                         isSelected
-                        ? AnyShapeStyle(FleetingNotesTheme.accentGradient)
-                        : AnyShapeStyle(FleetingNotesTheme.sectionGradient)
+                        ? AnyShapeStyle(AppTheme.accentGradient)
+                        : AnyShapeStyle(AppTheme.sectionGradient)
                     )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                    .stroke(AppTheme.borderGradient, lineWidth: 1)
                     .opacity(isSelected ? 0 : 1)
             )
     }
@@ -78,28 +78,28 @@ func iconTitle<AdditionalContent: View>(
 
         ZStack {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(FleetingNotesTheme.cardGradient)
+                .fill(AppTheme.cardGradient)
 
             Image(systemName: icon)
                 .font(.system(size: iconSize, weight: .semibold))
-                .foregroundStyle(FleetingNotesTheme.textSecondary)
+                .foregroundStyle(AppTheme.textSecondary)
         }
         .frame(width: containerSize, height: containerSize)
         .overlay {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                .stroke(AppTheme.borderGradient, lineWidth: 1)
         }
 
         VStack(alignment: .leading, spacing: 4) {
             Text(name)
                 .font(.system(.headline, design: .rounded, weight: .bold))
-                .foregroundColor(FleetingNotesTheme.textPrimary)
+                .foregroundColor(AppTheme.textPrimary)
             
             additionalContent()
             if let subText {
                 Text(subText)
                     .font(.system(.subheadline, design: .rounded))
-                    .foregroundColor(FleetingNotesTheme.textSecondary)
+                    .foregroundColor(AppTheme.textSecondary)
             }
         }
     }

@@ -33,7 +33,7 @@ struct GoalSelectionSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FleetingNotesTheme.backgroundGradient
+                AppTheme.backgroundGradient
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
@@ -56,7 +56,7 @@ struct GoalSelectionSheet: View {
                                 lifeAreaView()
                             }
                         }
-                        .padding(FleetingNotesTheme.Metrics.screenPadding)
+                        .padding(AppTheme.Metrics.screenPadding)
                     }
                 }
             }
@@ -68,13 +68,13 @@ struct GoalSelectionSheet: View {
                         onSelect(nil)
                         dismiss()
                     }
-                    .foregroundColor(FleetingNotesTheme.textPrimary)
+                    .foregroundColor(AppTheme.textPrimary)
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done", action: handleDone)
                         .font(.body.weight(.bold))
-                        .foregroundColor(hasSelection ? FleetingNotesTheme.accentColor : FleetingNotesTheme.textSecondary)
+                        .foregroundColor(hasSelection ? AppTheme.accentColor : AppTheme.textSecondary)
                         .disabled(!hasSelection)
                 }
             }
@@ -110,18 +110,18 @@ struct GoalSelectionSheet: View {
         isSelected: Bool,
         onTap: @escaping () -> Void
     ) -> some View {
-        ThemedCard(gradient: isSelected ? FleetingNotesTheme.sectionGradient : FleetingNotesTheme.cardGradient) {
+        ThemedCard(gradient: isSelected ? AppTheme.sectionGradient : AppTheme.cardGradient) {
             HStack {
                 Text(title)
                     .font(.body.weight(isSelected ? .semibold : .regular))
-                    .foregroundColor(FleetingNotesTheme.textPrimary)
+                    .foregroundColor(AppTheme.textPrimary)
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(FleetingNotesTheme.accentColor)
+                        .foregroundColor(AppTheme.accentColor)
                 } else {
                     Circle()
-                        .stroke(FleetingNotesTheme.textSecondary.opacity(0.3), lineWidth: 1)
+                        .stroke(AppTheme.textSecondary.opacity(0.3), lineWidth: 1)
                         .frame(width: 20, height: 20)
                 }
             }

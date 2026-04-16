@@ -128,11 +128,11 @@ struct AddEditTodoView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FleetingNotesTheme.backgroundGradient
+                AppTheme.backgroundGradient
                     .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: FleetingNotesTheme.Metrics.sectionSpacing) {
+                    VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
                         
                         // MARK: Title & Description
                         VStack(alignment: .leading, spacing: 4) {
@@ -141,13 +141,13 @@ struct AddEditTodoView: View {
                                 ThemedTextField(placeholder: "Task title", text: $title, isTitle: true)
                                 
                                 Divider()
-                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                    .background(AppTheme.textSecondary.opacity(0.1))
                                 
                                 TextEditor(text: $description)
                                     .frame(minHeight: 100)
                                     .scrollContentBackground(.hidden)
                                     .font(.body)
-                                    .foregroundColor(FleetingNotesTheme.textPrimary)
+                                    .foregroundColor(AppTheme.textPrimary)
                             }
                         }
 
@@ -164,14 +164,14 @@ struct AddEditTodoView: View {
                                 .pickerStyle(.segmented)
                                 
                                 Divider()
-                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                    .background(AppTheme.textSecondary.opacity(0.1))
 
                                 Toggle(isOn: $isDeadline) {
                                     Label("Deadline", systemImage: "timer")
                                         .font(.body.weight(.medium))
-                                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        .foregroundColor(AppTheme.textPrimary)
                                 }
-                                .tint(FleetingNotesTheme.accentColor)
+                                .tint(AppTheme.accentColor)
                             }
                         }
 
@@ -181,37 +181,37 @@ struct AddEditTodoView: View {
                             ThemedCard {
                                 scheduleSummary()
                                     .font(.subheadline.weight(.medium))
-                                    .foregroundColor(FleetingNotesTheme.textSecondary)
+                                    .foregroundColor(AppTheme.textSecondary)
                                 
                                 Divider()
-                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                    .background(AppTheme.textSecondary.opacity(0.1))
 
                                 Button {
                                     showTimeSheet = true
                                 } label: {
                                     ThemedRow {
                                         Label("Set Time", systemImage: "clock")
-                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                            .foregroundColor(AppTheme.textPrimary)
                                         Spacer()
                                         Image(systemName: "chevron.right")
                                             .font(.caption.bold())
-                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                            .foregroundColor(AppTheme.textSecondary)
                                     }
                                 }
 
                                 Divider()
-                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                    .background(AppTheme.textSecondary.opacity(0.1))
 
                                 Button {
                                     showScheduleSheet = true
                                 } label: {
                                     ThemedRow {
                                         Label("Repeat", systemImage: "arrow.2.circlepath")
-                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                            .foregroundColor(AppTheme.textPrimary)
                                         Spacer()
                                         Image(systemName: "chevron.right")
                                             .font(.caption.bold())
-                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                            .foregroundColor(AppTheme.textSecondary)
                                     }
                                 }
                             }
@@ -229,17 +229,17 @@ struct AddEditTodoView: View {
                                             GoalOrLifeAreadName ?? "Select goal or life area",
                                             systemImage: "scope"
                                         )
-                                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        .foregroundColor(AppTheme.textPrimary)
                                         Spacer()
                                         Image(systemName: "chevron.right")
                                             .font(.caption.bold())
-                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                            .foregroundColor(AppTheme.textSecondary)
                                     }
                                 }
                             }
                         }
                     }
-                    .padding(FleetingNotesTheme.Metrics.screenPadding)
+                    .padding(AppTheme.Metrics.screenPadding)
                     .padding(.bottom, SAFE_AREA_INSET + 20)
                 }
             }
@@ -252,7 +252,7 @@ struct AddEditTodoView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                            .foregroundColor(AppTheme.textPrimary)
                     }
                 }
 
@@ -262,7 +262,7 @@ struct AddEditTodoView: View {
                         saveTask()
                     }
                     .font(.body.weight(.bold))
-                    .foregroundColor(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? FleetingNotesTheme.textSecondary : FleetingNotesTheme.accentColor)
+                    .foregroundColor(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? AppTheme.textSecondary : AppTheme.accentColor)
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }

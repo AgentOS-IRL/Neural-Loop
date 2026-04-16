@@ -36,11 +36,11 @@ struct HabitRuleSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FleetingNotesTheme.backgroundGradient
+                AppTheme.backgroundGradient
                     .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: FleetingNotesTheme.Metrics.sectionSpacing) {
+                    VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
                         VStack(alignment: .leading, spacing: 4) {
                             themedSectionHeader("Frequency")
                             ThemedCard {
@@ -52,7 +52,7 @@ struct HabitRuleSheet: View {
                                 .pickerStyle(.segmented)
                                 
                                 Divider()
-                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                    .background(AppTheme.textSecondary.opacity(0.1))
 
                                 Stepper(
                                     value: $interval,
@@ -60,17 +60,17 @@ struct HabitRuleSheet: View {
                                 ) {
                                     HStack {
                                         Text("Interval")
-                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                            .foregroundColor(AppTheme.textPrimary)
                                         Spacer()
                                         Text("Every \(interval) \(frequency.label.lowercased())\(interval > 1 ? "s" : "")")
                                             .font(.body.bold())
-                                            .foregroundColor(FleetingNotesTheme.accentColor)
+                                            .foregroundColor(AppTheme.accentColor)
                                     }
                                 }
                             }
                         }
                     }
-                    .padding(FleetingNotesTheme.Metrics.screenPadding)
+                    .padding(AppTheme.Metrics.screenPadding)
                 }
             }
             .navigationTitle("Repeat")
@@ -80,7 +80,7 @@ struct HabitRuleSheet: View {
                     Button("Cancel") {
                         onSave(nil)
                     }
-                    .foregroundColor(FleetingNotesTheme.textPrimary)
+                    .foregroundColor(AppTheme.textPrimary)
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
@@ -88,7 +88,7 @@ struct HabitRuleSheet: View {
                         onSave(buildRule())
                     }
                     .font(.body.weight(.bold))
-                    .foregroundColor(FleetingNotesTheme.accentColor)
+                    .foregroundColor(AppTheme.accentColor)
                 }
             }
         }

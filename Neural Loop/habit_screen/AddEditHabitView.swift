@@ -59,11 +59,11 @@ struct AddEditHabitView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FleetingNotesTheme.backgroundGradient
+                AppTheme.backgroundGradient
                     .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: FleetingNotesTheme.Metrics.sectionSpacing) {
+                    VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
                         
                         // MARK: Title & Goal/Area
                         VStack(alignment: .leading, spacing: 4) {
@@ -72,18 +72,18 @@ struct AddEditHabitView: View {
                                 ThemedTextField(placeholder: "Habit title", text: $title, isTitle: true)
                                 
                                 Divider()
-                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                    .background(AppTheme.textSecondary.opacity(0.1))
 
                                 Button {
                                     showGoalSheet = true
                                 } label: {
                                     ThemedRow {
                                         Label(GoalOrLifeAreadName, systemImage: "scope")
-                                            .foregroundColor(GoalOrLifeAreadName == "Select Goal or Life Area" ? FleetingNotesTheme.textSecondary : FleetingNotesTheme.textPrimary)
+                                            .foregroundColor(GoalOrLifeAreadName == "Select Goal or Life Area" ? AppTheme.textSecondary : AppTheme.textPrimary)
                                         Spacer()
                                         Image(systemName: "chevron.right")
                                             .font(.caption.bold())
-                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                            .foregroundColor(AppTheme.textSecondary)
                                     }
                                 }
                             }
@@ -97,7 +97,7 @@ struct AddEditHabitView: View {
                                     .frame(minHeight: 80)
                                     .scrollContentBackground(.hidden)
                                     .font(.body)
-                                    .foregroundColor(FleetingNotesTheme.textPrimary)
+                                    .foregroundColor(AppTheme.textPrimary)
                             }
                         }
 
@@ -108,11 +108,11 @@ struct AddEditHabitView: View {
                                 Stepper(value: $target, in: 1...100) {
                                     HStack {
                                         Text("Daily Target")
-                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                            .foregroundColor(AppTheme.textPrimary)
                                         Spacer()
                                         Text("\(target)")
                                             .font(.body.bold())
-                                            .foregroundColor(FleetingNotesTheme.accentColor)
+                                            .foregroundColor(AppTheme.accentColor)
                                     }
                                 }
                             }
@@ -127,20 +127,20 @@ struct AddEditHabitView: View {
                                 } label: {
                                     ThemedRow {
                                         Text("Schedule")
-                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                            .foregroundColor(AppTheme.textPrimary)
                                         Spacer()
                                         Text(recurrenceSummary)
                                             .font(.subheadline)
-                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                            .foregroundColor(AppTheme.textSecondary)
                                         Image(systemName: "chevron.right")
                                             .font(.caption.bold())
-                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                            .foregroundColor(AppTheme.textSecondary)
                                     }
                                 }
 
                                 if recurrenceRule != nil {
                                     Divider()
-                                        .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                        .background(AppTheme.textSecondary.opacity(0.1))
                                     
                                     Button(role: .destructive) {
                                         recurrenceRule = nil
@@ -169,20 +169,20 @@ struct AddEditHabitView: View {
                                 .pickerStyle(.segmented)
                                 
                                 Divider()
-                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                    .background(AppTheme.textSecondary.opacity(0.1))
 
                                 HStack {
                                     Text("Label")
-                                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        .foregroundColor(AppTheme.textPrimary)
                                     TextField("Optional label", text: $label)
                                         .multilineTextAlignment(.trailing)
-                                        .foregroundColor(FleetingNotesTheme.textSecondary)
+                                        .foregroundColor(AppTheme.textSecondary)
                                 }
                                 .padding(.vertical, 4)
                             }
                         }
                     }
-                    .padding(FleetingNotesTheme.Metrics.screenPadding)
+                    .padding(AppTheme.Metrics.screenPadding)
                     .padding(.bottom, SAFE_AREA_INSET + 20)
                 }
             }
@@ -193,7 +193,7 @@ struct AddEditHabitView: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .foregroundColor(FleetingNotesTheme.textPrimary)
+                    .foregroundColor(AppTheme.textPrimary)
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
@@ -201,7 +201,7 @@ struct AddEditHabitView: View {
                         saveHabit()
                     }
                     .font(.body.weight(.bold))
-                    .foregroundColor(title.trimmingCharacters(in: .whitespaces).isEmpty ? FleetingNotesTheme.textSecondary : FleetingNotesTheme.accentColor)
+                    .foregroundColor(title.trimmingCharacters(in: .whitespaces).isEmpty ? AppTheme.textSecondary : AppTheme.accentColor)
                     .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }

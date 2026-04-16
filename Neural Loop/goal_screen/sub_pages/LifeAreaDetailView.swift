@@ -36,7 +36,7 @@ struct LifeAreaDetailView: View {
 
     var body: some View {
         ZStack {
-            FleetingNotesTheme.backgroundGradient
+            AppTheme.backgroundGradient
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -48,12 +48,12 @@ struct LifeAreaDetailView: View {
                     } label: {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(FleetingNotesTheme.textSecondary)
+                            .foregroundStyle(AppTheme.textSecondary)
                     }
 
                     Text(area.name)
                         .font(.system(.headline, design: .rounded, weight: .bold))
-                        .foregroundStyle(FleetingNotesTheme.textPrimary)
+                        .foregroundStyle(AppTheme.textPrimary)
 
                     Spacer()
                 }
@@ -112,20 +112,20 @@ struct LifeAreaDetailView: View {
         } label: {
             Text(title)
                 .font(.system(.subheadline, design: .rounded).weight(.medium))
-                .foregroundStyle(selectedSection == section ? .white : FleetingNotesTheme.textPrimary)
+                .foregroundStyle(selectedSection == section ? .white : AppTheme.textPrimary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(
                             selectedSection == section
-                            ? AnyShapeStyle(FleetingNotesTheme.accentGradient)
-                            : AnyShapeStyle(FleetingNotesTheme.sectionGradient)
+                            ? AnyShapeStyle(AppTheme.accentGradient)
+                            : AnyShapeStyle(AppTheme.sectionGradient)
                         )
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                        .stroke(AppTheme.borderGradient, lineWidth: 1)
                         .opacity(selectedSection == section ? 0 : 1)
                 )
         }
@@ -156,31 +156,31 @@ struct LifeAreaDetailView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Vision")
                         .font(.system(.headline, design: .rounded, weight: .bold))
-                        .foregroundStyle(FleetingNotesTheme.textPrimary)
+                        .foregroundStyle(AppTheme.textPrimary)
                     
                     Text(visionText.isEmpty ? "No vision added yet." : visionText)
                         .font(.system(.body, design: .rounded, weight: .medium))
-                        .foregroundStyle(FleetingNotesTheme.textSecondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                         .frame(maxWidth: .infinity, minHeight: 60, alignment: .topLeading)
                         .padding(20)
-                        .background(FleetingNotesTheme.cardGradient)
-                        .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+                        .background(AppTheme.cardGradient)
+                        .cornerRadius(AppTheme.Metrics.cardCornerRadius)
                         .overlay(
-                            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
-                                .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius)
+                                .stroke(AppTheme.borderGradient, lineWidth: 1)
                         )
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Goals")
                         .font(.system(.headline, design: .rounded, weight: .bold))
-                        .foregroundStyle(FleetingNotesTheme.textPrimary)
+                        .foregroundStyle(AppTheme.textPrimary)
                     
                     VStack(spacing: 0) {
                         if goals.isEmpty {
                             Text("No goals added yet.")
                                 .font(.system(.subheadline, design: .rounded))
-                                .foregroundColor(FleetingNotesTheme.textSecondary)
+                                .foregroundColor(AppTheme.textSecondary)
                                 .padding(24)
                                 .frame(maxWidth: .infinity)
                         } else {
@@ -203,11 +203,11 @@ struct LifeAreaDetailView: View {
                             }
                         }
                     }
-                    .background(FleetingNotesTheme.cardGradient)
-                    .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+                    .background(AppTheme.cardGradient)
+                    .cornerRadius(AppTheme.Metrics.cardCornerRadius)
                     .overlay(
-                        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
-                            .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius)
+                            .stroke(AppTheme.borderGradient, lineWidth: 1)
                     )
                 }
             }
@@ -219,18 +219,18 @@ struct LifeAreaDetailView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Edit Vision")
                 .font(.system(.headline, design: .rounded, weight: .bold))
-                .foregroundStyle(FleetingNotesTheme.textPrimary)
+                .foregroundStyle(AppTheme.textPrimary)
 
             TextEditor(text: $visionText)
                 .font(.system(.body, design: .rounded))
-                .foregroundStyle(FleetingNotesTheme.textPrimary)
+                .foregroundStyle(AppTheme.textPrimary)
                 .frame(maxHeight: 150)
                 .padding(16)
-                .background(FleetingNotesTheme.sectionGradient)
+                .background(AppTheme.sectionGradient)
                 .cornerRadius(16)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                        .stroke(AppTheme.borderGradient, lineWidth: 1)
                 )
                 .onChange(of: visionText) {
                     enableSaveVisionButton = !visionText.isEmpty
@@ -252,7 +252,7 @@ struct LifeAreaDetailView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 24)
                         .padding(.vertical, 12)
-                        .background(FleetingNotesTheme.accentGradient)
+                        .background(AppTheme.accentGradient)
                         .clipShape(Capsule())
                 }
             }
@@ -283,11 +283,11 @@ struct LifeAreaDetailView: View {
                     }
                 }
             }
-            .background(FleetingNotesTheme.cardGradient)
-            .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+            .background(AppTheme.cardGradient)
+            .cornerRadius(AppTheme.Metrics.cardCornerRadius)
             .overlay(
-                RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
-                    .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius)
+                    .stroke(AppTheme.borderGradient, lineWidth: 1)
             )
             .padding()
         }
