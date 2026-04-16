@@ -50,7 +50,7 @@ struct CalendarDayView: View {
                 Color.clear.frame(height: SAFE_AREA_INSET)
             }
         }
-        .background(FleetingNotesTheme.backgroundGradient.ignoresSafeArea())
+        .background(AppTheme.backgroundGradient.ignoresSafeArea())
         .onAppear {
             Task {
                 tasks = []

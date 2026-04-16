@@ -2,9 +2,9 @@ import SwiftUI
 
 struct ThemedCard<Content: View>: View {
     var content: Content
-    var gradient: LinearGradient = FleetingNotesTheme.cardGradient
+    var gradient: LinearGradient = AppTheme.cardGradient
 
-    init(gradient: LinearGradient = FleetingNotesTheme.cardGradient, @ViewBuilder content: () -> Content) {
+    init(gradient: LinearGradient = AppTheme.cardGradient, @ViewBuilder content: () -> Content) {
         self.gradient = gradient
         self.content = content()
     }
@@ -15,12 +15,12 @@ struct ThemedCard<Content: View>: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
                 .fill(gradient)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
-                .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                .stroke(AppTheme.borderGradient, lineWidth: 1)
         )
     }
 }
@@ -48,8 +48,8 @@ struct ThemedTextField: View {
     var body: some View {
         TextField(placeholder, text: $text, axis: isTitle ? .horizontal : .vertical)
             .font(isTitle ? .title3.weight(.semibold) : .body)
-            .foregroundColor(FleetingNotesTheme.textPrimary)
-            .tint(FleetingNotesTheme.accentColor)
+            .foregroundColor(AppTheme.textPrimary)
+            .tint(AppTheme.accentColor)
     }
 }
 
@@ -57,7 +57,7 @@ extension View {
     func themedSectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
             .font(.system(size: 13, weight: .semibold, design: .rounded))
-            .foregroundColor(FleetingNotesTheme.textSecondary)
+            .foregroundColor(AppTheme.textSecondary)
             .padding(.leading, 16)
             .padding(.bottom, 4)
     }

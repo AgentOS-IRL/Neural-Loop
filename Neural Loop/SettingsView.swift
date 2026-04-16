@@ -68,7 +68,7 @@ struct SettingsView: View {
                 settingsBackground
 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: FleetingNotesTheme.Metrics.sectionSpacing) {
+                    VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
                         llmSection
                         appModeSection
                         systemSection
@@ -78,7 +78,7 @@ struct SettingsView: View {
                         VStack {
                             Text(ConnectivityManager.shared.receivedMessage)
                                 .font(.system(.title3, design: .rounded, weight: .semibold))
-                                .foregroundStyle(FleetingNotesTheme.textPrimary)
+                                .foregroundStyle(AppTheme.textPrimary)
                             
                             Button {
                                 ConnectivityManager.shared.sendMessage("Hello from iPhone 📱")
@@ -88,14 +88,14 @@ struct SettingsView: View {
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 20)
                                     .padding(.vertical, 10)
-                                    .background(FleetingNotesTheme.accentGradient)
+                                    .background(AppTheme.accentGradient)
                                     .clipShape(Capsule())
                             }
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 20)
                     }
-                    .padding(.horizontal, FleetingNotesTheme.Metrics.screenPadding)
+                    .padding(.horizontal, AppTheme.Metrics.screenPadding)
                     .padding(.top, 16)
                     .padding(.bottom, bottomInsetHeight + 20)
                 }
@@ -133,16 +133,16 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("LLM Access")
                             .font(.system(.headline, design: .rounded, weight: .bold))
-                            .foregroundStyle(FleetingNotesTheme.textPrimary)
+                            .foregroundStyle(AppTheme.textPrimary)
                         Text("Enable LLM features only when the `codex_auth_token` secret is loaded.")
                             .font(.system(.subheadline, design: .rounded, weight: .medium))
-                            .foregroundStyle(FleetingNotesTheme.textSecondary)
+                            .foregroundStyle(AppTheme.textSecondary)
                     }
                 }
                 .tint(Color(red: 0.14, green: 0.49, blue: 0.53))
 
                 Divider()
-                    .background(FleetingNotesTheme.borderGradient)
+                    .background(AppTheme.borderGradient)
 
                 VStack(alignment: .leading, spacing: 12) {
                     statusRow(
@@ -174,19 +174,19 @@ struct SettingsView: View {
                         Text("Refresh Secrets")
                             .font(.system(.body, design: .rounded, weight: .semibold))
                     }
-                    .foregroundStyle(FleetingNotesTheme.textPrimary)
+                    .foregroundStyle(AppTheme.textPrimary)
                     .padding(.vertical, 8)
                     .padding(.horizontal, 16)
                     .background(
                         Capsule()
-                            .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                            .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
                     )
                 }
                 .disabled(isRefreshingSecrets)
                 
                 Text("LLM access is enabled only when the codex_auth_token secret exists and this switch is on. Use Refresh Secrets if the table changed externally.")
                     .font(.system(.caption, design: .rounded, weight: .medium))
-                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                    .foregroundStyle(AppTheme.textSecondary)
             }
         }
     }
@@ -198,10 +198,10 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Audio Mode")
                             .font(.system(.headline, design: .rounded, weight: .bold))
-                            .foregroundStyle(FleetingNotesTheme.textPrimary)
+                            .foregroundStyle(AppTheme.textPrimary)
                         Text("Use a simplified, voice-first interface.")
                             .font(.system(.subheadline, design: .rounded, weight: .medium))
-                            .foregroundStyle(FleetingNotesTheme.textSecondary)
+                            .foregroundStyle(AppTheme.textSecondary)
                     }
                 }
                 .tint(Color(red: 0.14, green: 0.49, blue: 0.53))
@@ -209,7 +209,7 @@ struct SettingsView: View {
 
                 Text(model.secretsLoaded ? "Audio mode requires both the codex_auth_token and chatgpt_account_id secrets to be present in public.secrets." : "Audio mode stays unavailable until secrets finish loading.")
                     .font(.system(.caption, design: .rounded, weight: .medium))
-                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                    .foregroundStyle(AppTheme.textSecondary)
             }
         }
     }
@@ -219,14 +219,14 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 8) {
                     Image(systemName: model.canUseAudioMode ? "checkmark.seal.fill" : "xmark.seal")
-                        .foregroundStyle(model.canUseAudioMode ? .green : FleetingNotesTheme.textSecondary)
+                        .foregroundStyle(model.canUseAudioMode ? .green : AppTheme.textSecondary)
                     Text(model.secretsLoaded ? (model.canUseAudioMode ? "\(codexAuthTokenSecretKey) present" : "\(codexAuthTokenSecretKey) missing") : "Checking audio entitlement...")
                         .font(.system(.subheadline, design: .rounded, weight: .medium))
-                        .foregroundStyle(FleetingNotesTheme.textSecondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
 
                 Divider()
-                    .background(FleetingNotesTheme.borderGradient)
+                    .background(AppTheme.borderGradient)
 
                 HStack(spacing: 12) {
                     Image(systemName: notificationTester.statusSymbol)
@@ -236,10 +236,10 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Notifications")
                             .font(.system(.headline, design: .rounded, weight: .bold))
-                            .foregroundStyle(FleetingNotesTheme.textPrimary)
+                            .foregroundStyle(AppTheme.textPrimary)
                         Text(notificationTester.statusText)
                             .font(.system(.subheadline, design: .rounded, weight: .medium))
-                            .foregroundStyle(FleetingNotesTheme.textSecondary)
+                            .foregroundStyle(AppTheme.textSecondary)
                     }
 
                     Spacer()
@@ -248,7 +248,7 @@ struct SettingsView: View {
                         Task { await notificationTester.refreshAuthorizationStatus() }
                     } label: {
                         Image(systemName: "arrow.clockwise")
-                            .foregroundStyle(FleetingNotesTheme.textPrimary)
+                            .foregroundStyle(AppTheme.textPrimary)
                     }
                     .accessibilityLabel("Refresh notification status")
                     .accessibilityHint("Checks the current authorization status for notifications")
@@ -281,7 +281,7 @@ struct SettingsView: View {
                 
                 Text("Use “Send Test Notification” to verify notifications are working on your device.")
                     .font(.system(.caption, design: .rounded, weight: .medium))
-                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                    .foregroundStyle(AppTheme.textSecondary)
             }
         }
     }
@@ -292,27 +292,27 @@ struct SettingsView: View {
                 if !model.secretsLoaded {
                     Text("Secrets are still loading")
                         .font(.system(.subheadline, design: .rounded, weight: .medium))
-                        .foregroundStyle(FleetingNotesTheme.textSecondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                 } else if model.loadedSecretKeys.isEmpty {
                     Text("No secrets loaded")
                         .font(.system(.subheadline, design: .rounded, weight: .medium))
-                        .foregroundStyle(FleetingNotesTheme.textSecondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                 } else {
                     ForEach(model.loadedSecretKeys, id: \.self) { key in
                         HStack {
                             Image(systemName: "key.fill")
                                 .font(.caption)
-                                .foregroundStyle(FleetingNotesTheme.accentGradient)
+                                .foregroundStyle(AppTheme.accentGradient)
                             Text(key)
                                 .font(.system(.subheadline, design: .rounded, weight: .medium))
-                                .foregroundStyle(FleetingNotesTheme.textPrimary)
+                                .foregroundStyle(AppTheme.textPrimary)
                         }
                     }
                 }
 
                 Text("This section intentionally shows secret names only. Secret values stay in app state and are not rendered here.")
                     .font(.system(.caption, design: .rounded, weight: .medium))
-                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                    .foregroundStyle(AppTheme.textSecondary)
             }
         }
     }
@@ -323,30 +323,30 @@ struct SettingsView: View {
                 if pendingRequests.isEmpty {
                     Text("No scheduled notifications")
                         .font(.system(.subheadline, design: .rounded, weight: .medium))
-                        .foregroundStyle(FleetingNotesTheme.textSecondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                 } else {
                     ForEach(pendingRequests, id: \.identifier) { request in
                         VStack(alignment: .leading, spacing: 4) {
                             Text(request.content.title)
                                 .font(.system(.headline, design: .rounded, weight: .bold))
-                                .foregroundStyle(FleetingNotesTheme.textPrimary)
+                                .foregroundStyle(AppTheme.textPrimary)
 
                             Text(request.content.body)
                                 .font(.system(.subheadline, design: .rounded, weight: .medium))
-                                .foregroundStyle(FleetingNotesTheme.textSecondary)
+                                .foregroundStyle(AppTheme.textSecondary)
 
                             if let trigger = request.trigger as? UNCalendarNotificationTrigger,
                                let date = trigger.nextTriggerDate() {
                                 Text(date.formatted(date: .abbreviated, time: .shortened))
                                     .font(.system(.caption, design: .rounded, weight: .bold))
-                                    .foregroundStyle(FleetingNotesTheme.accentGradient)
+                                    .foregroundStyle(AppTheme.accentGradient)
                             }
                         }
                         .padding(.vertical, 4)
                         
                         if request.identifier != pendingRequests.last?.identifier {
                             Divider()
-                                .background(FleetingNotesTheme.borderGradient)
+                                .background(AppTheme.borderGradient)
                         }
                     }
                 }
@@ -356,7 +356,7 @@ struct SettingsView: View {
                 } label: {
                     Label("Refresh Notifications", systemImage: "arrow.clockwise")
                         .font(.system(.body, design: .rounded, weight: .semibold))
-                        .foregroundStyle(FleetingNotesTheme.textPrimary)
+                        .foregroundStyle(AppTheme.textPrimary)
                 }
                 .padding(.top, 4)
             }
@@ -367,11 +367,11 @@ struct SettingsView: View {
 
     private var settingsBackground: some View {
         ZStack {
-            FleetingNotesTheme.backgroundGradient
+            AppTheme.backgroundGradient
                 .ignoresSafeArea()
 
             Circle()
-                .fill(FleetingNotesTheme.glowColor.opacity(0.15))
+                .fill(AppTheme.glowColor.opacity(0.15))
                 .frame(width: 200, height: 200)
                 .blur(radius: 50)
                 .offset(x: 140, y: -300)
@@ -389,18 +389,18 @@ struct SettingsView: View {
             Text(title.uppercased())
                 .font(.system(size: 12, weight: .bold, design: .rounded))
                 .tracking(1.0)
-                .foregroundStyle(FleetingNotesTheme.textSecondary)
+                .foregroundStyle(AppTheme.textSecondary)
                 .padding(.leading, 4)
 
             content()
                 .padding(20)
                 .background(
-                    RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
-                        .fill(FleetingNotesTheme.cardGradient)
+                    RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                        .fill(AppTheme.cardGradient)
                 )
                 .overlay {
-                    RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
-                        .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                        .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
                 }
         }
     }
@@ -408,10 +408,10 @@ struct SettingsView: View {
     private func statusRow(isOn: Bool, text: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: isOn ? "checkmark.seal.fill" : "xmark.seal")
-                .foregroundStyle(isOn ? .green : FleetingNotesTheme.textSecondary)
+                .foregroundStyle(isOn ? .green : AppTheme.textSecondary)
             Text(text)
                 .font(.system(.subheadline, design: .rounded, weight: .medium))
-                .foregroundStyle(FleetingNotesTheme.textSecondary)
+                .foregroundStyle(AppTheme.textSecondary)
         }
     }
 
@@ -425,9 +425,9 @@ struct SettingsView: View {
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption2)
-                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                    .foregroundStyle(AppTheme.textSecondary)
             }
-            .foregroundStyle(FleetingNotesTheme.textPrimary)
+            .foregroundStyle(AppTheme.textPrimary)
             .padding(.vertical, 8)
         }
     }

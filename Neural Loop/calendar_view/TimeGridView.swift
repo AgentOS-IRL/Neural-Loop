@@ -7,11 +7,11 @@ struct TimeGridView: View {
                 HStack(alignment: .top) {
                     Text(timeLabel(for: hour))
                         .font(.system(.caption, design: .rounded))
-                        .foregroundColor(FleetingNotesTheme.textSecondary)
+                        .foregroundColor(AppTheme.textSecondary)
                         .frame(width: 50, alignment: .trailing)
 
                     Rectangle()
-                        .fill(FleetingNotesTheme.textSecondary.opacity(0.15))
+                        .fill(AppTheme.textSecondary.opacity(0.15))
                         .frame(height: 0.5)
                 }
                 .frame(height: hourHeight)
