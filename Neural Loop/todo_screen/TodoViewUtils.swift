@@ -56,8 +56,8 @@ func rebuildDateBuckets(tasks: [Tasks]) -> [DateBucket] {
     
     var today_bucket = DateBucket(
         title: AnyView( Text("Today")
-                .font(.title3.weight(.semibold))
-            .foregroundColor(.primary))
+                .font(.system(.title3, design: .rounded, weight: .bold))
+            .foregroundColor(FleetingNotesTheme.textPrimary))
             ,
         start: todayStart,
         end: todayEnd,
@@ -65,15 +65,15 @@ func rebuildDateBuckets(tasks: [Tasks]) -> [DateBucket] {
     )
 
     var inbox_bucket = DateBucket(title: AnyView( Text("Inbox")
-        .font(.title3.weight(.semibold))
-        .foregroundColor(.primary)), start: .distantPast, end: .now, type: .inbox)
+        .font(.system(.title3, design: .rounded, weight: .bold))
+        .foregroundColor(FleetingNotesTheme.textPrimary)), start: .distantPast, end: .now, type: .inbox)
 
     var overdue_bucket = DateBucket(title: AnyView( Text("Overdue")
-        .font(.title3.weight(.semibold))
-        .foregroundColor(.primary)), start: .distantPast, end: .now, type: .overdue)
+        .font(.system(.title3, design: .rounded, weight: .bold))
+        .foregroundColor(FleetingNotesTheme.errorTint)), start: .distantPast, end: .now, type: .overdue)
     var completed_bucket = DateBucket(title: AnyView( Text("Completed")
-        .font(.title3.weight(.semibold))
-        .foregroundColor(.primary)), start: .distantPast, end: .distantFuture, type: .completed)
+        .font(.system(.title3, design: .rounded, weight: .bold))
+        .foregroundColor(FleetingNotesTheme.textPrimary)), start: .distantPast, end: .distantFuture, type: .completed)
 
     for task in tasks {
         if task.start_date == nil {
@@ -106,8 +106,8 @@ func buildNewTaskBucket(from tasks: [Tasks]) -> DateBucket {
     var newBucket = DateBucket(
         title: AnyView(
             Text("New")
-                .font(.title3.weight(.semibold))
-                .foregroundColor(.primary)
+                .font(.system(.title3, design: .rounded, weight: .bold))
+                .foregroundColor(FleetingNotesTheme.textPrimary)
         ),
         start: .distantPast,
         end: .distantFuture,
@@ -125,43 +125,48 @@ func addTaskRowView() -> some View {
     HStack(spacing: 12) {
         Circle()
             .stroke(
-                style: StrokeStyle(lineWidth: 2, dash: [4])
+                FleetingNotesTheme.textSecondary,
+                style: StrokeStyle(lineWidth: 1.5, dash: [4])
             )
-            .foregroundColor(.secondary)
             .frame(width: 18, height: 18)
         
         Text("Add task")
-            .font(.body)
-            .foregroundColor(.secondary)
+            .font(.system(.body, design: .rounded, weight: .medium))
+            .foregroundColor(FleetingNotesTheme.textSecondary)
         
         Spacer()
     }
-    .padding(.vertical, 8)
+    .padding(20)
+    .background(
+        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
+            .fill(FleetingNotesTheme.sectionGradient)
+    )
+    .overlay {
+        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
+            .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+    }
 }
 
 
 func taskRowView(task: Tasks, strikeThrough: Bool = false) -> some View {
-    
-    HStack(alignment: .top, spacing: 12) {
-        
+    HStack(alignment: .top, spacing: 14) {
         // Checkbox placeholder
         Circle()
-            .stroke(Color.secondary, lineWidth: 2)
+            .stroke(FleetingNotesTheme.accentGradient, lineWidth: 2)
             .frame(width: 22, height: 22)
             .padding(.top, 2)
         
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(task.title)
-                .font(.body)
+                .font(.system(.body, design: .rounded, weight: .semibold))
                 .strikethrough(strikeThrough)
-                .foregroundColor(.primary)
+                .foregroundColor(FleetingNotesTheme.textPrimary)
             
-            
-            let start = task.start_date ?? nil
-            let duration = task.duration ?? nil
+            let start = task.start_date
+            let duration = task.duration
             var end: Date? {
-                guard let start = task.start_date,
-                      let duration = task.duration else {
+                guard let start = start,
+                      let duration = duration else {
                     return nil
                 }
                 return start.addingTimeInterval(duration)
@@ -169,25 +174,32 @@ func taskRowView(task: Tasks, strikeThrough: Bool = false) -> some View {
             
             if end == nil {
                 Text("no due date")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(.system(.caption, design: .rounded, weight: .medium))
+                    .foregroundColor(FleetingNotesTheme.textSecondary)
             }
             else {
-                
                 HStack(spacing: 4) {
                     Text(start!.formatted(date: .omitted, time: .shortened))
                     Text("–")
                     Text(end!.formatted(date: .omitted, time: .shortened))
                 }
-                .font(.caption)
-                .foregroundColor(.secondary)
+                .font(.system(.caption, design: .rounded, weight: .medium))
+                .foregroundColor(FleetingNotesTheme.textSecondary)
             }
-            
         }
         
         Spacer()
     }
-    .padding(.vertical, 8)
-    .contentShape(Rectangle()) // future tap support
-    
+    .padding(20)
+    .background(
+        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
+            .fill(FleetingNotesTheme.cardGradient)
+    )
+    .overlay {
+        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
+            .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+    }
+    .clipShape(RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous))
+    .shadow(color: .black.opacity(0.06), radius: 10, y: 6)
+    .contentShape(Rectangle())
 }
