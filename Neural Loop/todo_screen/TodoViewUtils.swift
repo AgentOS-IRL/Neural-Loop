@@ -57,7 +57,7 @@ func rebuildDateBuckets(tasks: [Tasks]) -> [DateBucket] {
     var today_bucket = DateBucket(
         title: AnyView( Text("Today")
                 .font(.system(.title3, design: .rounded, weight: .bold))
-            .foregroundColor(FleetingNotesTheme.textPrimary))
+            .foregroundColor(AppTheme.textPrimary))
             ,
         start: todayStart,
         end: todayEnd,
@@ -66,14 +66,14 @@ func rebuildDateBuckets(tasks: [Tasks]) -> [DateBucket] {
 
     var inbox_bucket = DateBucket(title: AnyView( Text("Inbox")
         .font(.system(.title3, design: .rounded, weight: .bold))
-        .foregroundColor(FleetingNotesTheme.textPrimary)), start: .distantPast, end: .now, type: .inbox)
+        .foregroundColor(AppTheme.textPrimary)), start: .distantPast, end: .now, type: .inbox)
 
     var overdue_bucket = DateBucket(title: AnyView( Text("Overdue")
         .font(.system(.title3, design: .rounded, weight: .bold))
-        .foregroundColor(FleetingNotesTheme.errorTint)), start: .distantPast, end: .now, type: .overdue)
+        .foregroundColor(AppTheme.errorTint)), start: .distantPast, end: .now, type: .overdue)
     var completed_bucket = DateBucket(title: AnyView( Text("Completed")
         .font(.system(.title3, design: .rounded, weight: .bold))
-        .foregroundColor(FleetingNotesTheme.textPrimary)), start: .distantPast, end: .distantFuture, type: .completed)
+        .foregroundColor(AppTheme.textPrimary)), start: .distantPast, end: .distantFuture, type: .completed)
 
     for task in tasks {
         if task.start_date == nil {
@@ -107,7 +107,7 @@ func buildNewTaskBucket(from tasks: [Tasks]) -> DateBucket {
         title: AnyView(
             Text("New")
                 .font(.system(.title3, design: .rounded, weight: .bold))
-                .foregroundColor(FleetingNotesTheme.textPrimary)
+                .foregroundColor(AppTheme.textPrimary)
         ),
         start: .distantPast,
         end: .distantFuture,
@@ -125,25 +125,25 @@ func addTaskRowView() -> some View {
     HStack(spacing: 12) {
         Circle()
             .stroke(
-                FleetingNotesTheme.textSecondary,
+                AppTheme.textSecondary,
                 style: StrokeStyle(lineWidth: 1.5, dash: [4])
             )
             .frame(width: 18, height: 18)
         
         Text("Add task")
             .font(.system(.body, design: .rounded, weight: .medium))
-            .foregroundColor(FleetingNotesTheme.textSecondary)
+            .foregroundColor(AppTheme.textSecondary)
         
         Spacer()
     }
     .padding(20)
     .background(
-        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
-            .fill(FleetingNotesTheme.sectionGradient)
+        RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+            .fill(AppTheme.sectionGradient)
     )
     .overlay {
-        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
-            .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+        RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+            .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
     }
 }
 
@@ -152,7 +152,7 @@ func taskRowView(task: Tasks, strikeThrough: Bool = false) -> some View {
     HStack(alignment: .top, spacing: 14) {
         // Checkbox placeholder
         Circle()
-            .stroke(FleetingNotesTheme.accentGradient, lineWidth: 2)
+            .stroke(AppTheme.accentGradient, lineWidth: 2)
             .frame(width: 22, height: 22)
             .padding(.top, 2)
         
@@ -160,7 +160,7 @@ func taskRowView(task: Tasks, strikeThrough: Bool = false) -> some View {
             Text(task.title)
                 .font(.system(.body, design: .rounded, weight: .semibold))
                 .strikethrough(strikeThrough)
-                .foregroundColor(FleetingNotesTheme.textPrimary)
+                .foregroundColor(AppTheme.textPrimary)
             
             let start = task.start_date
             let duration = task.duration
@@ -175,7 +175,7 @@ func taskRowView(task: Tasks, strikeThrough: Bool = false) -> some View {
             if end == nil {
                 Text("no due date")
                     .font(.system(.caption, design: .rounded, weight: .medium))
-                    .foregroundColor(FleetingNotesTheme.textSecondary)
+                    .foregroundColor(AppTheme.textSecondary)
             }
             else {
                 HStack(spacing: 4) {
@@ -184,7 +184,7 @@ func taskRowView(task: Tasks, strikeThrough: Bool = false) -> some View {
                     Text(end!.formatted(date: .omitted, time: .shortened))
                 }
                 .font(.system(.caption, design: .rounded, weight: .medium))
-                .foregroundColor(FleetingNotesTheme.textSecondary)
+                .foregroundColor(AppTheme.textSecondary)
             }
         }
         
@@ -192,14 +192,14 @@ func taskRowView(task: Tasks, strikeThrough: Bool = false) -> some View {
     }
     .padding(20)
     .background(
-        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
-            .fill(FleetingNotesTheme.cardGradient)
+        RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+            .fill(AppTheme.cardGradient)
     )
     .overlay {
-        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
-            .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+        RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+            .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
     }
-    .clipShape(RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous))
+    .clipShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous))
     .shadow(color: .black.opacity(0.06), radius: 10, y: 6)
     .contentShape(Rectangle())
 }

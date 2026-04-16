@@ -63,15 +63,15 @@ enum AudioModeTheme {
         case .inactive:
             return Color(red: 0.70, green: 0.84, blue: 1.0)
         case .checkingPermissions:
-            return Color(red: 0.93, green: 0.79, blue: 0.43)
+            return AppTheme.warningTint
         case .listening:
             return .cyan
         case .transcribing:
-            return .mint
+            return AppTheme.successTint
         case .cooldown:
             return Color(red: 0.60, green: 0.88, blue: 1.0)
         case .unavailable:
-            return Color(red: 1.0, green: 0.62, blue: 0.40)
+            return AppTheme.errorTint
         }
     }
 
@@ -143,9 +143,9 @@ enum AudioModeTheme {
         case .info:
             return Color.white.opacity(0.16)
         case .warning:
-            return .yellow.opacity(0.26)
+            return AppTheme.warningTint.opacity(0.26)
         case .error:
-            return .red.opacity(0.30)
+            return AppTheme.errorTint.opacity(0.30)
         }
     }
 
@@ -154,9 +154,9 @@ enum AudioModeTheme {
         case .info:
             return .cyan.opacity(0.95)
         case .warning:
-            return .yellow.opacity(0.95)
+            return AppTheme.warningTint.opacity(0.95)
         case .error:
-            return .orange.opacity(0.96)
+            return AppTheme.errorTint.opacity(0.96)
         }
     }
 }

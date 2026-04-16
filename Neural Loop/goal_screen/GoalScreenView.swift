@@ -53,7 +53,7 @@ struct GoalScreenView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FleetingNotesTheme.backgroundGradient
+                AppTheme.backgroundGradient
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
@@ -111,7 +111,7 @@ struct GoalScreenView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Text("Goals")
                         .font(.system(.title3, design: .rounded).weight(.semibold))
-                        .foregroundStyle(FleetingNotesTheme.textPrimary)
+                        .foregroundStyle(AppTheme.textPrimary)
                         .lineLimit(1)
                         .fixedSize(horizontal: true, vertical: false)
                         .layoutPriority(1)
@@ -129,7 +129,7 @@ struct GoalScreenView: View {
                     } label: {
                         Image(systemName: "plus")
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(FleetingNotesTheme.textSecondary)
+                            .foregroundStyle(AppTheme.textSecondary)
                     }
                 }
             }
@@ -176,13 +176,13 @@ struct GoalScreenView: View {
                                 // Chevron
                                 Image(systemName: "chevron.right")
                                     .font(.system(size: 12, weight: .heavy))
-                                    .foregroundColor(FleetingNotesTheme.textSecondary)
+                                    .foregroundColor(AppTheme.textSecondary)
                             }
 
                             Spacer()
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(FleetingNotesTheme.textSecondary).rotationEffect(
+                                .foregroundColor(AppTheme.textSecondary).rotationEffect(
                                     .degrees(model.isExpanded(for: lifeArea.id!) ? 180 : 0)
                                 )
                                 .onTapGesture {
@@ -193,8 +193,8 @@ struct GoalScreenView: View {
 
                         }
                         .padding()
-                        .background(FleetingNotesTheme.sectionGradient)
-                        .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius, corners: model.lifeAreaExpandedIds.contains(lifeArea.id!) && !model.getGoals(lifeAreaId: lifeArea.id!).isEmpty ? [.topLeft, .topRight] : .allCorners)
+                        .background(AppTheme.sectionGradient)
+                        .cornerRadius(AppTheme.Metrics.cardCornerRadius, corners: model.lifeAreaExpandedIds.contains(lifeArea.id!) && !model.getGoals(lifeAreaId: lifeArea.id!).isEmpty ? [.topLeft, .topRight] : .allCorners)
 
                         if model.lifeAreaExpandedIds.contains(lifeArea.id!) {
                             VStack(spacing: 0) {
@@ -216,13 +216,13 @@ struct GoalScreenView: View {
                                     }
                                 }
                             }
-                            .background(FleetingNotesTheme.cardGradient)
-                            .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius, corners: [.bottomLeft, .bottomRight])
+                            .background(AppTheme.cardGradient)
+                            .cornerRadius(AppTheme.Metrics.cardCornerRadius, corners: [.bottomLeft, .bottomRight])
                         }
                     }
                     .overlay(
-                        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
-                            .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius)
+                            .stroke(AppTheme.borderGradient, lineWidth: 1)
                     )
                     .padding(.horizontal)
                 }
@@ -239,7 +239,7 @@ struct GoalScreenView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         bucket.title
                             .font(.system(.headline, design: .rounded, weight: .bold))
-                            .foregroundStyle(FleetingNotesTheme.textPrimary)
+                            .foregroundStyle(AppTheme.textPrimary)
                             .padding(.horizontal, 4)
 
                         VStack(spacing: 0) {
@@ -268,7 +268,7 @@ struct GoalScreenView: View {
                                 ZStack {
                                     RoundedRectangle(cornerRadius: 12)
                                         .stroke(
-                                            FleetingNotesTheme.textSecondary.opacity(0.4),
+                                            AppTheme.textSecondary.opacity(0.4),
                                             style: StrokeStyle(
                                                 lineWidth: 1.5,
                                                 lineCap: .round,
@@ -279,12 +279,12 @@ struct GoalScreenView: View {
 
                                     Image(systemName: "plus")
                                         .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(FleetingNotesTheme.textSecondary)
+                                        .foregroundColor(AppTheme.textSecondary)
                                 }
 
                                 Text("Add Goal")
                                     .font(.system(.body, design: .rounded, weight: .medium))
-                                    .foregroundColor(FleetingNotesTheme.textSecondary)
+                                    .foregroundColor(AppTheme.textSecondary)
                                 
                                 Spacer()
                             }
@@ -300,11 +300,11 @@ struct GoalScreenView: View {
                                 showAddGoal = true
                             }
                         }
-                        .background(FleetingNotesTheme.cardGradient)
-                        .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+                        .background(AppTheme.cardGradient)
+                        .cornerRadius(AppTheme.Metrics.cardCornerRadius)
                         .overlay(
-                            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
-                                .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius)
+                                .stroke(AppTheme.borderGradient, lineWidth: 1)
                         )
                     }
                 }
@@ -328,11 +328,11 @@ struct GoalScreenView: View {
                         lifeAreaRow(area)
                     }
                     .buttonStyle(.plain)
-                    .background(FleetingNotesTheme.cardGradient)
-                    .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+                    .background(AppTheme.cardGradient)
+                    .cornerRadius(AppTheme.Metrics.cardCornerRadius)
                     .overlay(
-                        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
-                            .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius)
+                            .stroke(AppTheme.borderGradient, lineWidth: 1)
                     )
                 }
             }
@@ -359,7 +359,7 @@ struct GoalScreenView: View {
             // Chevron
             Image(systemName: "chevron.right")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundColor(FleetingNotesTheme.textSecondary)
+                .foregroundColor(AppTheme.textSecondary)
         }
         .padding(.horizontal)
         .padding(.vertical, 16)

@@ -61,7 +61,7 @@ struct GoalDetailView: View {
     
     var body: some View {
         ZStack {
-            FleetingNotesTheme.backgroundGradient
+            AppTheme.backgroundGradient
                 .ignoresSafeArea()
 
             ScrollView {
@@ -76,12 +76,12 @@ struct GoalDetailView: View {
                     }
                     .padding(24)
                     .background(
-                        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.heroCornerRadius, style: .continuous)
-                            .fill(FleetingNotesTheme.heroGradient)
+                        RoundedRectangle(cornerRadius: AppTheme.Metrics.heroCornerRadius, style: .continuous)
+                            .fill(AppTheme.heroGradient)
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.heroCornerRadius, style: .continuous)
-                            .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: AppTheme.Metrics.heroCornerRadius, style: .continuous)
+                            .stroke(AppTheme.borderGradient, lineWidth: 1)
                     )
                     .padding(.horizontal)
                     
@@ -99,10 +99,10 @@ struct GoalDetailView: View {
                                 HStack{
                                     Text("Roadmap")
                                         .font(.system(.headline, design: .rounded, weight: .bold))
-                                        .foregroundStyle(FleetingNotesTheme.textPrimary)
+                                        .foregroundStyle(AppTheme.textPrimary)
                                     Image(systemName: "chevron.right")
                                         .font(.system(size: 12, weight: .heavy))
-                                        .foregroundColor(FleetingNotesTheme.textSecondary)
+                                        .foregroundColor(AppTheme.textSecondary)
                                 }
                             }
                             Spacer()
@@ -112,7 +112,7 @@ struct GoalDetailView: View {
                             } label: {
                                 Image(systemName: "plus")
                                     .font(.system(size: 18, weight: .bold))
-                                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                                    .foregroundStyle(AppTheme.textSecondary)
                                     .padding(8)
                             }
                         }
@@ -123,7 +123,7 @@ struct GoalDetailView: View {
                             if subGoals.count == 0 {
                                 Text("All subgoals are completed.")
                                     .font(.system(.subheadline, design: .rounded))
-                                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                                    .foregroundStyle(AppTheme.textSecondary)
                                     .frame(maxWidth: .infinity, alignment: .center)
                                     .padding()
                             }
@@ -147,11 +147,11 @@ struct GoalDetailView: View {
                                 }
                             }
                         }
-                        .background(FleetingNotesTheme.cardGradient)
-                        .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+                        .background(AppTheme.cardGradient)
+                        .cornerRadius(AppTheme.Metrics.cardCornerRadius)
                         .overlay(
-                            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
-                                .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius)
+                                .stroke(AppTheme.borderGradient, lineWidth: 1)
                         )
                         .padding(.horizontal)
                     }
@@ -166,10 +166,10 @@ struct GoalDetailView: View {
                                 HStack{
                                     Text("Todo")
                                         .font(.system(.headline, design: .rounded, weight: .bold))
-                                        .foregroundStyle(FleetingNotesTheme.textPrimary)
+                                        .foregroundStyle(AppTheme.textPrimary)
                                     Image(systemName: "chevron.right")
                                         .font(.system(size: 12, weight: .heavy))
-                                        .foregroundColor(FleetingNotesTheme.textSecondary)
+                                        .foregroundColor(AppTheme.textSecondary)
                                     
                                 }
                             }
@@ -184,7 +184,7 @@ struct GoalDetailView: View {
                             } label: {
                                 Image(systemName: "plus")
                                     .font(.system(size: 18, weight: .bold))
-                                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                                    .foregroundStyle(AppTheme.textSecondary)
                                     .padding(8)
                             }
                         }
@@ -197,15 +197,15 @@ struct GoalDetailView: View {
                                     
                                     Image(systemName: "list.bullet")
                                         .font(.system(size: 32))
-                                        .foregroundStyle(FleetingNotesTheme.accentGradient)
+                                        .foregroundStyle(AppTheme.accentGradient)
                                     
                                     Text("Create tasks")
                                         .font(.system(.headline, design: .rounded, weight: .bold))
-                                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        .foregroundColor(AppTheme.textPrimary)
                                     
                                     Text("Break your goal down into tasks.")
                                         .font(.system(.subheadline, design: .rounded))
-                                        .foregroundColor(FleetingNotesTheme.textSecondary)
+                                        .foregroundColor(AppTheme.textSecondary)
                                         .multilineTextAlignment(.center)
                                     
                                     NavigationLink {
@@ -217,18 +217,18 @@ struct GoalDetailView: View {
                                             .font(.system(.subheadline, design: .rounded, weight: .bold))
                                             .padding(.horizontal, 24)
                                             .padding(.vertical, 10)
-                                            .background(FleetingNotesTheme.accentGradient)
+                                            .background(AppTheme.accentGradient)
                                             .foregroundColor(.white)
                                             .clipShape(Capsule())
                                     }
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(24)
-                                .background(FleetingNotesTheme.cardGradient)
-                                .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+                                .background(AppTheme.cardGradient)
+                                .cornerRadius(AppTheme.Metrics.cardCornerRadius)
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
-                                        .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                                    RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius)
+                                        .stroke(AppTheme.borderGradient, lineWidth: 1)
                                 )
                             }
                             else{
@@ -249,10 +249,10 @@ struct GoalDetailView: View {
                                 HStack {
                                     Text("Habits")
                                         .font(.system(.headline, design: .rounded, weight: .bold))
-                                        .foregroundStyle(FleetingNotesTheme.textPrimary)
+                                        .foregroundStyle(AppTheme.textPrimary)
                                     Image(systemName: "chevron.right")
                                         .font(.system(size: 12, weight: .heavy))
-                                        .foregroundColor(FleetingNotesTheme.textSecondary)
+                                        .foregroundColor(AppTheme.textSecondary)
                                 }
                             }
                             
@@ -264,7 +264,7 @@ struct GoalDetailView: View {
                             } label: {
                                 Image(systemName: "plus")
                                     .font(.system(size: 18, weight: .bold))
-                                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                                    .foregroundStyle(AppTheme.textSecondary)
                                     .padding(8)
                             }
                         }
@@ -276,15 +276,15 @@ struct GoalDetailView: View {
                                 VStack(spacing: 16) {
                                     Image(systemName: "repeat")
                                         .font(.system(size: 32))
-                                        .foregroundStyle(FleetingNotesTheme.accentGradient)
+                                        .foregroundStyle(AppTheme.accentGradient)
                                     
                                     Text("Create habits")
                                         .font(.system(.headline, design: .rounded, weight: .bold))
-                                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        .foregroundColor(AppTheme.textPrimary)
                                     
                                     Text("Build habits to make progress consistently.")
                                         .font(.system(.subheadline, design: .rounded))
-                                        .foregroundColor(FleetingNotesTheme.textSecondary)
+                                        .foregroundColor(AppTheme.textSecondary)
                                         .multilineTextAlignment(.center)
                                     
                                     NavigationLink {
@@ -294,18 +294,18 @@ struct GoalDetailView: View {
                                             .font(.system(.subheadline, design: .rounded, weight: .bold))
                                             .padding(.horizontal, 24)
                                             .padding(.vertical, 10)
-                                            .background(FleetingNotesTheme.accentGradient)
+                                            .background(AppTheme.accentGradient)
                                             .foregroundColor(.white)
                                             .clipShape(Capsule())
                                     }
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(24)
-                                .background(FleetingNotesTheme.cardGradient)
-                                .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+                                .background(AppTheme.cardGradient)
+                                .cornerRadius(AppTheme.Metrics.cardCornerRadius)
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
-                                        .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                                    RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius)
+                                        .stroke(AppTheme.borderGradient, lineWidth: 1)
                                 )
                             }
                             else{
@@ -476,7 +476,7 @@ struct GoalDetailView: View {
 //            // Strong outer glow
             ChartShape()
                 .stroke(
-                    FleetingNotesTheme.accentGradient,
+                    AppTheme.accentGradient,
                     style: StrokeStyle(lineWidth: 10, lineCap: .round)
                 )
                 .opacity(0.9)
@@ -485,7 +485,7 @@ struct GoalDetailView: View {
 
 
             // Gradient fill under the line
-            FleetingNotesTheme.accentGradient
+            AppTheme.accentGradient
                 .opacity(0.3)
                 .mask(
                     ChartShape()
@@ -495,7 +495,7 @@ struct GoalDetailView: View {
             // Main line
             ChartShape()
                 .stroke(
-                    FleetingNotesTheme.accentGradient,
+                    AppTheme.accentGradient,
                     style: StrokeStyle(lineWidth: 5, lineCap: .round)
                 )
         }
@@ -555,7 +555,7 @@ struct GoalDetailView: View {
                 
                     Text("Target")
                         .font(.system(.headline, design: .rounded, weight: .bold))
-                        .foregroundStyle(FleetingNotesTheme.textPrimary)
+                        .foregroundStyle(AppTheme.textPrimary)
                     
                     
                     Spacer()
@@ -589,7 +589,7 @@ struct GoalDetailView: View {
                     } label: {
                         Image(systemName: "ellipsis")
                             .font(.title3)
-                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                            .foregroundColor(AppTheme.textSecondary)
                             .padding(8)
                     }
                 
@@ -599,14 +599,14 @@ struct GoalDetailView: View {
                     
                     Text("\(totalProgress) \(label)")
                         .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                        .foregroundStyle(FleetingNotesTheme.textSecondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                     
                     
                     Spacer()
                     
                     Text("\(Int(progressPercent * 100))%")
                         .font(.system(.subheadline, design: .rounded, weight: .bold))
-                        .foregroundStyle(FleetingNotesTheme.accentGradient)
+                        .foregroundStyle(AppTheme.accentGradient)
                 
             }
             
@@ -619,14 +619,14 @@ struct GoalDetailView: View {
                         x: .value("Date", $0.date),
                         y: .value("Progress", $0.value)
                     )
-                    .foregroundStyle(FleetingNotesTheme.accentGradient)
+                    .foregroundStyle(AppTheme.accentGradient)
                     .lineStyle(.init(lineWidth: 3))
 
                     PointMark(
                         x: .value("Date", $0.date),
                         y: .value("Progress", $0.value)
                     )
-                    .foregroundStyle(FleetingNotesTheme.accentGradient)
+                    .foregroundStyle(AppTheme.accentGradient)
                     .symbolSize(80)
                 }
                 .chartYScale(domain: 0...targetValue)
@@ -650,7 +650,7 @@ struct GoalDetailView: View {
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
                         .background(
-                            Capsule().fill(FleetingNotesTheme.accentGradient)
+                            Capsule().fill(AppTheme.accentGradient)
                         )
                 }
                 .frame(maxWidth: .infinity)
@@ -658,12 +658,12 @@ struct GoalDetailView: View {
         }
         .padding(24)
         .background(
-            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
-                .fill(FleetingNotesTheme.cardGradient)
+            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                .fill(AppTheme.cardGradient)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
-                .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                .stroke(AppTheme.borderGradient, lineWidth: 1)
         )
         .padding(.horizontal)
     }
@@ -680,11 +680,11 @@ struct GoalDetailView: View {
                 VStack(spacing: 8) {
                     Text("Measure your progress")
                         .font(.system(.title3, design: .rounded, weight: .bold))
-                        .foregroundStyle(FleetingNotesTheme.textPrimary)
+                        .foregroundStyle(AppTheme.textPrimary)
                     
                     Text("Select the most accurate way to track your progress for this goal.")
                         .font(.system(.body, design: .rounded))
-                        .foregroundColor(FleetingNotesTheme.textSecondary)
+                        .foregroundColor(AppTheme.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
                 }
@@ -704,7 +704,7 @@ struct GoalDetailView: View {
                         .padding(.vertical, 10)
                         .background(
                             Capsule()
-                                .fill(FleetingNotesTheme.accentGradient)
+                                .fill(AppTheme.accentGradient)
                         )
                 }
                 .padding(.top, 8)
@@ -712,12 +712,12 @@ struct GoalDetailView: View {
             .padding(.vertical, 32)
             .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
-                    .fill(FleetingNotesTheme.cardGradient)
+                RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                    .fill(AppTheme.cardGradient)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
-                    .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                    .stroke(AppTheme.borderGradient, lineWidth: 1)
             )
             .padding(.horizontal)
     }

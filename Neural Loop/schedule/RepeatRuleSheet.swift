@@ -183,11 +183,11 @@ struct RepeatRuleSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FleetingNotesTheme.backgroundGradient
+                AppTheme.backgroundGradient
                     .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: FleetingNotesTheme.Metrics.sectionSpacing) {
+                    VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
                         
                         // Frequency & Interval
                         VStack(alignment: .leading, spacing: 4) {
@@ -201,16 +201,16 @@ struct RepeatRuleSheet: View {
                                 .pickerStyle(.segmented)
 
                                 Divider()
-                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                    .background(AppTheme.textSecondary.opacity(0.1))
 
                                 Stepper(value: $interval, in: 1...30) {
                                     HStack {
                                         Text("Interval")
-                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                            .foregroundColor(AppTheme.textPrimary)
                                         Spacer()
                                         Text("Every \(interval) \(frequencyLabel)")
                                             .font(.body.bold())
-                                            .foregroundColor(FleetingNotesTheme.accentColor)
+                                            .foregroundColor(AppTheme.accentColor)
                                     }
                                 }
                             }
@@ -244,7 +244,7 @@ struct RepeatRuleSheet: View {
 
                                     if monthlyMode == .dates {
                                         Divider()
-                                            .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                            .background(AppTheme.textSecondary.opacity(0.1))
                                         
                                         LazyVGrid(columns: Array(repeating: .init(.flexible()), count: 7), spacing: 10) {
                                             ForEach(1...31, id: \.self) { day in
@@ -255,11 +255,11 @@ struct RepeatRuleSheet: View {
                                         .padding(.vertical, 8)
                                     } else {
                                         Divider()
-                                            .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                            .background(AppTheme.textSecondary.opacity(0.1))
                                         
                                         HStack {
                                             Text("Ordinal")
-                                                .foregroundColor(FleetingNotesTheme.textPrimary)
+                                                .foregroundColor(AppTheme.textPrimary)
                                             Spacer()
                                             Picker("Ordinal", selection: $ordinal) {
                                                 ForEach(OrdinalUI.allCases, id: \.self) { value in
@@ -270,11 +270,11 @@ struct RepeatRuleSheet: View {
                                         }
 
                                         Divider()
-                                            .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                            .background(AppTheme.textSecondary.opacity(0.1))
 
                                         HStack {
                                             Text("Weekday")
-                                                .foregroundColor(FleetingNotesTheme.textPrimary)
+                                                .foregroundColor(AppTheme.textPrimary)
                                             Spacer()
                                             Picker("Weekday", selection: $ordinalWeekday) {
                                                 ForEach(WeekdayUI.allCases, id: \.self) {
@@ -294,7 +294,7 @@ struct RepeatRuleSheet: View {
                                 ThemedCard {
                                     HStack {
                                         Text("Ordinal")
-                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                            .foregroundColor(AppTheme.textPrimary)
                                         Spacer()
                                         Picker("Ordinal", selection: $ordinal) {
                                             ForEach(OrdinalUI.allCases, id: \.self) { value in
@@ -305,11 +305,11 @@ struct RepeatRuleSheet: View {
                                     }
 
                                     Divider()
-                                        .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                        .background(AppTheme.textSecondary.opacity(0.1))
 
                                     HStack {
                                         Text("Weekday")
-                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                            .foregroundColor(AppTheme.textPrimary)
                                         Spacer()
                                         Picker("Weekday", selection: $ordinalWeekday) {
                                             ForEach(WeekdayUI.allCases, id: \.self) {
@@ -320,11 +320,11 @@ struct RepeatRuleSheet: View {
                                     }
 
                                     Divider()
-                                        .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                        .background(AppTheme.textSecondary.opacity(0.1))
 
                                     HStack {
                                         Text("Month")
-                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                            .foregroundColor(AppTheme.textPrimary)
                                         Spacer()
                                         Picker("Month", selection: $selectedMonth) {
                                             ForEach(1...12, id: \.self) {
@@ -349,35 +349,35 @@ struct RepeatRuleSheet: View {
 
                                 if endType == .onDate {
                                     Divider()
-                                        .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                        .background(AppTheme.textSecondary.opacity(0.1))
                                     
                                     DatePicker(
                                         "End Date",
                                         selection: $endDate,
                                         displayedComponents: .date
                                     )
-                                    .tint(FleetingNotesTheme.accentColor)
+                                    .tint(AppTheme.accentColor)
                                 }
 
                                 if endType == .after {
                                     Divider()
-                                        .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                        .background(AppTheme.textSecondary.opacity(0.1))
                                     
                                     Stepper(value: $occurrenceCount, in: 1...999) {
                                         HStack {
                                             Text("Occurrences")
-                                                .foregroundColor(FleetingNotesTheme.textPrimary)
+                                                .foregroundColor(AppTheme.textPrimary)
                                             Spacer()
                                             Text("\(occurrenceCount)")
                                                 .font(.body.bold())
-                                                .foregroundColor(FleetingNotesTheme.accentColor)
+                                                .foregroundColor(AppTheme.accentColor)
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                    .padding(FleetingNotesTheme.Metrics.screenPadding)
+                    .padding(AppTheme.Metrics.screenPadding)
                 }
             }
             .navigationTitle("Repeat")
@@ -389,14 +389,14 @@ struct RepeatRuleSheet: View {
                         dismiss()
                     }
                     .font(.body.weight(.bold))
-                    .foregroundColor(FleetingNotesTheme.accentColor)
+                    .foregroundColor(AppTheme.accentColor)
                 }
 
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .foregroundColor(FleetingNotesTheme.textPrimary)
+                    .foregroundColor(AppTheme.textPrimary)
                 }
             }
         }
@@ -488,12 +488,12 @@ struct RepeatRuleSheet: View {
         Text(day.short)
             .font(.subheadline.bold())
             .frame(width: 44, height: 44)
-            .background(isSelected ? FleetingNotesTheme.accentGradient : LinearGradient(colors: [.clear], startPoint: .top, endPoint: .bottom))
-            .foregroundColor(isSelected ? .white : FleetingNotesTheme.textPrimary)
+            .background(isSelected ? AppTheme.accentGradient : LinearGradient(colors: [.clear], startPoint: .top, endPoint: .bottom))
+            .foregroundColor(isSelected ? .white : AppTheme.textPrimary)
             .clipShape(Circle())
             .overlay(
                 Circle()
-                    .stroke(isSelected ? Color.clear : FleetingNotesTheme.textSecondary.opacity(0.3), lineWidth: 1)
+                    .stroke(isSelected ? Color.clear : AppTheme.textSecondary.opacity(0.3), lineWidth: 1)
             )
             .onTapGesture {
                 if isSelected {
@@ -512,12 +512,12 @@ struct RepeatRuleSheet: View {
         Text(label)
             .font(.system(size: day == -1 ? 10 : 14, weight: .bold))
             .frame(width: 40, height: 40)
-            .background(isSelected ? FleetingNotesTheme.accentGradient : LinearGradient(colors: [.clear], startPoint: .top, endPoint: .bottom))
-            .foregroundColor(isSelected ? .white : FleetingNotesTheme.textPrimary)
+            .background(isSelected ? AppTheme.accentGradient : LinearGradient(colors: [.clear], startPoint: .top, endPoint: .bottom))
+            .foregroundColor(isSelected ? .white : AppTheme.textPrimary)
             .clipShape(Circle())
             .overlay(
                 Circle()
-                    .stroke(isSelected ? Color.clear : FleetingNotesTheme.textSecondary.opacity(0.3), lineWidth: 1)
+                    .stroke(isSelected ? Color.clear : AppTheme.textSecondary.opacity(0.3), lineWidth: 1)
             )
             .onTapGesture {
                 if isSelected {

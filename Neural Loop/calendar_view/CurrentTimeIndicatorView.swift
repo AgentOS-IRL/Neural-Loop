@@ -17,12 +17,12 @@ struct CurrentTimeIndicatorView: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(FleetingNotesTheme.accentGradient)
+                    .background(AppTheme.accentGradient)
                     .clipShape(Capsule())
 
                 // Continuous themed line
                 Rectangle()
-                    .fill(FleetingNotesTheme.accentGradient)
+                    .fill(AppTheme.accentGradient)
                     .frame(height: 1)
             }
             .offset(y: yOffset)

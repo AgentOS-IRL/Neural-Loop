@@ -23,11 +23,11 @@ struct FleetingNotesView: View {
                 background
 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: FleetingNotesTheme.Metrics.sectionSpacing) {
+                    VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
                         heroCard
                         content
                     }
-                    .padding(.horizontal, FleetingNotesTheme.Metrics.screenPadding)
+                    .padding(.horizontal, AppTheme.Metrics.screenPadding)
                     .padding(.top, 16)
                     .padding(.bottom, 120)
                 }
@@ -48,7 +48,7 @@ struct FleetingNotesView: View {
         case .empty(let summary):
             messageCard(summary: summary.title, detail: summary.subtitle, systemImage: "tray")
         case .content(let content):
-            VStack(alignment: .leading, spacing: FleetingNotesTheme.Metrics.cardSpacing) {
+            VStack(alignment: .leading, spacing: AppTheme.Metrics.cardSpacing) {
                 ForEach(content.cards) { card in
                     FleetingNotesRow(card: card)
                 }
@@ -68,7 +68,7 @@ struct FleetingNotesView: View {
                 .padding(.vertical, 12)
                 .background(
                     Capsule()
-                        .fill(FleetingNotesTheme.errorTint)
+                        .fill(AppTheme.errorTint)
                 )
             }
         }
@@ -79,8 +79,8 @@ struct FleetingNotesView: View {
             HStack(alignment: .center, spacing: 16) {
                 ZStack {
                     Circle()
-                        .fill(FleetingNotesTheme.accentGradient)
-                        .frame(width: FleetingNotesTheme.Metrics.heroIconSize, height: FleetingNotesTheme.Metrics.heroIconSize)
+                        .fill(AppTheme.accentGradient)
+                        .frame(width: AppTheme.Metrics.heroIconSize, height: AppTheme.Metrics.heroIconSize)
 
                     Image(systemName: "note.text")
                         .font(.system(size: 26, weight: .bold))
@@ -91,11 +91,11 @@ struct FleetingNotesView: View {
                     Text(summary.eyebrow.uppercased())
                         .font(.system(size: 12, weight: .bold, design: .rounded))
                         .tracking(0.8)
-                        .foregroundStyle(FleetingNotesTheme.textSecondary)
+                        .foregroundStyle(AppTheme.textSecondary)
 
                     Text(summary.title)
                         .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .foregroundStyle(FleetingNotesTheme.textPrimary)
+                        .foregroundStyle(AppTheme.textPrimary)
                 }
 
                 Spacer(minLength: 12)
@@ -103,16 +103,16 @@ struct FleetingNotesView: View {
 
             Text(summary.subtitle)
                 .font(.system(.body, design: .rounded, weight: .medium))
-                .foregroundStyle(FleetingNotesTheme.textSecondary)
+                .foregroundStyle(AppTheme.textSecondary)
         }
         .padding(24)
         .background(heroBackground)
         .overlay {
-            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.heroCornerRadius, style: .continuous)
-                .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppTheme.Metrics.heroCornerRadius, style: .continuous)
+                .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
         }
-        .clipShape(RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.heroCornerRadius, style: .continuous))
-        .shadow(color: FleetingNotesTheme.glowColor.opacity(0.28), radius: 24, y: 12)
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.heroCornerRadius, style: .continuous))
+        .shadow(color: AppTheme.glowColor.opacity(0.28), radius: 24, y: 12)
     }
 
     private var summary: FleetingNotesSummary {
@@ -139,8 +139,8 @@ struct FleetingNotesView: View {
     private var loadingSection: some View {
         VStack(spacing: 14) {
             ForEach(0..<3, id: \.self) { _ in
-                RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
-                    .fill(FleetingNotesTheme.sectionGradient)
+                RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                    .fill(AppTheme.sectionGradient)
                     .frame(height: 138)
                     .redacted(reason: .placeholder)
             }
@@ -151,21 +151,21 @@ struct FleetingNotesView: View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: systemImage)
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(FleetingNotesTheme.accentGradient)
+                .foregroundStyle(AppTheme.accentGradient)
                 .padding(14)
                 .background(
                     Circle()
-                        .fill(FleetingNotesTheme.sectionGradient)
+                        .fill(AppTheme.sectionGradient)
                 )
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(summary)
                     .font(.system(.headline, design: .rounded, weight: .bold))
-                    .foregroundStyle(FleetingNotesTheme.textPrimary)
+                    .foregroundStyle(AppTheme.textPrimary)
 
                 Text(detail)
                     .font(.system(.body, design: .rounded, weight: .medium))
-                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                    .foregroundStyle(AppTheme.textSecondary)
             }
 
             Spacer(minLength: 0)
@@ -173,19 +173,19 @@ struct FleetingNotesView: View {
         .padding(20)
         .background(sectionBackground)
         .overlay {
-            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
-                .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
         }
-        .clipShape(RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous))
     }
 
     private var background: some View {
         ZStack {
-            FleetingNotesTheme.backgroundGradient
+            AppTheme.backgroundGradient
                 .ignoresSafeArea()
 
             Circle()
-                .fill(FleetingNotesTheme.glowColor.opacity(0.20))
+                .fill(AppTheme.glowColor.opacity(0.20))
                 .frame(width: 220, height: 220)
                 .blur(radius: 40)
                 .offset(x: 120, y: -260)
@@ -199,20 +199,20 @@ struct FleetingNotesView: View {
     }
 
     private var heroBackground: some View {
-        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.heroCornerRadius, style: .continuous)
+        RoundedRectangle(cornerRadius: AppTheme.Metrics.heroCornerRadius, style: .continuous)
             .fill(
                 reduceTransparency
                 ? AnyShapeStyle(Color(.systemBackground))
-                : AnyShapeStyle(FleetingNotesTheme.heroGradient)
+                : AnyShapeStyle(AppTheme.heroGradient)
             )
     }
 
     private var sectionBackground: some View {
-        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
+        RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
             .fill(
                 reduceTransparency
                 ? AnyShapeStyle(Color(.secondarySystemBackground))
-                : AnyShapeStyle(FleetingNotesTheme.sectionGradient)
+                : AnyShapeStyle(AppTheme.sectionGradient)
             )
     }
 
