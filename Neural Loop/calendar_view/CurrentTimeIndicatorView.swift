@@ -13,16 +13,16 @@ struct CurrentTimeIndicatorView: View {
 
                 // Time capsule
                 Text(timeString(from: now))
-                    .font(.caption)
+                    .font(.system(.caption, design: .rounded))
                     .foregroundColor(.white)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.red)
+                    .background(FleetingNotesTheme.accentGradient)
                     .clipShape(Capsule())
 
-                // Continuous red line
+                // Continuous themed line
                 Rectangle()
-                    .fill(Color.red)
+                    .fill(FleetingNotesTheme.accentGradient)
                     .frame(height: 1)
             }
             .offset(y: yOffset)
