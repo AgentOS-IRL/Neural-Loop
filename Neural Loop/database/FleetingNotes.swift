@@ -18,13 +18,20 @@ struct CreateFleetingNoteRequest: Codable, Equatable {
     let note: String
 }
 
+struct UpdateFleetingNoteRequest: Codable, Equatable {
+    let note: String
+}
+
 enum FleetingNotesError: LocalizedError, Equatable {
     case insertReturnedNoRows
+    case updateReturnedNoRows
 
     var errorDescription: String? {
         switch self {
         case .insertReturnedNoRows:
             return "Fleeting note could not be saved."
+        case .updateReturnedNoRows:
+            return "Fleeting note could not be updated."
         }
     }
 }
@@ -68,5 +75,29 @@ extension DBManager {
         }
 
         return note
+    }
+
+    func updateFleetingNote(id: Int64, request: UpdateFleetingNoteRequest) async throws -> FleetingNote {
+        let updated: [FleetingNote] = try await customsupabase
+            .from(FleetingNote.tableName)
+            .update(request)
+            .eq("id", value: Int(id))
+            .select("id, created_at, note")
+            .execute()
+            .value
+
+        guard let note = updated.first else {
+            throw FleetingNotesError.updateReturnedNoRows
+        }
+
+        return note
+    }
+
+    func deleteFleetingNote(id: Int64) async throws {
+        try await customsupabase
+            .from(FleetingNote.tableName)
+            .delete()
+            .eq("id", value: Int(id))
+            .execute()
     }
 }
