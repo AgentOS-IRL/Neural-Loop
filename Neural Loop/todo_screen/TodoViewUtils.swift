@@ -36,7 +36,7 @@ func parse_rrule(rruleString: String) throws -> Calendar.RecurrenceRule {
     return try parser.parse(rruleString)
 }
 
-enum ViewMode {
+enum ViewMode: Equatable {
     case menu
     case today
     case upcoming
