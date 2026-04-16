@@ -147,6 +147,50 @@ func addTaskRowView() -> some View {
     }
 }
 
+func todoDueDateText(
+    start: Date?,
+    duration: TimeInterval?,
+    calendar: Calendar = .current,
+    locale: Locale = .current,
+    timeZone: TimeZone = .current
+) -> String {
+    guard let start else {
+        return "no due date"
+    }
+
+    let dateTimeFormatter = DateFormatter()
+    dateTimeFormatter.calendar = calendar
+    dateTimeFormatter.locale = locale
+    dateTimeFormatter.timeZone = timeZone
+    dateTimeFormatter.dateStyle = .medium
+    dateTimeFormatter.timeStyle = .short
+
+    guard let duration, duration > 0 else {
+        return dateTimeFormatter.string(from: start)
+    }
+
+    let end = start.addingTimeInterval(duration)
+
+    if calendar.isDate(start, inSameDayAs: end) {
+        let dateFormatter = DateFormatter()
+        dateFormatter.calendar = calendar
+        dateFormatter.locale = locale
+        dateFormatter.timeZone = timeZone
+        dateFormatter.dateStyle = .medium
+        dateFormatter.timeStyle = .none
+
+        let timeFormatter = DateFormatter()
+        timeFormatter.calendar = calendar
+        timeFormatter.locale = locale
+        timeFormatter.timeZone = timeZone
+        timeFormatter.dateStyle = .none
+        timeFormatter.timeStyle = .short
+
+        return "\(dateFormatter.string(from: start)), \(timeFormatter.string(from: start)) - \(timeFormatter.string(from: end))"
+    }
+
+    return "\(dateTimeFormatter.string(from: start)) - \(dateTimeFormatter.string(from: end))"
+}
 
 func taskRowView(task: Tasks, strikeThrough: Bool = false) -> some View {
     HStack(alignment: .top, spacing: 14) {
@@ -162,30 +206,9 @@ func taskRowView(task: Tasks, strikeThrough: Bool = false) -> some View {
                 .strikethrough(strikeThrough)
                 .foregroundColor(AppTheme.textPrimary)
             
-            let start = task.start_date
-            let duration = task.duration
-            var end: Date? {
-                guard let start = start,
-                      let duration = duration else {
-                    return nil
-                }
-                return start.addingTimeInterval(duration)
-            }
-            
-            if end == nil {
-                Text("no due date")
-                    .font(.system(.caption, design: .rounded, weight: .medium))
-                    .foregroundColor(AppTheme.textSecondary)
-            }
-            else {
-                HStack(spacing: 4) {
-                    Text(start!.formatted(date: .omitted, time: .shortened))
-                    Text("–")
-                    Text(end!.formatted(date: .omitted, time: .shortened))
-                }
+            Text(todoDueDateText(start: task.start_date, duration: task.duration))
                 .font(.system(.caption, design: .rounded, weight: .medium))
                 .foregroundColor(AppTheme.textSecondary)
-            }
         }
         
         Spacer()
