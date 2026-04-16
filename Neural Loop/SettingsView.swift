@@ -64,209 +64,44 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    Toggle(isOn: llmModeToggleBinding) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("LLM Access")
-                                .font(.headline)
-                            Text("Enable LLM features only when the `codex_auth_token` secret is loaded.")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .toggleStyle(.switch)
+            ZStack {
+                settingsBackground
 
-                    HStack(spacing: 8) {
-                        Image(systemName: model.llm_enabled ? "checkmark.seal.fill" : "xmark.seal")
-                            .foregroundStyle(model.llm_enabled ? .green : .secondary)
-                        Text(model.secretsLoaded ? (model.llm_enabled ? "LLM enabled" : "LLM disabled") : "Checking LLM entitlement...")
-                            .foregroundStyle(.secondary)
-                    }
-
-                    HStack(spacing: 8) {
-                        Image(systemName: model.secretsLoaded && model.canUseAudioMode ? "checkmark.seal.fill" : "xmark.seal")
-                            .foregroundStyle(model.secretsLoaded && model.canUseAudioMode ? .green : .secondary)
-                        Text(model.secretsLoaded ? (model.canUseAudioMode ? "Audio mode secrets present" : "Audio mode secrets missing") : "Refreshing secrets...")
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Button {
-                        guard !isRefreshingSecrets else { return }
-                        isRefreshingSecrets = true
-                        Task { @MainActor in
-                            defer { isRefreshingSecrets = false }
-                            await model.refreshSecrets()
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            if isRefreshingSecrets {
-                                ProgressView()
-                                    .controlSize(.small)
-                            } else {
-                                Image(systemName: "arrow.clockwise")
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: FleetingNotesTheme.Metrics.sectionSpacing) {
+                        llmSection
+                        appModeSection
+                        systemSection
+                        loadedSecretsSection
+                        scheduledNotificationsSection
+                        
+                        VStack {
+                            Text(ConnectivityManager.shared.receivedMessage)
+                                .font(.system(.title3, design: .rounded, weight: .semibold))
+                                .foregroundStyle(FleetingNotesTheme.textPrimary)
+                            
+                            Button {
+                                ConnectivityManager.shared.sendMessage("Hello from iPhone 📱")
+                            } label: {
+                                Text("Send to Watch")
+                                    .font(.system(.body, design: .rounded, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 10)
+                                    .background(FleetingNotesTheme.accentGradient)
+                                    .clipShape(Capsule())
                             }
-                            Text("Refresh Secrets")
                         }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
                     }
-                    .disabled(isRefreshingSecrets)
-                } header: {
-                    Text("LLM")
-                } footer: {
-                    Text("LLM access is enabled only when the codex_auth_token secret exists and this switch is on. Use Refresh Secrets if the table changed externally.")
+                    .padding(.horizontal, FleetingNotesTheme.Metrics.screenPadding)
+                    .padding(.top, 16)
+                    .padding(.bottom, bottomInsetHeight + 20)
                 }
-
-                Section {
-                    Toggle(isOn: audioModeToggleBinding) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Audio Mode")
-                                .font(.headline)
-                            Text("Use a simplified, voice-first interface.")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .toggleStyle(.switch)
-                    .disabled(!shouldEnableAudioModeToggle(secretsLoaded: model.secretsLoaded, canUseAudioMode: model.canUseAudioMode))
-                } header: {
-                    Text("App Mode")
-                } footer: {
-                    Text(model.secretsLoaded ? "Audio mode requires both the codex_auth_token and chatgpt_account_id secrets to be present in public.secrets." : "Audio mode stays unavailable until secrets finish loading.")
-                }
-
-                Section {
-                    HStack(spacing: 8) {
-                        Image(systemName: model.canUseAudioMode ? "checkmark.seal.fill" : "xmark.seal")
-                            .foregroundStyle(model.canUseAudioMode ? .green : .secondary)
-                        Text(model.secretsLoaded ? (model.canUseAudioMode ? "\(codexAuthTokenSecretKey) present" : "\(codexAuthTokenSecretKey) missing") : "Checking audio entitlement...")
-                            .foregroundStyle(.secondary)
-                    }
-
-                    HStack(spacing: 12) {
-                        Image(systemName: notificationTester.statusSymbol)
-                            .font(.title3)
-                            .foregroundStyle(notificationTester.statusColor)
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Notifications")
-                                .font(.headline)
-                            Text(notificationTester.statusText)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer()
-
-                        Button {
-                            Task { await notificationTester.refreshAuthorizationStatus() }
-                        } label: {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("Refresh notification status")
-                    }
-                    .padding(.vertical, 4)
-
-                    Button {
-                        Task { await notificationTester.requestPermission() }
-                    } label: {
-                        Label("Request Permission", systemImage: "checkmark.shield")
-                    }
-                    .disabled(notificationTester.authorizationStatus == .authorized || notificationTester.authorizationStatus == .provisional)
-
-                    Button {
-                        Task {
-                            let date = Date().addingTimeInterval(30)
-                            try? await notificationTester.scheduleNotification(
-                                id: "test.notification",
-                                title: "Neural Loop",
-                                body: "This is a test notification ✅",
-                                date: date
-                            )
-                        }
-                    } label: {
-                        Label("Send Test Notification", systemImage: "bell.badge")
-                    }
-
-                    Button {
-                        if let url = URL(string: UIApplication.openSettingsURLString) {
-                            openURL(url)
-                        }
-                    } label: {
-                        Label("Open iOS Settings", systemImage: "gearshape")
-                    }
-                } header: {
-                    Text("System")
-                } footer: {
-                    Text("Use “Send Test Notification” to verify notifications are working on your device.")
-                }
-
-                Section {
-                    if !model.secretsLoaded {
-                        Text("Secrets are still loading")
-                            .foregroundStyle(.secondary)
-                    } else if model.loadedSecretKeys.isEmpty {
-                        Text("No secrets loaded")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(model.loadedSecretKeys, id: \.self) { key in
-                            Text(key)
-                        }
-                    }
-                } header: {
-                    Text("Loaded Secrets")
-                } footer: {
-                    Text("This section intentionally shows secret names only. Secret values stay in app state and are not rendered here.")
-                }
-                
-                VStack{
-                    Text(ConnectivityManager.shared.receivedMessage)
-                        .font(.title)
-                    Button("Send to Watch") {
-                        print("Sending message to watch...")
-                        ConnectivityManager.shared.sendMessage("Hello from iPhone 📱")
-                    }
-                }
-
-                Section {
-                    if pendingRequests.isEmpty {
-                        Text("No scheduled notifications")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(pendingRequests, id: \.identifier) { request in
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(request.content.title)
-                                    .font(.headline)
-
-                                Text(request.content.body)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-
-                                if let trigger = request.trigger as? UNCalendarNotificationTrigger,
-                                   let date = trigger.nextTriggerDate() {
-                                    Text(date.formatted(date: .abbreviated, time: .shortened))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-
-                    Button {
-                        Task { await loadPendingNotifications() }
-                    } label: {
-                        Label("Refresh Scheduled Notifications", systemImage: "arrow.clockwise")
-                    }
-                } header: {
-                    Text("Scheduled Notifications")
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                Color.clear
-                    .frame(height: bottomInsetHeight)
             }
             .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
             .task {
                 await notificationTester.refreshAuthorizationStatus()
                 await loadPendingNotifications()
@@ -286,6 +121,312 @@ struct SettingsView: View {
                     isAudioMode = false
                 }
             }
+        }
+    }
+
+    // MARK: - Sections
+
+    private var llmSection: some View {
+        settingsCard(title: "LLM") {
+            VStack(alignment: .leading, spacing: 16) {
+                Toggle(isOn: llmModeToggleBinding) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("LLM Access")
+                            .font(.system(.headline, design: .rounded, weight: .bold))
+                            .foregroundStyle(FleetingNotesTheme.textPrimary)
+                        Text("Enable LLM features only when the `codex_auth_token` secret is loaded.")
+                            .font(.system(.subheadline, design: .rounded, weight: .medium))
+                            .foregroundStyle(FleetingNotesTheme.textSecondary)
+                    }
+                }
+                .tint(Color(red: 0.14, green: 0.49, blue: 0.53))
+
+                Divider()
+                    .background(FleetingNotesTheme.borderGradient)
+
+                VStack(alignment: .leading, spacing: 12) {
+                    statusRow(
+                        isOn: model.llm_enabled,
+                        text: model.secretsLoaded ? (model.llm_enabled ? "LLM enabled" : "LLM disabled") : "Checking LLM entitlement..."
+                    )
+
+                    statusRow(
+                        isOn: model.secretsLoaded && model.canUseAudioMode,
+                        text: model.secretsLoaded ? (model.canUseAudioMode ? "Audio mode secrets present" : "Audio mode secrets missing") : "Refreshing secrets..."
+                    )
+                }
+
+                Button {
+                    guard !isRefreshingSecrets else { return }
+                    isRefreshingSecrets = true
+                    Task { @MainActor in
+                        defer { isRefreshingSecrets = false }
+                        await model.refreshSecrets()
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        if isRefreshingSecrets {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        Text("Refresh Secrets")
+                            .font(.system(.body, design: .rounded, weight: .semibold))
+                    }
+                    .foregroundStyle(FleetingNotesTheme.textPrimary)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 16)
+                    .background(
+                        Capsule()
+                            .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                    )
+                }
+                .disabled(isRefreshingSecrets)
+                
+                Text("LLM access is enabled only when the codex_auth_token secret exists and this switch is on. Use Refresh Secrets if the table changed externally.")
+                    .font(.system(.caption, design: .rounded, weight: .medium))
+                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+            }
+        }
+    }
+
+    private var appModeSection: some View {
+        settingsCard(title: "App Mode") {
+            VStack(alignment: .leading, spacing: 16) {
+                Toggle(isOn: audioModeToggleBinding) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Audio Mode")
+                            .font(.system(.headline, design: .rounded, weight: .bold))
+                            .foregroundStyle(FleetingNotesTheme.textPrimary)
+                        Text("Use a simplified, voice-first interface.")
+                            .font(.system(.subheadline, design: .rounded, weight: .medium))
+                            .foregroundStyle(FleetingNotesTheme.textSecondary)
+                    }
+                }
+                .tint(Color(red: 0.14, green: 0.49, blue: 0.53))
+                .disabled(!shouldEnableAudioModeToggle(secretsLoaded: model.secretsLoaded, canUseAudioMode: model.canUseAudioMode))
+
+                Text(model.secretsLoaded ? "Audio mode requires both the codex_auth_token and chatgpt_account_id secrets to be present in public.secrets." : "Audio mode stays unavailable until secrets finish loading.")
+                    .font(.system(.caption, design: .rounded, weight: .medium))
+                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+            }
+        }
+    }
+
+    private var systemSection: some View {
+        settingsCard(title: "System") {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 8) {
+                    Image(systemName: model.canUseAudioMode ? "checkmark.seal.fill" : "xmark.seal")
+                        .foregroundStyle(model.canUseAudioMode ? .green : FleetingNotesTheme.textSecondary)
+                    Text(model.secretsLoaded ? (model.canUseAudioMode ? "\(codexAuthTokenSecretKey) present" : "\(codexAuthTokenSecretKey) missing") : "Checking audio entitlement...")
+                        .font(.system(.subheadline, design: .rounded, weight: .medium))
+                        .foregroundStyle(FleetingNotesTheme.textSecondary)
+                }
+
+                Divider()
+                    .background(FleetingNotesTheme.borderGradient)
+
+                HStack(spacing: 12) {
+                    Image(systemName: notificationTester.statusSymbol)
+                        .font(.title3)
+                        .foregroundStyle(notificationTester.statusColor)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Notifications")
+                            .font(.system(.headline, design: .rounded, weight: .bold))
+                            .foregroundStyle(FleetingNotesTheme.textPrimary)
+                        Text(notificationTester.statusText)
+                            .font(.system(.subheadline, design: .rounded, weight: .medium))
+                            .foregroundStyle(FleetingNotesTheme.textSecondary)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        Task { await notificationTester.refreshAuthorizationStatus() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundStyle(FleetingNotesTheme.textPrimary)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    settingsButton(label: "Request Permission", systemImage: "checkmark.shield") {
+                        Task { await notificationTester.requestPermission() }
+                    }
+                    .disabled(notificationTester.authorizationStatus == .authorized || notificationTester.authorizationStatus == .provisional)
+
+                    settingsButton(label: "Send Test Notification", systemImage: "bell.badge") {
+                        Task {
+                            let date = Date().addingTimeInterval(30)
+                            try? await notificationTester.scheduleNotification(
+                                id: "test.notification",
+                                title: "Neural Loop",
+                                body: "This is a test notification ✅",
+                                date: date
+                            )
+                        }
+                    }
+
+                    settingsButton(label: "Open iOS Settings", systemImage: "gearshape") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            openURL(url)
+                        }
+                    }
+                }
+                
+                Text("Use “Send Test Notification” to verify notifications are working on your device.")
+                    .font(.system(.caption, design: .rounded, weight: .medium))
+                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+            }
+        }
+    }
+
+    private var loadedSecretsSection: some View {
+        settingsCard(title: "Loaded Secrets") {
+            VStack(alignment: .leading, spacing: 12) {
+                if !model.secretsLoaded {
+                    Text("Secrets are still loading")
+                        .font(.system(.subheadline, design: .rounded, weight: .medium))
+                        .foregroundStyle(FleetingNotesTheme.textSecondary)
+                } else if model.loadedSecretKeys.isEmpty {
+                    Text("No secrets loaded")
+                        .font(.system(.subheadline, design: .rounded, weight: .medium))
+                        .foregroundStyle(FleetingNotesTheme.textSecondary)
+                } else {
+                    ForEach(model.loadedSecretKeys, id: \.self) { key in
+                        HStack {
+                            Image(systemName: "key.fill")
+                                .font(.caption)
+                                .foregroundStyle(FleetingNotesTheme.accentGradient)
+                            Text(key)
+                                .font(.system(.subheadline, design: .rounded, weight: .medium))
+                                .foregroundStyle(FleetingNotesTheme.textPrimary)
+                        }
+                    }
+                }
+
+                Text("This section intentionally shows secret names only. Secret values stay in app state and are not rendered here.")
+                    .font(.system(.caption, design: .rounded, weight: .medium))
+                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+            }
+        }
+    }
+
+    private var scheduledNotificationsSection: some View {
+        settingsCard(title: "Scheduled Notifications") {
+            VStack(alignment: .leading, spacing: 12) {
+                if pendingRequests.isEmpty {
+                    Text("No scheduled notifications")
+                        .font(.system(.subheadline, design: .rounded, weight: .medium))
+                        .foregroundStyle(FleetingNotesTheme.textSecondary)
+                } else {
+                    ForEach(pendingRequests, id: \.identifier) { request in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(request.content.title)
+                                .font(.system(.headline, design: .rounded, weight: .bold))
+                                .foregroundStyle(FleetingNotesTheme.textPrimary)
+
+                            Text(request.content.body)
+                                .font(.system(.subheadline, design: .rounded, weight: .medium))
+                                .foregroundStyle(FleetingNotesTheme.textSecondary)
+
+                            if let trigger = request.trigger as? UNCalendarNotificationTrigger,
+                               let date = trigger.nextTriggerDate() {
+                                Text(date.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.system(.caption, design: .rounded, weight: .bold))
+                                    .foregroundStyle(FleetingNotesTheme.accentGradient)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                        
+                        if request.identifier != pendingRequests.last?.identifier {
+                            Divider()
+                                .background(FleetingNotesTheme.borderGradient)
+                        }
+                    }
+                }
+
+                Button {
+                    Task { await loadPendingNotifications() }
+                } label: {
+                    Label("Refresh Notifications", systemImage: "arrow.clockwise")
+                        .font(.system(.body, design: .rounded, weight: .semibold))
+                        .foregroundStyle(FleetingNotesTheme.textPrimary)
+                }
+                .padding(.top, 4)
+            }
+        }
+    }
+
+    // MARK: - Components
+
+    private var settingsBackground: some View {
+        ZStack {
+            FleetingNotesTheme.backgroundGradient
+                .ignoresSafeArea()
+
+            Circle()
+                .fill(FleetingNotesTheme.glowColor.opacity(0.15))
+                .frame(width: 200, height: 200)
+                .blur(radius: 50)
+                .offset(x: 140, y: -300)
+
+            Circle()
+                .fill(Color.adaptive(light: Color.white.opacity(0.20), dark: Color.white.opacity(0.05)))
+                .frame(width: 250, height: 250)
+                .blur(radius: 70)
+                .offset(x: -120, y: -350)
+        }
+    }
+
+    private func settingsCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title.uppercased())
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .tracking(1.0)
+                .foregroundStyle(FleetingNotesTheme.textSecondary)
+                .padding(.leading, 4)
+
+            content()
+                .padding(20)
+                .background(
+                    RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
+                        .fill(FleetingNotesTheme.cardGradient)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
+                        .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                }
+        }
+    }
+
+    private func statusRow(isOn: Bool, text: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: isOn ? "checkmark.seal.fill" : "xmark.seal")
+                .foregroundStyle(isOn ? .green : FleetingNotesTheme.textSecondary)
+            Text(text)
+                .font(.system(.subheadline, design: .rounded, weight: .medium))
+                .foregroundStyle(FleetingNotesTheme.textSecondary)
+        }
+    }
+
+    private func settingsButton(label: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Image(systemName: systemImage)
+                    .frame(width: 20)
+                Text(label)
+                    .font(.system(.body, design: .rounded, weight: .semibold))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption2)
+                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+            }
+            .foregroundStyle(FleetingNotesTheme.textPrimary)
+            .padding(.vertical, 8)
         }
     }
 }
