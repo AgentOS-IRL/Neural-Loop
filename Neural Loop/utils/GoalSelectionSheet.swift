@@ -32,40 +32,49 @@ struct GoalSelectionSheet: View {
 
     var body: some View {
         NavigationStack {
-            Group {VStack(spacing: 0) {
-                
-                Picker("View", selection: $selectedTab) {
-                    ForEach(DetailTab.allCases, id: \.self) { tab in
-                        Text(tab.rawValue).tag(tab)
+            ZStack {
+                FleetingNotesTheme.backgroundGradient
+                    .ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    Picker("View", selection: $selectedTab) {
+                        ForEach(DetailTab.allCases, id: \.self) { tab in
+                            Text(tab.rawValue).tag(tab)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding()
+                    .onChange(of: selectedTab) { _ in
+                        clearSelection()
+                    }
+                    
+                    ScrollView {
+                        VStack(spacing: 12) {
+                            if selectedTab == .goals {
+                                goalsView()
+                            } else {
+                                lifeAreaView()
+                            }
+                        }
+                        .padding(FleetingNotesTheme.Metrics.screenPadding)
                     }
                 }
-                .pickerStyle(.segmented)
-                .padding()
-                .onChange(of: selectedTab) { _ in
-                    clearSelection()
-                }
-                
-                Divider()
-                
-                if selectedTab == .goals {
-                    goalsView()
-                } else {
-                    lifeAreaView()
-                }
-            }
-                
             }
             .navigationTitle("Select")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
                         onSelect(nil)
                         dismiss()
                     }
+                    .foregroundColor(FleetingNotesTheme.textPrimary)
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done", action: handleDone)
+                        .font(.body.weight(.bold))
+                        .foregroundColor(hasSelection ? FleetingNotesTheme.accentColor : FleetingNotesTheme.textSecondary)
                         .disabled(!hasSelection)
                 }
             }
@@ -75,7 +84,7 @@ struct GoalSelectionSheet: View {
     // MARK: - Views
 
     private func goalsView() -> some View {
-        List(Array(model.goals), id: \.id) { goal in
+        ForEach(Array(model.goals), id: \.id) { goal in
             selectableRow(
                 title: goal.title,
                 isSelected: selectedGoalId == goal.id
@@ -86,7 +95,7 @@ struct GoalSelectionSheet: View {
     }
 
     private func lifeAreaView() -> some View {
-        List(Array(model.lifeAreas), id: \.id) { lifeArea in
+        ForEach(Array(model.lifeAreas), id: \.id) { lifeArea in
             selectableRow(
                 title: lifeArea.name,
                 isSelected: selectedLifeAreaId == lifeArea.id
@@ -101,15 +110,22 @@ struct GoalSelectionSheet: View {
         isSelected: Bool,
         onTap: @escaping () -> Void
     ) -> some View {
-        HStack {
-            Text(title)
-            Spacer()
-            if isSelected {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.accentColor)
+        ThemedCard(gradient: isSelected ? FleetingNotesTheme.sectionGradient : FleetingNotesTheme.cardGradient) {
+            HStack {
+                Text(title)
+                    .font(.body.weight(isSelected ? .semibold : .regular))
+                    .foregroundColor(FleetingNotesTheme.textPrimary)
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(FleetingNotesTheme.accentColor)
+                } else {
+                    Circle()
+                        .stroke(FleetingNotesTheme.textSecondary.opacity(0.3), lineWidth: 1)
+                        .frame(width: 20, height: 20)
+                }
             }
         }
-        .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
     }
 

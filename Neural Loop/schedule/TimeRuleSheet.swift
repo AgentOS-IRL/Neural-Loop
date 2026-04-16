@@ -53,98 +53,123 @@ struct TimeRuleSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
+            ZStack {
+                FleetingNotesTheme.backgroundGradient
+                    .ignoresSafeArea()
 
-                // TIME SECTION
-                VStack(spacing: 0) {
-                    HStack {
-                        Text("Time")
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        if !isAnytime {
-                            Text(dateTimeFormatter.string(from: selectedDateTime))
-                                .foregroundStyle(.primary)
-                        }
-                    }
-                    .padding()
+                ScrollView {
+                    VStack(spacing: FleetingNotesTheme.Metrics.sectionSpacing) {
 
-                    Divider()
-
-                    if !isAnytime {
-                        DatePicker(
-                            "Select Date & Time",
-                            selection: $selectedDateTime,
-                            displayedComponents: [.date, .hourAndMinute]
-                        )
-                        .datePickerStyle(.wheel)
-                        .labelsHidden()
-                        .padding(.horizontal)
-                    }
-
-                    Toggle("Anytime", isOn: $isAnytime)
-                        .padding()
-                }
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-
-                // DURATION SECTION
-                VStack(alignment: .leading, spacing: 12) {
-                    Toggle("Duration", isOn: $isDurationEnabled)
-
-                    if isDurationEnabled {
-                        // QUICK PRESETS
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 12) {
-                                ForEach(quickMinutes, id: \.self) { min in
-                                    quickButton(title: "\(min)") {
-                                        selectedHours = 0
-                                        selectedMinutes = min
+                        // TIME SECTION
+                        VStack(alignment: .leading, spacing: 4) {
+                            themedSectionHeader("Time")
+                            ThemedCard {
+                                HStack {
+                                    Text("Start")
+                                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                                    Spacer()
+                                    if !isAnytime {
+                                        Text(dateTimeFormatter.string(from: selectedDateTime))
+                                            .font(.body.bold())
+                                            .foregroundColor(FleetingNotesTheme.accentColor)
                                     }
                                 }
+                                .padding(.vertical, 4)
 
-                                quickButton(title: "1h") {
-                                    selectedHours = 1
-                                    selectedMinutes = 0
+                                if !isAnytime {
+                                    Divider()
+                                        .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                    
+                                    DatePicker(
+                                        "Select Date & Time",
+                                        selection: $selectedDateTime,
+                                        displayedComponents: [.date, .hourAndMinute]
+                                    )
+                                    .datePickerStyle(.wheel)
+                                    .labelsHidden()
+                                    .frame(maxWidth: .infinity)
                                 }
 
-                                quickButton(title: "2h") {
-                                    selectedHours = 2
-                                    selectedMinutes = 0
+                                Divider()
+                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+
+                                Toggle(isOn: $isAnytime) {
+                                    Text("Anytime")
+                                        .foregroundColor(FleetingNotesTheme.textPrimary)
                                 }
+                                .tint(FleetingNotesTheme.accentColor)
                             }
                         }
 
-                        // PICKER
-                        HStack {
-                            Picker("Hours", selection: $selectedHours) {
-                                ForEach(0..<6, id: \.self) { Text("\($0) hr") }
-                            }
-                            .pickerStyle(.wheel)
-                            .frame(maxWidth: .infinity)
+                        // DURATION SECTION
+                        VStack(alignment: .leading, spacing: 4) {
+                            themedSectionHeader("Duration")
+                            ThemedCard {
+                                Toggle(isOn: $isDurationEnabled) {
+                                    Text("Set Duration")
+                                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                                }
+                                .tint(FleetingNotesTheme.accentColor)
 
-                            Picker("Minutes", selection: $selectedMinutes) {
-                                ForEach(0..<60, id: \.self) { Text("\($0) min") }
+                                if isDurationEnabled {
+                                    Divider()
+                                        .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+
+                                    // QUICK PRESETS
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 12) {
+                                            ForEach(quickMinutes, id: \.self) { min in
+                                                quickButton(title: "\(min)m") {
+                                                    selectedHours = 0
+                                                    selectedMinutes = min
+                                                }
+                                            }
+
+                                            quickButton(title: "1h") {
+                                                selectedHours = 1
+                                                selectedMinutes = 0
+                                            }
+
+                                            quickButton(title: "2h") {
+                                                selectedHours = 2
+                                                selectedMinutes = 0
+                                            }
+                                        }
+                                    }
+                                    .padding(.vertical, 8)
+
+                                    // PICKER
+                                    HStack {
+                                        Picker("Hours", selection: $selectedHours) {
+                                            ForEach(0..<6, id: \.self) { Text("\($0) hr") }
+                                        }
+                                        .pickerStyle(.wheel)
+                                        .frame(maxWidth: .infinity)
+
+                                        Picker("Minutes", selection: $selectedMinutes) {
+                                            ForEach(0..<60, id: \.self) { Text("\($0) min") }
+                                        }
+                                        .pickerStyle(.wheel)
+                                        .frame(maxWidth: .infinity)
+                                    }
+                                    .frame(height: 120)
+                                    .background(FleetingNotesTheme.textSecondary.opacity(0.05))
+                                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                                }
                             }
-                            .pickerStyle(.wheel)
-                            .frame(maxWidth: .infinity)
                         }
-                        .frame(height: 150)
-                        .background(Color.secondary.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 20))
                     }
+                    .padding(FleetingNotesTheme.Metrics.screenPadding)
                 }
-                .padding()
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-
-                Spacer()
             }
-            .padding()
             .navigationTitle("Time")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button { dismiss() } label: { Image(systemName: "xmark") }
+                    Button { dismiss() } label: { 
+                        Image(systemName: "xmark")
+                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                    }
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -158,7 +183,8 @@ struct TimeRuleSheet: View {
                         )
                         dismiss()
                     }
-                    .fontWeight(.semibold)
+                    .font(.body.weight(.bold))
+                    .foregroundColor(FleetingNotesTheme.accentColor)
                 }
             }
         }
@@ -167,10 +193,16 @@ struct TimeRuleSheet: View {
     private func quickButton(title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
+                .font(.subheadline.bold())
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(Color.secondary.opacity(0.15))
+                .background(FleetingNotesTheme.sectionGradient)
+                .foregroundColor(FleetingNotesTheme.textPrimary)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                )
         }
     }
 

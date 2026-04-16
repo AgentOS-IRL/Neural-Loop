@@ -127,65 +127,122 @@ struct AddEditTodoView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                // MARK: Title
-                Section {
-                    TextField("Task title", text: $title)
-                        .font(.title3.weight(.semibold))
-                }
+            ZStack {
+                FleetingNotesTheme.backgroundGradient
+                    .ignoresSafeArea()
 
-                // MARK: Description
-                Section("Description") {
-                    TextEditor(text: $description)
-                        .frame(minHeight: 120)
-                }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: FleetingNotesTheme.Metrics.sectionSpacing) {
+                        
+                        // MARK: Title & Description
+                        VStack(alignment: .leading, spacing: 4) {
+                            themedSectionHeader("Task Details")
+                            ThemedCard {
+                                ThemedTextField(placeholder: "Task title", text: $title, isTitle: true)
+                                
+                                Divider()
+                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                
+                                TextEditor(text: $description)
+                                    .frame(minHeight: 100)
+                                    .scrollContentBackground(.hidden)
+                                    .font(.body)
+                                    .foregroundColor(FleetingNotesTheme.textPrimary)
+                            }
+                        }
 
-                // MARK: Priority & Deadline
-                Section("Priority") {
-                    Picker("Priority", selection: $priority) {
-                        Text("Low").tag(0)
-                        Text("Medium").tag(1)
-                        Text("High").tag(2)
-                        Text("Critical").tag(3)
+                        // MARK: Priority & Deadline
+                        VStack(alignment: .leading, spacing: 4) {
+                            themedSectionHeader("Priority & Deadline")
+                            ThemedCard {
+                                Picker("Priority", selection: $priority) {
+                                    Text("Low").tag(0)
+                                    Text("Medium").tag(1)
+                                    Text("High").tag(2)
+                                    Text("Critical").tag(3)
+                                }
+                                .pickerStyle(.segmented)
+                                
+                                Divider()
+                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+
+                                Toggle(isOn: $isDeadline) {
+                                    Label("Deadline", systemImage: "timer")
+                                        .font(.body.weight(.medium))
+                                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                                }
+                                .tint(FleetingNotesTheme.accentColor)
+                            }
+                        }
+
+                        // MARK: Schedule
+                        VStack(alignment: .leading, spacing: 4) {
+                            themedSectionHeader("Schedule")
+                            ThemedCard {
+                                scheduleSummary()
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundColor(FleetingNotesTheme.textSecondary)
+                                
+                                Divider()
+                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+
+                                Button {
+                                    showTimeSheet = true
+                                } label: {
+                                    ThemedRow {
+                                        Label("Set Time", systemImage: "clock")
+                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption.bold())
+                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                    }
+                                }
+
+                                Divider()
+                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+
+                                Button {
+                                    showScheduleSheet = true
+                                } label: {
+                                    ThemedRow {
+                                        Label("Repeat", systemImage: "arrow.2.circlepath")
+                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption.bold())
+                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                    }
+                                }
+                            }
+                        }
+
+                        // MARK: Goal / Life Area
+                        VStack(alignment: .leading, spacing: 4) {
+                            themedSectionHeader("Goal or Life Area")
+                            ThemedCard {
+                                Button {
+                                    showAreaGoalSheet = true
+                                } label: {
+                                    ThemedRow {
+                                        Label(
+                                            GoalOrLifeAreadName ?? "Select goal or life area",
+                                            systemImage: "scope"
+                                        )
+                                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption.bold())
+                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                    }
+                                }
+                            }
+                        }
                     }
-                    .pickerStyle(.segmented)
-
-                    Toggle("Deadline", isOn: $isDeadline)
-                        .tint(.red)
-                }
-
-                // MARK: Schedule
-                Section("Schedule") {
-                    scheduleSummary()
-                    Button {
-                        showTimeSheet = true
-                    } label: {
-                        Label("Set Time", systemImage: "clock")
-                    }
-
-                    Button {
-                        showScheduleSheet = true
-                    } label: {
-                        Label("Repeat", systemImage: "arrow.2.circlepath")
-                    }
-                }
-
-                // MARK: Goal / Life Area
-                Section("Goal or Life Area") {
-                    Button {
-                        showAreaGoalSheet = true
-                    } label: {
-                        Label(
-                            GoalOrLifeAreadName ?? "Select goal or life area",
-                            systemImage: "scope"
-                        )
-                    }
-                    .foregroundColor(.primary)
+                    .padding(FleetingNotesTheme.Metrics.screenPadding)
+                    .padding(.bottom, SAFE_AREA_INSET + 20)
                 }
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                        Color.clear.frame(height: SAFE_AREA_INSET)
-                    }
             .navigationTitle(task == nil ? "New Task" : "Edit Task")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -195,6 +252,7 @@ struct AddEditTodoView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
+                            .foregroundColor(FleetingNotesTheme.textPrimary)
                     }
                 }
 
@@ -203,6 +261,8 @@ struct AddEditTodoView: View {
                     Button(task == nil ? "Save" : "Update") {
                         saveTask()
                     }
+                    .font(.body.weight(.bold))
+                    .foregroundColor(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? FleetingNotesTheme.textSecondary : FleetingNotesTheme.accentColor)
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
