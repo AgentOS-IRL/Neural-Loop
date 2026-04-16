@@ -1,4 +1,5 @@
 import XCTest
+import SwiftUI
 @testable import Neural_Loop
 
 final class FleetingNotesStateTests: XCTestCase {
