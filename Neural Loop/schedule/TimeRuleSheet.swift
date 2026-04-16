@@ -54,11 +54,11 @@ struct TimeRuleSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FleetingNotesTheme.backgroundGradient
+                AppTheme.backgroundGradient
                     .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: FleetingNotesTheme.Metrics.sectionSpacing) {
+                    VStack(spacing: AppTheme.Metrics.sectionSpacing) {
 
                         // TIME SECTION
                         VStack(alignment: .leading, spacing: 4) {
@@ -66,19 +66,19 @@ struct TimeRuleSheet: View {
                             ThemedCard {
                                 HStack {
                                     Text("Start")
-                                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        .foregroundColor(AppTheme.textPrimary)
                                     Spacer()
                                     if !isAnytime {
                                         Text(dateTimeFormatter.string(from: selectedDateTime))
                                             .font(.body.bold())
-                                            .foregroundColor(FleetingNotesTheme.accentColor)
+                                            .foregroundColor(AppTheme.accentColor)
                                     }
                                 }
                                 .padding(.vertical, 4)
 
                                 if !isAnytime {
                                     Divider()
-                                        .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                        .background(AppTheme.textSecondary.opacity(0.1))
                                     
                                     DatePicker(
                                         "Select Date & Time",
@@ -91,13 +91,13 @@ struct TimeRuleSheet: View {
                                 }
 
                                 Divider()
-                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                    .background(AppTheme.textSecondary.opacity(0.1))
 
                                 Toggle(isOn: $isAnytime) {
                                     Text("Anytime")
-                                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        .foregroundColor(AppTheme.textPrimary)
                                 }
-                                .tint(FleetingNotesTheme.accentColor)
+                                .tint(AppTheme.accentColor)
                             }
                         }
 
@@ -107,13 +107,13 @@ struct TimeRuleSheet: View {
                             ThemedCard {
                                 Toggle(isOn: $isDurationEnabled) {
                                     Text("Set Duration")
-                                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        .foregroundColor(AppTheme.textPrimary)
                                 }
-                                .tint(FleetingNotesTheme.accentColor)
+                                .tint(AppTheme.accentColor)
 
                                 if isDurationEnabled {
                                     Divider()
-                                        .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                        .background(AppTheme.textSecondary.opacity(0.1))
 
                                     // QUICK PRESETS
                                     ScrollView(.horizontal, showsIndicators: false) {
@@ -153,13 +153,13 @@ struct TimeRuleSheet: View {
                                         .frame(maxWidth: .infinity)
                                     }
                                     .frame(height: 120)
-                                    .background(FleetingNotesTheme.textSecondary.opacity(0.05))
+                                    .background(AppTheme.textSecondary.opacity(0.05))
                                     .clipShape(RoundedRectangle(cornerRadius: 16))
                                 }
                             }
                         }
                     }
-                    .padding(FleetingNotesTheme.Metrics.screenPadding)
+                    .padding(AppTheme.Metrics.screenPadding)
                 }
             }
             .navigationTitle("Time")
@@ -168,7 +168,7 @@ struct TimeRuleSheet: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { dismiss() } label: { 
                         Image(systemName: "xmark")
-                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                            .foregroundColor(AppTheme.textPrimary)
                     }
                 }
 
@@ -184,7 +184,7 @@ struct TimeRuleSheet: View {
                         dismiss()
                     }
                     .font(.body.weight(.bold))
-                    .foregroundColor(FleetingNotesTheme.accentColor)
+                    .foregroundColor(AppTheme.accentColor)
                 }
             }
         }
@@ -196,12 +196,12 @@ struct TimeRuleSheet: View {
                 .font(.subheadline.bold())
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(FleetingNotesTheme.sectionGradient)
-                .foregroundColor(FleetingNotesTheme.textPrimary)
+                .background(AppTheme.sectionGradient)
+                .foregroundColor(AppTheme.textPrimary)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                        .stroke(AppTheme.borderGradient, lineWidth: 1)
                 )
         }
     }

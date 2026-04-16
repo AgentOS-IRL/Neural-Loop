@@ -31,7 +31,7 @@ struct HabitView: View {
     @ViewBuilder
     private var habitRootContent: some View {
         ZStack {
-            FleetingNotesTheme.backgroundGradient
+            AppTheme.backgroundGradient
                 .ignoresSafeArea()
 
             ScrollView {
@@ -87,10 +87,10 @@ struct HabitView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Habits")
                     .font(.system(.title3, design: .rounded, weight: .bold))
-                    .foregroundStyle(FleetingNotesTheme.textPrimary)
+                    .foregroundStyle(AppTheme.textPrimary)
                 Text("Track recurring actions and streaks.")
                     .font(.system(.subheadline, design: .rounded, weight: .medium))
-                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                    .foregroundStyle(AppTheme.textSecondary)
             }
 
             Spacer()
@@ -100,11 +100,11 @@ struct HabitView: View {
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                    .foregroundStyle(AppTheme.textSecondary)
                     .frame(width: 32, height: 32)
                     .background(
                         Circle()
-                            .fill(FleetingNotesTheme.sectionGradient)
+                            .fill(AppTheme.sectionGradient)
                     )
             }
             .buttonStyle(.plain)
@@ -120,22 +120,22 @@ struct HabitView: View {
             } label: {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                    .foregroundStyle(AppTheme.textSecondary)
                     .frame(width: 32, height: 32)
                     .background(
                         Circle()
-                            .fill(FleetingNotesTheme.sectionGradient)
+                            .fill(AppTheme.sectionGradient)
                     )
             }
             .buttonStyle(.plain)
         }
         .padding(20)
-        .background(FleetingNotesTheme.heroGradient)
+        .background(AppTheme.heroGradient)
         .overlay {
-            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
-                .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
         }
-        .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+        .cornerRadius(AppTheme.Metrics.cardCornerRadius)
     }
 
     var body: some View {
@@ -149,7 +149,7 @@ struct HabitView: View {
                             ToolbarItem(placement: .topBarLeading) {
                                 Text("Habits")
                                     .font(.system(.title3, design: .rounded, weight: .bold))
-                                    .foregroundColor(FleetingNotesTheme.textPrimary)
+                                    .foregroundColor(AppTheme.textPrimary)
                                     .lineLimit(1)
                                     .fixedSize(horizontal: true, vertical: false)
                                     .layoutPriority(1)
@@ -158,7 +158,7 @@ struct HabitView: View {
                             ToolbarItem(placement: .navigationBarTrailing) {
                                 Image(systemName: "plus")
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(FleetingNotesTheme.textSecondary)
+                                    .foregroundColor(AppTheme.textSecondary)
                                     .onTapGesture {
                                         showAddHabit = true
                                     }
@@ -166,7 +166,7 @@ struct HabitView: View {
                             ToolbarItem(placement: .navigationBarTrailing) {
                                 Image(systemName: "arrow.clockwise.square")
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(FleetingNotesTheme.textSecondary)
+                                    .foregroundColor(AppTheme.textSecondary)
                                     .onTapGesture {
                                         Task {
                                             do {
@@ -255,7 +255,7 @@ struct HabitCardView: View {
             HStack {
                 Text(habit.title)
                     .font(.system(.headline, design: .rounded, weight: .bold))
-                    .foregroundStyle(FleetingNotesTheme.textPrimary)
+                    .foregroundStyle(AppTheme.textPrimary)
                 
                 statusLabel
                 
@@ -264,18 +264,18 @@ struct HabitCardView: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("\(progress.current) / \(progress.target) \(progress.targetLabel)")
                         .font(.system(.caption, design: .rounded, weight: .bold))
-                        .foregroundStyle(FleetingNotesTheme.textSecondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                     
                     Text(progress.window.label.uppercased())
                         .font(.system(.caption, design: .rounded, weight: .black))
-                        .foregroundStyle(FleetingNotesTheme.accentGradient)
+                        .foregroundStyle(AppTheme.accentGradient)
                         .opacity(0.8)
                 }
             }
 
             ProgressView(value: Double(progress.current), total: Double(progress.target))
                 .progressViewStyle(.linear)
-                .tint(FleetingNotesTheme.glowColor)
+                .tint(AppTheme.glowColor)
 
             HStack {
                 if model.progressChartData[habit.id!] ?? nil != nil {
@@ -290,7 +290,7 @@ struct HabitCardView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
                         .background(
-                            FleetingNotesTheme.accentGradient,
+                            AppTheme.accentGradient,
                             in: Capsule(style: .continuous)
                         )
                         .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
@@ -301,12 +301,12 @@ struct HabitCardView: View {
             }.frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(20)
-        .background(FleetingNotesTheme.cardGradient)
+        .background(AppTheme.cardGradient)
         .overlay {
-            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
-                .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
         }
-        .clipShape(RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous))
         .shadow(color: .black.opacity(0.06), radius: 10, y: 6)
     }
 
@@ -322,10 +322,10 @@ struct HabitCardView: View {
             color = .green
         case 0.7...:
             text = "On Track"
-            color = FleetingNotesTheme.glowColor
+            color = AppTheme.glowColor
         default:
             text = "Behind"
-            color = FleetingNotesTheme.errorTint
+            color = AppTheme.errorTint
         }
 
         return Text(text)

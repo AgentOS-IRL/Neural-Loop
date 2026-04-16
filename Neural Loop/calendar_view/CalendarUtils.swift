@@ -18,20 +18,11 @@ extension CalendarEventType {
     var color: Color {
         switch self {
         case .workEvent:
-            return Color.adaptive(
-                light: Color(red: 0.14, green: 0.49, blue: 0.53),
-                dark: Color(red: 0.22, green: 0.67, blue: 0.60)
-            )
+            return AppTheme.workEventTint
         case .task:
-            return Color.adaptive(
-                light: Color(red: 0.95, green: 0.60, blue: 0.10),
-                dark: Color(red: 0.99, green: 0.80, blue: 0.45)
-            )
+            return AppTheme.taskEventTint
         case .habit:
-            return Color.adaptive(
-                light: Color(red: 0.30, green: 0.70, blue: 0.30),
-                dark: Color(red: 0.40, green: 0.80, blue: 0.40)
-            )
+            return AppTheme.habitEventTint
         }
     }
 }

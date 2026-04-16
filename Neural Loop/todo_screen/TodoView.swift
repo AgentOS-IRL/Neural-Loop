@@ -254,10 +254,10 @@ struct TodoView: View {
             HStack {
                 Text(title)
                     .font(.system(.title3, design: .rounded, weight: .bold))
-                    .foregroundStyle(FleetingNotesTheme.textPrimary)
+                    .foregroundStyle(AppTheme.textPrimary)
                 Image(systemName: "plus")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(FleetingNotesTheme.textSecondary)
+                    .foregroundColor(AppTheme.textSecondary)
                     .onTapGesture {
                         vm.initializationTiming = initialTiming
                         vm.showAddTask = true
@@ -275,16 +275,16 @@ struct TodoView: View {
     private func searchBar() -> some View {
         HStack {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(FleetingNotesTheme.textSecondary)
+                .foregroundColor(AppTheme.textSecondary)
             TextField("Search tasks…", text: $vm.searchText)
                 .font(.system(.body, design: .rounded, weight: .medium))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(FleetingNotesTheme.sectionGradient)
+        .background(AppTheme.sectionGradient)
         .overlay {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
         }
         .cornerRadius(16)
         .padding(.top, 8)
@@ -375,18 +375,18 @@ struct TodoView: View {
         HStack(spacing: 16) {
             Image(systemName: icon)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(FleetingNotesTheme.textSecondary)
+                .foregroundColor(AppTheme.textSecondary)
                 .frame(width: 24)
 
             HStack(spacing: 4) {
                 Text(title)
                     .font(.system(.headline, design: .rounded, weight: .semibold))
-                    .foregroundColor(FleetingNotesTheme.textPrimary)
+                    .foregroundColor(AppTheme.textPrimary)
 
                 if let count {
                     Text("(\(count))")
                         .font(.system(.subheadline, design: .rounded, weight: .medium))
-                        .foregroundColor(FleetingNotesTheme.textSecondary)
+                        .foregroundColor(AppTheme.textSecondary)
                 }
             }
             Spacer()
@@ -394,19 +394,19 @@ struct TodoView: View {
             if showPlus {
                 Image(systemName: "plus")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(FleetingNotesTheme.textSecondary)
+                    .foregroundColor(AppTheme.textSecondary)
                     .onTapGesture {
                         vm.showAddTask = true
                     }
             }
         }
         .padding(20)
-        .background(FleetingNotesTheme.cardGradient)
+        .background(AppTheme.cardGradient)
         .overlay {
-            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
-                .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
         }
-        .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+        .cornerRadius(AppTheme.Metrics.cardCornerRadius)
     }
 
     @ViewBuilder
@@ -473,7 +473,7 @@ struct TodoView: View {
     @ViewBuilder
     private var todoRootContent: some View {
         ZStack {
-            FleetingNotesTheme.backgroundGradient
+            AppTheme.backgroundGradient
                 .ignoresSafeArea()
 
             ScrollView {
@@ -522,10 +522,10 @@ struct TodoView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(toolbarTitle(for: vm.viewMode))
                     .font(.system(.title3, design: .rounded, weight: .bold))
-                    .foregroundStyle(FleetingNotesTheme.textPrimary)
+                    .foregroundStyle(AppTheme.textPrimary)
                 Text("Switch between todo lists and menu views.")
                     .font(.system(.subheadline, design: .rounded, weight: .medium))
-                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                    .foregroundStyle(AppTheme.textSecondary)
             }
 
             Spacer()
@@ -536,11 +536,11 @@ struct TodoView: View {
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(FleetingNotesTheme.textSecondary)
+                        .foregroundStyle(AppTheme.textSecondary)
                         .frame(width: 32, height: 32)
                         .background(
                             Circle()
-                                .fill(FleetingNotesTheme.sectionGradient)
+                                .fill(AppTheme.sectionGradient)
                         )
                 }
                 .buttonStyle(.plain)
@@ -552,22 +552,22 @@ struct TodoView: View {
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(FleetingNotesTheme.textSecondary)
+                    .foregroundStyle(AppTheme.textSecondary)
                     .frame(width: 32, height: 32)
                     .background(
                         Circle()
-                            .fill(FleetingNotesTheme.sectionGradient)
+                            .fill(AppTheme.sectionGradient)
                     )
             }
             .buttonStyle(.plain)
         }
         .padding(20)
-        .background(FleetingNotesTheme.heroGradient)
+        .background(AppTheme.heroGradient)
         .overlay {
-            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius, style: .continuous)
-                .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
         }
-        .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+        .cornerRadius(AppTheme.Metrics.cardCornerRadius)
     }
 
     var body: some View {
@@ -598,7 +598,7 @@ struct TodoView: View {
                                     }
                                     Text(toolbarTitle(for: vm.viewMode))
                                         .font(.system(.title3, design: .rounded, weight: .bold))
-                                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        .foregroundColor(AppTheme.textPrimary)
                                         .lineLimit(1)
                                         .fixedSize(horizontal: true, vertical: false)
                                         .layoutPriority(1)

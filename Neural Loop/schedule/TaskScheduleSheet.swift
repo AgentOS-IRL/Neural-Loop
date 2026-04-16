@@ -90,11 +90,11 @@ struct TaskScheduleSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                FleetingNotesTheme.backgroundGradient
+                AppTheme.backgroundGradient
                     .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: FleetingNotesTheme.Metrics.sectionSpacing) {
+                    VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
                         
                         VStack(alignment: .leading, spacing: 4) {
                             themedSectionHeader("Settings")
@@ -105,19 +105,19 @@ struct TaskScheduleSheet: View {
                                 } label: {
                                     ThemedRow {
                                         Text("Time")
-                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                            .foregroundColor(AppTheme.textPrimary)
                                         Spacer()
                                         Text(timeSummary)
                                             .font(.subheadline)
-                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                            .foregroundColor(AppTheme.textSecondary)
                                         Image(systemName: "chevron.right")
                                             .font(.caption.bold())
-                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                            .foregroundColor(AppTheme.textSecondary)
                                     }
                                 }
 
                                 Divider()
-                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                    .background(AppTheme.textSecondary.opacity(0.1))
 
                                 // REPEAT ROW
                                 Button {
@@ -125,14 +125,14 @@ struct TaskScheduleSheet: View {
                                 } label: {
                                     ThemedRow {
                                         Text("Repeat")
-                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                            .foregroundColor(AppTheme.textPrimary)
                                         Spacer()
                                         Text(repeatSummary)
                                             .font(.subheadline)
-                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                            .foregroundColor(AppTheme.textSecondary)
                                         Image(systemName: "chevron.right")
                                             .font(.caption.bold())
-                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                            .foregroundColor(AppTheme.textSecondary)
                                     }
                                 }
                             }
@@ -142,24 +142,24 @@ struct TaskScheduleSheet: View {
                         if timing != nil || recurrenceRule != nil {
                             VStack(alignment: .leading, spacing: 4) {
                                 themedSectionHeader("Summary")
-                                ThemedCard(gradient: FleetingNotesTheme.sectionGradient) {
+                                ThemedCard(gradient: AppTheme.sectionGradient) {
                                     VStack(alignment: .leading, spacing: 8) {
                                         Label(timeSummary, systemImage: "clock")
                                             .font(.subheadline.weight(.medium))
-                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                            .foregroundColor(AppTheme.textPrimary)
                                         
                                         Divider()
-                                            .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                            .background(AppTheme.textSecondary.opacity(0.1))
 
                                         Label(repeatSummary, systemImage: "repeat")
                                             .font(.subheadline.weight(.medium))
-                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                            .foregroundColor(AppTheme.textPrimary)
                                     }
                                 }
                             }
                         }
                     }
-                    .padding(FleetingNotesTheme.Metrics.screenPadding)
+                    .padding(AppTheme.Metrics.screenPadding)
                 }
             }
             .navigationTitle("Schedule")
@@ -176,7 +176,7 @@ struct TaskScheduleSheet: View {
                         dismiss()
                     }
                     .font(.body.weight(.bold))
-                    .foregroundColor((timing == nil && recurrenceRule == nil) ? FleetingNotesTheme.textSecondary : FleetingNotesTheme.accentColor)
+                    .foregroundColor((timing == nil && recurrenceRule == nil) ? AppTheme.textSecondary : AppTheme.accentColor)
                     .disabled(timing == nil && recurrenceRule == nil)
                 }
 
@@ -184,7 +184,7 @@ struct TaskScheduleSheet: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .foregroundColor(FleetingNotesTheme.textPrimary)
+                    .foregroundColor(AppTheme.textPrimary)
                 }
             }
             .sheet(isPresented: $showTimeSheet) {
