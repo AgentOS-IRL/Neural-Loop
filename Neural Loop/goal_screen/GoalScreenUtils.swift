@@ -12,17 +12,17 @@ func progressMiniBar(percentage: Double) -> some View {
     return HStack(spacing: 6) {
         ZStack(alignment: .leading) {
             Capsule()
-                .fill(Color.gray.opacity(0.15))
+                .fill(FleetingNotesTheme.sectionGradient)
 
             Capsule()
-                .fill(Color.blue.opacity(0.6))
+                .fill(FleetingNotesTheme.accentGradient)
                 .frame(width: 30 * clamped)
         }
         .frame(width: 30, height: 10)
 
         Text("\(Int(clamped * 100))%")
-            .font(.caption)
-            .foregroundColor(.secondary)
+            .font(.system(.caption, design: .rounded))
+            .foregroundColor(FleetingNotesTheme.textSecondary)
     }
 }
 
@@ -34,17 +34,22 @@ func topButton(
 ) ->  some View {
     Button(action: action) {
         Text(title)
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(isSelected ? Color(.systemBackground) : .primary)
+            .font(.system(.subheadline, design: .rounded).weight(.medium))
+            .foregroundStyle(isSelected ? .white : FleetingNotesTheme.textPrimary)
             .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.vertical, 8)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(
                         isSelected
-                        ? Color.primary
-                        : Color(.secondarySystemBackground)
+                        ? AnyShapeStyle(FleetingNotesTheme.accentGradient)
+                        : AnyShapeStyle(FleetingNotesTheme.sectionGradient)
                     )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                    .opacity(isSelected ? 0 : 1)
             )
     }
     .buttonStyle(.plain)
@@ -64,7 +69,7 @@ func iconTitle<AdditionalContent: View>(
     @ViewBuilder additionalContent: () -> AdditionalContent = { EmptyView() }
 ) -> some View {
 
-    let clampedSize = size.clamped(to: 16...36)
+    let clampedSize = size.clamped(to: 16...56)
     let containerSize = clampedSize * 1.5
     let iconSize = clampedSize * 0.8
     let cornerRadius = containerSize * 0.28
@@ -73,24 +78,28 @@ func iconTitle<AdditionalContent: View>(
 
         ZStack {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color(.systemGray5))
+                .fill(FleetingNotesTheme.cardGradient)
 
             Image(systemName: icon)
                 .font(.system(size: iconSize, weight: .semibold))
-                .foregroundStyle(.gray)
+                .foregroundStyle(FleetingNotesTheme.textSecondary)
         }
         .frame(width: containerSize, height: containerSize)
+        .overlay {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+        }
 
         VStack(alignment: .leading, spacing: 4) {
             Text(name)
-                .font(.headline)
-                .foregroundColor(.primary)
+                .font(.system(.headline, design: .rounded, weight: .bold))
+                .foregroundColor(FleetingNotesTheme.textPrimary)
             
             additionalContent()
             if let subText {
                 Text(subText)
-                    .font(.subheadline)
-                                        .foregroundColor(.secondary)
+                    .font(.system(.subheadline, design: .rounded))
+                    .foregroundColor(FleetingNotesTheme.textSecondary)
             }
         }
     }

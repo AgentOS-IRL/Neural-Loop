@@ -53,6 +53,9 @@ struct GoalScreenView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                FleetingNotesTheme.backgroundGradient
+                    .ignoresSafeArea()
+
                 VStack(spacing: 0) {
 
                     // Top segmented buttons
@@ -81,8 +84,6 @@ struct GoalScreenView: View {
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Divider()
-
                     // Content
                     Group {
                         switch selectedTab {
@@ -102,31 +103,6 @@ struct GoalScreenView: View {
                         alignment: .leading
                     )
                 }
-
-//                // Floating add button
-//                VStack {
-//                    Spacer()
-//                    HStack {
-//                        Spacer()
-//                        Button {
-//                            if selectedTab == .lifeAreas {
-//                                showAddLifeArea = true
-//                            } else {
-//                                hydrateGoal = nil
-//                                showAddGoal = true
-//                            }
-//                        } label: {
-//                            Image(systemName: "plus")
-//                                .font(.system(size: 22, weight: .bold))
-//                                .foregroundColor(.black)
-//                                .padding()
-//                                .background(Color.white)
-//                                .clipShape(Circle())
-//                                .shadow(radius: 8)
-//                        }
-//                        .padding()
-//                    }
-//                }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                         Color.clear.frame(height: SAFE_AREA_INSET)
@@ -134,10 +110,11 @@ struct GoalScreenView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Text("Goals")
-                        .font(.title3.weight(.semibold))
+                        .font(.system(.title3, design: .rounded).weight(.semibold))
+                        .foregroundStyle(FleetingNotesTheme.textPrimary)
                         .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)  // don’t compress horizontally
-                        .layoutPriority(1)                             // fight for space
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
                         .padding(.horizontal, 12)
                     
                 }
@@ -151,11 +128,11 @@ struct GoalScreenView: View {
                         }
                     } label: {
                         Image(systemName: "plus")
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(FleetingNotesTheme.textSecondary)
                     }
                 }
             }
-//            .navigationTitle("Goals")
             .sheet(isPresented: $showAddLifeArea) {
                 AddLifeAreas {
                     
@@ -169,11 +146,6 @@ struct GoalScreenView: View {
                 ) {
                 }
             }.id(addGoalSheetID)
-//            .onAppear {
-//                Task {
-//                    await load()
-//                }
-//            }
         }
     }
 
@@ -186,106 +158,139 @@ struct GoalScreenView: View {
     private func inProgressView() -> some View {
 
         ScrollView {
-            VStack {
+            VStack(spacing: 12) {
                 ForEach(model.lifeAreas)  { lifeArea in
                     
-                    HStack {
-                        NavigationLink {
-                            LifeAreaDetailView(
-                                area: lifeArea,
-                                goals: model.getGoals(lifeAreaId: lifeArea.id!),
-                                tasks: model.getTasks(lifeAreaId:lifeArea.id!) ,
-                                
-                            )
-                        } label: {
-
-                            // Icon container
-                            iconTitle(icon: lifeArea.icon, name: lifeArea.name)
-
-                            // Chevron
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .heavy))
-                                .foregroundColor(.secondary)
-                        }
-
-                        Spacer()
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.secondary).rotationEffect(
-                                .degrees(model.isExpanded(for: lifeArea.id!) ? 180 : 0)
-                            )
-                            .onTapGesture {
-                                withAnimation {
-                                    model.toggleExpansion(for: lifeArea.id!)
-                                }
-                            }
-
-                    }.frame(maxWidth: .infinity, alignment: .leading)
-                    if model.lifeAreaExpandedIds.contains(lifeArea.id!) {
-                        ForEach(model.getGoals(lifeAreaId: lifeArea.id!)) { goal in
-
+                    VStack(spacing: 0) {
+                        HStack {
                             NavigationLink {
-                                GoalDetailView(
-                                    lifeAreaName: lifeArea.name,
-                                    goal: goal,
-                                    tasks: model.getTasks(goalId: goal.id!),
-                                    habits: model.getHabits(goalId: goal.id!)
+                                LifeAreaDetailView(
+                                    area: lifeArea,
+                                    goals: model.getGoals(lifeAreaId: lifeArea.id!),
+                                    tasks: model.getTasks(lifeAreaId:lifeArea.id!)
                                 )
                             } label: {
-                                goalRow(goal)
+                                // Icon container
+                                iconTitle(icon: lifeArea.icon, name: lifeArea.name)
+
+                                // Chevron
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .heavy))
+                                    .foregroundColor(FleetingNotesTheme.textSecondary)
                             }
+
+                            Spacer()
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(FleetingNotesTheme.textSecondary).rotationEffect(
+                                    .degrees(model.isExpanded(for: lifeArea.id!) ? 180 : 0)
+                                )
+                                .onTapGesture {
+                                    withAnimation {
+                                        model.toggleExpansion(for: lifeArea.id!)
+                                    }
+                                }
+
+                        }
+                        .padding()
+                        .background(FleetingNotesTheme.sectionGradient)
+                        .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius, corners: model.lifeAreaExpandedIds.contains(lifeArea.id!) && !model.getGoals(lifeAreaId: lifeArea.id!).isEmpty ? [.topLeft, .topRight] : .allCorners)
+
+                        if model.lifeAreaExpandedIds.contains(lifeArea.id!) {
+                            VStack(spacing: 0) {
+                                ForEach(model.getGoals(lifeAreaId: lifeArea.id!)) { goal in
+                                    NavigationLink {
+                                        GoalDetailView(
+                                            lifeAreaName: lifeArea.name,
+                                            goal: goal,
+                                            tasks: model.getTasks(goalId: goal.id!),
+                                            habits: model.getHabits(goalId: goal.id!)
+                                        )
+                                    } label: {
+                                        goalRow(goal)
+                                    }
+                                    
+                                    if goal.id != model.getGoals(lifeAreaId: lifeArea.id!).last?.id {
+                                        Divider()
+                                            .padding(.leading, 70)
+                                    }
+                                }
+                            }
+                            .background(FleetingNotesTheme.cardGradient)
+                            .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius, corners: [.bottomLeft, .bottomRight])
                         }
                     }
+                    .overlay(
+                        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
+                            .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                    )
+                    .padding(.horizontal)
                 }
-            }.padding(.horizontal, 4).padding(.top, 16)
+            }
+            .padding(.top, 16)
         }
     }
 
     @ViewBuilder
     private func roadmapView() -> some View {
-        VStack {
-            Spacer()
-            ScrollView {
-                VStack {
-                    ForEach(model.getGoalDateBucket()) { bucket in
-                        VStack(alignment: .leading, spacing: 8) {
+        ScrollView {
+            VStack(spacing: 20) {
+                ForEach(model.getGoalDateBucket()) { bucket in
+                    VStack(alignment: .leading, spacing: 12) {
+                        bucket.title
+                            .font(.system(.headline, design: .rounded, weight: .bold))
+                            .foregroundStyle(FleetingNotesTheme.textPrimary)
+                            .padding(.horizontal, 4)
 
-                            bucket.title
+                        VStack(spacing: 0) {
                             // Goals for this date bucket
-                            ForEach(bucket.ids, id: \.self) { goalId in
-                                if let goal = model.getGoal(by: goalId) {
-                                    Text(goal.title)
+                            let bucketGoals = bucket.ids.compactMap { model.getGoal(by: $0) }
+                            
+                            ForEach(bucketGoals) { goal in
+                                NavigationLink {
+                                    GoalDetailView(
+                                        lifeAreaName: "Roadmap", // Fallback
+                                        goal: goal,
+                                        tasks: model.getTasks(goalId: goal.id!),
+                                        habits: model.getHabits(goalId: goal.id!)
+                                    )
+                                } label: {
+                                    goalRow(goal)
+                                }
+                                
+                                if goal.id != bucketGoals.last?.id {
+                                    Divider()
+                                        .padding(.leading, 70)
                                 }
                             }
 
-                            Spacer()
-
                             HStack(spacing: 16) {
-
                                 ZStack {
-                                    RoundedRectangle(cornerRadius: 16)
+                                    RoundedRectangle(cornerRadius: 12)
                                         .stroke(
-                                            Color.gray.opacity(0.7),
+                                            FleetingNotesTheme.textSecondary.opacity(0.4),
                                             style: StrokeStyle(
-                                                lineWidth: 2,
-                                                lineCap: .round,  // makes dashes look like dots
-                                                dash: [1, 4]  // dot length, gap
+                                                lineWidth: 1.5,
+                                                lineCap: .round,
+                                                dash: [4, 4]
                                             )
                                         )
-                                        .frame(width: 28, height: 28)
+                                        .frame(width: 36, height: 36)
 
-                                    Image(systemName: "scope")  // looks closer to your screenshot than "target"
-                                        .font(
-                                            .system(size: 14, weight: .semibold)
-                                        )
-                                        .foregroundColor(.gray)
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(FleetingNotesTheme.textSecondary)
                                 }
 
                                 Text("Add Goal")
-                                    .font(.body)
-                                    .foregroundColor(.secondary)
-                            }.onTapGesture {
-
+                                    .font(.system(.body, design: .rounded, weight: .medium))
+                                    .foregroundColor(FleetingNotesTheme.textSecondary)
+                                
+                                Spacer()
+                            }
+                            .padding()
+                            .contentShape(Rectangle())
+                            .onTapGesture {
                                 hydrateGoal = nil
                                 hydrateGoalDeadline = TaskTiming(
                                     start: bucket.end,
@@ -294,14 +299,17 @@ struct GoalScreenView: View {
                                 addGoalSheetID = UUID()
                                 showAddGoal = true
                             }
-
                         }
+                        .background(FleetingNotesTheme.cardGradient)
+                        .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
+                                .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                        )
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal)
-                .padding(.top)
             }
+            .padding()
         }
     }
 
@@ -320,6 +328,12 @@ struct GoalScreenView: View {
                         lifeAreaRow(area)
                     }
                     .buttonStyle(.plain)
+                    .background(FleetingNotesTheme.cardGradient)
+                    .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
+                            .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                    )
                 }
             }
             .padding()
@@ -334,74 +348,38 @@ struct GoalScreenView: View {
         }
 
         return HStack(spacing: 16) {
-
-            // Icon container
-
             iconTitle(
                 icon: area.icon,
                 name: area.name,
-                size: 44,
+                size: 32,
                 subText: subText
             )
-            //            ZStack {
-            //                RoundedRectangle(cornerRadius: 16)
-            //                    .fill(Color(.systemGray5))
-            //                    .frame(width: 56, height: 56)
-            //
-            //                Image(systemName: area.icon)
-            //                    .font(.system(size: 22, weight: .semibold))
-            //                    .foregroundColor(.gray)
-            //            }
-            //
-            //            // Text content
-            //            VStack(alignment: .leading, spacing: 6) {
-            //                Text(area.name)
-            //                    .font(.headline)
-            //                    .foregroundColor(.primary)
-            //                Text(
-            //                    (lifeGoalsMapping[area.id!]?.count ?? 0) > 0
-            //                        ? "\(lifeGoalsMapping[area.id!]?.count ?? 0) goals"
-            //                        : "No active goals"
-            //                )
-            //                .font(.subheadline)
-            //                .foregroundColor(.secondary)
-            //
-            //            }
             Spacer()
 
             // Chevron
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.secondary)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(FleetingNotesTheme.textSecondary)
         }
         .padding(.horizontal)
-        .padding(.vertical, 12)
+        .padding(.vertical, 16)
     }
 
 
     func goalRow(_ goal: Goals) -> some View {
-//        let subText =
-//            ((goal.start_date != nil)
-//                ? goal.start_date!.formatted() : "") + " -"
-//            + ((goal.deadline != nil)
-//                ? goal.deadline!.formatted() : " No deadline")
         return HStack(spacing: 16) {
-
-            // Icon container
             iconTitle(
                 icon: goal.icon,
                 name: goal.title,
-                size: 56,
-//                subText: subText
+                size: 32
             ) {
                 model.getGoalProgressBar(goalId: goal.id!, goalTracking: model.getGoalTracking(goalId: goal.id!), goalTasks: model.getTasks(goalId:goal.id!))
             }
             Spacer()
-
         }
         .padding(.horizontal)
-        .padding(.vertical, 12)
-
+        .padding(.vertical, 16)
     }
+
 
 }

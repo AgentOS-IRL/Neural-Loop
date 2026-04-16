@@ -27,7 +27,7 @@ struct LifeAreaDetailView: View {
     @State private var visionText: String = ""
     @State private var enableSaveVisionButton: Bool = false
     
-    init(area: LifeAreas, goals: [Goals], tasks: [Tasks], ) {
+    init(area: LifeAreas, goals: [Goals], tasks: [Tasks]) {
         self.area = area
         self.goals = goals
         self.tasks = tasks
@@ -35,61 +35,63 @@ struct LifeAreaDetailView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack {
+            FleetingNotesTheme.backgroundGradient
+                .ignoresSafeArea()
 
-            // Top bar
-            HStack {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .semibold))
+            VStack(spacing: 0) {
+
+                // Top bar
+                HStack {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(FleetingNotesTheme.textSecondary)
+                    }
+
+                    Text(area.name)
+                        .font(.system(.headline, design: .rounded, weight: .bold))
+                        .foregroundStyle(FleetingNotesTheme.textPrimary)
+
+                    Spacer()
                 }
+                .padding()
 
-                Text(area.name)
-                    .font(.headline)
+                // Section buttons
+                HStack(spacing: 8) {
+                    sectionButton("Overview", .overview)
+                    sectionButton("Vision", .vision)
+                    if goals.isEmpty == false {
+                        sectionButton("Goals", .goals)
+                    }
+                    if tasks.isEmpty == false {
+                        sectionButton("Tasks", .tasks)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-                Spacer()
+                // Content
+                Group {
+                    switch selectedSection {
+                    case .overview:
+                        overviewView()
+
+                    case .vision:
+                        visionView()
+
+                    case .goals:
+                        goalsView()
+
+                    case .tasks:
+                        tasksView()
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding()
-            .background(Color(.systemBackground))
-
-            Divider()
-
-            // Section buttons
-            HStack(spacing: 12) {
-                sectionButton("Overview", .overview)
-                sectionButton("Vision", .vision)
-                if goals.isEmpty == false {
-                    sectionButton("Goals", .goals)
-                }
-                if tasks.isEmpty == false {
-                    sectionButton("Tasks", .tasks)
-                }
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Divider()
-            
-            // Content
-            Group {
-                switch selectedSection {
-                case .overview:
-                    overviewView()
-
-                case .vision:
-                    visionView()
-
-                case .goals:
-                    goalsView()
-
-                case .tasks:
-                    tasksView()
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onAppear {
             visionText = area.vision ?? ""
@@ -104,95 +106,109 @@ struct LifeAreaDetailView: View {
 
     private func sectionButton(_ title: String, _ section: Section) -> some View {
         Button {
-            selectedSection = section
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                selectedSection = section
+            }
         } label: {
             Text(title)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(selectedSection == section ? Color(.systemBackground) : .primary)
+                .font(.system(.subheadline, design: .rounded).weight(.medium))
+                .foregroundStyle(selectedSection == section ? .white : FleetingNotesTheme.textPrimary)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .padding(.vertical, 8)
                 .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(
                             selectedSection == section
-                            ? Color.primary
-                            : Color(.secondarySystemBackground)
+                            ? AnyShapeStyle(FleetingNotesTheme.accentGradient)
+                            : AnyShapeStyle(FleetingNotesTheme.sectionGradient)
                         )
                 )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                        .opacity(selectedSection == section ? 0 : 1)
+                )
         }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Sections
     
     func goalRow(_ goal: Goals) -> some View {
         return HStack(spacing: 16) {
-
-            // Icon container
             iconTitle(
                 icon: goal.icon,
                 name: goal.title,
-                size: 56,
-//                subText: subText
+                size: 32
             ) {
                 model.getGoalProgressBar(goalId: goal.id!, goalTracking: model.getGoalTracking(goalId: goal.id!), goalTasks: tasks.filter{$0.goal_id == goal.id})
             }
             Spacer()
-
         }
         .padding(.horizontal)
-        .padding(.vertical, 12)
-
+        .padding(.vertical, 16)
     }
 
     private func overviewView() -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 24) {
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Vision")
-                        .font(.headline)
-                        .padding(.bottom, 8)
+                        .font(.system(.headline, design: .rounded, weight: .bold))
+                        .foregroundStyle(FleetingNotesTheme.textPrimary)
                     
                     Text(visionText.isEmpty ? "No vision added yet." : visionText)
-                        .frame(maxWidth: .infinity, minHeight: 50, maxHeight: 100, alignment: .leading)
-                        .padding(8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.secondary.opacity(0.2))
-                        ).overlay {
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)   // outer line
-                        }
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 8)
-                                .inset(by: 3)                                         // move inward
-                                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)   // inner line
-                        }
+                        .font(.system(.body, design: .rounded, weight: .medium))
+                        .foregroundStyle(FleetingNotesTheme.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 60, alignment: .topLeading)
+                        .padding(20)
+                        .background(FleetingNotesTheme.cardGradient)
+                        .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
+                                .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                        )
                 }
-                Divider()
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Goals")
-                        .font(.headline)
-                    LazyVStack(alignment: .leading, spacing: 10) {
-                        ForEach(goals) { goal in
-                            NavigationLink {
-                                GoalDetailView(
-                                    lifeAreaName: area.name,
-                                    goal: goal,
-                                    tasks: tasks.filter({$0.goal_id == goal.id}),
-                                    habits: model.getHabits(goalId: goal.id!)
-                                )
-                            } label: {
-                                goalRow(goal)
-                            }
-                        }
-                        
+                        .font(.system(.headline, design: .rounded, weight: .bold))
+                        .foregroundStyle(FleetingNotesTheme.textPrimary)
+                    
+                    VStack(spacing: 0) {
                         if goals.isEmpty {
                             Text("No goals added yet.")
-                                .foregroundColor(.secondary.opacity(0.75))
+                                .font(.system(.subheadline, design: .rounded))
+                                .foregroundColor(FleetingNotesTheme.textSecondary)
+                                .padding(24)
+                                .frame(maxWidth: .infinity)
+                        } else {
+                            ForEach(goals) { goal in
+                                NavigationLink {
+                                    GoalDetailView(
+                                        lifeAreaName: area.name,
+                                        goal: goal,
+                                        tasks: tasks.filter({$0.goal_id == goal.id}),
+                                        habits: model.getHabits(goalId: goal.id!)
+                                    )
+                                } label: {
+                                    goalRow(goal)
+                                }
+                                
+                                if goal.id != goals.last?.id {
+                                    Divider()
+                                        .padding(.leading, 70)
+                                }
+                            }
                         }
                     }
+                    .background(FleetingNotesTheme.cardGradient)
+                    .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
+                            .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                    )
                 }
             }
             .padding()
@@ -200,47 +216,53 @@ struct LifeAreaDetailView: View {
     }
 
     private func visionView() -> some View {
-        
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Edit Vision")
-                .font(.headline)
+                .font(.system(.headline, design: .rounded, weight: .bold))
+                .foregroundStyle(FleetingNotesTheme.textPrimary)
 
             TextEditor(text: $visionText)
-                .frame(maxHeight: 100)
-                .padding(8)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.secondary.opacity(0.4))
-                ).onChange(of: visionText) {
-                    // Enable the button if text is not empty
+                .font(.system(.body, design: .rounded))
+                .foregroundStyle(FleetingNotesTheme.textPrimary)
+                .frame(maxHeight: 150)
+                .padding(16)
+                .background(FleetingNotesTheme.sectionGradient)
+                .cornerRadius(16)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+                )
+                .onChange(of: visionText) {
                     enableSaveVisionButton = !visionText.isEmpty
                 }
 
-            Spacer()
             if enableSaveVisionButton {
                 Button {
                     Task {
                         await model.updateLifeAreaVision(id: area.id!, vision: visionText)
+                        withAnimation {
+                            enableSaveVisionButton = false
+                        }
                     }
                 } label: {
-                    Text("Save")
-                        .font(.subheadline)
-                        .foregroundColor(.darkGray)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.primary)
-                        )
+                    Text("Save Vision")
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(FleetingNotesTheme.accentGradient)
+                        .clipShape(Capsule())
                 }
             }
+            
+            Spacer()
         }
         .padding()
     }
 
     private func goalsView() -> some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 10) {
+            VStack(spacing: 0) {
                 ForEach(goals) { goal in
                     NavigationLink {
                         GoalDetailView(
@@ -252,18 +274,31 @@ struct LifeAreaDetailView: View {
                     } label: {
                         goalRow(goal)
                     }
+                    
+                    if goal.id != goals.last?.id {
+                        Divider()
+                            .padding(.leading, 70)
+                    }
                 }
             }
-        }.padding(.top, 8)
+            .background(FleetingNotesTheme.cardGradient)
+            .cornerRadius(FleetingNotesTheme.Metrics.cardCornerRadius)
+            .overlay(
+                RoundedRectangle(cornerRadius: FleetingNotesTheme.Metrics.cardCornerRadius)
+                    .stroke(FleetingNotesTheme.borderGradient, lineWidth: 1)
+            )
+            .padding()
+        }
     }
 
     private func tasksView() -> some View {
         ScrollView {
-            VStack{
-            ForEach(tasks) { task in
+            VStack(spacing: 12) {
+                ForEach(tasks) { task in
                     taskView(task:task)
                 }
             }
+            .padding()
         }
     }
     
