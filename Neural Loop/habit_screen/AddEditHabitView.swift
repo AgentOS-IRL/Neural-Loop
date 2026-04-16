@@ -57,87 +57,151 @@ struct AddEditHabitView: View {
 
     // MARK: - Body
     var body: some View {
-        NavigationView {
-            Form {
+        NavigationStack {
+            ZStack {
+                FleetingNotesTheme.backgroundGradient
+                    .ignoresSafeArea()
 
-                // MARK: - Title
-                Section {
-                    TextField("Habit title", text: $title)
-                        .font(.headline)
-                }
-                Label(GoalOrLifeAreadName ?? "Select goal or life area", systemImage: "scope")
-                                    .foregroundColor(.secondary)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture {
-                                        showGoalSheet = true
+                ScrollView {
+                    VStack(alignment: .leading, spacing: FleetingNotesTheme.Metrics.sectionSpacing) {
+                        
+                        // MARK: Title & Goal/Area
+                        VStack(alignment: .leading, spacing: 4) {
+                            themedSectionHeader("Habit Info")
+                            ThemedCard {
+                                ThemedTextField(placeholder: "Habit title", text: $title, isTitle: true)
+                                
+                                Divider()
+                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+
+                                Button {
+                                    showGoalSheet = true
+                                } label: {
+                                    ThemedRow {
+                                        Label(GoalOrLifeAreadName, systemImage: "scope")
+                                            .foregroundColor(GoalOrLifeAreadName == "Select Goal or Life Area" ? FleetingNotesTheme.textSecondary : FleetingNotesTheme.textPrimary)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption.bold())
+                                            .foregroundColor(FleetingNotesTheme.textSecondary)
                                     }
+                                }
+                            }
+                        }
 
-                // MARK: - Description
-                Section(header: Text("Description")) {
-                    TextField("Optional description", text: $description, axis: .vertical)
-                }
+                        // MARK: Description
+                        VStack(alignment: .leading, spacing: 4) {
+                            themedSectionHeader("Description")
+                            ThemedCard {
+                                TextEditor(text: $description)
+                                    .frame(minHeight: 80)
+                                    .scrollContentBackground(.hidden)
+                                    .font(.body)
+                                    .foregroundColor(FleetingNotesTheme.textPrimary)
+                            }
+                        }
 
-                // MARK: - Target
-                Section(header: Text("Target")) {
-                    Stepper(value: $target, in: 1...100) {
-                        Text("Target: \(target)")
-                    }
-                }
+                        // MARK: Target
+                        VStack(alignment: .leading, spacing: 4) {
+                            themedSectionHeader("Target")
+                            ThemedCard {
+                                Stepper(value: $target, in: 1...100) {
+                                    HStack {
+                                        Text("Daily Target")
+                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        Spacer()
+                                        Text("\(target)")
+                                            .font(.body.bold())
+                                            .foregroundColor(FleetingNotesTheme.accentColor)
+                                    }
+                                }
+                            }
+                        }
 
-                // MARK: - Recurrence
-                Section(header: Text("Repeat")) {
-                    Button {
-                        showRuleSheet = true
-                    } label: {
-                        HStack {
-                            Text("Schedule")
-                            Spacer()
-                            Text(recurrenceSummary)
-                                .foregroundColor(.secondary)
+                        // MARK: Recurrence
+                        VStack(alignment: .leading, spacing: 4) {
+                            themedSectionHeader("Repeat")
+                            ThemedCard {
+                                Button {
+                                    showRuleSheet = true
+                                } label: {
+                                    ThemedRow {
+                                        Text("Schedule")
+                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        Spacer()
+                                        Text(recurrenceSummary)
+                                            .font(.subheadline)
+                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption.bold())
+                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                    }
+                                }
+
+                                if recurrenceRule != nil {
+                                    Divider()
+                                        .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+                                    
+                                    Button(role: .destructive) {
+                                        recurrenceRule = nil
+                                    } label: {
+                                        HStack {
+                                            Spacer()
+                                            Text("Remove schedule")
+                                                .font(.subheadline.bold())
+                                            Spacer()
+                                        }
+                                        .padding(.vertical, 4)
+                                    }
+                                }
+                            }
+                        }
+
+                        // MARK: Priority & Label
+                        VStack(alignment: .leading, spacing: 4) {
+                            themedSectionHeader("Details")
+                            ThemedCard {
+                                Picker("Priority", selection: $priority) {
+                                    Text("Low").tag(0)
+                                    Text("Medium").tag(1)
+                                    Text("High").tag(2)
+                                }
+                                .pickerStyle(.segmented)
+                                
+                                Divider()
+                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+
+                                HStack {
+                                    Text("Label")
+                                        .foregroundColor(FleetingNotesTheme.textPrimary)
+                                    TextField("Optional label", text: $label)
+                                        .multilineTextAlignment(.trailing)
+                                        .foregroundColor(FleetingNotesTheme.textSecondary)
+                                }
+                                .padding(.vertical, 4)
+                            }
                         }
                     }
-
-                    if recurrenceRule != nil {
-                        Button(role: .destructive) {
-                            recurrenceRule = nil
-                        } label: {
-                            Text("Remove schedule")
-                        }
-                    }
-                }
-
-                // MARK: - Priority
-                Section(header: Text("Priority")) {
-                    Picker("Priority", selection: $priority) {
-                        Text("Low").tag(0)
-                        Text("Medium").tag(1)
-                        Text("High").tag(2)
-                    }
-                    .pickerStyle(.segmented)
-                }
-
-                // MARK: - Label
-                Section(header: Text("Label")) {
-                    TextField("Optional label", text: $label)
+                    .padding(FleetingNotesTheme.Metrics.screenPadding)
+                    .padding(.bottom, SAFE_AREA_INSET + 20)
                 }
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                        Color.clear.frame(height: SAFE_AREA_INSET)
-                    }
             .navigationTitle(habit == nil ? "New Habit" : "Edit Habit")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .foregroundColor(FleetingNotesTheme.textPrimary)
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button(habit == nil ? "Add" : "Save") {
                         saveHabit()
                     }
+                    .font(.body.weight(.bold))
+                    .foregroundColor(title.trimmingCharacters(in: .whitespaces).isEmpty ? FleetingNotesTheme.textSecondary : FleetingNotesTheme.accentColor)
                     .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
@@ -160,20 +224,13 @@ struct AddEditHabitView: View {
                             GoalOrLifeAreadName = "Goal: \(title)"
                             goalId = id
 
-                            // Example usage
-                            // viewModel.attachGoal(id)
-
                         case .lifeArea(let id, let name):
                             GoalOrLifeAreadName = "Life Area: \(name)"
                             lifeAreaId = id
-
-                            // Example usage
-                            // viewModel.attachLifeArea(id)
                         }
                 }
             }.task {
                 GoalOrLifeAreadName = await model.getGoalName(goal_id: habit?.goal_id) ?? "Select Goal or Life Area"
-                
             }
         }
     }
@@ -192,7 +249,7 @@ struct AddEditHabitView: View {
         let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
         let trimmedDescription = description.trimmingCharacters(in: .whitespaces)
 
-        let ruleString = rrule_to_string(rule: recurrenceRule!)
+        let ruleString: String? = recurrenceRule != nil ? rrule_to_string(rule: recurrenceRule!) : nil
 
         let newHabit = Habits(
             id: habit?.id,

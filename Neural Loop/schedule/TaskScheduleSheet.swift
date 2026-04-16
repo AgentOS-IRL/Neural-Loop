@@ -89,41 +89,81 @@ struct TaskScheduleSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            ZStack {
+                FleetingNotesTheme.backgroundGradient
+                    .ignoresSafeArea()
 
-                // TIME ROW
-                Button {
-                    showTimeSheet = true
-                } label: {
-                    HStack {
-                        Text("Time")
-                        Spacer()
-                        Text(timeSummary)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: FleetingNotesTheme.Metrics.sectionSpacing) {
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            themedSectionHeader("Settings")
+                            ThemedCard {
+                                // TIME ROW
+                                Button {
+                                    showTimeSheet = true
+                                } label: {
+                                    ThemedRow {
+                                        Text("Time")
+                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        Spacer()
+                                        Text(timeSummary)
+                                            .font(.subheadline)
+                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption.bold())
+                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                    }
+                                }
 
-                // REPEAT ROW
-                Button {
-                    showRepeatSheet = true
-                } label: {
-                    HStack {
-                        Text("Repeat")
-                        Spacer()
-                        Text(repeatSummary)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                                Divider()
+                                    .background(FleetingNotesTheme.textSecondary.opacity(0.1))
 
-                // MERGED PREVIEW
-                if timing != nil || recurrenceRule != nil {
-                    Section("Summary") {
-                        Label(timeSummary, systemImage: "clock")
-                        Label(repeatSummary, systemImage: "repeat")
+                                // REPEAT ROW
+                                Button {
+                                    showRepeatSheet = true
+                                } label: {
+                                    ThemedRow {
+                                        Text("Repeat")
+                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        Spacer()
+                                        Text(repeatSummary)
+                                            .font(.subheadline)
+                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption.bold())
+                                            .foregroundColor(FleetingNotesTheme.textSecondary)
+                                    }
+                                }
+                            }
+                        }
+
+                        // MERGED PREVIEW
+                        if timing != nil || recurrenceRule != nil {
+                            VStack(alignment: .leading, spacing: 4) {
+                                themedSectionHeader("Summary")
+                                ThemedCard(gradient: FleetingNotesTheme.sectionGradient) {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Label(timeSummary, systemImage: "clock")
+                                            .font(.subheadline.weight(.medium))
+                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                        
+                                        Divider()
+                                            .background(FleetingNotesTheme.textSecondary.opacity(0.1))
+
+                                        Label(repeatSummary, systemImage: "repeat")
+                                            .font(.subheadline.weight(.medium))
+                                            .foregroundColor(FleetingNotesTheme.textPrimary)
+                                    }
+                                }
+                            }
+                        }
                     }
+                    .padding(FleetingNotesTheme.Metrics.screenPadding)
                 }
             }
             .navigationTitle("Schedule")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
@@ -135,6 +175,8 @@ struct TaskScheduleSheet: View {
                         )
                         dismiss()
                     }
+                    .font(.body.weight(.bold))
+                    .foregroundColor((timing == nil && recurrenceRule == nil) ? FleetingNotesTheme.textSecondary : FleetingNotesTheme.accentColor)
                     .disabled(timing == nil && recurrenceRule == nil)
                 }
 
@@ -142,6 +184,7 @@ struct TaskScheduleSheet: View {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .foregroundColor(FleetingNotesTheme.textPrimary)
                 }
             }
             .sheet(isPresented: $showTimeSheet) {
