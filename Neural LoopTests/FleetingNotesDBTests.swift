@@ -12,6 +12,27 @@ final class FleetingNotesDBTests: XCTestCase {
         XCTAssertEqual(payload?.count, 1)
     }
 
+    func testUpdateFleetingNoteRequestEncodesOnlyWritableColumns() throws {
+        let request = UpdateFleetingNoteRequest(note: "Updated thought")
+
+        let data = try JSONEncoder().encode(request)
+        let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+
+        XCTAssertEqual(payload?["note"] as? String, "Updated thought")
+        XCTAssertEqual(payload?.count, 1)
+    }
+
+    func testFleetingNotesErrorDescriptionsAreUserFacing() {
+        XCTAssertEqual(
+            FleetingNotesError.insertReturnedNoRows.localizedDescription,
+            "Fleeting note could not be saved."
+        )
+        XCTAssertEqual(
+            FleetingNotesError.updateReturnedNoRows.localizedDescription,
+            "Fleeting note could not be updated."
+        )
+    }
+
     func testFleetingNoteDecodesRequestedColumns() throws {
         let data = """
         [

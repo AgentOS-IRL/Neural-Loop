@@ -16,4 +16,23 @@ extension UnifiedDataModel {
             return nil
         }
     }
+
+    func updateFleetingNote(id: Int64, request: UpdateFleetingNoteRequest) async -> FleetingNote? {
+        do {
+            return try await manager.updateFleetingNote(id: id, request: request)
+        } catch {
+            print("Error updating fleeting note", error)
+            return nil
+        }
+    }
+
+    func deleteFleetingNote(id: Int64) async -> Bool {
+        do {
+            try await manager.deleteFleetingNote(id: id)
+            return true
+        } catch {
+            print("Error deleting fleeting note", error)
+            return false
+        }
+    }
 }
