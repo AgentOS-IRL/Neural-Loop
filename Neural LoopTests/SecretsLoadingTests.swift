@@ -291,6 +291,15 @@ final class SecretsLoadingTests: XCTestCase {
             )
         )
     }
+
+    func testSettingsDebugSectionsOnlyShowWhenDebugIsEnabled() {
+        XCTAssertFalse(shouldShowSettingsDebugSections(isDebugEnabled: false))
+        XCTAssertTrue(shouldShowSettingsDebugSections(isDebugEnabled: true))
+    }
+
+    func testSettingsDebugStorageKeyIsStable() {
+        XCTAssertEqual(settingsDebugEnabledStorageKey, "settingsDebugEnabled")
+    }
 }
 
 private struct MockSecretsFetcher: SecretsFetching {
