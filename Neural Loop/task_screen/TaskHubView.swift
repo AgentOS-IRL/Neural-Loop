@@ -68,7 +68,7 @@ private struct TaskHubSectionBar: View {
                     }
                 } label: {
                     Text(section.rawValue)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .foregroundStyle(sectionForeground(isSelected: selectedSection == section))
@@ -89,9 +89,9 @@ private struct TaskHubSectionBar: View {
                 .fill(backgroundFill)
                 .overlay {
                     RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .strokeBorder(borderColor, lineWidth: 1)
+                        .strokeBorder(FleetingNotesTheme.borderGradient, lineWidth: 1)
                 }
-                .shadow(color: .black.opacity(colorScheme == .dark ? 0.18 : 0.08), radius: 10, y: 5)
+                .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
         }
     }
 
@@ -100,7 +100,7 @@ private struct TaskHubSectionBar: View {
             return AnyShapeStyle(Color(.secondarySystemBackground).opacity(0.96))
         }
 
-        return AnyShapeStyle(.ultraThinMaterial)
+        return AnyShapeStyle(FleetingNotesTheme.sectionGradient)
     }
 
     private var sectionFill: AnyShapeStyle {
@@ -108,18 +108,14 @@ private struct TaskHubSectionBar: View {
             return AnyShapeStyle(Color(.tertiarySystemBackground))
         }
 
-        return AnyShapeStyle(.regularMaterial)
-    }
-
-    private var borderColor: Color {
-        colorScheme == .dark ? Color.white.opacity(0.16) : Color.black.opacity(0.08)
+        return AnyShapeStyle(FleetingNotesTheme.heroGradient)
     }
 
     private func sectionForeground(isSelected: Bool) -> Color {
         if isSelected {
-            return colorScheme == .dark ? .white : .black
+            return FleetingNotesTheme.textPrimary
         }
 
-        return colorScheme == .dark ? .white.opacity(0.72) : .black.opacity(0.72)
+        return FleetingNotesTheme.textSecondary
     }
 }
