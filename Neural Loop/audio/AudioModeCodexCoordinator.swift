@@ -33,8 +33,8 @@ final class AudioModeCodexCoordinator: ObservableObject {
     private var drainTask: Task<Void, Never>?
     private var codexMessages: [CodexInputMessage] = []
 
-    let intentTools: [CodexTool]
-    let intentInstructions: String
+    let intentTools: [CodexTool] = NeuralLoopCodexIntents.defaultIntentTools
+    var intentInstructions: String = NeuralLoopCodexIntents.getDefaultIntentInstructions(currentDateISO: ISO8601DateFormatter().string(from: Date()))
 
     var bannerText: String? {
         if isSending {
@@ -73,13 +73,9 @@ final class AudioModeCodexCoordinator: ObservableObject {
     init(
         model: any AudioModeCodexModel,
         codexClient: (any AudioModeCodexExecuting)? = nil,
-        tools: [CodexTool] = AudioModeCodexCoordinator.defaultIntentTools,
-        instructions: String = AudioModeCodexCoordinator.defaultIntentInstructions
     ) {
         self.model = model
         self.codexClient = codexClient
-        self.intentTools = tools
-        self.intentInstructions = instructions
     }
 
     func resetConversation() {
@@ -88,6 +84,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
         pendingTranscripts.removeAll()
         conversationFeed.removeAll()
         codexMessages.removeAll()
+        intentInstructions = NeuralLoopCodexIntents.getDefaultIntentInstructions(currentDateISO: ISO8601DateFormatter().string(from: Date()))
         codexState = CodexConversationState()
         isSending = false
         errorMessage = nil
@@ -481,57 +478,6 @@ final class CodexStructuredToolAudioModeAdapter: AudioModeCodexExecuting {
 }
 
 extension AudioModeCodexCoordinator {
-    static let defaultIntentInstructions: String =
-        "You are an assistant with two tools: create_task for to-dos and Notes for fleeting notes saved in the app. If the user's intent is clear, call the appropriate tool. For create_task, watch for dates, days, times, and dayparts like morning, afternoon, and evening. If the user gives timing information, include start_date as a normalized ISO-8601 string. If the user gives only a date and no time, treat it as afternoon. Mention any important scheduling assumption in the description so the saved task preserves the user's intent. If start_date is present and duration is omitted, the app will default duration to 900 seconds. If the input is vague or missing details, do not call a tool; instead, respond with a clarification question."
-
-    static let defaultIntentTools: [CodexTool] = [
-        CodexTool(
-            name: "create_task",
-            description: "Create a to-do item when the user wants to add a task. Include start_date when the user mentions a date, time, morning, afternoon, or evening. Use an ISO-8601 string when possible. If only a date is known, assume afternoon and mention that assumption in description. If start_date is present and duration is omitted, the app defaults duration to 900 seconds.",
-            parameters: .object([
-                "type": .string("object"),
-                "properties": .object([
-                    "title": .object([
-                        "type": .string("string"),
-                        "description": .string("Short task title.")
-                    ]),
-                    "description": .object([
-                        "type": .string("string"),
-                        "description": .string("Optional task details. Mention scheduling assumptions here when you infer a default time such as afternoon.")
-                    ]),
-                    "start_date": .object([
-                        "type": .string("string"),
-                        "description": .string("Optional normalized ISO-8601 start date. If the user gives only a date and no time, use that date with an afternoon time.")
-                    ]),
-                    "duration": .object([
-                        "type": .string("number"),
-                        "description": .string("Optional task duration in seconds. If omitted for scheduled tasks, the app defaults to 900 seconds.")
-                    ])
-                ]),
-                "required": .array([
-                    .string("title")
-                ])
-            ])
-        ),
-        CodexTool(
-            name: "Notes",
-            description: "Create a fleeting note in the app when the user wants to save general information or a note.",
-            parameters: .object([
-                "type": .string("object"),
-                "properties": .object([
-                    "content": .object([
-                        "type": .string("string")
-                    ]),
-                    "note": .object([
-                        "type": .string("string")
-                    ])
-                ]),
-                "required": .array([
-                    .string("content")
-                ])
-            ])
-        )
-    ]
 
     private static let iso8601DateFormatters: [ISO8601DateFormatter] = {
         let formatterWithInternetDateTime = ISO8601DateFormatter()

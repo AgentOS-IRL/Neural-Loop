@@ -11,11 +11,19 @@ let package = Package(
         .library(
             name: "CodexCore",
             targets: ["CodexCore"]
+        ),
+        .executable(
+            name: "CodexChatConversation",
+            targets: ["CodexChatConversation"]
         )
     ],
     targets: [
         .target(
             name: "CodexCore"
+        ),
+        .executableTarget(
+            name: "CodexChatConversation",
+            dependencies: ["CodexCore"]
         ),
         .testTarget(
             name: "CodexCoreTests",

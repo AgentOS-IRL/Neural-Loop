@@ -21,7 +21,7 @@ public enum CodexAction {
     case clarify(text: String)
 }
 
-public struct CodexConversationState: Equatable {
+public struct CodexConversationState: Equatable, Sendable {
     public var previousResponseID: String?
     public var conversationID: String?
 
@@ -48,7 +48,7 @@ public protocol CodexSchemaProviding {
     static var codexSchemaPayload: CodexJSONSchemaPayload { get }
 }
 
-public struct CodexTool: Codable, Equatable {
+public struct CodexTool: Codable, Equatable, Sendable {
     public let name: String
     public let description: String
     public let parameters: JSONValue
@@ -82,7 +82,7 @@ public struct CodexTool: Codable, Equatable {
     }
 }
 
-public struct CodexJSONSchemaPayload: Equatable {
+public struct CodexJSONSchemaPayload: Equatable, Sendable {
     public let name: String
     public let schema: JSONValue
 
@@ -592,7 +592,7 @@ private extension CodexStructuredTool {
     }
 }
 
-public struct CodexRequestBody: Codable, Equatable {
+public struct CodexRequestBody: Codable, Equatable, Sendable {
     public let model: String
     public let stream: Bool
     public let store: Bool
@@ -632,7 +632,7 @@ public struct CodexRequestBody: Codable, Equatable {
     }
 }
 
-public struct CodexTextConfig: Codable, Equatable {
+public struct CodexTextConfig: Codable, Equatable, Sendable {
     public let verbosity: String
     public let format: JSONValue?
 
@@ -642,7 +642,7 @@ public struct CodexTextConfig: Codable, Equatable {
     }
 }
 
-public struct CodexInputMessage: Codable, Equatable {
+public struct CodexInputMessage: Codable, Equatable, Sendable {
     public let role: String
     public let content: [CodexInputContent]
 
@@ -652,7 +652,7 @@ public struct CodexInputMessage: Codable, Equatable {
     }
 }
 
-public struct CodexInputContent: Codable, Equatable {
+public struct CodexInputContent: Codable, Equatable, Sendable {
     public let type: String
     public let text: String
 
@@ -662,7 +662,7 @@ public struct CodexInputContent: Codable, Equatable {
     }
 }
 
-public struct CodexStreamEvent: Decodable, Equatable {
+public struct CodexStreamEvent: Decodable, Equatable, Sendable {
     public let type: String
     public let delta: String?
     public let toolCalls: [CodexStreamToolCall]?
@@ -746,7 +746,7 @@ public struct CodexStreamEvent: Decodable, Equatable {
     }
 }
 
-public struct CodexStreamResponse: Decodable, Equatable {
+public struct CodexStreamResponse: Decodable, Equatable, Sendable {
     public let id: String?
     public let output: [CodexStreamOutput]?
 
@@ -764,7 +764,7 @@ public struct CodexStreamResponse: Decodable, Equatable {
     }
 }
 
-public struct CodexStreamOutput: Decodable, Equatable {
+public struct CodexStreamOutput: Decodable, Equatable, Sendable {
     public let content: [CodexStreamContent]?
 
     static func parse(_ value: [String: Any]) throws -> CodexStreamOutput {
@@ -774,7 +774,7 @@ public struct CodexStreamOutput: Decodable, Equatable {
     }
 }
 
-public struct CodexStreamContent: Decodable, Equatable {
+public struct CodexStreamContent: Decodable, Equatable, Sendable {
     public let text: String?
 
     static func parse(_ value: [String: Any]) throws -> CodexStreamContent {
@@ -782,7 +782,7 @@ public struct CodexStreamContent: Decodable, Equatable {
     }
 }
 
-public struct CodexStreamToolCall: Decodable, Equatable {
+public struct CodexStreamToolCall: Decodable, Equatable, Sendable {
     public let id: String?
     public let index: Int?
     public let name: String?
@@ -881,7 +881,7 @@ public struct CodexStreamToolCall: Decodable, Equatable {
     }
 }
 
-public enum JSONValue: Codable, Equatable {
+public enum JSONValue: Codable, Equatable, Sendable {
     case string(String)
     case number(Double)
     case bool(Bool)
