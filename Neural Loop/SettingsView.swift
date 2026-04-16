@@ -250,6 +250,8 @@ struct SettingsView: View {
                         Image(systemName: "arrow.clockwise")
                             .foregroundStyle(FleetingNotesTheme.textPrimary)
                     }
+                    .accessibilityLabel("Refresh notification status")
+                    .accessibilityHint("Checks the current authorization status for notifications")
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
