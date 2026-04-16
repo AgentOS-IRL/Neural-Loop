@@ -15,6 +15,11 @@ enum TaskHubSection: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum TaskHubSwipeDirection {
+    case left
+    case right
+}
+
 @MainActor
 final class TaskHubNavigationModel: ObservableObject {
     @Published var selectedSection: TaskHubSection = .todo
@@ -22,20 +27,44 @@ final class TaskHubNavigationModel: ObservableObject {
     func select(_ section: TaskHubSection) {
         selectedSection = section
     }
+
+    func section(afterSwipe direction: TaskHubSwipeDirection) -> TaskHubSection {
+        switch (selectedSection, direction) {
+        case (.todo, .left):
+            return .habits
+        case (.habits, .right):
+            return .todo
+        default:
+            return selectedSection
+        }
+    }
+
+    func handleSwipe(_ direction: TaskHubSwipeDirection) {
+        selectedSection = section(afterSwipe: direction)
+    }
 }
 
 struct TaskHubView: View {
     @StateObject private var navigationModel = TaskHubNavigationModel()
 
+    private let taskHubEdgeSwipeStartThreshold: CGFloat = 32
+    private let taskHubSwipeMinimumDistance: CGFloat = 72
+    private let taskHubSwipeVerticalTolerance: CGFloat = 48
+
     var body: some View {
         NavigationStack {
-            ZStack {
-                switch navigationModel.selectedSection {
-                case .todo:
-                    TodoView(embeddedInTaskHub: true)
-                case .habits:
-                    HabitView(embeddedInTaskHub: true)
+            GeometryReader { proxy in
+                ZStack {
+                    switch navigationModel.selectedSection {
+                    case .todo:
+                        TodoView(embeddedInTaskHub: true)
+                    case .habits:
+                        HabitView(embeddedInTaskHub: true)
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .simultaneousGesture(taskHubEdgeSwipeGesture(width: proxy.size.width))
             }
             .navigationTitle("Tasks")
             .navigationBarTitleDisplayMode(.inline)
@@ -49,6 +78,34 @@ struct TaskHubView: View {
                 .padding(.bottom, 8)
             }
         }
+    }
+
+    private func taskHubEdgeSwipeGesture(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: taskHubSwipeMinimumDistance)
+            .onEnded { value in
+                guard let direction = taskHubSwipeDirection(for: value, width: width) else { return }
+
+                withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                    navigationModel.handleSwipe(direction)
+                }
+            }
+    }
+
+    private func taskHubSwipeDirection(for value: DragGesture.Value, width: CGFloat) -> TaskHubSwipeDirection? {
+        let horizontalDistance = value.translation.width
+        let verticalDistance = value.translation.height
+        let absoluteHorizontalDistance = abs(horizontalDistance)
+
+        guard absoluteHorizontalDistance >= taskHubSwipeMinimumDistance else { return nil }
+        guard abs(verticalDistance) <= taskHubSwipeVerticalTolerance else { return nil }
+        guard absoluteHorizontalDistance > abs(verticalDistance) else { return nil }
+
+        if horizontalDistance > 0 {
+            return value.startLocation.x <= taskHubEdgeSwipeStartThreshold ? .right : nil
+        }
+
+        let rightEdgeThreshold = max(0, width - taskHubEdgeSwipeStartThreshold)
+        return value.startLocation.x >= rightEdgeThreshold ? .left : nil
     }
 }
 

@@ -79,6 +79,22 @@ final class TodoViewModel: ObservableObject {
         }
     }
 
+    func canNavigateBackToMenu() -> Bool {
+        viewMode != .menu
+    }
+
+    func navigateBackToMenu() {
+        guard canNavigateBackToMenu() else { return }
+
+        viewMode = .menu
+    }
+
+    func handleBackSwipeIfNeeded() -> Bool {
+        guard canNavigateBackToMenu() else { return false }
+
+        navigateBackToMenu()
+        return true
+    }
 }
 
 
@@ -89,6 +105,10 @@ struct TodoView: View {
     @StateObject private var vm = TodoViewModel()
     @Environment(\.modelContext) private var context
     @EnvironmentObject var model: UnifiedDataModel
+
+    private let todoBackSwipeStartThreshold: CGFloat = 32
+    private let todoBackSwipeMinimumDistance: CGFloat = 72
+    private let todoBackSwipeVerticalTolerance: CGFloat = 48
 
     init(embeddedInTaskHub: Bool = false) {
         self.embeddedInTaskHub = embeddedInTaskHub
@@ -515,6 +535,32 @@ struct TodoView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .simultaneousGesture(todoBackSwipeGesture)
+    }
+
+    private var todoBackSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: todoBackSwipeMinimumDistance)
+            .onEnded { value in
+                guard isTodoBackSwipe(value) else { return }
+
+                withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                    _ = vm.handleBackSwipeIfNeeded()
+                }
+            }
+    }
+
+    private func isTodoBackSwipe(_ value: DragGesture.Value) -> Bool {
+        let horizontalDistance = value.translation.width
+        let verticalDistance = value.translation.height
+
+        guard vm.canNavigateBackToMenu() else { return false }
+        guard value.startLocation.x <= todoBackSwipeStartThreshold else { return false }
+        guard horizontalDistance >= todoBackSwipeMinimumDistance else { return false }
+        guard abs(verticalDistance) <= todoBackSwipeVerticalTolerance else { return false }
+        guard horizontalDistance > abs(verticalDistance) else { return false }
+
+        return true
     }
 
     private var todoEmbeddedHeader: some View {
@@ -532,7 +578,7 @@ struct TodoView: View {
 
             if vm.viewMode != .menu {
                 Button {
-                    vm.viewMode = .menu
+                    vm.navigateBackToMenu()
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 15, weight: .semibold))
@@ -590,7 +636,7 @@ struct TodoView: View {
 
                             ToolbarItem(placement: .navigationBarLeading) {
                                 Button {
-                                    vm.viewMode = .menu
+                                    vm.navigateBackToMenu()
                                 } label: {
                                     if vm.viewMode != .menu {
                                         Image(systemName: "chevron.left")
