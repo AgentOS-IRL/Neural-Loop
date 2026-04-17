@@ -15,7 +15,7 @@ func fetchTodaysGenesysEvents(
             return
         }
 
-        let calendar = Calendar.current
+        let calendar = Calendar.neuralLoopDisplay
 
         let startOfDay = calendar.startOfDay(for: date)
         guard let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) else {

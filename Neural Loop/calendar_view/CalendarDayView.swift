@@ -40,7 +40,7 @@ struct CalendarDayView: View {
                 }
                 .onAppear {
                     DispatchQueue.main.async {
-                        let hour = Calendar.current.component(.hour, from: Date())
+                        let hour = Calendar.neuralLoopDisplay.component(.hour, from: Date())
                         proxy.scrollTo(hour, anchor: .top)
                     }
                 }
@@ -81,10 +81,12 @@ struct CalendarDayView: View {
                 }
                 
                 
-                fetchTodaysGenesysEvents() { events in
+                fetchTodaysGenesysEvents(for: date) { events in
                     workEvents = events
                 }
             }
         }
+        .environment(\.calendar, Calendar.neuralLoopDisplay)
+        .environment(\.timeZone, NeuralLoopDateContext.timeZone)
     }
 }

@@ -69,7 +69,7 @@ struct TimeRuleSheet: View {
                                         .foregroundColor(AppTheme.textPrimary)
                                     Spacer()
                                     if !isAnytime {
-                                        Text(dateTimeFormatter.string(from: selectedDateTime))
+                                        Text(DateFormatter.neuralLoopDisplay(dateStyle: .medium, timeStyle: .short).string(from: selectedDateTime))
                                             .font(.body.bold())
                                             .foregroundColor(AppTheme.accentColor)
                                     }
@@ -188,6 +188,8 @@ struct TimeRuleSheet: View {
                 }
             }
         }
+        .environment(\.calendar, Calendar.neuralLoopDisplay)
+        .environment(\.timeZone, NeuralLoopDateContext.timeZone)
     }
 
     private func quickButton(title: String, action: @escaping () -> Void) -> some View {
@@ -204,12 +206,5 @@ struct TimeRuleSheet: View {
                         .stroke(AppTheme.borderGradient, lineWidth: 1)
                 )
         }
-    }
-
-    private var dateTimeFormatter: DateFormatter {
-        let df = DateFormatter()
-        df.dateStyle = .medium
-        df.timeStyle = .short
-        return df
     }
 }

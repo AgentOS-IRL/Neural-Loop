@@ -44,6 +44,29 @@ final class TodoDueDateFormattingTests: XCTestCase {
         XCTAssertTrue(text.contains("9:30 AM"), text)
     }
 
+    func testDueDateTextPreservesWallClockTimeInFixedGMTOffset() {
+        let gmtPlusOne = TimeZone(secondsFromGMT: 3_600)!
+        let calendar = calendar(for: gmtPlusOne)
+        let text = normalized(todoDueDateText(
+            start: date(
+                year: 2026,
+                month: 4,
+                day: 16,
+                hour: 10,
+                minute: 30,
+                calendar: calendar,
+                timeZone: gmtPlusOne
+            ),
+            duration: nil,
+            calendar: calendar,
+            locale: locale,
+            timeZone: gmtPlusOne
+        ))
+
+        XCTAssertTrue(text.contains("10:30 AM"), text)
+        XCTAssertFalse(text.contains("9:30 AM"), text)
+    }
+
     func testDueDateTextIncludesDateAndTimeRangeWhenDurationExists() {
         let text = normalized(todoDueDateText(
             start: date(year: 2026, month: 4, day: 16, hour: 9, minute: 30),
@@ -93,17 +116,25 @@ final class TodoDueDateFormattingTests: XCTestCase {
         month: Int,
         day: Int,
         hour: Int,
-        minute: Int
+        minute: Int,
+        calendar: Calendar? = nil,
+        timeZone: TimeZone? = nil
     ) -> Date {
         DateComponents(
-            calendar: calendar,
-            timeZone: timeZone,
+            calendar: calendar ?? self.calendar,
+            timeZone: timeZone ?? self.timeZone,
             year: year,
             month: month,
             day: day,
             hour: hour,
             minute: minute
         ).date!
+    }
+
+    private func calendar(for timeZone: TimeZone) -> Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        return calendar
     }
 
     private func normalized(_ text: String) -> String {
