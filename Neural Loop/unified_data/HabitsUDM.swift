@@ -51,6 +51,11 @@ extension  UnifiedDataModel {
             if habitTrackingEntriesMap[id] != nil {
                 habitTrackingEntriesMap[id]!.append(entry)
             }
+
+            await notificationScheduler.scheduleHabit(
+                habit,
+                progress: currentHabitProgressMap[id]
+            )
             
         } catch {
             print("Error adding entry for habit: \(habit.id!)")
@@ -62,6 +67,7 @@ extension  UnifiedDataModel {
             
             let newHabit = try await manager.addHabit(habit)
             habits.append(newHabit)
+            await refreshHabitNotifications(for: newHabit)
         } catch {
             print("Error saving new habit", error, habit)
         }
@@ -73,6 +79,7 @@ extension  UnifiedDataModel {
             let index = self.habits.firstIndex(where: { $0.id == habit.id! })!
             habits.remove(at: index)
             habits.append(habit)
+            await refreshHabitNotifications(for: habit)
         } catch {
             print("Error updating habit", error)
         }
@@ -84,6 +91,7 @@ extension  UnifiedDataModel {
             try await manager.deleteHabit(id: id)
             let index = self.habits.firstIndex(where: { $0.id == habit.id! })!
             habits.remove(at: index)
+            await notificationScheduler.clearHabitNotifications(habitId: id)
         } catch {
             print("Error deleting habit", error)
         }
@@ -218,5 +226,12 @@ extension  UnifiedDataModel {
         }
 
         return windows
+    }
+
+    private func refreshHabitNotifications(for habit: Habits) async {
+        await notificationScheduler.scheduleHabit(
+            habit,
+            progress: currentHabitProgressMap[habit.id ?? -1]
+        )
     }
 }
