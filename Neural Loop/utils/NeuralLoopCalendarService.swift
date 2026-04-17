@@ -66,13 +66,13 @@ final class NeuralLoopCalendarService {
 
         let event = EKEvent(eventStore: eventStore)
         event.calendar = calendar
+        event.timeZone = NeuralLoopDateContext.timeZone
         event.title = title
         event.startDate = timing.start
         event.endDate = timing.start.addingTimeInterval(timing.duration)
         event.notes = notes
         event.url = URL(string: "neuralloop://task/\(taskId)")
-        // TODO: Save to calendar
-//        try eventStore.save(event, span: .thisEvent)
+        try eventStore.save(event, span: .thisEvent)
     }
     
     func addRecurringEvent(
@@ -87,6 +87,7 @@ final class NeuralLoopCalendarService {
 
         let event = EKEvent(eventStore: eventStore)
         event.calendar = calendar
+        event.timeZone = NeuralLoopDateContext.timeZone
         event.title = title
         event.startDate = timing.start
         event.endDate = timing.start.addingTimeInterval(timing.duration)
@@ -202,14 +203,13 @@ final class NeuralLoopCalendarService {
         } else {
             print("No recurrence rules")
         }
-        // TODO: Save to calendar
-//         try eventStore.save(event, span: .thisEvent)
+        try eventStore.save(event, span: .thisEvent)
         print("Saved to Calendar")
     }
     
     func fetchEvent(for taskId: Int) throws -> EKEvent? {
         let calendar = try createNeuralLoopCalendar()
-        let today = Calendar.current.startOfDay(for: Date())
+        let today = Calendar.neuralLoopDisplay.startOfDay(for: Date())
 
         let predicate = eventStore.predicateForEvents(
             withStart: today,
@@ -237,8 +237,9 @@ final class NeuralLoopCalendarService {
     func fetchEventsToday() throws -> [EKEvent] {
         let calendar = try createNeuralLoopCalendar()
 
-        let startOfDay = Calendar.current.startOfDay(for: Date())
-        let endOfDay = Calendar.current.date(
+        let calendarContext = Calendar.neuralLoopDisplay
+        let startOfDay = calendarContext.startOfDay(for: Date())
+        let endOfDay = calendarContext.date(
             byAdding: .day,
             value: 1,
             to: startOfDay
@@ -266,4 +267,3 @@ enum CalendarError: LocalizedError {
         }
     }
 }
-

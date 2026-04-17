@@ -21,10 +21,8 @@ struct TimeGridView: View {
     }
 
     private func timeLabel(for hour: Int) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h a"
-        let date = Calendar.current.date(bySettingHour: hour, minute: 0, second: 0, of: Date())!
+        let formatter = DateFormatter.neuralLoopDisplay(dateStyle: .none, timeStyle: .short)
+        let date = Calendar.neuralLoopDisplay.date(bySettingHour: hour, minute: 0, second: 0, of: Date())!
         return formatter.string(from: date)
     }
 }
-

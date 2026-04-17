@@ -29,11 +29,12 @@ struct WorkEventsOverlayView: View {
     }
 
     private var eventsForDay: [SimpleEvent] {
-        events.filter { Calendar.current.isDate($0.start, inSameDayAs: date) }
+        let calendar = Calendar.neuralLoopDisplay
+        return events.filter { calendar.isDate($0.start, inSameDayAs: date) }
     }
 
     private func yOffset(for event: SimpleEvent) -> CGFloat {
-        let comps = Calendar.current.dateComponents([.hour, .minute], from: event.start)
+        let comps = Calendar.neuralLoopDisplay.neuralLoopDateComponents(from: event.start)
         let hour = comps.hour ?? 0
         let minute = comps.minute ?? 0
         return CGFloat(hour) * hourHeight + CGFloat(minute) / 60 * hourHeight
@@ -116,4 +117,3 @@ struct WorkEventsOverlayView: View {
         }
     }
 }
-

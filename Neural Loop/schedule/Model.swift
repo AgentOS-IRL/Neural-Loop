@@ -12,13 +12,11 @@ struct TaskTiming {
     let duration: TimeInterval
     
     func summary() -> String {
-        
         if start == .distantFuture {
             return "Anytime"
         }
-        let df = DateFormatter()
-        df.timeStyle = .short
-        let summary = df.string(from: start)
+
+        let summary = DateFormatter.neuralLoopDisplay(timeStyle: .short).string(from: start)
 
         if duration > 0 {
             let mins = Int(duration / 60)
