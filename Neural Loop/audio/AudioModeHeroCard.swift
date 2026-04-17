@@ -12,16 +12,16 @@ struct AudioModeHeroCard: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Audio Mode")
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.70))
+                        .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textTertiaryOpacity))
 
                     Text(state.title)
                         .font(.system(size: 30, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textPrimaryOpacity))
                         .fixedSize(horizontal: false, vertical: true)
 
                     Text(state.detail)
                         .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.76))
+                        .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textSecondaryOpacity))
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -65,6 +65,12 @@ struct AudioModeHeroCard: View {
 
                     Circle()
                         .fill(AudioModeTheme.heroCardFill)
+                        .overlay {
+                            Circle()
+                                .fill(AudioModeTheme.actionGradient)
+                                .opacity(0.08)
+                                .blur(radius: 18)
+                        }
                         .background(
                             Circle()
                                 .fill(.ultraThinMaterial)
@@ -76,7 +82,7 @@ struct AudioModeHeroCard: View {
                                     lineWidth: 1
                                 )
                         }
-                        .shadow(color: .black.opacity(0.26), radius: 22, y: 14)
+                        .shadow(color: AudioModeTheme.heroGlow, radius: 18, y: 12)
                         .frame(
                             width: AudioModeTheme.Metrics.heroMicSize,
                             height: AudioModeTheme.Metrics.heroMicSize
@@ -84,8 +90,8 @@ struct AudioModeHeroCard: View {
 
                     Image(systemName: state.microphoneSystemImage)
                         .font(.system(size: state.isRecording ? 56 : 68, weight: .bold))
-                        .foregroundStyle(.white)
-                        .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
+                        .foregroundStyle(.white.opacity(0.96))
+                        .shadow(color: .black.opacity(0.30), radius: 8, y: 3)
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: AudioModeTheme.Metrics.heroOrbitSize + 16)
@@ -118,17 +124,17 @@ private struct AudioModeStatusBadge: View {
 
             Text(text)
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.88))
+                .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textPrimaryOpacity))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(
             Capsule(style: .continuous)
-                .fill(Color.white.opacity(0.10))
+                .fill(AudioModeTheme.badgeFill)
         )
         .overlay {
             Capsule(style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                .strokeBorder(AudioModeTheme.badgeBorder, lineWidth: 1)
         }
     }
 }
@@ -156,6 +162,6 @@ struct AudioModeCardBackground: View {
             )
             .strokeBorder(AudioModeTheme.highlightBorder, lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.18), radius: 20, y: 12)
+        .shadow(color: .black.opacity(0.16), radius: 18, y: 10)
     }
 }

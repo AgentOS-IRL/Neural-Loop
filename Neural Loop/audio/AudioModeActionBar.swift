@@ -12,16 +12,16 @@ struct AudioModeActionBar: View {
                         ForEach(state.primaryStatusChips, id: \.self) { chip in
                             Text(chip)
                                 .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white.opacity(0.80))
+                                .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textPrimaryOpacity))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
                                 .background(
                                     Capsule(style: .continuous)
-                                        .fill(Color.white.opacity(0.08))
+                                        .fill(AudioModeTheme.chipFill)
                                 )
                                 .overlay {
                                     Capsule(style: .continuous)
-                                        .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+                                        .strokeBorder(AudioModeTheme.chipBorder, lineWidth: 1)
                                 }
                         }
                     }
@@ -32,11 +32,11 @@ struct AudioModeActionBar: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(state.modeStatusTitle)
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textPrimaryOpacity))
 
                 Text(state.modeStatusDetail)
                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.72))
+                    .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textSecondaryOpacity))
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -52,12 +52,13 @@ struct AudioModeActionBar: View {
                 .foregroundStyle(.white)
                 .background(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.white.opacity(0.10))
+                        .fill(AudioModeTheme.actionGradient)
                 )
                 .overlay {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
                 }
+                .shadow(color: AudioModeTheme.heroGlow.opacity(0.25), radius: 12, y: 6)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(state.switchButtonTitle)

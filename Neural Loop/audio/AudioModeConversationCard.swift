@@ -35,18 +35,18 @@ struct AudioModeConversationCard: View {
         HStack(spacing: 10) {
             Image(systemName: "bubble.left.and.bubble.right.fill")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.76))
+                .foregroundStyle(AudioModeTheme.messageIconColor(for: .status))
 
             Text("Codex conversation")
                 .font(.system(size: 15, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.82))
+                .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textSecondaryOpacity))
 
             Spacer(minLength: 8)
 
             if let badgeText = state.headerBadgeText {
                 Text(badgeText)
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.64))
+                    .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textTertiaryOpacity))
             }
         }
     }
@@ -55,7 +55,7 @@ struct AudioModeConversationCard: View {
         HStack(spacing: 12) {
             if tone == .info && state.headerBadgeText == "Sending" {
                 ProgressView()
-                    .tint(.white)
+                    .tint(AudioModeTheme.bannerIconColor(for: tone))
             } else {
                 Image(systemName: tone == .error ? "exclamationmark.triangle.fill" : "bolt.badge.clock.fill")
                     .font(.system(size: 14, weight: .semibold))
@@ -64,7 +64,7 @@ struct AudioModeConversationCard: View {
 
             Text(text)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.92))
+                .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textPrimaryOpacity))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -75,7 +75,7 @@ struct AudioModeConversationCard: View {
                 cornerRadius: AudioModeTheme.Metrics.innerCornerRadius,
                 style: .continuous
             )
-            .fill(Color.white.opacity(0.07))
+            .fill(AudioModeTheme.bannerBackground(for: tone))
         )
         .overlay {
             RoundedRectangle(
@@ -90,11 +90,11 @@ struct AudioModeConversationCard: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(state.emptyTitle)
                 .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
+                .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textPrimaryOpacity))
 
             Text(state.emptyDetail)
                 .font(.system(size: 15, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.70))
+                .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textSecondaryOpacity))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(20)
@@ -104,14 +104,14 @@ struct AudioModeConversationCard: View {
                 cornerRadius: AudioModeTheme.Metrics.innerCornerRadius,
                 style: .continuous
             )
-            .fill(Color.white.opacity(0.05))
+            .fill(Color.white.opacity(AudioModeTheme.Surface.mutedFillOpacity))
         )
         .overlay {
             RoundedRectangle(
                 cornerRadius: AudioModeTheme.Metrics.innerCornerRadius,
                 style: .continuous
             )
-            .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+            .strokeBorder(Color.white.opacity(AudioModeTheme.Surface.secondaryBorderOpacity), lineWidth: 1)
         }
     }
 
@@ -129,14 +129,14 @@ struct AudioModeConversationCard: View {
 
                     Text(message.role.displayTitle)
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(message.role == .error ? 0.86 : 0.70))
+                        .foregroundStyle(AudioModeTheme.messageLabelColor(for: message.role))
 
                     Spacer(minLength: 0)
                 }
 
                 Text(message.content)
                     .font(.system(size: 17, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(message.role == .status ? 0.88 : 1.0))
+                    .foregroundStyle(AudioModeTheme.messageBodyColor(for: message.role))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
