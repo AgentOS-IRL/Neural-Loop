@@ -61,7 +61,10 @@ struct AudioModeViewState: Equatable {
 
     struct ActionBar: Equatable {
         let primaryStatusChips: [String]
+        let modeStatusTitle: String
+        let modeStatusDetail: String
         let switchButtonTitle: String
+        let switchButtonAccessibilityHint: String
     }
 
     let hero: Hero
@@ -141,7 +144,10 @@ struct AudioModeViewState: Equatable {
         )
         self.actionBar = ActionBar(
             primaryStatusChips: chips,
-            switchButtonTitle: "Switch to Manual Mode"
+            modeStatusTitle: isAudioModeAvailable ? AudioModeTransitionCopy.activeStatusTitle : "Audio Mode unavailable",
+            modeStatusDetail: isAudioModeAvailable ? AudioModeTransitionCopy.activeStatusDetail : "Return to Manual Mode to keep working while audio access is unavailable.",
+            switchButtonTitle: AudioModeTransitionCopy.returnActionTitle,
+            switchButtonAccessibilityHint: AudioModeTransitionCopy.returnAccessibilityHint
         )
     }
 }
