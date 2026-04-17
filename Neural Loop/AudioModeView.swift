@@ -40,6 +40,7 @@ struct AudioModeView: View {
                             isPulsing: pulse,
                             onTapMic: toggleMicrophone
                         )
+                        .equatable()
 
                         contentLayout(for: geometry.size, viewState: viewState)
                     }
@@ -54,6 +55,7 @@ struct AudioModeView: View {
                         state: viewState.actionBar,
                         onSwitchToManualMode: exitAudioMode
                     )
+                    .equatable()
                     .padding(.horizontal, AudioModeTheme.Metrics.screenPadding)
                     .padding(.top, 8)
                     .padding(.bottom, 10)
@@ -91,17 +93,21 @@ struct AudioModeView: View {
             HStack(alignment: .top, spacing: AudioModeTheme.Metrics.sectionSpacing) {
                 VStack(spacing: AudioModeTheme.Metrics.sectionSpacing) {
                     AudioModeTranscriptCard(state: viewState.transcript)
+                        .equatable()
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, alignment: .top)
 
                 AudioModeConversationCard(state: viewState.conversation)
+                    .equatable()
                     .frame(maxWidth: .infinity, alignment: .top)
             }
         } else {
             VStack(spacing: AudioModeTheme.Metrics.sectionSpacing) {
                 AudioModeTranscriptCard(state: viewState.transcript)
+                    .equatable()
                 AudioModeConversationCard(state: viewState.conversation)
+                    .equatable()
             }
         }
     }

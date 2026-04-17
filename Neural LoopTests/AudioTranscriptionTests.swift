@@ -87,11 +87,11 @@ final class AudioTranscriptionTests: XCTestCase {
         session.emit(.update(AudioTranscriptionUpdate(transcript: "hello world", isFinal: false)))
         session.emit(.speechEnded)
 
-        XCTAssertEqual(manager.displayState, .cooldown)
-        XCTAssertEqual(manager.primaryStatusTitle, "Holding the floor open")
-        XCTAssertEqual(manager.statusBadgeText, "Listening")
-        XCTAssertEqual(manager.transcriptStatusTitle, "Finalizing segment")
-        XCTAssertEqual(manager.transcriptStatusBadgeText, "Listening")
+        XCTAssertEqual(manager.displayState, .transcribing)
+        XCTAssertEqual(manager.primaryStatusTitle, "Transcribing live speech")
+        XCTAssertEqual(manager.statusBadgeText, "Transcribing")
+        XCTAssertEqual(manager.transcriptStatusTitle, "Transcribing")
+        XCTAssertEqual(manager.transcriptStatusBadgeText, "Live")
 
         scheduler.fireLast()
         await Task.yield()
@@ -166,6 +166,7 @@ final class AudioTranscriptionTests: XCTestCase {
 
         XCTAssertEqual(manager.sessionState, .cooldownPending)
         XCTAssertEqual(scheduler.scheduleCallCount, 1)
+        XCTAssertEqual(scheduler.scheduledDelays.last, 3.0)
 
         scheduler.fireLast()
         await Task.yield()
@@ -569,6 +570,7 @@ private final class FakeTranscribingSession: AudioTranscribingSession {
 private final class FakeCooldownTimerScheduler: AudioCooldownTimerScheduling {
     private(set) var scheduleCallCount = 0
     private(set) var cancelCallCount = 0
+    private(set) var scheduledDelays: [TimeInterval] = []
     private(set) var tokens: [FakeCooldownTimerToken] = []
 
     var lastToken: FakeCooldownTimerToken? {
@@ -577,6 +579,7 @@ private final class FakeCooldownTimerScheduler: AudioCooldownTimerScheduling {
 
     func schedule(after delay: TimeInterval, _ handler: @escaping () -> Void) -> any AudioCooldownTimerControlling {
         scheduleCallCount += 1
+        scheduledDelays.append(delay)
         let token = FakeCooldownTimerToken(
             onCancel: { [weak self] in
                 self?.cancelCallCount += 1

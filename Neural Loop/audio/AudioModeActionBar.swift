@@ -1,8 +1,12 @@
 import SwiftUI
 
-struct AudioModeActionBar: View {
+struct AudioModeActionBar: View, Equatable {
     let state: AudioModeViewState.ActionBar
     let onSwitchToManualMode: () -> Void
+
+    static func == (lhs: AudioModeActionBar, rhs: AudioModeActionBar) -> Bool {
+        lhs.state == rhs.state
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {

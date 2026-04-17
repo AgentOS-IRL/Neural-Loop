@@ -105,6 +105,7 @@ final class AudioTranscriptionManager: ObservableObject {
     private let session: any AudioTranscribingSession
     private let preferOnDeviceRecognition: Bool
     private let cooldownScheduler: any AudioCooldownTimerScheduling
+    private let segmentCommitCooldownDuration: TimeInterval
     private var cooldownTimer: (any AudioCooldownTimerControlling)?
     private var activeSession = false
     private var isStartingSession = false
@@ -114,11 +115,13 @@ final class AudioTranscriptionManager: ObservableObject {
     init(
         session: (any AudioTranscribingSession)? = nil,
         preferOnDeviceRecognition: Bool = false,
-        cooldownScheduler: (any AudioCooldownTimerScheduling)? = nil
+        cooldownScheduler: (any AudioCooldownTimerScheduling)? = nil,
+        segmentCommitCooldownDuration: TimeInterval = 3.0
     ) {
         self.session = session ?? LiveAudioTranscriptionSession()
         self.preferOnDeviceRecognition = preferOnDeviceRecognition
         self.cooldownScheduler = cooldownScheduler ?? MainQueueAudioCooldownTimerScheduler()
+        self.segmentCommitCooldownDuration = segmentCommitCooldownDuration
         self.permissionState = self.session.currentPermissionState()
     }
 
@@ -139,7 +142,7 @@ final class AudioTranscriptionManager: ObservableObject {
         case .transcribing:
             return "Transcribing speech"
         case .cooldownPending:
-            return "Listening for more speech"
+            return "Transcribing speech"
             }
         case .requesting:
             return "Checking Permissions"
@@ -167,7 +170,7 @@ final class AudioTranscriptionManager: ObservableObject {
             case .transcribing:
                 return .transcribing
             case .cooldownPending:
-                return .cooldown
+                return .transcribing
             }
         }
     }
@@ -223,7 +226,7 @@ final class AudioTranscriptionManager: ObservableObject {
         case .transcribing:
             return "Speech is being converted into text and prepared for Codex."
         case .cooldownPending:
-            return "Pause briefly to commit this segment, or keep talking to continue."
+            return "Keep talking to continue this sentence. Codex waits for a longer pause."
         }
     }
 
@@ -255,7 +258,7 @@ final class AudioTranscriptionManager: ObservableObject {
         case .transcribing:
             return "Transcribing"
         case .cooldownPending:
-            return "Finalizing segment"
+            return "Transcribing"
         }
     }
 
@@ -265,10 +268,8 @@ final class AudioTranscriptionManager: ObservableObject {
             return "text.quote"
         case .checking, .listening:
             return "waveform"
-        case .transcribing:
+        case .transcribing, .cooldownPending:
             return "waveform.and.mic"
-        case .cooldownPending:
-            return "waveform.badge.clock"
         }
     }
 
@@ -280,7 +281,7 @@ final class AudioTranscriptionManager: ObservableObject {
             return "Final"
         }
         if sessionState == .cooldownPending {
-            return "Listening"
+            return "Live"
         }
         if transcriptText.isEmpty {
             return statusBadgeText
@@ -334,7 +335,7 @@ final class AudioTranscriptionManager: ObservableObject {
         case .transcribing:
             return "Transcribing speech..."
         case .cooldownPending:
-            return "Listening for more speech..."
+            return "Transcribing speech..."
         }
     }
 
@@ -421,9 +422,15 @@ final class AudioTranscriptionManager: ObservableObject {
     }
 
     func resetTranscript() {
-        transcriptText = ""
-        isTranscriptFinal = false
-        errorMessage = nil
+        if !transcriptText.isEmpty {
+            transcriptText = ""
+        }
+        if isTranscriptFinal {
+            isTranscriptFinal = false
+        }
+        if errorMessage != nil {
+            errorMessage = nil
+        }
     }
 
     var transcriptCardText: String {
@@ -451,7 +458,7 @@ final class AudioTranscriptionManager: ObservableObject {
         isSegmentOpen = false
         setSessionState(.inactive)
 
-        if clearHistory {
+        if clearHistory, !transcriptHistory.isEmpty {
             transcriptHistory.removeAll()
         }
 
@@ -473,11 +480,19 @@ final class AudioTranscriptionManager: ObservableObject {
                 return
             }
 
-            transcriptText = update.transcript
-            isTranscriptFinal = update.isFinal
-            errorMessage = nil
+            if transcriptText != update.transcript {
+                transcriptText = update.transcript
+            }
+            if isTranscriptFinal != update.isFinal {
+                isTranscriptFinal = update.isFinal
+            }
+            if errorMessage != nil {
+                errorMessage = nil
+            }
         case .failure(let message):
-            errorMessage = message
+            if errorMessage != message {
+                errorMessage = message
+            }
             stopRecording(clearTranscript: false, clearHistory: false)
         }
     }
@@ -490,19 +505,21 @@ final class AudioTranscriptionManager: ObservableObject {
         invalidateCooldownTimer()
         isAwaitingSegmentCommit = false
         isSegmentOpen = true
-        errorMessage = nil
+        if errorMessage != nil {
+            errorMessage = nil
+        }
         setSessionState(.transcribing)
     }
 
     private func handleSpeechEnded() {
-        guard activeSession else {
+        guard activeSession, isSegmentOpen, !isAwaitingSegmentCommit else {
             return
         }
 
         invalidateCooldownTimer()
         isAwaitingSegmentCommit = true
         setSessionState(.cooldownPending)
-        cooldownTimer = cooldownScheduler.schedule(after: 5) { [weak self] in
+        cooldownTimer = cooldownScheduler.schedule(after: segmentCommitCooldownDuration) { [weak self] in
             Task { @MainActor in
                 self?.completeCooldown()
             }
@@ -539,8 +556,14 @@ final class AudioTranscriptionManager: ObservableObject {
     }
 
     private func setSessionState(_ state: AudioTranscriptionSessionState) {
-        sessionState = state
-        isRecording = state != .inactive
+        if sessionState != state {
+            sessionState = state
+        }
+
+        let shouldRecord = state != .inactive
+        if isRecording != shouldRecord {
+            isRecording = shouldRecord
+        }
     }
 }
 
@@ -597,6 +620,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
     private var activeResultHandler: ((AudioTranscriptionEvent) -> Void)?
     private var isRunning = false
     private var isCapturingAudio = false
+    private var isSpeechActive = false
     private var requiresOnDeviceRecognition = false
     private var hasFlushedPreRoll = false
     private var activeTaskIdentifier: UUID?
@@ -702,6 +726,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
         activeRequest = nil
         activeTask = nil
         isCapturingAudio = false
+        isSpeechActive = false
         hasFlushedPreRoll = false
         preRollHistory.reset()
         detector.reset()
@@ -759,13 +784,14 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
         activeRequest?.endAudio()
         activeRequest = nil
         isCapturingAudio = false
+        isSpeechActive = false
         hasFlushedPreRoll = false
         preRollHistory.reset()
         detector.reset()
     }
 
     private func handleSpeechDetected() {
-        guard isRunning else {
+        guard isRunning, !isSpeechActive else {
             return
         }
 
@@ -824,14 +850,16 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
         }
 
         isCapturingAudio = true
+        isSpeechActive = true
         emit(.speechDetected)
     }
 
     private func handleSpeechEnded() {
-        guard isRunning else {
+        guard isRunning, isSpeechActive else {
             return
         }
 
+        isSpeechActive = false
         emit(.speechEnded)
     }
 
@@ -841,6 +869,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
         activeTask = nil
         activeRecognizer = nil
         isCapturingAudio = false
+        isSpeechActive = false
         hasFlushedPreRoll = false
         preRollHistory.reset()
         detector.reset()
@@ -858,6 +887,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
         audioEngine.stop()
         detector.reset()
         isCapturingAudio = false
+        isSpeechActive = false
         hasFlushedPreRoll = false
         preRollHistory.reset()
         activeRecognizer = nil
@@ -899,7 +929,8 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
 
 final class AudioPCMBufferHistory {
     private let maxDuration: TimeInterval
-    private var buffers: [AVAudioPCMBuffer] = []
+    private var buffers: [(buffer: AVAudioPCMBuffer, duration: TimeInterval)] = []
+    private var startIndex = 0
     private var accumulatedDuration: TimeInterval = 0
 
     init(maxDuration: TimeInterval) {
@@ -911,18 +942,19 @@ final class AudioPCMBufferHistory {
             return
         }
 
-        buffers.append(copy)
+        buffers.append((copy, duration))
         accumulatedDuration += duration
         trimToWindow()
     }
 
     func drain() -> [AVAudioPCMBuffer] {
         defer { reset() }
-        return buffers
+        return buffers[startIndex...].map { $0.buffer }
     }
 
     func reset() {
         buffers.removeAll()
+        startIndex = 0
         accumulatedDuration = 0
     }
 
@@ -931,12 +963,21 @@ final class AudioPCMBufferHistory {
             return
         }
 
-        while accumulatedDuration > maxDuration, let first = buffers.first {
-            if let duration = bufferDuration(for: first) {
-                accumulatedDuration -= duration
-            }
-            buffers.removeFirst()
+        while accumulatedDuration > maxDuration, startIndex < buffers.count {
+            accumulatedDuration -= buffers[startIndex].duration
+            startIndex += 1
         }
+
+        compactStorageIfNeeded()
+    }
+
+    private func compactStorageIfNeeded() {
+        guard startIndex > 32, startIndex * 2 > buffers.count else {
+            return
+        }
+
+        buffers.removeFirst(startIndex)
+        startIndex = 0
     }
 
     private func bufferDuration(for buffer: AVAudioPCMBuffer) -> TimeInterval? {

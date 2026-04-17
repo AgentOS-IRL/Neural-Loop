@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct AudioModeConversationCard: View {
+struct AudioModeConversationCard: View, Equatable {
     let state: AudioModeViewState.Conversation
 
     var body: some View {

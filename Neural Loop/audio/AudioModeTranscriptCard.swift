@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct AudioModeTranscriptCard: View {
+struct AudioModeTranscriptCard: View, Equatable {
     let state: AudioModeViewState.Transcript
 
     var body: some View {
