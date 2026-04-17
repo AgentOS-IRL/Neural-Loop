@@ -16,48 +16,48 @@ struct ModeBackdropView: View {
 
             RadialGradient(
                 colors: [
-                    Color(red: 0.43, green: 0.86, blue: 0.96).opacity(reduceTransparency ? 0.16 : 0.28),
+                    AudioModeTheme.backdropPrimaryGlow.opacity(reduceTransparency ? 0.12 : 0.22),
                     Color.clear
                 ],
                 center: .topLeading,
                 startRadius: 18,
                 endRadius: 310
             )
-            .offset(x: -110, y: -170)
-            .blur(radius: 24)
+            .offset(x: -120, y: -180)
+            .blur(radius: 28)
 
             RadialGradient(
                 colors: [
-                    Color(red: 0.32, green: 0.62, blue: 1.0).opacity(reduceTransparency ? 0.12 : 0.22),
+                    AudioModeTheme.backdropSecondaryGlow.opacity(reduceTransparency ? 0.10 : 0.18),
                     Color.clear
                 ],
                 center: .center,
                 startRadius: 30,
                 endRadius: 340
             )
-            .offset(x: 150, y: -30)
-            .blur(radius: 38)
+            .offset(x: 140, y: -20)
+            .blur(radius: 34)
 
             RadialGradient(
                 colors: [
-                    Color(red: 0.30, green: 0.95, blue: 0.78).opacity(reduceTransparency ? 0.10 : 0.18),
+                    AudioModeTheme.backdropTertiaryGlow.opacity(reduceTransparency ? 0.08 : 0.14),
                     Color.clear
                 ],
                 center: .bottomTrailing,
                 startRadius: 20,
                 endRadius: 320
             )
-            .offset(x: 120, y: 220)
-            .blur(radius: 42)
+            .offset(x: 110, y: 210)
+            .blur(radius: 38)
 
             if !reduceTransparency {
                 Rectangle()
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.08),
+                                Color.white.opacity(0.05),
                                 Color.clear,
-                                Color.white.opacity(0.03)
+                                Color.white.opacity(0.02)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -66,10 +66,10 @@ struct ModeBackdropView: View {
                     .blendMode(.screen)
 
                 Circle()
-                    .fill(Color.white.opacity(0.10))
-                    .frame(width: 360, height: 360)
-                    .blur(radius: 80)
-                    .offset(x: 0, y: -250)
+                    .fill(AudioModeTheme.backdropHighlightGlow.opacity(0.06))
+                    .frame(width: 340, height: 340)
+                    .blur(radius: 74)
+                    .offset(x: 0, y: -240)
                     .blendMode(.screen)
             }
         }
