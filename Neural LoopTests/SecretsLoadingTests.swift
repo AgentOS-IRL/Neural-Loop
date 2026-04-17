@@ -269,27 +269,34 @@ final class SecretsLoadingTests: XCTestCase {
         )
     }
 
-    func testSettingsToggleOnlyEnablesWhenAuthorizedSecretsAreLoaded() {
+    func testSettingsAudioModeEntryOnlyEnablesWhenAuthorizedSecretsAreLoaded() {
         XCTAssertFalse(
-            shouldEnableAudioModeToggle(
+            shouldEnableAudioModeEntry(
                 secretsLoaded: false,
                 canUseAudioMode: true
             )
         )
 
         XCTAssertFalse(
-            shouldEnableAudioModeToggle(
+            shouldEnableAudioModeEntry(
                 secretsLoaded: true,
                 canUseAudioMode: false
             )
         )
 
         XCTAssertTrue(
-            shouldEnableAudioModeToggle(
+            shouldEnableAudioModeEntry(
                 secretsLoaded: true,
                 canUseAudioMode: true
             )
         )
+    }
+
+    func testAudioModeTransitionCopyUsesSymmetricLabels() {
+        XCTAssertEqual(AudioModeTransitionCopy.enterActionTitle, "Enter Audio Mode")
+        XCTAssertEqual(AudioModeTransitionCopy.returnActionTitle, "Return to Manual Mode")
+        XCTAssertEqual(AudioModeTransitionCopy.manualModeTitle, "Manual Mode")
+        XCTAssertEqual(AudioModeTransitionCopy.activeStatusTitle, "Audio Mode active")
     }
 
     func testSettingsDebugSectionsOnlyShowWhenDebugIsEnabled() {

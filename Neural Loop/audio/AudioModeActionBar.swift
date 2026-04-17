@@ -29,34 +29,39 @@ struct AudioModeActionBar: View {
                 }
             }
 
+            VStack(alignment: .leading, spacing: 4) {
+                Text(state.modeStatusTitle)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+
+                Text(state.modeStatusDetail)
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.72))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             Button(action: onSwitchToManualMode) {
                 HStack(spacing: 10) {
-                    Image(systemName: "rectangle.grid.2x2")
+                    Image(systemName: "chevron.left.circle.fill")
                         .font(.system(size: 18, weight: .semibold))
                     Text(state.switchButtonTitle)
-                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 18)
-                .foregroundStyle(.black)
-                .background(AudioModeTheme.actionGradient)
-                .overlay {
-                    RoundedRectangle(
-                        cornerRadius: AudioModeTheme.Metrics.cardCornerRadius,
-                        style: .continuous
-                    )
-                    .strokeBorder(AudioModeTheme.highlightBorder, lineWidth: 1)
-                }
-                .clipShape(
-                    RoundedRectangle(
-                        cornerRadius: AudioModeTheme.Metrics.cardCornerRadius,
-                        style: .continuous
-                    )
+                .padding(.vertical, 12)
+                .foregroundStyle(.white)
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color.white.opacity(0.10))
                 )
-                .shadow(color: .black.opacity(0.24), radius: 18, y: 10)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
+                }
             }
             .buttonStyle(.plain)
             .accessibilityLabel(state.switchButtonTitle)
+            .accessibilityHint(state.switchButtonAccessibilityHint)
         }
         .padding(16)
         .background(AudioModeCardBackground())
