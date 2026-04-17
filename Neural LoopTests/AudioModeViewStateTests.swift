@@ -32,6 +32,8 @@ final class AudioModeViewStateTests: XCTestCase {
         XCTAssertEqual(state.transcript.footnote, "2 saved segments in this session")
         XCTAssertEqual(state.conversation.emptyTitle, "Codex activity will appear here")
         XCTAssertEqual(state.actionBar.primaryStatusChips, ["Open session"])
+        XCTAssertEqual(state.actionBar.modeStatusTitle, AudioModeTransitionCopy.activeStatusTitle)
+        XCTAssertEqual(state.actionBar.switchButtonTitle, AudioModeTransitionCopy.returnActionTitle)
     }
 
     func testMapsSendingConversationIntoBannerAndHeaderBadge() {
@@ -63,6 +65,7 @@ final class AudioModeViewStateTests: XCTestCase {
         XCTAssertEqual(state.conversation.bannerText, "Sending to Codex...")
         XCTAssertEqual(state.conversation.headerBadgeText, "Sending")
         XCTAssertEqual(state.actionBar.primaryStatusChips, ["Transcribing", "Sending"])
+        XCTAssertEqual(state.actionBar.modeStatusDetail, AudioModeTransitionCopy.activeStatusDetail)
     }
 
     func testMapsDisabledAudioModeIntoUnavailableEmptyState() {
@@ -98,6 +101,8 @@ final class AudioModeViewStateTests: XCTestCase {
         XCTAssertEqual(state.hero.badgeText, "Unavailable")
         XCTAssertEqual(state.conversation.emptyTitle, "Audio Mode is unavailable")
         XCTAssertEqual(state.actionBar.primaryStatusChips, ["Unavailable"])
+        XCTAssertEqual(state.actionBar.modeStatusTitle, "Audio Mode unavailable")
+        XCTAssertEqual(state.actionBar.switchButtonAccessibilityHint, AudioModeTransitionCopy.returnAccessibilityHint)
     }
 
     func testMapsLLMDisabledConversationIntoWarningState() {
