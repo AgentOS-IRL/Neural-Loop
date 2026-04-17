@@ -8,7 +8,7 @@ struct CurrentTimeIndicatorView: View {
     private let timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        if Calendar.current.isDateInToday(date) {
+        if Calendar.neuralLoopDisplay.isDateInToday(date) {
             HStack(spacing: 0) {
 
                 // Time capsule
@@ -32,7 +32,7 @@ struct CurrentTimeIndicatorView: View {
     }
 
     private var yOffset: CGFloat {
-        let components = Calendar.current.dateComponents([.hour, .minute], from: now)
+        let components = Calendar.neuralLoopDisplay.neuralLoopDateComponents(from: now)
         let hour = components.hour ?? 0
         let minute = components.minute ?? 0
 
@@ -40,9 +40,7 @@ struct CurrentTimeIndicatorView: View {
     }
 
     private func timeString(from date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a"
+        let formatter = DateFormatter.neuralLoopDisplay(dateStyle: .none, timeStyle: .short)
         return formatter.string(from: date)
     }
 }
-
