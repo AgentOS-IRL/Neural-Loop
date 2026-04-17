@@ -85,6 +85,8 @@ extension  UnifiedDataModel {
             if let index = tasks.firstIndex(where: { $0.id == id }) {
                 tasks.remove(at: index)
             }
+
+            await notificationScheduler.clearTaskNotifications(taskId: id)
             
         } catch {
             print("Error deleting task", error)
@@ -96,6 +98,7 @@ extension  UnifiedDataModel {
         do {
             let newTask = try await manager.addTask(task)
             tasks.append(newTask)
+            await refreshTaskNotifications(for: newTask)
             return newTask
         }
         catch {
@@ -112,6 +115,7 @@ extension  UnifiedDataModel {
                     tasks.remove(at: index)
                     tasks.append(modified_task)
                 }
+                await refreshTaskNotifications(for: modified_task)
             }
         }
         catch {
@@ -197,13 +201,28 @@ extension  UnifiedDataModel {
                         try deleteCompletion(taskId: modified_task.id!, on: .now, context: context)
                     }
                 }
+                await notificationScheduler.scheduleTask(modified_task)
             } else {
                 await updateTask(task: task, modified_task: modified_task)
+                if modified_task.is_completed {
+                    await notificationScheduler.clearTaskNotifications(taskId: modified_task.id!)
+                }
             }
         } catch {
             print("Error toggling completed status of task", error)
         }
 
+    }
+
+    private func refreshTaskNotifications(for task: Tasks) async {
+        guard let taskId = task.id else { return }
+
+        if task.is_completed, (task.recursion_rule == nil || task.recursion_rule?.isEmpty == true) {
+            await notificationScheduler.clearTaskNotifications(taskId: taskId)
+            return
+        }
+
+        await notificationScheduler.scheduleTask(task)
     }
     
 }

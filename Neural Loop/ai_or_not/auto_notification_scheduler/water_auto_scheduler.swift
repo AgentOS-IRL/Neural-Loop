@@ -15,31 +15,37 @@ final class WaterAutoScheduling {
     
     var schedule: [Date] = []
     
-    init(){
-        Task {
-            await scheduleMorningRepeatWaterAuto()
+    init() {}
+    
+    func scheduleBaselineNotificationsIfAuthorized() async {
+        guard await NotificationManager.shared.ensureAuthorizationStatus() else {
+            return
         }
+
+        await scheduleMorningRepeatWaterAuto()
     }
     
     func scheduleMorningRepeatWaterAuto(hour: Int = 6, minute: Int = 0) async {
-        let id = "repeat_water_auto"
-        
+        let id = "water.daily"
 
-        // Remove existing (recreate if it exists)
-        UNUserNotificationCenter.current()
-            .removePendingNotificationRequests(withIdentifiers: [id])
+        NotificationManager.shared.clearNotification(id: "repeat_water_auto")
 
         // Build repeating date components (daily at hour:minute)
         var comps = DateComponents()
         comps.hour = hour
         comps.minute = minute
 
-        await NotificationManager.shared.scheduleRepeatingNotification(
+        await NotificationManager.shared.replaceRepeatingNotification(
             id: id,
             title: "Drink Water 💧",
             body: "Start your day with a glass of water",
             dateComponents: comps,
-            sound: .default
+            sound: .default,
+            userInfo: [
+                "type": "habit",
+                "habit_id": habit_id,
+                "kind": "water_daily"
+            ]
         )
 
         print("🟢 [WaterAutoScheduling] Scheduled daily repeating morning reminder at \(hour):\(String(format: "%02d", minute))")
@@ -53,9 +59,10 @@ final class WaterAutoScheduling {
     func schedule_notification(current: Int, target: Int) async {
 
         let requested = max(target - current, 0)
-        let prefix = "water_auto_"
+        let prefix = "water.auto."
         schedule = []
 
+        await NotificationManager.shared.clearIndexedNotificationsAsync(prefix: "water_auto_")
         await NotificationManager.shared.clearIndexedNotificationsAsync(prefix: prefix)
 
         guard requested > 0 else {
@@ -253,7 +260,11 @@ final class WaterAutoScheduling {
                 title: "Drink Water 💧",
                 body: "Time to drink a glass of water",
                 date: fireDate,
-                userInfo: ["habit_id": habit_id]
+                userInfo: [
+                    "type": "habit",
+                    "habit_id": habit_id,
+                    "kind": "water_progress"
+                ]
             )
         }
 

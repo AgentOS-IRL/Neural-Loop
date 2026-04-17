@@ -10,9 +10,49 @@ import UserNotifications
 import SwiftUI
 import Combine
 
+@MainActor
+protocol NotificationScheduling: AnyObject {
+    func requestPermission() async -> Bool
+    func refreshAuthorizationStatus() async
+    func ensureAuthorizationStatus() async -> Bool
+    func scheduleNotification(
+        id: String,
+        title: String,
+        body: String,
+        date: Date,
+        sound: UNNotificationSound,
+        userInfo: [AnyHashable: Any]
+    ) async
+    func scheduleRepeatingNotification(
+        id: String,
+        title: String,
+        body: String,
+        dateComponents: DateComponents,
+        sound: UNNotificationSound,
+        userInfo: [AnyHashable: Any]
+    ) async
+    func replaceNotification(
+        id: String,
+        title: String,
+        body: String,
+        date: Date,
+        sound: UNNotificationSound,
+        userInfo: [AnyHashable: Any]
+    ) async
+    func replaceRepeatingNotification(
+        id: String,
+        title: String,
+        body: String,
+        dateComponents: DateComponents,
+        sound: UNNotificationSound,
+        userInfo: [AnyHashable: Any]
+    ) async
+    func clearNotification(id: String)
+    func clearIndexedNotificationsAsync(prefix: String) async
+}
 
 @MainActor
-final class NotificationManager: ObservableObject {
+final class NotificationManager: ObservableObject, NotificationScheduling {
 
     // MARK: - Logging
 
@@ -117,6 +157,11 @@ final class NotificationManager: ObservableObject {
         log("Authorization status refreshed: \(authorizationStatus.rawValue)")
     }
 
+    func ensureAuthorizationStatus() async -> Bool {
+        await refreshAuthorizationStatus()
+        return isAuthorized
+    }
+
     var isAuthorized: Bool {
         authorizationStatus == .authorized ||
         authorizationStatus == .provisional
@@ -136,6 +181,11 @@ final class NotificationManager: ObservableObject {
 
         guard isAuthorized else {
             log("Attempted to schedule notification without permission. ID: \(id)")
+            return
+        }
+
+        guard date > Date() else {
+            log("Skipped one-time notification in the past. ID: \(id)")
             return
         }
 
@@ -175,7 +225,8 @@ final class NotificationManager: ObservableObject {
         title: String,
         body: String,
         dateComponents: DateComponents,
-        sound: UNNotificationSound = .default
+        sound: UNNotificationSound = .default,
+        userInfo: [AnyHashable: Any] = [:]
     ) async {
 
         guard isAuthorized else {
@@ -187,6 +238,7 @@ final class NotificationManager: ObservableObject {
         content.title = title
         content.body = body
         content.sound = sound
+        content.userInfo = userInfo
 
         let trigger = UNCalendarNotificationTrigger(
             dateMatching: dateComponents,
@@ -205,6 +257,44 @@ final class NotificationManager: ObservableObject {
         } catch {
             log("Failed to schedule repeating notification. ID: \(id)", error: error)
         }
+    }
+
+    func replaceNotification(
+        id: String,
+        title: String,
+        body: String,
+        date: Date,
+        sound: UNNotificationSound = .default,
+        userInfo: [AnyHashable: Any] = [:]
+    ) async {
+        clearNotification(id: id)
+        await scheduleNotification(
+            id: id,
+            title: title,
+            body: body,
+            date: date,
+            sound: sound,
+            userInfo: userInfo
+        )
+    }
+
+    func replaceRepeatingNotification(
+        id: String,
+        title: String,
+        body: String,
+        dateComponents: DateComponents,
+        sound: UNNotificationSound = .default,
+        userInfo: [AnyHashable: Any] = [:]
+    ) async {
+        clearNotification(id: id)
+        await scheduleRepeatingNotification(
+            id: id,
+            title: title,
+            body: body,
+            dateComponents: dateComponents,
+            sound: sound,
+            userInfo: userInfo
+        )
     }
 
     // MARK: - Clearing Notifications
