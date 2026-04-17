@@ -32,7 +32,8 @@ struct ContentView: View {
             reconcileAudioModePreference()
             if !isRunningUnderTests() {
                 Task {
-                    await NotificationManager.shared.requestPermission()
+                    _ = await NotificationManager.shared.requestPermission()
+                    await model.scheduleNotifications()
                 }
             }
         }

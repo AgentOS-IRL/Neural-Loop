@@ -23,6 +23,9 @@ struct CalendarDayView: View {
                     date = newDate
                     fetchTodaysGenesysEvents(for: date) { events in
                         workEvents = events
+                        Task {
+                            await NotificationAutoScheduler.shared.scheduleWorkEvents(events, now: date)
+                        }
                     }
                 }
 
@@ -81,6 +84,9 @@ struct CalendarDayView: View {
                 
                 fetchTodaysGenesysEvents(for: date) { events in
                     workEvents = events
+                    Task {
+                        await NotificationAutoScheduler.shared.scheduleWorkEvents(events, now: date)
+                    }
                 }
             }
         }

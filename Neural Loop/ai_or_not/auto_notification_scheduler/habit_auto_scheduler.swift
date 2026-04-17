@@ -6,64 +6,16 @@
 //
 
 import Foundation
-import EventKit
 
 
 @MainActor
 final class HabitAutoScheduler{
     static let shared: HabitAutoScheduler = HabitAutoScheduler()
     
-    init() {printAllCalendarTitles()}
+    init() {}
     
-    func printAllCalendarTitles() {
-        let eventStore = EKEventStore()
-
-        eventStore.requestAccess(to: .event) { granted, error in
-            guard granted else {
-                print("❌ Calendar access denied")
-                return
-            }
-
-            let calendars = eventStore.calendars(for: .event)
-
-            print("📅 Found \(calendars.count) calendars:\n")
-
-            for calendar in calendars {
-                let sourceTitle = calendar.source.title
-                let sourceType = calendar.source.sourceType
-
-                print("""
-                ────────────────
-                Calendar: \(calendar.title)
-                Source:   \(sourceTitle)
-                Type:     \(sourceType)
-                """)
-            }
-        }
-    }
-    
-    func format_title(_ title: String) -> String {
-        let prefix = title
-            .lowercased()
-            .replacingOccurrences(of: "\\s+", with: "_", options: .regularExpression)
-        return prefix
-    }
-    
-    func schedule_notification(title:String, current: Int, target: Int, frequency: Calendar.RecurrenceRule.Frequency) async {
-        
-        var requested = max(target - current, 0)
-        
-        guard requested > 0 else {
-            print("🟡 [HabitAuthoScheduler] No remaining habit reminders needed")
-            return
-        }
-        
-        if frequency != .daily {
-            requested = 1
-        }
-        
-        var prefix = format_title(title) + "_auto_"
-        
+    func scheduleHabit(_ habit: Habits, progress: HabitProgress?) async {
+        await NotificationAutoScheduler.shared.scheduleHabit(habit, progress: progress)
     }
     
     func targetPostWorkTimeToday() -> Date {
