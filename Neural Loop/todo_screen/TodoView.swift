@@ -125,7 +125,7 @@ struct TodoView: View {
                         Image(systemName: "plus")
                             .foregroundColor(.secondary)
                             .onTapGesture {
-                                vm.initializationTiming = .init(start: Calendar.current.date(
+                                vm.initializationTiming = .init(start: Calendar.neuralLoopDisplay.date(
                                     bySettingHour: 9,
                                     minute: 0,
                                     second: 0,
@@ -233,32 +233,32 @@ struct TodoView: View {
             let tasks = todayBucket.tasks
             let morningTasks = tasks.filter {
                 guard let start = $0.start_date else { return false }
-                return Calendar.current.component(.hour, from: start) < 12
+                return Calendar.neuralLoopDisplay.component(.hour, from: start) < 12
             }
             let afternoonTasks = tasks.filter {
                 guard let start = $0.start_date else { return false }
-                let hour = Calendar.current.component(.hour, from: start)
+                let hour = Calendar.neuralLoopDisplay.component(.hour, from: start)
                 return hour >= 12 && hour < 18
             }
             let eveningTasks = tasks.filter {
                 guard let start = $0.start_date else { return false }
-                return Calendar.current.component(.hour, from: start) >= 18
+                return Calendar.neuralLoopDisplay.component(.hour, from: start) >= 18
             }
 
             LazyVStack(alignment: .leading, spacing: 28) {
-                sectionView(title: "Morning", tasks: morningTasks, initialTiming: .init(start: Calendar.current.date(
+                sectionView(title: "Morning", tasks: morningTasks, initialTiming: .init(start: Calendar.neuralLoopDisplay.date(
                     bySettingHour: 8,
                     minute: 0,
                     second: 0,
                     of: Date()
                 )!, duration: 900))
-                sectionView(title: "Afternoon", tasks: afternoonTasks, initialTiming: .init(start: Calendar.current.date(
+                sectionView(title: "Afternoon", tasks: afternoonTasks, initialTiming: .init(start: Calendar.neuralLoopDisplay.date(
                     bySettingHour: 12,
                     minute: 0,
                     second: 0,
                     of: Date()
                 )!, duration: 900))
-                sectionView(title: "Evening", tasks: eveningTasks, initialTiming: .init(start: Calendar.current.date(
+                sectionView(title: "Evening", tasks: eveningTasks, initialTiming: .init(start: Calendar.neuralLoopDisplay.date(
                     bySettingHour: 18,
                     minute: 0,
                     second: 0,

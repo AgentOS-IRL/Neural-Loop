@@ -24,14 +24,14 @@ func nextOccurrence(
 }
 
 func rrule_to_string(rule: Calendar.RecurrenceRule) -> String{
-    let formatter = RecurrenceRuleRFC5545FormatStyle(calendar: .current)
+    let formatter = RecurrenceRuleRFC5545FormatStyle(calendar: .neuralLoopDisplay)
     let rruleString = formatter.format(rule)
     
     return rruleString
 }
 
 func parse_rrule(rruleString: String) throws -> Calendar.RecurrenceRule {
-    let parser = RecurrenceRuleRFC5545FormatStyle(calendar: .current)
+    let parser = RecurrenceRuleRFC5545FormatStyle(calendar: .neuralLoopDisplay)
     
     return try parser.parse(rruleString)
 }
@@ -48,7 +48,7 @@ enum ViewMode: Equatable {
 
 
 func rebuildDateBuckets(tasks: [Tasks]) -> [DateBucket] {
-    let calendar = Calendar.current
+    let calendar = Calendar.neuralLoopDisplay
 
     let todayStart = calendar.startOfDay(.now)
     let todayEnd = calendar.endOfDay(.now)
@@ -150,20 +150,21 @@ func addTaskRowView() -> some View {
 func todoDueDateText(
     start: Date?,
     duration: TimeInterval?,
-    calendar: Calendar = .current,
-    locale: Locale = .current,
-    timeZone: TimeZone = .current
+    calendar: Calendar = .neuralLoopDisplay,
+    locale: Locale = .autoupdatingCurrent,
+    timeZone: TimeZone = .autoupdatingCurrent
 ) -> String {
     guard let start else {
         return "no due date"
     }
 
-    let dateTimeFormatter = DateFormatter()
-    dateTimeFormatter.calendar = calendar
-    dateTimeFormatter.locale = locale
-    dateTimeFormatter.timeZone = timeZone
-    dateTimeFormatter.dateStyle = .medium
-    dateTimeFormatter.timeStyle = .short
+    let dateTimeFormatter = DateFormatter.neuralLoopDisplay(
+        dateStyle: .medium,
+        timeStyle: .short,
+        calendar: calendar,
+        locale: locale,
+        timeZone: timeZone
+    )
 
     guard let duration, duration > 0 else {
         return dateTimeFormatter.string(from: start)
@@ -172,19 +173,20 @@ func todoDueDateText(
     let end = start.addingTimeInterval(duration)
 
     if calendar.isDate(start, inSameDayAs: end) {
-        let dateFormatter = DateFormatter()
-        dateFormatter.calendar = calendar
-        dateFormatter.locale = locale
-        dateFormatter.timeZone = timeZone
-        dateFormatter.dateStyle = .medium
-        dateFormatter.timeStyle = .none
-
-        let timeFormatter = DateFormatter()
-        timeFormatter.calendar = calendar
-        timeFormatter.locale = locale
-        timeFormatter.timeZone = timeZone
-        timeFormatter.dateStyle = .none
-        timeFormatter.timeStyle = .short
+        let dateFormatter = DateFormatter.neuralLoopDisplay(
+            dateStyle: .medium,
+            timeStyle: .none,
+            calendar: calendar,
+            locale: locale,
+            timeZone: timeZone
+        )
+        let timeFormatter = DateFormatter.neuralLoopDisplay(
+            dateStyle: .none,
+            timeStyle: .short,
+            calendar: calendar,
+            locale: locale,
+            timeZone: timeZone
+        )
 
         return "\(dateFormatter.string(from: start)), \(timeFormatter.string(from: start)) - \(timeFormatter.string(from: end))"
     }

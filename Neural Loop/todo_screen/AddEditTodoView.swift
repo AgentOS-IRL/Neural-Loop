@@ -55,7 +55,7 @@ struct AddEditTodoView: View {
         let rule = task?.recursion_rule ?? nil
         
 
-        let parser = RecurrenceRuleRFC5545FormatStyle(calendar: .current)
+        let parser = RecurrenceRuleRFC5545FormatStyle(calendar: .neuralLoopDisplay)
         
         let rrule: Calendar.RecurrenceRule? = {
             do {

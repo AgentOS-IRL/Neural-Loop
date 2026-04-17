@@ -143,7 +143,7 @@ final class UnifiedDataModel: ObservableObject {
         let resolvedManager = manager ?? DBManager.newInstance()
         self.manager = resolvedManager
         self.secretsFetcher = secretsFetcher ?? resolvedManager
-        self.calendar  = Calendar.current
+        self.calendar  = Calendar.neuralLoopDisplay
         self.llmOverrideEnabled = UserDefaults.standard.bool(forKey: llmEnabledOverrideStorageKey)
         if autoStart {
             Task {
@@ -344,7 +344,7 @@ final class UnifiedDataModel: ObservableObject {
     }
     
     private func loadDailyProgressChartData(for habit: Habits, entries: [HabitTracking])  -> [Int: Float] {
-        let calendar = Calendar.current
+        let calendar = Calendar.neuralLoopDisplay
         let window = HabitWindow.longWindow(for: .now)
 
 

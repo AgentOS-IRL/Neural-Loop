@@ -146,7 +146,7 @@ extension DBManager {
     }
     
     func fetchAllTasksByDate(date: Date) async throws -> [Tasks] {
-        let calendar = Calendar.current
+        let calendar = Calendar.neuralLoopDisplay
 
         let startOfDay = calendar.startOfDay(for: date)
         let endOfDay = calendar.date(

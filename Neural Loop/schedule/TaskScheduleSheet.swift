@@ -37,10 +37,7 @@ extension Calendar.RecurrenceRule {
         
         
         if end.date != nil {
-            let formatter = DateFormatter()
-            formatter.dateStyle = .medium   // e.g. "Jan 10, 2026"
-            formatter.timeStyle = .none
-
+            let formatter = DateFormatter.neuralLoopDisplay(dateStyle: .medium, timeStyle: .none)
             parts.append("until \(formatter.string(from: end.date!))")
         }
         
@@ -198,6 +195,8 @@ struct TaskScheduleSheet: View {
                 }
             }
         }
+        .environment(\.calendar, Calendar.neuralLoopDisplay)
+        .environment(\.timeZone, NeuralLoopDateContext.timeZone)
     }
 
     // MARK: - Summaries
@@ -210,4 +209,3 @@ struct TaskScheduleSheet: View {
         recurrenceRule?.summary() ?? "Never"
     }
 }
-

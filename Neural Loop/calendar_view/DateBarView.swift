@@ -2,12 +2,12 @@ import SwiftUI
 
 struct DateBarView: View {
     let today = Date()
-    let day = Calendar.current.component(.day, from: Date())
+    let day = Calendar.neuralLoopDisplay.component(.day, from: Date())
 
     @State private var selectedDate: Date
     let onSelect: (Date) -> Void
 
-    private let calendar = Calendar.current
+    private let calendar = Calendar.neuralLoopDisplay
 
     init(selectedDate: Date, onSelect: @escaping (Date) -> Void) {
         _selectedDate = State(initialValue: selectedDate)
@@ -65,7 +65,7 @@ struct DateBarView: View {
                     selectedDate = today
                     onSelect(today)
                 } label: {
-                    Image(systemName: "\(Calendar.current.component(.day, from: today)).calendar")
+                    Image(systemName: "\(Calendar.neuralLoopDisplay.component(.day, from: today)).calendar")
                         .font(.system(size: 21, weight: .ultraLight))
                         .foregroundStyle(AppTheme.textSecondary)
                 }
@@ -89,7 +89,7 @@ struct DateBarView: View {
 
     func todayButton() -> some View {
         let today = Date()
-        let day = Calendar.current.component(.day, from: today)
+        let day = Calendar.neuralLoopDisplay.component(.day, from: today)
 
         return ZStack {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -140,4 +140,3 @@ struct DateBarView: View {
         }
     }
 }
-
