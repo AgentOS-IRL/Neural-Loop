@@ -29,9 +29,7 @@ struct CalendarDayView: View {
                 ScrollView {
                     ZStack(alignment: .topLeading) {
                         TimeGridView()
-                        WorkEventsOverlayView(date: date, events: workEvents)
-                        WorkEventsOverlayView(date: date, events: tasks)
-                        WorkEventsOverlayView(date: date, events: habits)
+                        WorkEventsOverlayView(date: date, events: calendarEvents)
 //                        TaskOverlayView(date: date, tasks: tasks)
 //                        HabitOverlayView(date: date, habits: habits)
                         CurrentTimeIndicatorView(date: date)
@@ -88,5 +86,9 @@ struct CalendarDayView: View {
         }
         .environment(\.calendar, Calendar.neuralLoopDisplay)
         .environment(\.timeZone, NeuralLoopDateContext.timeZone)
+    }
+
+    private var calendarEvents: [SimpleEvent] {
+        workEvents + tasks + habits
     }
 }

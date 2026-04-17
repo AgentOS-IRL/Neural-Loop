@@ -66,47 +66,25 @@ struct WorkEventsOverlayView: View {
     private func layoutEvents(_ events: [SimpleEvent]) -> [LayoutItem] {
         let intervals: [Interval] = events
             .map { Interval(event: $0, start: $0.start, end: $0.end) }
-            .sorted { $0.start < $1.start }
-
-        struct Active {
-            let end: Date
-            let col: Int
-            let interval: Interval
-        }
+            .sorted(by: chronologicalSort)
 
         var result: [LayoutItem] = []
-        var active: [Active] = []
-        var cluster: [(interval: Interval, col: Int)] = []
-        var clusterMaxCols: Int = 0
+        var cluster: [Interval] = []
+        var clusterEnd: Date?
 
         func finalizeCluster() {
-            guard !cluster.isEmpty else { return }
-            for (interval, col) in cluster {
-                result.append(
-                    LayoutItem(
-                        event: interval.event,
-                        column: col,
-                        columnCount: max(1, clusterMaxCols),
-                        start: interval.start,
-                        end: interval.end
-                    )
-                )
-            }
+            result.append(contentsOf: layoutCluster(cluster))
             cluster.removeAll()
-            clusterMaxCols = 0
+            clusterEnd = nil
         }
 
         for interval in intervals {
-            active.removeAll { $0.end <= interval.start }
-            if active.isEmpty { finalizeCluster() }
+            if let end = clusterEnd, interval.start >= end {
+                finalizeCluster()
+            }
 
-            let usedCols = Set(active.map { $0.col })
-            var col = 0
-            while usedCols.contains(col) { col += 1 }
-
-            active.append(Active(end: interval.end, col: col, interval: interval))
-            cluster.append((interval: interval, col: col))
-            clusterMaxCols = max(clusterMaxCols, active.count)
+            cluster.append(interval)
+            clusterEnd = max(clusterEnd ?? interval.end, interval.end)
         }
 
         finalizeCluster()
@@ -114,6 +92,68 @@ struct WorkEventsOverlayView: View {
         return result.sorted {
             if $0.start != $1.start { return $0.start < $1.start }
             return $0.column < $1.column
+        }
+    }
+
+    private func layoutCluster(_ cluster: [Interval]) -> [LayoutItem] {
+        guard !cluster.isEmpty else { return [] }
+
+        let prioritizedIntervals = cluster.sorted(by: prioritySort)
+        var columns: [[Interval]] = []
+        var assignments: [(interval: Interval, column: Int)] = []
+
+        for interval in prioritizedIntervals {
+            var column = 0
+            while column < columns.count && columns[column].contains(where: { overlaps($0, interval) }) {
+                column += 1
+            }
+
+            if column == columns.count {
+                columns.append([])
+            }
+
+            columns[column].append(interval)
+            assignments.append((interval: interval, column: column))
+        }
+
+        return assignments.map { assignment in
+            LayoutItem(
+                event: assignment.interval.event,
+                column: assignment.column,
+                columnCount: max(1, columns.count),
+                start: assignment.interval.start,
+                end: assignment.interval.end
+            )
+        }
+    }
+
+    private func overlaps(_ lhs: Interval, _ rhs: Interval) -> Bool {
+        lhs.start < rhs.end && rhs.start < lhs.end
+    }
+
+    private func chronologicalSort(_ lhs: Interval, _ rhs: Interval) -> Bool {
+        if lhs.start != rhs.start { return lhs.start < rhs.start }
+        return prioritySort(lhs, rhs)
+    }
+
+    private func prioritySort(_ lhs: Interval, _ rhs: Interval) -> Bool {
+        let lhsPriority = sourcePriority(for: lhs.event)
+        let rhsPriority = sourcePriority(for: rhs.event)
+
+        if lhsPriority != rhsPriority { return lhsPriority < rhsPriority }
+        if lhs.start != rhs.start { return lhs.start < rhs.start }
+        if lhs.end != rhs.end { return lhs.end < rhs.end }
+        return lhs.event.title.localizedCaseInsensitiveCompare(rhs.event.title) == .orderedAscending
+    }
+
+    private func sourcePriority(for event: SimpleEvent) -> Int {
+        switch event.event_type {
+        case .workEvent:
+            return 0
+        case .task:
+            return 1
+        case .habit:
+            return 2
         }
     }
 }

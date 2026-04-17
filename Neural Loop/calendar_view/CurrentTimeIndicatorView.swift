@@ -36,7 +36,7 @@ struct CurrentTimeIndicatorView: View {
         let hour = components.hour ?? 0
         let minute = components.minute ?? 0
 
-        return CGFloat(hour) * hourHeight + CGFloat(minute) / 60 * hourHeight + hourHeight/2
+        return CGFloat(hour) * hourHeight + CGFloat(minute) / 60 * hourHeight
     }
 
     private func timeString(from date: Date) -> String {

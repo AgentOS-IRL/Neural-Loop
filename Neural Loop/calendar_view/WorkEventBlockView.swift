@@ -21,6 +21,12 @@ struct WorkEventBlockView: View {
                     .strikethrough(isDeclined)
             }
 
+            Text(timeRangeText)
+                .font(.system(.caption2, design: .rounded, weight: .bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .opacity(0.9)
+
             if let statusLabel {
                 Text(statusLabel)
                     .font(.system(.caption2, design: .rounded))
@@ -28,7 +34,7 @@ struct WorkEventBlockView: View {
             }
         }
         .padding(10)
-        .frame(height: eventHeight, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: eventHeight, alignment: .topLeading)
         .background(background)
         .overlay(border)
         .foregroundStyle(.white)
@@ -107,6 +113,25 @@ struct WorkEventBlockView: View {
 
     private var eventHeight: CGFloat {
         let duration = max(300, Int(event.end.timeIntervalSince(event.start)))
-        return CGFloat(duration) / 3600 * hourHeight
+        return max(48, CGFloat(duration) / 3600 * hourHeight)
+    }
+
+    private var timeRangeText: String {
+        let calendar = Calendar.neuralLoopDisplay
+        let start = eventTimeText(from: event.start)
+        let end = eventTimeText(from: event.end)
+
+        if calendar.isDate(event.start, inSameDayAs: event.end) {
+            return "\(start)-\(end)"
+        }
+
+        let dateFormatter = DateFormatter.neuralLoopDisplay(dateStyle: .short, timeStyle: .none)
+        return "\(start) \(dateFormatter.string(from: event.start))-\(end) \(dateFormatter.string(from: event.end))"
+    }
+
+    private func eventTimeText(from date: Date) -> String {
+        let formatter = DateFormatter.neuralLoopDisplay(dateStyle: .none, timeStyle: .none)
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
     }
 }

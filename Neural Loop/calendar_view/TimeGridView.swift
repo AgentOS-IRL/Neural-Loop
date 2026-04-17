@@ -14,7 +14,7 @@ struct TimeGridView: View {
                         .fill(AppTheme.textSecondary.opacity(0.15))
                         .frame(height: 0.5)
                 }
-                .frame(height: hourHeight)
+                .frame(height: hourHeight, alignment: .top)
                 .id(hour)
             }
         }
