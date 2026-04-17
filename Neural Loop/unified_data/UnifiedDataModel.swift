@@ -33,6 +33,8 @@ final class UnifiedDataModel: ObservableObject {
     let manager :DBManager
     private let secretsFetcher: any SecretsFetching
     let calendar: Calendar
+    let notificationScheduler: NotificationAutoScheduler
+    private var notificationRescheduleTask: Task<Void, Never>?
     
     var _shortTermTasksDataBucket: [DateBucket] = []
     
@@ -65,6 +67,8 @@ final class UnifiedDataModel: ObservableObject {
                         key]!.count)
                 }
             }
+
+            scheduleNotificationRefresh()
             
         }}
     
@@ -83,6 +87,7 @@ final class UnifiedDataModel: ObservableObject {
     @Published var tasks: [Tasks] = []{
         didSet {
             _shortTermTasksDataBucket = []
+            scheduleNotificationRefresh()
         }
     }
     @Published var secrets: [Secrets] = []
@@ -91,16 +96,7 @@ final class UnifiedDataModel: ObservableObject {
     
     @Published var currentHabitProgressMap: [Int64: HabitProgress] = [:] {
         didSet {
-            guard let progress = currentHabitProgressMap[WaterAutoScheduling.shared.habit_id] else {
-                return
-            }
-
-            Task {
-                await WaterAutoScheduling.shared.schedule_notification(
-                    current: progress.current,
-                    target: progress.target
-                )
-            }
+            scheduleNotificationRefresh()
         }
     }
     
@@ -131,6 +127,8 @@ final class UnifiedDataModel: ObservableObject {
                 loadCurrentHabitProgress(for: habit, entries: habitTrackingEntriesMap[key]!)
                 loadProgressChartData(for: habit, entries: habitTrackingEntriesMap[key]!)
             }
+
+            scheduleNotificationRefresh()
             
         }
     }
@@ -138,12 +136,14 @@ final class UnifiedDataModel: ObservableObject {
     init(
         manager: DBManager? = nil,
         secretsFetcher: (any SecretsFetching)? = nil,
-        autoStart: Bool = true
+        autoStart: Bool = true,
+        notificationScheduler: NotificationAutoScheduler? = nil
     ) {
         let resolvedManager = manager ?? DBManager.newInstance()
         self.manager = resolvedManager
         self.secretsFetcher = secretsFetcher ?? resolvedManager
         self.calendar  = Calendar.neuralLoopDisplay
+        self.notificationScheduler = notificationScheduler ?? .shared
         self.llmOverrideEnabled = UserDefaults.standard.bool(forKey: llmEnabledOverrideStorageKey)
         if autoStart {
             Task {
@@ -180,6 +180,21 @@ final class UnifiedDataModel: ObservableObject {
             _tasks,
             _secrets
         )
+
+        await scheduleNotifications()
+    }
+
+    func scheduleNotifications() async {
+        await notificationScheduler.scheduleAll(model: self)
+    }
+
+    private func scheduleNotificationRefresh() {
+        notificationRescheduleTask?.cancel()
+        notificationRescheduleTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
+            await self?.scheduleNotifications()
+        }
     }
 
     func loadGoals(manager: DBManager) async {

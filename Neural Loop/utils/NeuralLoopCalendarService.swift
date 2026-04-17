@@ -72,6 +72,7 @@ final class NeuralLoopCalendarService {
         event.endDate = timing.start.addingTimeInterval(timing.duration)
         event.notes = notes
         event.url = URL(string: "neuralloop://task/\(taskId)")
+        event.alarms = [EKAlarm(relativeOffset: -15 * 60)]
         try eventStore.save(event, span: .thisEvent)
     }
     
@@ -91,6 +92,7 @@ final class NeuralLoopCalendarService {
         event.title = title
         event.startDate = timing.start
         event.endDate = timing.start.addingTimeInterval(timing.duration)
+        event.alarms = [EKAlarm(relativeOffset: -15 * 60)]
 
         // Map weekday rules to EKRecurrenceDayOfWeek
         let ekDaysOfTheWeek: [EKRecurrenceDayOfWeek] = recurrenceRule.weekdays.map { weekday in
