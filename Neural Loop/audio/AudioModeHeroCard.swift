@@ -1,10 +1,16 @@
 import SwiftUI
 
-struct AudioModeHeroCard: View {
+struct AudioModeHeroCard: View, Equatable {
     let state: AudioModeViewState.Hero
     let isReduceMotionEnabled: Bool
     let isPulsing: Bool
     let onTapMic: () -> Void
+
+    static func == (lhs: AudioModeHeroCard, rhs: AudioModeHeroCard) -> Bool {
+        lhs.state == rhs.state
+        && lhs.isReduceMotionEnabled == rhs.isReduceMotionEnabled
+        && lhs.isPulsing == rhs.isPulsing
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: AudioModeTheme.Metrics.cardSpacing) {
