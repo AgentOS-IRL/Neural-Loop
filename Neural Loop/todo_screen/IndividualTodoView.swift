@@ -14,44 +14,7 @@ struct IndividualTodoView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var model: UnifiedDataModel
 
-    @State private var subTasks: [SubTasks] = []
-    @State private var newSubTaskTitle: String = ""
-    @State private var isLoading: Bool = false
-
-    // MARK: - Async helpers
-
-    @MainActor
-    private func loadSubTasks() async {
-        isLoading = true
-        subTasks = await model.getSubTasks(taskId: task.id!)
-        isLoading = false
-    }
-
-    @MainActor
-    private func createSubTask() async {
-        guard !newSubTaskTitle.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-        await model.addSubTask(newSubTaskTitle, taskId: task.id!)
-        newSubTaskTitle = ""
-        await loadSubTasks()
-    }
-
-    @MainActor
-    private func deleteSubTask(at offsets: IndexSet) async {
-        for index in offsets {
-            let subtask = subTasks[index]
-            await model.deleteSubTask(subtask_id: subtask.id)
-        }
-        await loadSubTasks()
-    }
-
-    @MainActor
-    private func toggleSubTask(_ subTask: SubTasks) async {
-        await model.setSubTaskIsCompleted(
-            subtask_id: subTask.id,
-            is_completed: !subTask.is_completed
-        )
-        await loadSubTasks()
-    }
+    @StateObject private var viewModel = IndividualTodoViewModel()
 
     // MARK: - View
 
@@ -93,17 +56,21 @@ struct IndividualTodoView: View {
 
                 // MARK: Subtasks
                 Section("Subtasks") {
-                    if isLoading {
+                    if viewModel.isLoading {
                         ProgressView()
                             .frame(maxWidth: .infinity, alignment: .center)
-                    } else if subTasks.isEmpty {
+                    } else if viewModel.subTasks.isEmpty {
                         Text("No subtasks yet")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(subTasks) { subTask in
+                        ForEach(viewModel.subTasks) { subTask in
                             Button {
                                 Task {
-                                    await toggleSubTask(subTask)
+                                    await viewModel.toggleSubTask(
+                                        subTask,
+                                        from: model,
+                                        taskId: task.id
+                                    )
                                 }
                             } label: {
                                 HStack {
@@ -118,7 +85,11 @@ struct IndividualTodoView: View {
                         }
                         .onDelete { offsets in
                             Task {
-                                await deleteSubTask(at: offsets)
+                                await viewModel.deleteSubTask(
+                                    at: offsets,
+                                    from: model,
+                                    taskId: task.id
+                                )
                             }
                         }
                     }
@@ -127,17 +98,20 @@ struct IndividualTodoView: View {
                 // MARK: Add Subtask
                 Section {
                     HStack {
-                        TextField("New subtask", text: $newSubTaskTitle)
+                        TextField("New subtask", text: $viewModel.newSubTaskTitle)
                             .textInputAutocapitalization(.sentences)
 
                         Button {
                             Task {
-                                await createSubTask()
+                                await viewModel.createSubTask(
+                                    from: model,
+                                    taskId: task.id
+                                )
                             }
                         } label: {
                             Image(systemName: "plus.circle.fill")
                         }
-                        .disabled(newSubTaskTitle.isEmpty)
+                        .disabled(!viewModel.canAddSubTask || task.id == nil)
                     }
                 }
             }
@@ -150,8 +124,25 @@ struct IndividualTodoView: View {
                     }
                 }
             }
+            .alert(
+                "Subtask",
+                isPresented: Binding(
+                    get: { viewModel.alertMessage != nil },
+                    set: { isPresented in
+                        if !isPresented {
+                            viewModel.alertMessage = nil
+                        }
+                    }
+                )
+            ) {
+                Button("OK", role: .cancel) {
+                    viewModel.alertMessage = nil
+                }
+            } message: {
+                Text(viewModel.alertMessage ?? "")
+            }
             .task {
-                await loadSubTasks()
+                await viewModel.loadSubTasks(from: model, taskId: task.id)
             }
         }
     }

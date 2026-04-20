@@ -17,6 +17,8 @@ struct SubTasks: Codable, Identifiable{
     var is_completed: Bool
 }
 
+extension SubTasks: Equatable {}
+
 struct Tasks: Codable, Identifiable{
     static let databasePrimaryKey = ["id"]
 
@@ -92,12 +94,11 @@ extension DBManager {
     }
     
     func fetchAllSubTasks(task_id: Int64) async throws -> [SubTasks] {
-        
         let builder = customsupabase
             .from(self.subTasksTableName)
             .select()
-            .eq("task_id", value: Int(task_id))
-        
+            .eq("task_id", value: task_id)
+
         return try await builder.execute().value as [SubTasks]
     }
     
