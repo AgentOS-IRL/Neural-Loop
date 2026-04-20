@@ -56,26 +56,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testCreateSubTaskToolCallPersistsSubTaskAndShowsConfirmation() async {
-        let parentTask = Tasks(
-            id: 42,
-            title: "Parent task",
-            description: nil,
-            priority: 0,
-            goal_id: nil,
-            lifearea_id: nil,
-            is_completed: false,
-            is_deadline: false,
-            completed_at: nil,
-            recursion_rule: nil,
-            start_date: nil,
-            duration: nil,
-            created_at: nil,
-            updated_at: nil
-        )
-        let model = FakeAudioModeCodexModel(
-            llmEnabled: true,
-            seededTasks: [parentTask]
-        )
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
         let client = FakeAudioModeCodexClient(
             result: .callTool(
                 name: "create_sub_task",
@@ -101,6 +82,29 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.conversationFeed.last?.content, "Subtask created under task 42: Draft outline")
         XCTAssertFalse(coordinator.isSending)
         XCTAssertNil(coordinator.errorMessage)
+    }
+
+    func testCreateSubTaskToolCallRejectsOutOfRangeParentTaskID() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "create_sub_task",
+                arguments: [
+                    "task_id": 1e100,
+                    "title": "Draft outline"
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Add a subtask")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(client.converseCallCount, 1)
+        XCTAssertTrue(model.savedSubTasks.isEmpty)
+        XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .error])
+        XCTAssertEqual(coordinator.errorMessage, "Codex did not provide a parent task id.")
     }
 
     func testCreateTaskToolCallPersistsScheduledTaskWithExplicitTimeAndDefaultDuration() async {

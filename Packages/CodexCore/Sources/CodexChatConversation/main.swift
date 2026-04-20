@@ -257,6 +257,9 @@ private struct DummyToolExecutor {
     }
 
     private func int64Value(for keys: [String], in arguments: [String: Any]) -> Int64? {
+        let lowerBound = Double(Int64.min)
+        let upperBound = Double(Int64.max)
+
         for key in keys {
             if let value = arguments[key] as? Int64 {
                 return value
@@ -265,7 +268,10 @@ private struct DummyToolExecutor {
                 return Int64(value)
             }
             if let value = arguments[key] as? Double {
-                guard value.rounded(.towardZero) == value else {
+                guard value.isFinite,
+                      value >= lowerBound,
+                      value <= upperBound,
+                      value.rounded(.towardZero) == value else {
                     continue
                 }
                 return Int64(value)

@@ -245,11 +245,6 @@ final class AudioModeCodexCoordinator: ObservableObject {
             return
         }
 
-        guard model.getTask(by: parentTaskID) != nil else {
-            appendError("Parent task \(parentTaskID) could not be found.")
-            return
-        }
-
         guard let title = stringValue(for: ["title"], in: arguments) else {
             appendError("Codex did not provide a subtask title.")
             return
@@ -449,6 +444,9 @@ final class AudioModeCodexCoordinator: ObservableObject {
     }
 
     private func int64Value(for keys: [String], in arguments: [String: Any]) -> Int64? {
+        let lowerBound = Double(Int64.min)
+        let upperBound = Double(Int64.max)
+
         for key in keys {
             if let value = arguments[key] as? Int64 {
                 return value
@@ -457,7 +455,10 @@ final class AudioModeCodexCoordinator: ObservableObject {
                 return Int64(value)
             }
             if let value = arguments[key] as? Double {
-                guard value.rounded(.towardZero) == value else {
+                guard value.isFinite,
+                      value >= lowerBound,
+                      value <= upperBound,
+                      value.rounded(.towardZero) == value else {
                     continue
                 }
                 return Int64(value)
