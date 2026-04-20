@@ -28,6 +28,10 @@ struct AudioModeConversationViewData: Equatable {
     let bannerTone: AudioModeBannerTone?
     let isSending: Bool
     let isLLMDisabled: Bool
+
+    var scrollTargetMessageID: AudioTranscriptMessage.ID? {
+        messages.last?.id
+    }
 }
 
 struct AudioModeViewState: Equatable {
