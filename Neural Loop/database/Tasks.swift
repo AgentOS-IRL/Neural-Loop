@@ -97,7 +97,7 @@ extension DBManager {
         let builder = customsupabase
             .from(self.subTasksTableName)
             .select()
-            .eq("task_id", value: task_id)
+            .eq("task_id", value: Int(task_id))
 
         return try await builder.execute().value as [SubTasks]
     }
