@@ -51,7 +51,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertNil(model.savedTasks.first?.duration)
         XCTAssertTrue(model.savedFleetingNotes.isEmpty)
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .toolResult])
-        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Task created: Buy milk")
+        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Task created (id: 101): Buy milk")
         XCTAssertFalse(coordinator.isSending)
     }
 
@@ -79,7 +79,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertFalse(model.savedTasks.contains { $0.title == "Draft outline" })
         XCTAssertTrue(model.savedFleetingNotes.isEmpty)
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .toolResult])
-        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Subtask created under task 42: Draft outline")
+        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Subtask created under task 42 (id: 00000000-0000-0000-0000-000000000042): Draft outline")
         XCTAssertFalse(coordinator.isSending)
         XCTAssertNil(coordinator.errorMessage)
     }
@@ -129,7 +129,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertEqual(model.savedTasks.first?.title, "Join standup")
         XCTAssertEqual(model.savedTasks.first?.start_date, iso8601Formatter.date(from: "2026-04-16T09:30:00Z"))
         XCTAssertEqual(model.savedTasks.first?.duration, 900)
-        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Task created: Join standup")
+        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Task created (id: 101): Join standup")
     }
 
     func testCreateTaskToolCallParsesTimezoneLessStartDateInLocalTimezone() async {
@@ -422,7 +422,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertTrue(model.savedTasks.isEmpty)
         XCTAssertEqual(model.savedFleetingNotes.map(\.note), ["Remember the keys"])
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .toolResult])
-        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Fleeting note created: Remember the keys")
+        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Fleeting note created (id: 1): Remember the keys")
     }
 
     func testNotesToolCallRejectsBlankContent() async {
@@ -469,7 +469,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertTrue(model.savedTasks.isEmpty)
         XCTAssertEqual(model.savedFleetingNotes.map(\.note), ["Remember the passport"])
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .toolResult])
-        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Fleeting note created: Remember the passport")
+        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Fleeting note created (id: 1): Remember the passport")
     }
 
     func testNotesToolCallShowsFailureWhenPersistenceFails() async {
@@ -574,6 +574,8 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
     private let fleetingNoteSaveResult: FleetingNote?
     private let subTaskSaveShouldFail: Bool
     private let subTaskSaveResult: SubTasks?
+    private let taskSaveResultID: Int64
+    private let subTaskSaveResultID: UUID
 
     init(
         llmEnabled: Bool,
@@ -585,6 +587,8 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
             created_at: ISO8601DateFormatter().date(from: "2026-04-15T09:30:00Z")!,
             note: "Remember the keys"
         ),
+        taskSaveResultID: Int64 = 101,
+        subTaskSaveResultID: UUID = UUID(uuidString: "00000000-0000-0000-0000-000000000042")!,
         codexAccessToken: String? = "token",
         codexAccountID: String? = "account"
     ) {
@@ -593,6 +597,8 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
         self.subTaskSaveShouldFail = subTaskSaveShouldFail
         self.subTaskSaveResult = subTaskSaveResult
         self.fleetingNoteSaveResult = fleetingNoteSaveResult
+        self.taskSaveResultID = taskSaveResultID
+        self.subTaskSaveResultID = subTaskSaveResultID
         self.codexAccessToken = codexAccessToken
         self.codexAccountID = codexAccountID
     }
@@ -606,13 +612,29 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
     }
 
     func saveTask(_ task: Tasks) async -> Tasks? {
-        savedTasks.append(task)
-        return task
+        let savedTask = Tasks(
+            id: task.id ?? taskSaveResultID,
+            title: task.title,
+            description: task.description,
+            priority: task.priority,
+            goal_id: task.goal_id,
+            lifearea_id: task.lifearea_id,
+            is_completed: task.is_completed,
+            is_deadline: task.is_deadline,
+            completed_at: task.completed_at,
+            recursion_rule: task.recursion_rule,
+            start_date: task.start_date,
+            duration: task.duration,
+            created_at: task.created_at,
+            updated_at: task.updated_at
+        )
+        savedTasks.append(savedTask)
+        return savedTask
     }
 
     func addSubTask(_ title: String, taskId: Int64) async -> SubTasks? {
         let request = SubTasks(
-            id: UUID(),
+            id: subTaskSaveResultID,
             task_id: taskId,
             title: title,
             is_completed: false
