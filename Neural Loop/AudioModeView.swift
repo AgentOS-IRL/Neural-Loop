@@ -10,10 +10,14 @@ import SwiftUI
 struct AudioModeView: View {
     @EnvironmentObject private var model: UnifiedDataModel
     @AppStorage("isAudioMode") private var isAudioMode = false
+    @AppStorage("isAudioModeSpeechMuted") private var isAudioModeSpeechMuted = true
     @StateObject private var transcriptionManager = AudioTranscriptionManager()
     @StateObject private var coordinator: AudioModeCodexCoordinator
+    @State private var speechSynthesizer = AudioModeSpeechSynthesizer()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    @State private var shouldResumeRecordingAfterSpeech = false
+    @State private var lastSpokenMessageID: AudioTranscriptMessage.ID?
     @State private var pulse = false
 
     @MainActor
@@ -22,9 +26,10 @@ struct AudioModeView: View {
     }
 
     var body: some View {
+        let conversationViewData = coordinator.viewData
         let viewState = AudioModeViewState(
             transcription: transcriptionManager.viewData,
-            conversation: coordinator.viewData,
+            conversation: conversationViewData,
             isAudioModeAvailable: model.canUseAudioMode
         )
 
@@ -53,6 +58,8 @@ struct AudioModeView: View {
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     AudioModeActionBar(
                         state: viewState.actionBar,
+                        isSpeechMuted: isAudioModeSpeechMuted,
+                        onToggleSpeechMute: toggleSpeechMute,
                         onSwitchToManualMode: exitAudioMode
                     )
                     .equatable()
@@ -69,6 +76,7 @@ struct AudioModeView: View {
                 coordinator.handleCommittedTranscript(transcript)
             }
             reconcileAuthorizationState()
+            primeSpeechBaseline(for: conversationViewData)
             guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 1.7).repeatForever(autoreverses: true)) {
                 pulse = true
@@ -77,7 +85,17 @@ struct AudioModeView: View {
         .onDisappear {
             transcriptionManager.stopRecording()
             transcriptionManager.onCommittedTranscript = nil
+            stopSpeechPlayback()
             coordinator.resetConversation()
+            lastSpokenMessageID = nil
+        }
+        .onChange(of: coordinator.conversationFeed) { _, _ in
+            syncSpeechPlayback(for: coordinator.viewData)
+        }
+        .onChange(of: isAudioModeSpeechMuted) { _, newValue in
+            if newValue {
+                stopSpeechPlayback()
+            }
         }
         .onChange(of: model.secretsLoaded) { _, _ in
             reconcileAuthorizationState()
@@ -117,9 +135,13 @@ struct AudioModeView: View {
             if transcriptionManager.isRecording {
                 transcriptionManager.stopRecording()
                 transcriptionManager.onCommittedTranscript = nil
+                stopSpeechPlayback()
                 coordinator.resetConversation()
+                lastSpokenMessageID = nil
             } else {
                 coordinator.resetConversation()
+                stopSpeechPlayback()
+                lastSpokenMessageID = nil
                 transcriptionManager.onCommittedTranscript = { [coordinator] transcript in
                     coordinator.handleCommittedTranscript(transcript)
                 }
@@ -131,10 +153,78 @@ struct AudioModeView: View {
     private func exitAudioMode() {
         transcriptionManager.stopRecording()
         transcriptionManager.onCommittedTranscript = nil
+        stopSpeechPlayback()
         coordinator.resetConversation()
+        lastSpokenMessageID = nil
         withAnimation(.easeInOut(duration: 0.24)) {
             isAudioMode = false
         }
+    }
+
+    private func toggleSpeechMute() {
+        isAudioModeSpeechMuted.toggle()
+    }
+
+    private func primeSpeechBaseline(for conversation: AudioModeConversationViewData) {
+        lastSpokenMessageID = conversation.newestSpeakableMessage?.id
+    }
+
+    private func syncSpeechPlayback(for conversation: AudioModeConversationViewData) {
+        guard let newestSpeakableMessage = conversation.newestSpeakableMessage else {
+            if conversation.messages.isEmpty {
+                lastSpokenMessageID = nil
+            }
+            return
+        }
+
+        guard lastSpokenMessageID != newestSpeakableMessage.id else {
+            return
+        }
+
+        lastSpokenMessageID = newestSpeakableMessage.id
+
+        guard !isAudioModeSpeechMuted else {
+            return
+        }
+
+        pauseRecordingForSpeechPlaybackIfNeeded()
+        speechSynthesizer.speak(newestSpeakableMessage.content) { didFinish in
+            Task { @MainActor in
+                handleSpeechPlaybackCompletion(didFinish: didFinish)
+            }
+        }
+    }
+
+    @MainActor
+    private func handleSpeechPlaybackCompletion(didFinish: Bool) {
+        guard didFinish,
+              shouldResumeRecordingAfterSpeech,
+              !isAudioModeSpeechMuted,
+              !transcriptionManager.isRecording
+        else {
+            shouldResumeRecordingAfterSpeech = false
+            return
+        }
+
+        shouldResumeRecordingAfterSpeech = false
+        Task {
+            await transcriptionManager.resumeRecording()
+        }
+    }
+
+    private func stopSpeechPlayback() {
+        shouldResumeRecordingAfterSpeech = false
+        speechSynthesizer.reset()
+    }
+
+    private func pauseRecordingForSpeechPlaybackIfNeeded() {
+        guard transcriptionManager.isRecording, !shouldResumeRecordingAfterSpeech else {
+            return
+        }
+
+        // Stop the record-only session so spoken replies can play back cleanly.
+        shouldResumeRecordingAfterSpeech = true
+        transcriptionManager.pauseRecording()
     }
 
     private func reconcileAuthorizationState() {

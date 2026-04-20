@@ -32,6 +32,17 @@ struct AudioModeConversationViewData: Equatable {
     var scrollTargetMessageID: AudioTranscriptMessage.ID? {
         messages.last?.id
     }
+
+    var newestSpeakableMessage: AudioTranscriptMessage? {
+        messages.last { message in
+            switch message.role {
+            case .assistant, .toolResult, .error:
+                return true
+            case .user, .status:
+                return false
+            }
+        }
+    }
 }
 
 struct AudioModeViewState: Equatable {

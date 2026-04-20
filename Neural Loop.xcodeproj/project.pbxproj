@@ -7,8 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A10000012F90000100000001 /* CodexCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000012F90000100000004 /* CodexCore */; };
-		A10000012F90000100000002 /* CodexCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000012F90000100000005 /* CodexCore */; };
 		346ACF072F0C75C3008187C1 /* RRuleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 346ACF062F0C75C3008187C1 /* RRuleKit */; };
 		349D25E22F24020A0001589F /* Neural Loop Watch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 349D25D82F2402090001589F /* Neural Loop Watch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		349D25EA2F24039E0001589F /* ConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349D25E92F2403890001589F /* ConnectivityManager.swift */; };
@@ -20,6 +18,8 @@
 		34EB1E652F0FFD5400F5B247 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 34EB1E642F0FFD5400F5B247 /* Realtime */; };
 		34EB1E672F0FFD5400F5B247 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 34EB1E662F0FFD5400F5B247 /* Storage */; };
 		34EB1EB12F0FFE9800F5B247 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 34EB1EB02F0FFE9800F5B247 /* Supabase */; };
+		A10000012F90000100000001 /* CodexCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000012F90000100000004 /* CodexCore */; };
+		A10000012F90000100000002 /* CodexCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000012F90000100000005 /* CodexCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -123,17 +123,9 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		269388B72F8FFD3700C94FA5 /* Codex */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Codex;
-			sourceTree = "<group>";
-		};
 		34237FB52F0AF4CA002E0D02 = {
 			isa = PBXGroup;
 			children = (
-				269388B72F8FFD3700C94FA5 /* Codex */,
 				349D25E82F2403620001589F /* Shared */,
 				34237FC02F0AF4CA002E0D02 /* Neural Loop */,
 				34B495972F138D78000FAD6D /* Neural LoopTests */,
@@ -735,16 +727,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		A10000012F90000100000004 /* CodexCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = A10000012F90000100000003 /* XCLocalSwiftPackageReference "Packages/CodexCore" */;
-			productName = CodexCore;
-		};
-		A10000012F90000100000005 /* CodexCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = A10000012F90000100000003 /* XCLocalSwiftPackageReference "Packages/CodexCore" */;
-			productName = CodexCore;
-		};
 		346ACF062F0C75C3008187C1 /* RRuleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 346ACF052F0C75C3008187C1 /* XCRemoteSwiftPackageReference "RRuleKit" */;
@@ -784,6 +766,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 34EB1E5D2F0FFD5400F5B247 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		A10000012F90000100000004 /* CodexCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000012F90000100000003 /* XCLocalSwiftPackageReference "Packages/CodexCore" */;
+			productName = CodexCore;
+		};
+		A10000012F90000100000005 /* CodexCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000012F90000100000003 /* XCLocalSwiftPackageReference "Packages/CodexCore" */;
+			productName = CodexCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

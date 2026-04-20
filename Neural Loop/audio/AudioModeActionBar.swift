@@ -2,10 +2,13 @@ import SwiftUI
 
 struct AudioModeActionBar: View, Equatable {
     let state: AudioModeViewState.ActionBar
+    let isSpeechMuted: Bool
+    let onToggleSpeechMute: () -> Void
     let onSwitchToManualMode: () -> Void
 
     static func == (lhs: AudioModeActionBar, rhs: AudioModeActionBar) -> Bool {
-        lhs.state == rhs.state
+        lhs.state == rhs.state &&
+        lhs.isSpeechMuted == rhs.isSpeechMuted
     }
 
     var body: some View {
@@ -33,15 +36,42 @@ struct AudioModeActionBar: View, Equatable {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(state.modeStatusTitle)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textPrimaryOpacity))
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(state.modeStatusTitle)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textPrimaryOpacity))
 
-                Text(state.modeStatusDetail)
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textSecondaryOpacity))
-                    .fixedSize(horizontal: false, vertical: true)
+                    Text(state.modeStatusDetail)
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textSecondaryOpacity))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+
+                Button(action: onToggleSpeechMute) {
+                    HStack(spacing: 8) {
+                        Image(systemName: isSpeechMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text(isSpeechMuted ? "Muted" : "Speaking")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textPrimaryOpacity))
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(AudioModeTheme.chipFill)
+                    )
+                    .overlay {
+                        Capsule(style: .continuous)
+                            .strokeBorder(AudioModeTheme.chipBorder, lineWidth: 1)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isSpeechMuted ? "Unmute spoken responses" : "Mute spoken responses")
+                .accessibilityHint(isSpeechMuted ? "Turns spoken Codex responses back on." : "Turns spoken Codex responses off.")
             }
 
             Button(action: onSwitchToManualMode) {
