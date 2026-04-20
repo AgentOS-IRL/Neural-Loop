@@ -14,6 +14,18 @@ final class AudioModeViewStateTests: XCTestCase {
         XCTAssertNil(conversation.scrollTargetMessageID)
     }
 
+    func testNewestSpeakableMessageIsNilWhenThereAreNoMessages() {
+        let conversation = AudioModeConversationViewData(
+            messages: [],
+            bannerText: nil,
+            bannerTone: nil,
+            isSending: false,
+            isLLMDisabled: false
+        )
+
+        XCTAssertNil(conversation.newestSpeakableMessage)
+    }
+
     func testConversationScrollTargetUsesNewestMessageIDForSingleMessageFeed() {
         let messageID = UUID()
         let conversation = AudioModeConversationViewData(
@@ -27,6 +39,22 @@ final class AudioModeViewStateTests: XCTestCase {
         )
 
         XCTAssertEqual(conversation.scrollTargetMessageID, messageID)
+    }
+
+    func testNewestSpeakableMessageUsesSingleCodexResponse() {
+        let messageID = UUID()
+        let conversation = AudioModeConversationViewData(
+            messages: [
+                .init(id: messageID, role: .assistant, content: "Reply ready")
+            ],
+            bannerText: nil,
+            bannerTone: nil,
+            isSending: false,
+            isLLMDisabled: false
+        )
+
+        XCTAssertEqual(conversation.newestSpeakableMessage?.id, messageID)
+        XCTAssertEqual(conversation.newestSpeakableMessage?.content, "Reply ready")
     }
 
     func testConversationScrollTargetMovesToLatestMessageWhenMessagesAppend() {
@@ -50,6 +78,22 @@ final class AudioModeViewStateTests: XCTestCase {
 
         XCTAssertEqual(initialConversation.scrollTargetMessageID, firstMessage.id)
         XCTAssertEqual(appendedConversation.scrollTargetMessageID, secondMessage.id)
+    }
+
+    func testNewestSpeakableMessageMovesToLatestCodexOutputInMixedFeed() {
+        let firstAssistant = AudioTranscriptMessage(id: UUID(), role: .assistant, content: "First reply")
+        let statusMessage = AudioTranscriptMessage(id: UUID(), role: .status, content: "Sending to Codex...")
+        let secondAssistant = AudioTranscriptMessage(id: UUID(), role: .assistant, content: "Second reply")
+        let conversation = AudioModeConversationViewData(
+            messages: [firstAssistant, statusMessage, secondAssistant],
+            bannerText: nil,
+            bannerTone: nil,
+            isSending: false,
+            isLLMDisabled: false
+        )
+
+        XCTAssertEqual(conversation.newestSpeakableMessage?.id, secondAssistant.id)
+        XCTAssertEqual(conversation.newestSpeakableMessage?.role, .assistant)
     }
 
     func testMapsListeningStateIntoHeroTranscriptAndEmptyConversation() {
