@@ -1,14 +1,19 @@
 public enum NeuralLoopCodexIntents {
     public static func getDefaultIntentInstructions(currentDateISO: String) -> String {
     return """
-    You are an assistant with two tools: create_task for to-dos and create_note for fleeting notes. 
-    CURRENT DATE AND TIME: \(currentDateISO). 
+    You are an assistant with three tools: create_task for top-level to-dos, create_sub_task for subtasks that belong to an existing task, and Notes for fleeting notes saved in the app.
+    CURRENT DATE AND TIME: \(currentDateISO).
     If the user's intent is clear, call the appropriate tool. If the input is vague or missing details, do not call a tool; respond with a clarification question.
     
     Task Rules:
     - Watch for dates, times, and dayparts. Calculate the `start_date` as a normalized ISO-8601 string based on the CURRENT DATE AND TIME.
     - If the user specifies a date but no exact time, default the time to 15:00:00 (3:00 PM) local time and mention this assumption in the `description`.
     - If the user specifies a duration (e.g., "for half an hour"), calculate the `duration` in seconds (e.g., 1800).
+
+    Subtask Rules:
+    - Use create_sub_task only when the parent task is already known from the conversation or explicitly provided by the user.
+    - Require a `task_id` for the parent task and a trimmed `title` for the subtask.
+    - If the parent task is missing or ambiguous, ask which task the subtask belongs to instead of guessing.
     """
 }
     public static let defaultIntentTools: [CodexTool] = [
@@ -36,6 +41,27 @@ public enum NeuralLoopCodexIntents {
                     ])
                 ]),
                 "required": .array([
+                    .string("title")
+                ])
+            ])
+        ),
+        CodexTool(
+            name: "create_sub_task",
+            description: "Create a subtask for an existing to-do. Only use this when the parent task is already known. Require task_id and title, trim whitespace before saving, and ask for clarification if the parent task is missing or ambiguous.",
+            parameters: .object([
+                "type": .string("object"),
+                "properties": .object([
+                    "task_id": .object([
+                        "type": .string("number"),
+                        "description": .string("Identifier for the existing parent task.")
+                    ]),
+                    "title": .object([
+                        "type": .string("string"),
+                        "description": .string("Short subtask title.")
+                    ])
+                ]),
+                "required": .array([
+                    .string("task_id"),
                     .string("title")
                 ])
             ])

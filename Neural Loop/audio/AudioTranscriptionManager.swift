@@ -379,7 +379,7 @@ final class AudioTranscriptionManager: ObservableObject {
         }
 
         if resetTranscript {
-            resetTranscript()
+            self.resetTranscript()
         }
         isAwaitingSegmentCommit = false
         isSegmentOpen = false
@@ -397,7 +397,7 @@ final class AudioTranscriptionManager: ObservableObject {
             permission = await session.requestPermissions()
             permissionState = permission
         } else {
-            permission = currentPermissionState()
+            permission = session.currentPermissionState()
         }
 
         guard isStartingSession else {
