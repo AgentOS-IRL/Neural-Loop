@@ -10,6 +10,13 @@ import SwiftUI
 import SwiftData
 import Combine
 
+@MainActor
+protocol TodoSubtaskServicing {
+    func getSubTasks(taskId: Int64) async -> [SubTasks]
+    func addSubTask(_ title: String, taskId: Int64) async -> SubTasks?
+    func setSubTaskIsCompleted(subtask_id: UUID, is_completed: Bool) async
+    func deleteSubTask(subtask_id: UUID) async
+}
 
 extension  UnifiedDataModel {
     
@@ -20,8 +27,8 @@ extension  UnifiedDataModel {
         return nil
     }
     
-    func getSubTasks(taskId: Int64) async -> [SubTasks]{
-        do{
+    func getSubTasks(taskId: Int64) async -> [SubTasks] {
+        do {
             return try await manager.fetchAllSubTasks(task_id: taskId)
         }
         catch {
@@ -30,12 +37,13 @@ extension  UnifiedDataModel {
         }
     }
     
-    func addSubTask(_ title: String, taskId: Int64) async {
-        do{
-            let _ = try await manager.addSubTask(title, task_id: taskId)
+    func addSubTask(_ title: String, taskId: Int64) async -> SubTasks? {
+        do {
+            return try await manager.addSubTask(title, task_id: taskId)
         }
         catch {
             print("Error adding subtask", error)
+            return nil
         }
     }
     
@@ -49,7 +57,7 @@ extension  UnifiedDataModel {
     }
     
     func deleteSubTask(subtask_id: UUID) async {
-        do{
+        do {
             try await manager.deleteSubTask(subtask_id: subtask_id)
         }
         catch {
@@ -226,3 +234,5 @@ extension  UnifiedDataModel {
     }
     
 }
+
+extension UnifiedDataModel: TodoSubtaskServicing {}
