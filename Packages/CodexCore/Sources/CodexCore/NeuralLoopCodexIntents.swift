@@ -11,9 +11,10 @@ public enum NeuralLoopCodexIntents {
         - If the user specifies a duration (e.g., "for half an hour"), calculate the `duration` in seconds (e.g., 1800).
 
         Grocery and shopping-list rules:
-        - Treat phrases like "grocery todo", "grocery list", and "shopping list" as a special todo type that should be decomposed into item subtasks.
+        - Treat phrases like "grocery todo", "grocery list", and "shopping list" as a special todo type.
         - Create one parent task for the grocery list itself with create_task.
-        - Create one create_sub_task call for each distinct grocery item the user names, using the parent task's task_id.
+        - Do not emit create_sub_task in the same response as the parent creation, because the parent task ID is not available yet in this flow.
+        - Once the parent task is already known from the conversation or explicitly provided by the user, create one create_sub_task call for each distinct grocery item the user names.
         - Trim each grocery item title before sending it to create_sub_task, and do not create empty or whitespace-only subtasks.
         - If the user asks for a grocery list but does not name any items, ask for clarification instead of inventing items.
         - It is valid to call create_sub_task multiple times for the same grocery parent task.
@@ -55,7 +56,7 @@ public enum NeuralLoopCodexIntents {
         ),
         CodexTool(
             name: "create_sub_task",
-            description: "Create a subtask for an existing to-do. Only use this when the parent task is already known. Require task_id and title, trim whitespace before saving, and ask for clarification if the parent task is missing or ambiguous. It is valid to call this repeatedly for the same parent task, including to add grocery-item subtasks under a grocery list.",
+            description: "Create a subtask for an existing to-do. Only use this when the parent task is already known. Require task_id and title, trim whitespace before saving, and ask for clarification if the parent task is missing or ambiguous. It is valid to call this repeatedly for the same parent task once that parent is established, including to add grocery-item subtasks under an existing grocery list.",
             parameters: .object([
                 "type": .string("object"),
                 "properties": .object([
