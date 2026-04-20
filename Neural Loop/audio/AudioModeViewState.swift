@@ -61,6 +61,10 @@ struct AudioModeViewState: Equatable {
         let headerBadgeText: String?
         let emptyTitle: String
         let emptyDetail: String
+
+        var scrollTargetMessageID: AudioTranscriptMessage.ID? {
+            messages.last?.id
+        }
     }
 
     struct ActionBar: Equatable {
