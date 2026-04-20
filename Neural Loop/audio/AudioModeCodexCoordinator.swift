@@ -236,7 +236,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
             return
         }
 
-        appendToolResult("Task created: \(savedTask.title)")
+        appendToolResult("Task created (id: \(savedTask.id.map(String.init) ?? "unknown")): \(savedTask.title)")
     }
 
     private func handleCreateSubTask(arguments: [String: Any]) async throws {
@@ -261,7 +261,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
             return
         }
 
-        appendToolResult("Subtask created under task \(parentTaskID): \(savedSubTask.title)")
+        appendToolResult("Subtask created under task \(parentTaskID) (id: \(savedSubTask.id.uuidString)): \(savedSubTask.title)")
     }
 
     private func parseTaskSchedule(arguments: [String: Any]) throws -> (startDate: Date?, duration: Double?) {
@@ -350,7 +350,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
             return
         }
 
-        appendToolResult("Fleeting note created: \(savedNote.note)")
+        appendToolResult("Fleeting note created (id: \(savedNote.id)): \(savedNote.note)")
     }
 
     private func resolvedCodexClient() -> (any AudioModeCodexExecuting)? {
