@@ -2,37 +2,62 @@ import XCTest
 @testable import CodexCore
 
 private enum CodexStructuredToolTestFixtures {
-    static let defaultIntentInstructions = "You are an assistant with two tools: create_task for to-dos and Notes for fleeting notes saved in the app. If the user's intent is clear, call the appropriate tool. For create_task, watch for dates, days, times, and dayparts like morning, afternoon, and evening. If the user gives timing information, include start_date as a normalized ISO-8601 string. If the user gives only a date and no time, treat it as afternoon. Mention any important scheduling assumption in the description so the saved task preserves the user's intent. If start_date is present and duration is omitted, the app will default duration to 900 seconds. If the input is vague or missing details, do not call a tool; instead, respond with a clarification question."
+    static let defaultIntentInstructions = NeuralLoopCodexIntents.getDefaultIntentInstructions(currentDateISO: "2026-04-20T12:00:00Z")
 
     static var defaultIntentTools: [CodexTool] {
         [
-            CodexTool(
-                name: "create_task",
-                description: "Create a to-do item when the user wants to add a task. Include start_date when the user mentions a date, time, morning, afternoon, or evening. Use an ISO-8601 string when possible. If only a date is known, assume afternoon and mention that assumption in description. If start_date is present and duration is omitted, the app defaults duration to 900 seconds.",
-                parameters: .object([
-                    "type": .string("object"),
-                    "properties": .object([
-                        "title": .object(["type": .string("string")]),
-                        "description": .object(["type": .string("string")]),
-                        "start_date": .object(["type": .string("string")]),
-                        "duration": .object(["type": .string("number")])
-                    ]),
-                    "required": .array([.string("title")])
-                ])
-            ),
-            CodexTool(
-                name: "Notes",
-                description: "Create a fleeting note.",
-                parameters: .object([
-                    "type": .string("object"),
-                    "properties": .object([
-                        "content": .object(["type": .string("string")])
-                    ]),
-                    "required": .array([.string("content")])
-                ])
-            )
+            createTaskTool,
+            createSubTaskTool,
+            notesTool
         ]
     }
+
+    static let createTaskTool = CodexTool(
+        name: "create_task",
+        description: "Create a to-do item when the user wants to add a task. Include start_date when the user mentions a date, time, morning, afternoon, or evening. Use an ISO-8601 string when possible. If only a date is known, assume afternoon and mention that assumption in description. If start_date is present and duration is omitted, the app defaults duration to 900 seconds.",
+        parameters: .object([
+            "type": .string("object"),
+            "properties": .object([
+                "title": .object(["type": .string("string")]),
+                "description": .object(["type": .string("string")]),
+                "start_date": .object(["type": .string("string")]),
+                "duration": .object(["type": .string("number")])
+            ]),
+            "required": .array([.string("title")])
+        ])
+    )
+
+    static let createSubTaskTool = CodexTool(
+        name: "create_sub_task",
+        description: "Create a subtask for an existing to-do. Only use this when the parent task is already known. Require task_id and title, trim whitespace before saving, and ask for clarification if the parent task is missing or ambiguous.",
+        parameters: .object([
+            "type": .string("object"),
+            "properties": .object([
+                "task_id": .object([
+                    "type": .string("number")
+                ]),
+                "title": .object([
+                    "type": .string("string")
+                ])
+            ]),
+            "required": .array([
+                .string("task_id"),
+                .string("title")
+            ])
+        ])
+    )
+
+    static let notesTool = CodexTool(
+        name: "Notes",
+        description: "Create a fleeting note.",
+        parameters: .object([
+            "type": .string("object"),
+            "properties": .object([
+                "content": .object(["type": .string("string")])
+            ]),
+            "required": .array([.string("content")])
+        ])
+    )
 }
 
 final class CodexStructuredToolTests: XCTestCase {
@@ -150,6 +175,21 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertNotNil(properties["duration"])
     }
 
+    func testCodexToolEncodesSubTaskPayload() throws {
+        let encoded = try JSONEncoder().encode(CodexStructuredToolTestFixtures.createSubTaskTool)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        XCTAssertEqual(json["type"] as? String, "function")
+        XCTAssertEqual(json["name"] as? String, "create_sub_task")
+
+        let parameters = try XCTUnwrap(json["parameters"] as? [String: Any])
+        XCTAssertEqual(parameters["type"] as? String, "object")
+        XCTAssertEqual(parameters["required"] as? [String], ["task_id", "title"])
+
+        let properties = try XCTUnwrap(parameters["properties"] as? [String: Any])
+        XCTAssertNotNil(properties["task_id"])
+        XCTAssertNotNil(properties["title"])
+    }
+
     func testIntentRequestIncludesToolDefinitionsAndAutoChoice() async throws {
         var capturedRequests: [URLRequest] = []
 
@@ -191,9 +231,10 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertNil(json["previous_response_id"])
 
         let tools = try XCTUnwrap(json["tools"] as? [[String: Any]])
-        XCTAssertEqual(tools.count, 2)
+        XCTAssertEqual(tools.count, 3)
         XCTAssertEqual(tools[0]["name"] as? String, "create_task")
-        XCTAssertEqual(tools[1]["name"] as? String, "Notes")
+        XCTAssertEqual(tools[1]["name"] as? String, "create_sub_task")
+        XCTAssertEqual(tools[2]["name"] as? String, "Notes")
     }
 
     func testStatefulConverseCapturesLatestResponseID() async throws {
@@ -254,6 +295,34 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(name, "create_task")
         XCTAssertEqual(arguments["title"] as? String, "Buy milk")
         XCTAssertEqual(arguments["description"] as? String, "From the store")
+    }
+
+    func testConverseReturnsSubTaskToolCallFromChunkedArguments() async throws {
+        let tool = CodexStructuredTool(
+            access_token: "token",
+            account_id: "account",
+            streamingChunksProvider: { _ in
+                [
+                    "data: {\"type\":\"response.output_text.delta\",\"delta\":{\"tool_calls\":[{\"id\":\"call_1\",\"index\":0,\"function\":{\"name\":\"create_sub_task\",\"arguments\":\"{\\\"task_id\\\":42,\\\"title\\\":\\\"Draft \"}}]}}\n".data(using: .utf8)!,
+                    "data: {\"type\":\"response.output_text.delta\",\"delta\":{\"tool_calls\":[{\"id\":\"call_1\",\"index\":0,\"function\":{\"arguments\":\"outline\\\"}\"}}]}}\n".data(using: .utf8)!,
+                    "data: [DONE]\n".data(using: .utf8)!
+                ]
+            }
+        )
+
+        let result = try await tool.converse(
+            messages: [CodexStructuredTool.userMessage("add a subtask")],
+            tools: CodexStructuredToolTestFixtures.defaultIntentTools,
+            instructions: CodexStructuredToolTestFixtures.defaultIntentInstructions
+        )
+
+        guard case .callTool(let name, let arguments) = result.action else {
+            return XCTFail("Expected tool call")
+        }
+
+        XCTAssertEqual(name, "create_sub_task")
+        XCTAssertEqual(arguments["task_id"] as? Int, 42)
+        XCTAssertEqual(arguments["title"] as? String, "Draft outline")
     }
 
     func testConverseReturnsToolCallWithOptionalSchedulingArguments() async throws {
@@ -388,6 +457,30 @@ final class CodexStructuredToolTests: XCTestCase {
         }
 
         XCTAssertEqual(text, "What would you like me to do?")
+    }
+
+    func testConverseFallsBackToClarificationWhenSubtaskParentContextIsMissing() async throws {
+        let tool = CodexStructuredTool(
+            access_token: "token",
+            account_id: "account",
+            streamingChunksProvider: { _ in
+                [
+                    "data: {\"type\":\"response.completed\",\"response\":{\"output\":[{\"content\":[{\"text\":\"Which task should this subtask belong to?\"}]}]}}\n".data(using: .utf8)!
+                ]
+            }
+        )
+
+        let result = try await tool.converse(
+            messages: [CodexStructuredTool.userMessage("add a subtask")],
+            tools: CodexStructuredToolTestFixtures.defaultIntentTools,
+            instructions: CodexStructuredToolTestFixtures.defaultIntentInstructions
+        )
+
+        guard case .clarify(let text) = result.action else {
+            return XCTFail("Expected clarification")
+        }
+
+        XCTAssertEqual(text, "Which task should this subtask belong to?")
     }
 
     func testBuildBodyProducesStructuredFormat() throws {

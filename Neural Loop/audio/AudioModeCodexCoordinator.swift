@@ -15,7 +15,9 @@ protocol AudioModeCodexModel: AnyObject {
     var llm_enabled: Bool { get }
     var codexAccessToken: String? { get }
     var codexAccountID: String? { get }
+    func getTask(by id: Int64) -> Tasks?
     func saveTask(_ task: Tasks) async -> Tasks?
+    func addSubTask(_ title: String, taskId: Int64) async -> SubTasks?
     func saveFleetingNote(_ request: CreateFleetingNoteRequest) async -> FleetingNote?
 }
 
@@ -189,6 +191,8 @@ final class AudioModeCodexCoordinator: ObservableObject {
         switch normalizedToolName(name) {
         case "create_task":
             try await handleCreateTask(arguments: arguments)
+        case "create_sub_task":
+            try await handleCreateSubTask(arguments: arguments)
         case "notes":
             await handleCreateNote(arguments: arguments)
         default:
@@ -233,6 +237,31 @@ final class AudioModeCodexCoordinator: ObservableObject {
         }
 
         appendToolResult("Task created: \(savedTask.title)")
+    }
+
+    private func handleCreateSubTask(arguments: [String: Any]) async throws {
+        guard let parentTaskID = int64Value(for: ["task_id"], in: arguments), parentTaskID > 0 else {
+            appendError("Codex did not provide a parent task id.")
+            return
+        }
+
+        guard let title = stringValue(for: ["title"], in: arguments) else {
+            appendError("Codex did not provide a subtask title.")
+            return
+        }
+
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else {
+            appendError("Codex did not provide a subtask title.")
+            return
+        }
+
+        guard let savedSubTask = await model.addSubTask(trimmedTitle, taskId: parentTaskID) else {
+            appendError("Subtask could not be saved.")
+            return
+        }
+
+        appendToolResult("Subtask created under task \(parentTaskID): \(savedSubTask.title)")
     }
 
     private func parseTaskSchedule(arguments: [String: Any]) throws -> (startDate: Date?, duration: Double?) {
@@ -408,6 +437,38 @@ final class AudioModeCodexCoordinator: ObservableObject {
             let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmedValue.isEmpty {
                 return trimmedValue
+            }
+        }
+
+        return nil
+    }
+
+    private func int64Value(for keys: [String], in arguments: [String: Any]) -> Int64? {
+        let lowerBound = Double(Int64.min)
+        let upperBound = Double(Int64.max)
+
+        for key in keys {
+            if let value = arguments[key] as? Int64 {
+                return value
+            }
+            if let value = arguments[key] as? Int {
+                return Int64(value)
+            }
+            if let value = arguments[key] as? Double {
+                guard value.isFinite,
+                      value >= lowerBound,
+                      value <= upperBound,
+                      value.rounded(.towardZero) == value else {
+                    continue
+                }
+                return Int64(value)
+            }
+            if let value = arguments[key] as? String {
+                let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmedValue.isEmpty, let parsedValue = Int64(trimmedValue) else {
+                    continue
+                }
+                return parsedValue
             }
         }
 
