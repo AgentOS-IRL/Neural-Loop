@@ -29,7 +29,7 @@ private enum CodexStructuredToolTestFixtures {
 
     static let createSubTaskTool = CodexTool(
         name: "create_sub_task",
-        description: "Create a subtask for an existing to-do. Only use this when the parent task is already known. Require task_id and title, trim whitespace before saving, and ask for clarification if the parent task is missing or ambiguous.",
+        description: "Create a subtask for an existing to-do. Only use this when the parent task is already known. Require task_id and title, trim whitespace before saving, and ask for clarification if the parent task is missing or ambiguous. It is valid to call this repeatedly for the same parent task once that parent is established, including to add grocery-item subtasks under an existing grocery list.",
         parameters: .object([
             "type": .string("object"),
             "properties": .object([
@@ -81,6 +81,17 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(tool.model, "gpt-5.4-mini")
         XCTAssertEqual(tool.instructions, "You are a helpful assistant.")
         XCTAssertEqual(tool.timeout, 60)
+    }
+
+    func testDefaultIntentInstructionsDescribeGroceryWorkflow() {
+        let instructions = CodexStructuredToolTestFixtures.defaultIntentInstructions
+
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("grocery list"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("shopping list"))
+        XCTAssertTrue(instructions.contains("create_task"))
+        XCTAssertTrue(instructions.contains("create_sub_task"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("parent task id"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("same response"))
     }
 
     func testBuildHeadersIncludeCodexFieldsAndUniqueSessionId() {
@@ -481,6 +492,64 @@ final class CodexStructuredToolTests: XCTestCase {
         }
 
         XCTAssertEqual(text, "Which task should this subtask belong to?")
+    }
+
+    func testConverseClarifiesWhenGroceryListHasNoItems() async throws {
+        let tool = CodexStructuredTool(
+            access_token: "token",
+            account_id: "account",
+            streamingChunksProvider: { _ in
+                [
+                    "data: {\"type\":\"response.completed\",\"response\":{\"output\":[{\"content\":[{\"text\":\"What grocery items should I add?\"}]}]}}\n".data(using: .utf8)!
+                ]
+            }
+        )
+
+        let result = try await tool.converse(
+            messages: [CodexStructuredTool.userMessage("make me a grocery list")],
+            tools: CodexStructuredToolTestFixtures.defaultIntentTools,
+            instructions: CodexStructuredToolTestFixtures.defaultIntentInstructions
+        )
+
+        guard case .clarify(let text) = result.action else {
+            return XCTFail("Expected clarification")
+        }
+
+        XCTAssertEqual(text, "What grocery items should I add?")
+    }
+
+    func testConverseReturnsParentTaskToolCallForGroceryRequest() async throws {
+        let streamPayload = """
+        {"type":"response.output_text.delta","delta":{"tool_calls":[{"id":"call_parent","index":0,"function":{"name":"create_task","arguments":"{\\"title\\":\\"Grocery list\\",\\"description\\":\\"Milk and eggs\\"}"}}]}}
+        """
+
+        let tool = CodexStructuredTool(
+            access_token: "token",
+            account_id: "account",
+            streamingChunksProvider: { _ in
+                [
+                    "data: \(streamPayload)\n".data(using: .utf8)!,
+                    "data: [DONE]\n".data(using: .utf8)!
+                ]
+            }
+        )
+
+        let result = try await tool.converse(
+            messages: [CodexStructuredTool.userMessage("make a grocery list for milk and eggs")],
+            tools: CodexStructuredToolTestFixtures.defaultIntentTools,
+            instructions: CodexStructuredToolTestFixtures.defaultIntentInstructions
+        )
+
+        guard case .callTool(let name, let arguments) = result.action else {
+            return XCTFail("Expected tool call")
+        }
+
+        XCTAssertEqual(name, "create_task")
+        XCTAssertEqual(arguments["title"] as? String, "Grocery list")
+        XCTAssertEqual(arguments["description"] as? String, "Milk and eggs")
+
+        let event = try CodexStreamEvent.parse(from: Data(streamPayload.utf8))
+        XCTAssertEqual(event.toolCalls?.compactMap(\.name), ["create_task"])
     }
 
     func testBuildBodyProducesStructuredFormat() throws {
