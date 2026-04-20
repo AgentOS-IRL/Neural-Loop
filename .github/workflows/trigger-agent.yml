@@ -9,7 +9,7 @@ jobs:
       github.event.issue.pull_request != null && 
       (contains(github.event.comment.body, 'Codex Review: Didn''t find any major issues.') || 
        contains(github.event.issue.body, 'Codex Review: Didn''t find any major issues.'))
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Install dependencies
         run: |
