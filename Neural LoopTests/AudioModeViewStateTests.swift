@@ -2,6 +2,56 @@ import XCTest
 @testable import Neural_Loop
 
 final class AudioModeViewStateTests: XCTestCase {
+    func testConversationScrollTargetIsNilWhenThereAreNoMessages() {
+        let conversation = AudioModeConversationViewData(
+            messages: [],
+            bannerText: nil,
+            bannerTone: nil,
+            isSending: false,
+            isLLMDisabled: false
+        )
+
+        XCTAssertNil(conversation.scrollTargetMessageID)
+    }
+
+    func testConversationScrollTargetUsesNewestMessageIDForSingleMessageFeed() {
+        let messageID = UUID()
+        let conversation = AudioModeConversationViewData(
+            messages: [
+                .init(id: messageID, role: .assistant, content: "Reply ready")
+            ],
+            bannerText: nil,
+            bannerTone: nil,
+            isSending: false,
+            isLLMDisabled: false
+        )
+
+        XCTAssertEqual(conversation.scrollTargetMessageID, messageID)
+    }
+
+    func testConversationScrollTargetMovesToLatestMessageWhenMessagesAppend() {
+        let firstMessage = AudioTranscriptMessage(id: UUID(), role: .user, content: "Start")
+        let secondMessage = AudioTranscriptMessage(id: UUID(), role: .assistant, content: "Continue")
+
+        let initialConversation = AudioModeConversationViewData(
+            messages: [firstMessage],
+            bannerText: nil,
+            bannerTone: nil,
+            isSending: false,
+            isLLMDisabled: false
+        )
+        let appendedConversation = AudioModeConversationViewData(
+            messages: [firstMessage, secondMessage],
+            bannerText: nil,
+            bannerTone: nil,
+            isSending: false,
+            isLLMDisabled: false
+        )
+
+        XCTAssertEqual(initialConversation.scrollTargetMessageID, firstMessage.id)
+        XCTAssertEqual(appendedConversation.scrollTargetMessageID, secondMessage.id)
+    }
+
     func testMapsListeningStateIntoHeroTranscriptAndEmptyConversation() {
         let transcription = AudioModeTranscriptionViewData(
             displayState: .listening,

@@ -14,16 +14,25 @@ struct AudioModeConversationCard: View, Equatable {
             if state.messages.isEmpty {
                 emptyState
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(state.messages) { message in
-                            row(message)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            ForEach(state.messages) { message in
+                                row(message)
+                                    .id(message.id)
+                            }
                         }
+                        .padding(.vertical, 2)
                     }
-                    .padding(.vertical, 2)
+                    .scrollIndicators(.hidden)
+                    .frame(minHeight: 180, maxHeight: 320)
+                    .onAppear {
+                        scrollToBottom(proxy)
+                    }
+                    .onChange(of: state.scrollTargetMessageID) { _ in
+                        scrollToBottom(proxy)
+                    }
                 }
-                .scrollIndicators(.hidden)
-                .frame(minHeight: 180, maxHeight: 320)
             }
         }
         .padding(22)
@@ -164,5 +173,15 @@ struct AudioModeConversationCard: View, Equatable {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(message.content)
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        guard let messageID = state.scrollTargetMessageID else {
+            return
+        }
+
+        DispatchQueue.main.async {
+            proxy.scrollTo(messageID, anchor: .bottom)
+        }
     }
 }
