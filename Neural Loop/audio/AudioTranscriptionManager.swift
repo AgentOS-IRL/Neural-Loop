@@ -362,22 +362,43 @@ final class AudioTranscriptionManager: ObservableObject {
     }
 
     func startRecording() async {
+        await beginRecording(resetTranscript: true, requestPermissions: true)
+    }
+
+    func resumeRecording() async {
+        await beginRecording(resetTranscript: false, requestPermissions: false)
+    }
+
+    func pauseRecording() {
+        stopRecording(clearTranscript: false, clearHistory: false)
+    }
+
+    private func beginRecording(resetTranscript: Bool, requestPermissions: Bool) async {
         guard !activeSession, !isStartingSession else {
             return
         }
 
-        resetTranscript()
+        if resetTranscript {
+            resetTranscript()
+        }
         isAwaitingSegmentCommit = false
         isSegmentOpen = false
-        setSessionState(.checking)
-        permissionState = .requesting
+        if requestPermissions {
+            setSessionState(.checking)
+            permissionState = .requesting
+        }
         isStartingSession = true
         defer {
             isStartingSession = false
         }
 
-        let permission = await session.requestPermissions()
-        permissionState = permission
+        let permission: AudioTranscriptionPermissionState
+        if requestPermissions {
+            permission = await session.requestPermissions()
+            permissionState = permission
+        } else {
+            permission = currentPermissionState()
+        }
 
         guard isStartingSession else {
             return

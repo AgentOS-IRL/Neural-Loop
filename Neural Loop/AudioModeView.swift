@@ -16,6 +16,7 @@ struct AudioModeView: View {
     @State private var speechSynthesizer = AudioModeSpeechSynthesizer()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    @State private var shouldResumeRecordingAfterSpeech = false
     @State private var lastSpokenMessageID: AudioTranscriptMessage.ID?
     @State private var pulse = false
 
@@ -93,7 +94,7 @@ struct AudioModeView: View {
         }
         .onChange(of: isAudioModeSpeechMuted) { _, newValue in
             if newValue {
-                speechSynthesizer.stop()
+                stopSpeechPlayback()
             }
         }
         .onChange(of: model.secretsLoaded) { _, _ in
@@ -186,11 +187,44 @@ struct AudioModeView: View {
             return
         }
 
-        speechSynthesizer.speak(newestSpeakableMessage.content)
+        pauseRecordingForSpeechPlaybackIfNeeded()
+        speechSynthesizer.speak(newestSpeakableMessage.content) { didFinish in
+            Task { @MainActor in
+                handleSpeechPlaybackCompletion(didFinish: didFinish)
+            }
+        }
+    }
+
+    @MainActor
+    private func handleSpeechPlaybackCompletion(didFinish: Bool) {
+        guard didFinish,
+              shouldResumeRecordingAfterSpeech,
+              !isAudioModeSpeechMuted,
+              !transcriptionManager.isRecording
+        else {
+            shouldResumeRecordingAfterSpeech = false
+            return
+        }
+
+        shouldResumeRecordingAfterSpeech = false
+        Task {
+            await transcriptionManager.resumeRecording()
+        }
     }
 
     private func stopSpeechPlayback() {
+        shouldResumeRecordingAfterSpeech = false
         speechSynthesizer.reset()
+    }
+
+    private func pauseRecordingForSpeechPlaybackIfNeeded() {
+        guard transcriptionManager.isRecording, !shouldResumeRecordingAfterSpeech else {
+            return
+        }
+
+        // Stop the record-only session so spoken replies can play back cleanly.
+        shouldResumeRecordingAfterSpeech = true
+        transcriptionManager.pauseRecording()
     }
 
     private func reconcileAuthorizationState() {
