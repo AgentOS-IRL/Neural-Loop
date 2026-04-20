@@ -57,6 +57,7 @@ struct CodexChatConversation {
 
         print("Codex chat conversation")
         print("Using Neural Loop dummy tools: create_task, create_sub_task, and Notes.")
+        print("Grocery and shopping-list prompts should be split into one parent task plus item subtasks.")
         print("Type /quit to exit, /reset to clear conversation state, or /state to print response state.")
 
         while true {
