@@ -9,8 +9,10 @@ swift test
 
 The package includes a local conversation runner for manually exercising the
 Codex chat flow with the same `create_task` and `Notes` tool contract used by
-audio mode. Tool calls are handled by dummy executors that print the task or
-note payload instead of saving into the app.
+audio mode. Grocery and shopping-list prompts create a parent task first;
+item subtasks can be added later once the parent task ID is known. Tool calls
+are handled by dummy executors that print the task or note payload instead of
+saving into the app.
 
 Set up local credentials:
 
@@ -31,4 +33,8 @@ Run a single prompt:
 
 ```bash
 bash Scripts/chat_conversation.sh "create a task to call the dentist tomorrow afternoon"
+```
+
+```bash
+bash Scripts/chat_conversation.sh "make me a grocery list with milk, eggs, and bread"
 ```
