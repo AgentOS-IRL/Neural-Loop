@@ -25,6 +25,7 @@ struct AudioModeView: View {
         let viewState = AudioModeViewState(
             transcription: turnCoordinator.transcriptionViewData,
             conversation: turnCoordinator.conversationViewData,
+            turnState: turnCoordinator.turnState,
             isAudioModeAvailable: model.canUseAudioMode
         )
 

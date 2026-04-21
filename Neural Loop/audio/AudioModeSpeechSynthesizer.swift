@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import OSLog
 
 @MainActor
 protocol AudioModeSpeechSynthesizing: AnyObject {
@@ -10,6 +11,7 @@ protocol AudioModeSpeechSynthesizing: AnyObject {
 
 @MainActor
 final class AudioModeSpeechSynthesizer: NSObject, AVSpeechSynthesizerDelegate, AudioModeSpeechSynthesizing {
+    private let logger = Logger(subsystem: "NeuralLoop", category: "AudioModeSpeechSynthesizer")
     private let synthesizer = AVSpeechSynthesizer()
     private var activeRequest: AudioSpeechRequest?
     private var activeUtteranceID: ObjectIdentifier?
@@ -47,7 +49,7 @@ final class AudioModeSpeechSynthesizer: NSObject, AVSpeechSynthesizerDelegate, A
         utterance.preUtteranceDelay = 0
         utterance.postUtteranceDelay = 0
         activeUtteranceID = ObjectIdentifier(utterance)
-        onEvent(.started(request))
+        configureAudioSessionForPlayback()
         synthesizer.speak(utterance)
     }
 
@@ -61,6 +63,13 @@ final class AudioModeSpeechSynthesizer: NSObject, AVSpeechSynthesizerDelegate, A
 
     func reset() {
         cancelCurrentSpeech(reporting: .reset)
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        let utteranceID = ObjectIdentifier(utterance)
+        Task { @MainActor [weak self] in
+            self?.handleDidStart(utteranceID: utteranceID)
+        }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
@@ -91,6 +100,14 @@ final class AudioModeSpeechSynthesizer: NSObject, AVSpeechSynthesizerDelegate, A
         handler?(.ended(request, reason))
     }
 
+    private func handleDidStart(utteranceID: ObjectIdentifier) {
+        guard activeUtteranceID == utteranceID, let request = activeRequest else {
+            return
+        }
+
+        eventHandler?(.started(request))
+    }
+
     private func cancelCurrentSpeech(reporting reason: AudioSpeechStopReason) {
         guard activeRequest != nil else {
             synthesizer.stopSpeaking(at: .immediate)
@@ -101,11 +118,33 @@ final class AudioModeSpeechSynthesizer: NSObject, AVSpeechSynthesizerDelegate, A
         synthesizer.stopSpeaking(at: .immediate)
     }
 
+    private func configureAudioSessionForPlayback() {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(
+                .playAndRecord,
+                mode: .voiceChat,
+                options: [.defaultToSpeaker, .mixWithOthers]
+            )
+            try session.setActive(true)
+        } catch {
+            logger.error("Failed to configure audio session for TTS playback: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     private func speechEndReasonForCurrentStop() -> AudioSpeechEndReason {
         switch pendingStopReason {
         case .interrupted:
             return .interrupted
-        case .muted, .reset, nil:
+        case .muted:
+            return .muted
+        case .reset:
+            return .canceled
+        case .teardown:
+            return .teardown
+        case .skipped:
+            return .skipped
+        case nil:
             return .canceled
         }
     }

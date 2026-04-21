@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import OSLog
 
 protocol AudioInterruptionDetectingSession: AnyObject {
     func currentPermissionState() -> AudioTranscriptionPermissionState
@@ -15,8 +16,10 @@ final class AudioInterruptionDetectionSession: AudioInterruptionDetectingSession
     private let audioSession: AudioSessionControlling
     private let audioEngine: AudioEngineControlling
     private let detector: AudioInterruptionDetector
+    private let logger = Logger(subsystem: "NeuralLoop", category: "AudioInterruptionDetectionSession")
     private var activeResultHandler: ((AudioInterruptionDetectionEvent) -> Void)?
     private var isRunning = false
+    private var isInputTapInstalled = false
 
     init(
         audioSession: AudioSessionControlling = LiveAudioSessionAdapter(),
@@ -61,7 +64,7 @@ final class AudioInterruptionDetectionSession: AudioInterruptionDetectingSession
 
         try audioSession.setCategory(
             .playAndRecord,
-            mode: .measurement,
+            mode: .voiceChat,
             options: [.mixWithOthers, .defaultToSpeaker]
         )
         try audioSession.setActive(true)
@@ -77,40 +80,51 @@ final class AudioInterruptionDetectionSession: AudioInterruptionDetectingSession
             bufferSize: Self.inputTapBufferSize,
             format: inputFormat
         ) { [weak self] buffer, _ in
-            self?.detector.process(buffer)
+            guard let self, self.isRunning, self.isInputTapInstalled else {
+                return
+            }
+
+            self.detector.process(buffer)
         }
+        isInputTapInstalled = true
 
         audioEngine.prepare()
-        isRunning = true
 
         do {
             try audioEngine.start()
+            isRunning = true
+            logger.debug("Interruption detection armed")
         } catch {
             cleanupAfterFailedStart()
+            logger.debug("Interruption detection failed to start: \(error.localizedDescription, privacy: .public)")
             throw AudioInterruptionDetectionError.failedToStartAudioEngine
         }
     }
 
     func stop() {
-        guard isRunning || activeResultHandler != nil else {
+        guard isRunning || activeResultHandler != nil || isInputTapInstalled else {
             return
         }
 
+        logger.debug("Interruption detection disarmed")
         cleanup()
     }
 
     private func handleDetectorEvent(_ event: AudioInterruptionDetectionEvent) {
         Task { @MainActor [weak self] in
-            guard let self, self.isRunning else {
+            guard let self, self.isRunning, self.activeResultHandler != nil else {
                 return
             }
 
+            if event == .confirmed {
+                self.logger.debug("Interruption detection confirmed")
+            }
             self.activeResultHandler?(event)
         }
     }
 
     private func cleanupAfterFailedStart() {
-        audioEngine.inputNode.removeTap(onBus: 0)
+        cleanupTapIfNeeded()
         detector.reset()
         activeResultHandler = nil
         try? audioSession.setActive(false)
@@ -118,12 +132,23 @@ final class AudioInterruptionDetectionSession: AudioInterruptionDetectingSession
     }
 
     private func cleanup() {
-        audioEngine.inputNode.removeTap(onBus: 0)
-        audioEngine.stop()
+        cleanupTapIfNeeded()
+        if isRunning {
+            audioEngine.stop()
+        }
         detector.reset()
         activeResultHandler = nil
         isRunning = false
         try? audioSession.setActive(false)
+    }
+
+    private func cleanupTapIfNeeded() {
+        guard isInputTapInstalled else {
+            return
+        }
+
+        audioEngine.inputNode.removeTap(onBus: 0)
+        isInputTapInstalled = false
     }
 }
 

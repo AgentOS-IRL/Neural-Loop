@@ -277,7 +277,7 @@ final class AudioTurnCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(interruptionSession.stopCallCount, 1)
         XCTAssertEqual(speech.stopReasons, [.muted])
-        XCTAssertEqual(coordinator.turnState, .idle)
+        XCTAssertEqual(coordinator.turnState, .listening)
     }
 
     func testDetectionSessionStartupFailureDoesNotBreakNormalTTSCompletion() async {
@@ -345,6 +345,73 @@ final class AudioTurnCoordinatorTests: XCTestCase {
         await Task.yield()
 
         XCTAssertEqual(speech.spokenRequests.map(\.text), ["First reply", "Second reply"])
+    }
+
+    func testStaleSpeechCompletionAfterInterruptionIsIgnored() async {
+        let transcriptionManager = AudioTranscriptionManager(
+            session: TurnFakeTranscribingSession(permissionState: .authorized),
+            cooldownScheduler: TurnFakeCooldownTimerScheduler()
+        )
+        let speech = TurnFakeSpeechSynthesizer()
+        let codexCoordinator = AudioModeCodexCoordinator(
+            model: TurnFakeCodexModel(),
+            codexClient: TurnFakeCodexClient(result: .clarify(text: "Reply"))
+        )
+        let interruptionSession = TurnFakeInterruptionDetectionSession()
+        let coordinator = AudioTurnCoordinator(
+            model: TurnFakeCodexModel(),
+            transcriptionManager: transcriptionManager,
+            codexCoordinator: codexCoordinator,
+            speechSynthesizer: speech,
+            interruptionDetectionSession: interruptionSession,
+            isSpeechMuted: false
+        )
+
+        await coordinator.startListening()
+        codexCoordinator.handleCommittedTranscript("question")
+        await Task.yield()
+        await Task.yield()
+
+        coordinator.interruptAssistantSpeech()
+        speech.finishLast(reason: .finished)
+        await Task.yield()
+
+        XCTAssertEqual(speech.spokenRequests.count, 1)
+        XCTAssertEqual(coordinator.turnState, .listening)
+    }
+
+    func testStaleDetectorEventAfterStopIsIgnored() async {
+        let transcriptionManager = AudioTranscriptionManager(
+            session: TurnFakeTranscribingSession(permissionState: .authorized),
+            cooldownScheduler: TurnFakeCooldownTimerScheduler()
+        )
+        let speech = TurnFakeSpeechSynthesizer()
+        let interruptionSession = TurnFakeInterruptionDetectionSession()
+        let codexCoordinator = AudioModeCodexCoordinator(
+            model: TurnFakeCodexModel(),
+            codexClient: TurnFakeCodexClient(result: .clarify(text: "Reply"))
+        )
+        let coordinator = AudioTurnCoordinator(
+            model: TurnFakeCodexModel(),
+            transcriptionManager: transcriptionManager,
+            codexCoordinator: codexCoordinator,
+            speechSynthesizer: speech,
+            interruptionDetectionSession: interruptionSession,
+            isSpeechMuted: false
+        )
+
+        await coordinator.startListening()
+        codexCoordinator.handleCommittedTranscript("question")
+        await Task.yield()
+        await Task.yield()
+        speech.finishLast(reason: .finished)
+        await Task.yield()
+
+        interruptionSession.emitLate(.confirmed)
+        await Task.yield()
+
+        XCTAssertEqual(speech.stopReasons, [])
+        XCTAssertEqual(coordinator.turnState, .listening)
     }
 
     func testMutedSpeechDoesNotStartTTS() async {
@@ -450,7 +517,20 @@ private final class TurnFakeSpeechSynthesizer: AudioModeSpeechSynthesizing {
     func stop(reason: AudioSpeechStopReason) {
         stopReasons.append(reason)
         if let activeRequest {
-            activeHandler?(.ended(activeRequest, reason == .interrupted ? .interrupted : .canceled))
+            let endReason: AudioSpeechEndReason
+            switch reason {
+            case .interrupted:
+                endReason = .interrupted
+            case .muted:
+                endReason = .muted
+            case .reset:
+                endReason = .canceled
+            case .skipped:
+                endReason = .skipped
+            case .teardown:
+                endReason = .teardown
+            }
+            activeHandler?(.ended(activeRequest, endReason))
         }
         activeRequest = nil
         activeHandler = nil
@@ -474,8 +554,9 @@ private final class TurnFakeSpeechSynthesizer: AudioModeSpeechSynthesizing {
 }
 
 @MainActor
-private final class TurnFakeInterruptionDetectionSession: AudioInterruptionDetectingSession {
+    private final class TurnFakeInterruptionDetectionSession: AudioInterruptionDetectingSession {
     private var activeHandler: ((AudioInterruptionDetectionEvent) -> Void)?
+    private var storedHandler: ((AudioInterruptionDetectionEvent) -> Void)?
     private(set) var startCallCount = 0
     private(set) var stopCallCount = 0
 
@@ -490,6 +571,7 @@ private final class TurnFakeInterruptionDetectionSession: AudioInterruptionDetec
     func start(resultHandler: @escaping (AudioInterruptionDetectionEvent) -> Void) async throws {
         startCallCount += 1
         activeHandler = resultHandler
+        storedHandler = resultHandler
     }
 
     func stop() {
@@ -499,6 +581,10 @@ private final class TurnFakeInterruptionDetectionSession: AudioInterruptionDetec
 
     func emit(_ event: AudioInterruptionDetectionEvent) {
         activeHandler?(event)
+    }
+
+    func emitLate(_ event: AudioInterruptionDetectionEvent) {
+        storedHandler?(event)
     }
 }
 
