@@ -196,11 +196,53 @@ final class AudioModeViewStateTests: XCTestCase {
         )
 
         XCTAssertEqual(state.hero.title, "Audio Mode is unavailable")
+        XCTAssertEqual(state.hero.detail, "Return to manual mode to keep working while audio access is unavailable.")
         XCTAssertEqual(state.hero.badgeText, "Unavailable")
+        XCTAssertEqual(state.hero.tintState, .unavailable)
         XCTAssertEqual(state.conversation.emptyTitle, "Audio Mode is unavailable")
         XCTAssertEqual(state.actionBar.primaryStatusChips, ["Unavailable"])
         XCTAssertEqual(state.actionBar.modeStatusTitle, "Audio Mode unavailable")
+        XCTAssertEqual(state.actionBar.modeStatusDetail, "Return to Manual Mode to keep working while audio access is unavailable.")
         XCTAssertEqual(state.actionBar.switchButtonAccessibilityHint, AudioModeTransitionCopy.returnAccessibilityHint)
+    }
+
+    func testKeepsTranscriptionUnavailableCopyWhenAudioModeIsAvailable() {
+        let transcription = AudioModeTranscriptionViewData(
+            displayState: .unavailable,
+            title: "Microphone unavailable",
+            detail: "Speech transcription is unavailable on this device.",
+            badgeText: "Mic unavailable",
+            transcriptTitle: "Live transcript",
+            transcriptIconName: "text.quote",
+            transcriptBadgeText: "Issue",
+            transcriptBody: "Speech transcription is unavailable on this device.",
+            microphoneSystemImage: "mic.fill",
+            micButtonLabel: "Mic unavailable",
+            isActionDisabled: true,
+            isRecording: false,
+            transcriptHistoryCount: 0
+        )
+        let conversation = AudioModeConversationViewData(
+            messages: [],
+            bannerText: nil,
+            bannerTone: nil,
+            isSending: false,
+            isLLMDisabled: false
+        )
+
+        let state = AudioModeViewState(
+            transcription: transcription,
+            conversation: conversation,
+            turnState: .idle,
+            isAudioModeAvailable: true
+        )
+
+        XCTAssertEqual(state.hero.title, "Microphone unavailable")
+        XCTAssertEqual(state.hero.detail, "Speech transcription is unavailable on this device.")
+        XCTAssertEqual(state.hero.badgeText, "Mic unavailable")
+        XCTAssertEqual(state.hero.tintState, .unavailable)
+        XCTAssertEqual(state.actionBar.modeStatusTitle, "Microphone unavailable")
+        XCTAssertEqual(state.actionBar.modeStatusDetail, "Speech transcription is unavailable on this device.")
     }
 
     func testMapsLLMDisabledConversationIntoWarningState() {

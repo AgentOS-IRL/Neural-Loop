@@ -107,26 +107,35 @@ struct AudioModeViewState: Equatable {
         isAudioModeAvailable: Bool = true
     ) {
         let turnSummary = AudioModeViewState.turnSummary(for: turnState)
+        let usesTranscriptionAvailabilityCopy = transcription.displayState == .unavailable
 
         let heroBadge = if !isAudioModeAvailable {
             "Unavailable"
+        } else if usesTranscriptionAvailabilityCopy {
+            transcription.badgeText
         } else {
             turnSummary.badgeText ?? transcription.badgeText
         }
-        let heroTitle = if isAudioModeAvailable {
-            turnSummary.title
-        } else {
+        let heroTitle = if !isAudioModeAvailable {
             "Audio Mode is unavailable"
-        }
-        let heroDetail = if isAudioModeAvailable {
-            turnSummary.detail
+        } else if usesTranscriptionAvailabilityCopy {
+            transcription.title
         } else {
+            turnSummary.title
+        }
+        let heroDetail = if !isAudioModeAvailable {
             "Return to manual mode to keep working while audio access is unavailable."
-        }
-        let heroTintState = if isAudioModeAvailable {
-            turnSummary.tintState
+        } else if usesTranscriptionAvailabilityCopy {
+            transcription.detail
         } else {
+            turnSummary.detail
+        }
+        let heroTintState = if !isAudioModeAvailable {
             AudioTranscriptionDisplayState.unavailable
+        } else if usesTranscriptionAvailabilityCopy {
+            transcription.displayState
+        } else {
+            turnSummary.tintState
         }
 
         let transcriptFootnote: String? = {
@@ -190,8 +199,20 @@ struct AudioModeViewState: Equatable {
         )
         self.actionBar = ActionBar(
             primaryStatusChips: chips,
-            modeStatusTitle: isAudioModeAvailable ? turnSummary.title : "Audio Mode unavailable",
-            modeStatusDetail: isAudioModeAvailable ? turnSummary.detail : "Return to Manual Mode to keep working while audio access is unavailable.",
+            modeStatusTitle: if !isAudioModeAvailable {
+                "Audio Mode unavailable"
+            } else if usesTranscriptionAvailabilityCopy {
+                transcription.title
+            } else {
+                turnSummary.title
+            },
+            modeStatusDetail: if !isAudioModeAvailable {
+                "Return to Manual Mode to keep working while audio access is unavailable."
+            } else if usesTranscriptionAvailabilityCopy {
+                transcription.detail
+            } else {
+                turnSummary.detail
+            },
             switchButtonTitle: AudioModeTransitionCopy.returnActionTitle,
             switchButtonAccessibilityHint: AudioModeTransitionCopy.returnAccessibilityHint
         )
