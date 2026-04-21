@@ -120,13 +120,15 @@ final class AudioModeViewStateTests: XCTestCase {
             isLLMDisabled: false
         )
 
-        let state = AudioModeViewState(transcription: transcription, conversation: conversation)
+        let state = AudioModeViewState(transcription: transcription, conversation: conversation, turnState: .listening)
 
-        XCTAssertEqual(state.hero.badgeText, "Open session")
+        XCTAssertEqual(state.hero.title, AudioModeTransitionCopy.listeningStatusTitle)
+        XCTAssertEqual(state.hero.detail, AudioModeTransitionCopy.listeningStatusDetail)
+        XCTAssertEqual(state.hero.badgeText, AudioModeTransitionCopy.listeningStatusBadge)
         XCTAssertEqual(state.transcript.footnote, "2 saved segments in this session")
         XCTAssertEqual(state.conversation.emptyTitle, "Codex activity will appear here")
-        XCTAssertEqual(state.actionBar.primaryStatusChips, ["Open session"])
-        XCTAssertEqual(state.actionBar.modeStatusTitle, AudioModeTransitionCopy.activeStatusTitle)
+        XCTAssertEqual(state.actionBar.primaryStatusChips, ["Listening"])
+        XCTAssertEqual(state.actionBar.modeStatusTitle, AudioModeTransitionCopy.listeningStatusTitle)
         XCTAssertEqual(state.actionBar.switchButtonTitle, AudioModeTransitionCopy.returnActionTitle)
     }
 
@@ -154,12 +156,13 @@ final class AudioModeViewStateTests: XCTestCase {
             isLLMDisabled: false
         )
 
-        let state = AudioModeViewState(transcription: transcription, conversation: conversation)
+        let state = AudioModeViewState(transcription: transcription, conversation: conversation, turnState: .processing)
 
         XCTAssertEqual(state.conversation.bannerText, "Sending to Codex...")
         XCTAssertEqual(state.conversation.headerBadgeText, "Sending")
-        XCTAssertEqual(state.actionBar.primaryStatusChips, ["Transcribing", "Sending"])
-        XCTAssertEqual(state.actionBar.modeStatusDetail, AudioModeTransitionCopy.activeStatusDetail)
+        XCTAssertEqual(state.hero.title, AudioModeTransitionCopy.processingStatusTitle)
+        XCTAssertEqual(state.actionBar.primaryStatusChips, ["Processing", "Sending"])
+        XCTAssertEqual(state.actionBar.modeStatusDetail, AudioModeTransitionCopy.processingStatusDetail)
     }
 
     func testMapsDisabledAudioModeIntoUnavailableEmptyState() {
@@ -192,11 +195,54 @@ final class AudioModeViewStateTests: XCTestCase {
             isAudioModeAvailable: false
         )
 
+        XCTAssertEqual(state.hero.title, "Audio Mode is unavailable")
+        XCTAssertEqual(state.hero.detail, "Return to manual mode to keep working while audio access is unavailable.")
         XCTAssertEqual(state.hero.badgeText, "Unavailable")
+        XCTAssertEqual(state.hero.tintState, .unavailable)
         XCTAssertEqual(state.conversation.emptyTitle, "Audio Mode is unavailable")
         XCTAssertEqual(state.actionBar.primaryStatusChips, ["Unavailable"])
         XCTAssertEqual(state.actionBar.modeStatusTitle, "Audio Mode unavailable")
+        XCTAssertEqual(state.actionBar.modeStatusDetail, "Return to Manual Mode to keep working while audio access is unavailable.")
         XCTAssertEqual(state.actionBar.switchButtonAccessibilityHint, AudioModeTransitionCopy.returnAccessibilityHint)
+    }
+
+    func testKeepsTranscriptionUnavailableCopyWhenAudioModeIsAvailable() {
+        let transcription = AudioModeTranscriptionViewData(
+            displayState: .unavailable,
+            title: "Microphone unavailable",
+            detail: "Speech transcription is unavailable on this device.",
+            badgeText: "Mic unavailable",
+            transcriptTitle: "Live transcript",
+            transcriptIconName: "text.quote",
+            transcriptBadgeText: "Issue",
+            transcriptBody: "Speech transcription is unavailable on this device.",
+            microphoneSystemImage: "mic.fill",
+            micButtonLabel: "Mic unavailable",
+            isActionDisabled: true,
+            isRecording: false,
+            transcriptHistoryCount: 0
+        )
+        let conversation = AudioModeConversationViewData(
+            messages: [],
+            bannerText: nil,
+            bannerTone: nil,
+            isSending: false,
+            isLLMDisabled: false
+        )
+
+        let state = AudioModeViewState(
+            transcription: transcription,
+            conversation: conversation,
+            turnState: .idle,
+            isAudioModeAvailable: true
+        )
+
+        XCTAssertEqual(state.hero.title, "Microphone unavailable")
+        XCTAssertEqual(state.hero.detail, "Speech transcription is unavailable on this device.")
+        XCTAssertEqual(state.hero.badgeText, "Mic unavailable")
+        XCTAssertEqual(state.hero.tintState, .unavailable)
+        XCTAssertEqual(state.actionBar.modeStatusTitle, "Microphone unavailable")
+        XCTAssertEqual(state.actionBar.modeStatusDetail, "Speech transcription is unavailable on this device.")
     }
 
     func testMapsLLMDisabledConversationIntoWarningState() {
@@ -223,10 +269,53 @@ final class AudioModeViewStateTests: XCTestCase {
             isLLMDisabled: true
         )
 
-        let state = AudioModeViewState(transcription: transcription, conversation: conversation)
+        let state = AudioModeViewState(transcription: transcription, conversation: conversation, turnState: .idle)
 
         XCTAssertEqual(state.conversation.headerBadgeText, "Disabled")
         XCTAssertEqual(state.conversation.emptyTitle, "Codex replies are turned off")
-        XCTAssertEqual(state.actionBar.primaryStatusChips, ["Ready", "Disabled"])
+        XCTAssertEqual(state.actionBar.primaryStatusChips, ["Idle", "Disabled"])
+    }
+
+    func testMapsInterruptingAndSuspendedTurnStatesIntoRecoveryCopy() {
+        let transcription = AudioModeTranscriptionViewData(
+            displayState: .cooldown,
+            title: "Audio Mode",
+            detail: "Speech is paused while the session settles.",
+            badgeText: "Recovering",
+            transcriptTitle: "Live transcript",
+            transcriptIconName: "text.quote",
+            transcriptBadgeText: "Recovering",
+            transcriptBody: "Waiting for the next segment...",
+            microphoneSystemImage: "mic.fill",
+            micButtonLabel: "Recovering",
+            isActionDisabled: false,
+            isRecording: false,
+            transcriptHistoryCount: 0
+        )
+        let conversation = AudioModeConversationViewData(
+            messages: [
+                .init(role: .assistant, content: "Half of a reply", playbackState: .interrupted)
+            ],
+            bannerText: nil,
+            bannerTone: nil,
+            isSending: false,
+            isLLMDisabled: false
+        )
+
+        let interruptedState = AudioModeViewState(
+            transcription: transcription,
+            conversation: conversation,
+            turnState: .interrupting(UUID())
+        )
+        let suspendedState = AudioModeViewState(
+            transcription: transcription,
+            conversation: conversation,
+            turnState: .suspended
+        )
+
+        XCTAssertEqual(interruptedState.hero.title, AudioModeTransitionCopy.interruptingStatusTitle)
+        XCTAssertEqual(interruptedState.actionBar.modeStatusTitle, AudioModeTransitionCopy.interruptingStatusTitle)
+        XCTAssertEqual(suspendedState.hero.title, AudioModeTransitionCopy.recoveringStatusTitle)
+        XCTAssertEqual(suspendedState.actionBar.modeStatusDetail, AudioModeTransitionCopy.recoveringStatusDetail)
     }
 }

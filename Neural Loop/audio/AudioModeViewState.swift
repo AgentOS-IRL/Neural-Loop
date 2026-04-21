@@ -37,12 +37,20 @@ struct AudioModeConversationViewData: Equatable {
         messages.last { message in
             switch message.role {
             case .assistant, .toolResult, .error:
-                return true
+                return message.playbackState.isReplayEligible
             case .user, .status:
                 return false
             }
         }
     }
+}
+
+struct AudioModeTurnSummary: Equatable {
+    let title: String
+    let detail: String
+    let badgeText: String?
+    let tintState: AudioTranscriptionDisplayState
+    let showsRecoveryCopy: Bool
 }
 
 struct AudioModeViewState: Equatable {
@@ -90,16 +98,44 @@ struct AudioModeViewState: Equatable {
     let transcript: Transcript
     let conversation: Conversation
     let actionBar: ActionBar
+    let turnSummary: AudioModeTurnSummary
 
     init(
         transcription: AudioModeTranscriptionViewData,
         conversation: AudioModeConversationViewData,
+        turnState: AudioTurnState = .idle,
         isAudioModeAvailable: Bool = true
     ) {
+        let turnSummary = AudioModeViewState.turnSummary(for: turnState)
+        let usesTranscriptionAvailabilityCopy = transcription.displayState == .unavailable
+
         let heroBadge = if !isAudioModeAvailable {
             "Unavailable"
-        } else {
+        } else if usesTranscriptionAvailabilityCopy {
             transcription.badgeText
+        } else {
+            turnSummary.badgeText ?? transcription.badgeText
+        }
+        let heroTitle = if !isAudioModeAvailable {
+            "Audio Mode is unavailable"
+        } else if usesTranscriptionAvailabilityCopy {
+            transcription.title
+        } else {
+            turnSummary.title
+        }
+        let heroDetail = if !isAudioModeAvailable {
+            "Return to manual mode to keep working while audio access is unavailable."
+        } else if usesTranscriptionAvailabilityCopy {
+            transcription.detail
+        } else {
+            turnSummary.detail
+        }
+        let heroTintState = if !isAudioModeAvailable {
+            AudioTranscriptionDisplayState.unavailable
+        } else if usesTranscriptionAvailabilityCopy {
+            transcription.displayState
+        } else {
+            turnSummary.tintState
         }
 
         let transcriptFootnote: String? = {
@@ -137,10 +173,10 @@ struct AudioModeViewState: Equatable {
         let chips = [heroBadge, conversationHeaderBadge].compactMap { $0 }
 
         self.hero = Hero(
-            title: transcription.title,
-            detail: transcription.detail,
+            title: heroTitle,
+            detail: heroDetail,
             badgeText: heroBadge,
-            tintState: transcription.displayState,
+            tintState: heroTintState,
             microphoneSystemImage: transcription.microphoneSystemImage,
             micButtonLabel: transcription.micButtonLabel,
             isActionDisabled: transcription.isActionDisabled,
@@ -161,12 +197,80 @@ struct AudioModeViewState: Equatable {
             emptyTitle: emptyTitle,
             emptyDetail: emptyDetail
         )
+        let actionBarModeStatusTitle = if !isAudioModeAvailable {
+            "Audio Mode unavailable"
+        } else if usesTranscriptionAvailabilityCopy {
+            transcription.title
+        } else {
+            turnSummary.title
+        }
+        let actionBarModeStatusDetail = if !isAudioModeAvailable {
+            "Return to Manual Mode to keep working while audio access is unavailable."
+        } else if usesTranscriptionAvailabilityCopy {
+            transcription.detail
+        } else {
+            turnSummary.detail
+        }
         self.actionBar = ActionBar(
             primaryStatusChips: chips,
-            modeStatusTitle: isAudioModeAvailable ? AudioModeTransitionCopy.activeStatusTitle : "Audio Mode unavailable",
-            modeStatusDetail: isAudioModeAvailable ? AudioModeTransitionCopy.activeStatusDetail : "Return to Manual Mode to keep working while audio access is unavailable.",
+            modeStatusTitle: actionBarModeStatusTitle,
+            modeStatusDetail: actionBarModeStatusDetail,
             switchButtonTitle: AudioModeTransitionCopy.returnActionTitle,
             switchButtonAccessibilityHint: AudioModeTransitionCopy.returnAccessibilityHint
         )
+        self.turnSummary = turnSummary
+    }
+
+    private static func turnSummary(for turnState: AudioTurnState) -> AudioModeTurnSummary {
+        switch turnState {
+        case .idle:
+            return AudioModeTurnSummary(
+                title: AudioModeTransitionCopy.idleStatusTitle,
+                detail: AudioModeTransitionCopy.idleStatusDetail,
+                badgeText: AudioModeTransitionCopy.idleStatusBadge,
+                tintState: .inactive,
+                showsRecoveryCopy: false
+            )
+        case .listening:
+            return AudioModeTurnSummary(
+                title: AudioModeTransitionCopy.listeningStatusTitle,
+                detail: AudioModeTransitionCopy.listeningStatusDetail,
+                badgeText: AudioModeTransitionCopy.listeningStatusBadge,
+                tintState: .listening,
+                showsRecoveryCopy: false
+            )
+        case .processing:
+            return AudioModeTurnSummary(
+                title: AudioModeTransitionCopy.processingStatusTitle,
+                detail: AudioModeTransitionCopy.processingStatusDetail,
+                badgeText: AudioModeTransitionCopy.processingStatusBadge,
+                tintState: .transcribing,
+                showsRecoveryCopy: false
+            )
+        case .speaking:
+            return AudioModeTurnSummary(
+                title: AudioModeTransitionCopy.speakingStatusTitle,
+                detail: AudioModeTransitionCopy.speakingStatusDetail,
+                badgeText: AudioModeTransitionCopy.speakingStatusBadge,
+                tintState: .transcribing,
+                showsRecoveryCopy: false
+            )
+        case .interrupting:
+            return AudioModeTurnSummary(
+                title: AudioModeTransitionCopy.interruptingStatusTitle,
+                detail: AudioModeTransitionCopy.interruptingStatusDetail,
+                badgeText: AudioModeTransitionCopy.interruptingStatusBadge,
+                tintState: .cooldown,
+                showsRecoveryCopy: true
+            )
+        case .suspended:
+            return AudioModeTurnSummary(
+                title: AudioModeTransitionCopy.recoveringStatusTitle,
+                detail: AudioModeTransitionCopy.recoveringStatusDetail,
+                badgeText: AudioModeTransitionCopy.recoveringStatusBadge,
+                tintState: .cooldown,
+                showsRecoveryCopy: true
+            )
+        }
     }
 }

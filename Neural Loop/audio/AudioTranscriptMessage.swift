@@ -46,20 +46,24 @@ struct AudioTranscriptMessage: Identifiable, Equatable {
     let id: UUID
     let role: AudioTranscriptMessageRole
     let content: String
+    let playbackState: AudioTranscriptMessagePlaybackState
 
     init(
         id: UUID = UUID(),
         role: AudioTranscriptMessageRole = .user,
-        content: String
+        content: String,
+        playbackState: AudioTranscriptMessagePlaybackState = .idle
     ) {
         self.id = id
         self.role = role
         self.content = content
+        self.playbackState = playbackState
     }
 
     static func == (lhs: AudioTranscriptMessage, rhs: AudioTranscriptMessage) -> Bool {
         lhs.id == rhs.id &&
         lhs.role == rhs.role &&
-        lhs.content == rhs.content
+        lhs.content == rhs.content &&
+        lhs.playbackState == rhs.playbackState
     }
 }
