@@ -1,7 +1,7 @@
 public enum NeuralLoopCodexIntents {
     public static func getDefaultIntentInstructions(currentDateISO: String) -> String {
         return """
-        You are an assistant with three tools: create_task for top-level to-dos, create_sub_task for subtasks that belong to an existing task, and Notes for fleeting notes saved in the app.
+        You are an assistant with two tools: create_task for top-level to-dos and Notes for fleeting notes saved in the app.
         CURRENT DATE AND TIME: \(currentDateISO).
         If the user's intent is clear, call the appropriate tool. If the input is vague or missing details, do not call a tool; respond with a clarification question.
 
@@ -12,23 +12,20 @@ public enum NeuralLoopCodexIntents {
 
         Grocery and shopping-list rules:
         - Treat phrases like "grocery todo", "grocery list", and "shopping list" as a special todo type.
+        - Handle known grocery items with one `create_task` call that includes a `sub_tasks` array.
         - Create one parent task for the grocery list itself with create_task.
         - If the user names grocery items in the same request, include them in the same create_task call as a sub_tasks array so the app can save the parent first and then create each subtodo automatically.
-        - Once the parent task is already known from the conversation or explicitly provided by the user, create one create_sub_task call for each distinct grocery item the user names.
-        - Trim each grocery item title before sending it to create_sub_task, and do not create empty or whitespace-only subtasks.
         - If the user asks for a grocery list but does not name any items, ask for clarification instead of inventing items.
-        - It is valid to call create_sub_task multiple times for the same grocery parent task.
+        - Grocery requests should be handled in one create_task call whenever the list items are known in the same turn.
 
-        Subtask Rules:
-        - Use create_sub_task only when the parent task is already known from the conversation or explicitly provided by the user.
-        - Require a `task_id` for the parent task and a trimmed `title` for the subtask.
-        - If the parent task is missing or ambiguous, ask which task the subtask belongs to instead of guessing.
+        Subtask payload rules:
+        - When using sub_tasks on create_task, trim each child title and do not include empty or whitespace-only entries.
         """
     }
     public static let defaultIntentTools: [CodexTool] = [
         CodexTool(
             name: "create_task",
-            description: "Create a to-do item when the user wants to add a task. Include start_date when the user mentions a date, time, morning, afternoon, or evening. Use an ISO-8601 string when possible. If only a date is known, assume afternoon and mention that assumption in description. If the user includes subtodos in the same request, add them to sub_tasks so the app can save the parent first and then create each subtodo automatically. If start_date is present and duration is omitted, the app defaults duration to 900 seconds.",
+            description: "Create a to-do item when the user wants to add a task. Include start_date when the user mentions a date, time, morning, afternoon, or evening. Use an ISO-8601 string when possible. If only a date is known, assume afternoon and mention that assumption in description. If the user includes subtodos in the same request, add them to sub_tasks so the app can save the parent first and then create each subtodo automatically in one call. If start_date is present and duration is omitted, the app defaults duration to 900 seconds.",
             parameters: .object([
                 "type": .string("object"),
                 "properties": .object([
@@ -66,27 +63,6 @@ public enum NeuralLoopCodexIntents {
                     ])
                 ]),
                 "required": .array([
-                    .string("title")
-                ])
-            ])
-        ),
-        CodexTool(
-            name: "create_sub_task",
-            description: "Create a subtask for an existing to-do. Only use this when the parent task is already known. Require task_id and title, trim whitespace before saving, and ask for clarification if the parent task is missing or ambiguous. It is valid to call this repeatedly for the same parent task once that parent is established, including to add grocery-item subtasks under an existing grocery list.",
-            parameters: .object([
-                "type": .string("object"),
-                "properties": .object([
-                    "task_id": .object([
-                        "type": .string("number"),
-                        "description": .string("Identifier for the existing parent task.")
-                    ]),
-                    "title": .object([
-                        "type": .string("string"),
-                        "description": .string("Short subtask title.")
-                    ])
-                ]),
-                "required": .array([
-                    .string("task_id"),
                     .string("title")
                 ])
             ])

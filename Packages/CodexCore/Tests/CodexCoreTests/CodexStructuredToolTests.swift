@@ -7,6 +7,13 @@ private enum CodexStructuredToolTestFixtures {
     static var defaultIntentTools: [CodexTool] {
         [
             createTaskTool,
+            notesTool
+        ]
+    }
+
+    static var compatibilityIntentTools: [CodexTool] {
+        [
+            createTaskTool,
             createSubTaskTool,
             notesTool
         ]
@@ -14,7 +21,7 @@ private enum CodexStructuredToolTestFixtures {
 
     static let createTaskTool = CodexTool(
         name: "create_task",
-        description: "Create a to-do item when the user wants to add a task. Include start_date when the user mentions a date, time, morning, afternoon, or evening. Use an ISO-8601 string when possible. If only a date is known, assume afternoon and mention that assumption in description. If the user includes subtodos in the same request, add them to sub_tasks so the app can save the parent first and then create each subtodo automatically. If start_date is present and duration is omitted, the app defaults duration to 900 seconds.",
+        description: "Create a to-do item when the user wants to add a task. Include start_date when the user mentions a date, time, morning, afternoon, or evening. Use an ISO-8601 string when possible. If only a date is known, assume afternoon and mention that assumption in description. If the user includes subtodos in the same request, add them to sub_tasks so the app can save the parent first and then create each subtodo automatically in one call. If start_date is present and duration is omitted, the app defaults duration to 900 seconds.",
         parameters: .object([
             "type": .string("object"),
             "properties": .object([
@@ -117,11 +124,10 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertTrue(instructions.localizedCaseInsensitiveContains("grocery list"))
         XCTAssertTrue(instructions.localizedCaseInsensitiveContains("shopping list"))
         XCTAssertTrue(instructions.contains("create_task"))
-        XCTAssertTrue(instructions.contains("create_sub_task"))
+        XCTAssertTrue(instructions.contains("one `create_task` call"))
         XCTAssertTrue(instructions.localizedCaseInsensitiveContains("sub_tasks"))
-        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("parent first"))
-        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("create each subtodo automatically"))
-        XCTAssertFalse(instructions.localizedCaseInsensitiveContains("same response"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("trim each child title"))
+        XCTAssertFalse(instructions.contains("create_sub_task"))
     }
 
     func testBuildHeadersIncludeCodexFieldsAndUniqueSessionId() {
@@ -271,10 +277,9 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertNil(json["previous_response_id"])
 
         let tools = try XCTUnwrap(json["tools"] as? [[String: Any]])
-        XCTAssertEqual(tools.count, 3)
+        XCTAssertEqual(tools.count, 2)
         XCTAssertEqual(tools[0]["name"] as? String, "create_task")
-        XCTAssertEqual(tools[1]["name"] as? String, "create_sub_task")
-        XCTAssertEqual(tools[2]["name"] as? String, "Notes")
+        XCTAssertEqual(tools[1]["name"] as? String, "Notes")
     }
 
     func testStatefulConverseCapturesLatestResponseID() async throws {
@@ -384,7 +389,7 @@ final class CodexStructuredToolTests: XCTestCase {
 
         let result = try await tool.converse(
             messages: [CodexStructuredTool.userMessage("add a subtask")],
-            tools: CodexStructuredToolTestFixtures.defaultIntentTools,
+            tools: CodexStructuredToolTestFixtures.compatibilityIntentTools,
             instructions: CodexStructuredToolTestFixtures.defaultIntentInstructions
         )
 
@@ -581,7 +586,7 @@ final class CodexStructuredToolTests: XCTestCase {
 
     func testConverseReturnsParentTaskToolCallForGroceryRequest() async throws {
         let streamPayload = """
-        {"type":"response.output_text.delta","delta":{"tool_calls":[{"id":"call_parent","index":0,"function":{"name":"create_task","arguments":"{\\"title\\":\\"Grocery list\\",\\"description\\":\\"Milk and eggs\\"}"}}]}}
+        {"type":"response.output_text.delta","delta":{"tool_calls":[{"id":"call_parent","index":0,"function":{"name":"create_task","arguments":"{\\"title\\":\\"Grocery list\\",\\"description\\":\\"Milk and eggs\\",\\"sub_tasks\\":[{\\"title\\":\\"Milk\\"},{\\"title\\":\\"Eggs\\"}]}"}}]}}
         """
 
         let tool = CodexStructuredTool(
@@ -608,6 +613,11 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(name, "create_task")
         XCTAssertEqual(arguments["title"] as? String, "Grocery list")
         XCTAssertEqual(arguments["description"] as? String, "Milk and eggs")
+        let rawSubTasks = try XCTUnwrap(arguments["sub_tasks"] as? [Any])
+        let subTasks = try rawSubTasks.map { try XCTUnwrap($0 as? [String: Any]) }
+        XCTAssertEqual(subTasks.count, 2)
+        XCTAssertEqual(subTasks[0]["title"] as? String, "Milk")
+        XCTAssertEqual(subTasks[1]["title"] as? String, "Eggs")
 
         let event = try CodexStreamEvent.parse(from: Data(streamPayload.utf8))
         XCTAssertEqual(event.toolCalls?.compactMap(\.name), ["create_task"])

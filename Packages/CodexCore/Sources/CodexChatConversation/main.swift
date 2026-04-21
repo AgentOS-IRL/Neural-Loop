@@ -56,8 +56,8 @@ struct CodexChatConversation {
         }
 
         print("Codex chat conversation")
-        print("Using Neural Loop dummy tools: create_task, create_sub_task, and Notes.")
-        print("A create_task call can now include sub_tasks so the dummy runner prints the parent and each nested subtask together.")
+        print("Using Neural Loop dummy tools: create_task and Notes.")
+        print("Grocery requests can use one create_task call with nested sub_tasks, and the dummy runner prints the parent and each nested subtask together.")
         print("Type /quit to exit, /reset to clear conversation state, or /state to print response state.")
 
         while true {
@@ -253,7 +253,7 @@ private struct DummyToolExecutor {
                 return value
             }
             if let value = arguments[key] as? NSArray {
-                return value as [Any]
+                return value as? [Any]
             }
         }
 
