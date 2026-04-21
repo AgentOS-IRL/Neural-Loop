@@ -9,11 +9,13 @@ final class AudioTurnCoordinator: ObservableObject {
     let codexCoordinator: AudioModeCodexCoordinator
 
     private let speechSynthesizer: any AudioModeSpeechSynthesizing
+    private let interruptionDetectionSession: any AudioInterruptionDetectingSession
     private var cancellables: Set<AnyCancellable> = []
     private var spokenMessageRecords: [AudioTranscriptMessage.ID: AudioSpokenMessageRecord] = [:]
     private var activeSpeechRequest: AudioSpeechRequest?
     private var shouldResumeRecordingAfterSpeech = false
     private var isSpeechMuted = true
+    private var isInterruptionDetectionRunning = false
 
     var transcriptionViewData: AudioModeTranscriptionViewData {
         transcriptionManager.viewData
@@ -28,11 +30,13 @@ final class AudioTurnCoordinator: ObservableObject {
         transcriptionManager: AudioTranscriptionManager? = nil,
         codexCoordinator: AudioModeCodexCoordinator? = nil,
         speechSynthesizer: (any AudioModeSpeechSynthesizing)? = nil,
+        interruptionDetectionSession: (any AudioInterruptionDetectingSession)? = nil,
         isSpeechMuted: Bool = true
     ) {
         self.transcriptionManager = transcriptionManager ?? AudioTranscriptionManager()
         self.codexCoordinator = codexCoordinator ?? AudioModeCodexCoordinator(model: model)
         self.speechSynthesizer = speechSynthesizer ?? AudioModeSpeechSynthesizer()
+        self.interruptionDetectionSession = interruptionDetectionSession ?? AudioInterruptionDetectionSession()
         self.isSpeechMuted = isSpeechMuted
         wireDependencies()
     }
@@ -72,6 +76,7 @@ final class AudioTurnCoordinator: ObservableObject {
                 markSpeechEnded(for: activeSpeechRequest, reason: .canceled)
             }
             speechSynthesizer.stop(reason: .muted)
+            stopInterruptionDetection()
             activeSpeechRequest = nil
             shouldResumeRecordingAfterSpeech = false
             updatePassiveTurnState()
@@ -88,6 +93,7 @@ final class AudioTurnCoordinator: ObservableObject {
         turnState = .interrupting(request.messageID)
         markSpeechEnded(for: request, reason: .interrupted)
         speechSynthesizer.stop(reason: .interrupted)
+        stopInterruptionDetection()
         activeSpeechRequest = nil
         resumeRecordingAfterSpeechIfNeeded()
     }
@@ -129,6 +135,7 @@ final class AudioTurnCoordinator: ObservableObject {
 
     private func resetConversationState() {
         speechSynthesizer.reset()
+        stopInterruptionDetection()
         activeSpeechRequest = nil
         shouldResumeRecordingAfterSpeech = false
         spokenMessageRecords.removeAll()
@@ -188,8 +195,10 @@ final class AudioTurnCoordinator: ObservableObject {
             record.didStart = true
             spokenMessageRecords[request.messageID] = record
             turnState = .speaking(request.messageID)
+            startInterruptionDetectionIfNeeded()
         case .ended(let request, let reason):
             markSpeechEnded(for: request, reason: reason)
+            stopInterruptionDetection()
             activeSpeechRequest = nil
             if reason == .finished || reason == .interrupted {
                 resumeRecordingAfterSpeechIfNeeded()
@@ -231,6 +240,60 @@ final class AudioTurnCoordinator: ObservableObject {
                 await self.transcriptionManager.resumeRecording()
             }
             self.updatePassiveTurnState()
+        }
+    }
+
+    private func startInterruptionDetectionIfNeeded() {
+        guard !isSpeechMuted, !isInterruptionDetectionRunning, activeSpeechRequest != nil else {
+            return
+        }
+
+        isInterruptionDetectionRunning = true
+        Task { @MainActor [weak self] in
+            guard let self else {
+                return
+            }
+
+            do {
+                try await self.interruptionDetectionSession.start { [weak self] event in
+                    Task { @MainActor in
+                        self?.handleInterruptionDetectionEvent(event)
+                    }
+                }
+                guard self.isInterruptionDetectionRunning else {
+                    self.interruptionDetectionSession.stop()
+                    return
+                }
+            } catch {
+                self.isInterruptionDetectionRunning = false
+                #if DEBUG
+                debugPrint("Audio interruption detection failed to start: \(error.localizedDescription)")
+                #endif
+            }
+        }
+    }
+
+    private func stopInterruptionDetection() {
+        guard isInterruptionDetectionRunning else {
+            return
+        }
+
+        interruptionDetectionSession.stop()
+        isInterruptionDetectionRunning = false
+    }
+
+    private func handleInterruptionDetectionEvent(_ event: AudioInterruptionDetectionEvent) {
+        guard case .speaking(let messageID) = turnState, let activeSpeechRequest, activeSpeechRequest.messageID == messageID else {
+            return
+        }
+
+        switch event {
+        case .possible:
+            break
+        case .confirmed:
+            interruptAssistantSpeech()
+        case .ended:
+            break
         }
     }
 
