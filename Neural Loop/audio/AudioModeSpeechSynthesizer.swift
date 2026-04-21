@@ -105,7 +105,15 @@ final class AudioModeSpeechSynthesizer: NSObject, AVSpeechSynthesizerDelegate, A
         switch pendingStopReason {
         case .interrupted:
             return .interrupted
-        case .muted, .reset, nil:
+        case .muted:
+            return .muted
+        case .reset:
+            return .canceled
+        case .teardown:
+            return .teardown
+        case .skipped:
+            return .skipped
+        case nil:
             return .canceled
         }
     }

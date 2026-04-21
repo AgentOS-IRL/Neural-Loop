@@ -54,7 +54,7 @@ struct AudioModeActionBar: View, Equatable {
                     HStack(spacing: 8) {
                         Image(systemName: isSpeechMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
                             .font(.system(size: 14, weight: .semibold))
-                        Text(isSpeechMuted ? "Muted" : "Speaking")
+                        Text(isSpeechMuted ? "Muted" : "Speech on")
                             .font(.system(size: 13, weight: .semibold, design: .rounded))
                     }
                     .padding(.horizontal, 12)

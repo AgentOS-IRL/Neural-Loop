@@ -1,5 +1,8 @@
 import AVFoundation
 import Foundation
+#if DEBUG
+import OSLog
+#endif
 
 enum AudioInterruptionDetectionEvent: Equatable {
     case possible
@@ -28,8 +31,10 @@ final class AudioInterruptionDetector {
 
     #if DEBUG
     private let isDebugMetricsLoggingEnabled: Bool
+    private let logger = Logger(subsystem: "NeuralLoop", category: "AudioInterruptionDetector")
     private var processedBufferCount = 0
     private var accumulatedProcessingNanoseconds: UInt64 = 0
+    private(set) var debugMetrics = DebugMetrics()
     #endif
 
     init(
@@ -51,6 +56,7 @@ final class AudioInterruptionDetector {
         #if DEBUG
         processedBufferCount = 0
         accumulatedProcessingNanoseconds = 0
+        debugMetrics.resetCount += 1
         #endif
     }
 
@@ -96,6 +102,9 @@ final class AudioInterruptionDetector {
            accumulatedOnsetDuration >= configuration.possibleOnsetDuration
             || accumulatedSpeechDuration >= configuration.possibleOnsetDuration {
             didEmitPossible = true
+            #if DEBUG
+            debugMetrics.possibleCount += 1
+            #endif
             emit(.possible)
         }
 
@@ -103,6 +112,10 @@ final class AudioInterruptionDetector {
            (didEmitPossible || accumulatedSpeechDuration >= configuration.possibleOnsetDuration),
            accumulatedSpeechDuration >= configuration.confirmedDuration {
             didEmitConfirmed = true
+            #if DEBUG
+            debugMetrics.confirmedCount += 1
+            logger.debug("Interruption confirmed after \(self.accumulatedSpeechDuration, privacy: .public)s of speech")
+            #endif
             emit(.confirmed)
         }
     }
@@ -121,6 +134,9 @@ final class AudioInterruptionDetector {
 
         if accumulatedSilenceDuration >= configuration.silenceDuration {
             reset()
+            #if DEBUG
+            debugMetrics.endedCount += 1
+            #endif
             emit(.ended)
         }
     }
@@ -149,6 +165,13 @@ final class AudioInterruptionDetector {
 
         let averageMilliseconds = Double(accumulatedProcessingNanoseconds) / Double(processedBufferCount) / 1_000_000
         debugPrint("AudioInterruptionDetector average process(_:) duration: \(averageMilliseconds) ms")
+    }
+
+    struct DebugMetrics: Equatable {
+        var possibleCount = 0
+        var confirmedCount = 0
+        var endedCount = 0
+        var resetCount = 0
     }
     #endif
 }
