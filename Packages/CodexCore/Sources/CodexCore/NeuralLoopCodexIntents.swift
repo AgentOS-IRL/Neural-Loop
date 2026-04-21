@@ -13,7 +13,7 @@ public enum NeuralLoopCodexIntents {
         Grocery and shopping-list rules:
         - Treat phrases like "grocery todo", "grocery list", and "shopping list" as a special todo type.
         - Create one parent task for the grocery list itself with create_task.
-        - Do not emit create_sub_task in the same response as the parent creation, because the parent task ID is not available yet in this flow.
+        - If the user names grocery items in the same request, include them in the same create_task call as a sub_tasks array so the app can save the parent first and then create each subtodo automatically.
         - Once the parent task is already known from the conversation or explicitly provided by the user, create one create_sub_task call for each distinct grocery item the user names.
         - Trim each grocery item title before sending it to create_sub_task, and do not create empty or whitespace-only subtasks.
         - If the user asks for a grocery list but does not name any items, ask for clarification instead of inventing items.
@@ -28,7 +28,7 @@ public enum NeuralLoopCodexIntents {
     public static let defaultIntentTools: [CodexTool] = [
         CodexTool(
             name: "create_task",
-            description: "Create a to-do item when the user wants to add a task. Include start_date when the user mentions a date, time, morning, afternoon, or evening. Use an ISO-8601 string when possible. If only a date is known, assume afternoon and mention that assumption in description. If start_date is present and duration is omitted, the app defaults duration to 900 seconds.",
+            description: "Create a to-do item when the user wants to add a task. Include start_date when the user mentions a date, time, morning, afternoon, or evening. Use an ISO-8601 string when possible. If only a date is known, assume afternoon and mention that assumption in description. If the user includes subtodos in the same request, add them to sub_tasks so the app can save the parent first and then create each subtodo automatically. If start_date is present and duration is omitted, the app defaults duration to 900 seconds.",
             parameters: .object([
                 "type": .string("object"),
                 "properties": .object([
@@ -47,6 +47,22 @@ public enum NeuralLoopCodexIntents {
                     "duration": .object([
                         "type": .string("number"),
                         "description": .string("Optional task duration in seconds. If omitted for scheduled tasks, the app defaults duration to 900 seconds.")
+                    ]),
+                    "sub_tasks": .object([
+                        "type": .string("array"),
+                        "description": .string("Optional subtodos to create after the parent task is saved. Each entry must include a trimmed title."),
+                        "items": .object([
+                            "type": .string("object"),
+                            "properties": .object([
+                                "title": .object([
+                                    "type": .string("string"),
+                                    "description": .string("Trimmed subtask title.")
+                                ])
+                            ]),
+                            "required": .array([
+                                .string("title")
+                            ])
+                        ])
                     ])
                 ]),
                 "required": .array([
