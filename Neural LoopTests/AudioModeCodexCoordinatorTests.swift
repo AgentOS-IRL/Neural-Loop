@@ -26,6 +26,13 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertNil(coordinator.errorMessage)
     }
 
+    func testDefaultIntentToolsExcludeCreateSubTask() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let coordinator = AudioModeCodexCoordinator(model: model)
+
+        XCTAssertEqual(coordinator.intentTools.map(\.name), ["create_task", "Notes"])
+    }
+
     func testCreateTaskToolCallPersistsTaskAndShowsConfirmation() async {
         let model = FakeAudioModeCodexModel(llmEnabled: true)
         let client = FakeAudioModeCodexClient(
@@ -51,7 +58,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertNil(model.savedTasks.first?.duration)
         XCTAssertTrue(model.savedFleetingNotes.isEmpty)
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .toolResult])
-        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Task created (id: 101): Buy milk")
+        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Task created (id: 101): Buy milk.")
         XCTAssertFalse(coordinator.isSending)
     }
 
@@ -301,7 +308,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertEqual(model.savedTasks.first?.title, "Join standup")
         XCTAssertEqual(model.savedTasks.first?.start_date, iso8601Formatter.date(from: "2026-04-16T09:30:00Z"))
         XCTAssertEqual(model.savedTasks.first?.duration, 900)
-        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Task created (id: 101): Join standup")
+        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Task created (id: 101): Join standup.")
     }
 
     func testCreateTaskToolCallParsesTimezoneLessStartDateInLocalTimezone() async {
