@@ -381,7 +381,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
                 return value
             }
             if let value = arguments[key] as? NSArray {
-                return value as [Any]
+                return value as? [Any]
             }
         }
 
