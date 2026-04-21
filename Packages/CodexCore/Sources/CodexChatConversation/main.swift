@@ -57,7 +57,7 @@ struct CodexChatConversation {
 
         print("Codex chat conversation")
         print("Using Neural Loop dummy tools: create_task, create_sub_task, and Notes.")
-        print("Grocery and shopping-list prompts create a parent task first; item subtasks can be added later once the parent task ID is known.")
+        print("A create_task call can now include sub_tasks so the dummy runner prints the parent and each nested subtask together.")
         print("Type /quit to exit, /reset to clear conversation state, or /state to print response state.")
 
         while true {
@@ -176,8 +176,9 @@ private struct DummyToolExecutor {
             throw ScriptError.invalidToolArguments("create_task requires a non-empty title.")
         }
 
+        let parentID = "dummy-task-\(UUID().uuidString)"
         var payload: [String: Any] = [
-            "id": "dummy-task-\(UUID().uuidString)",
+            "id": parentID,
             "title": title
         ]
 
@@ -192,7 +193,13 @@ private struct DummyToolExecutor {
             payload["duration"] = duration
         }
 
-        return "Dummy task created:\n\(prettyJSON(payload))"
+        let childPayloads = subTaskTitlesValue(in: arguments).map { title in
+            dummySubTaskPayload(parentTaskID: parentID, title: title)
+        }
+
+        var output = ["Dummy task created:\n\(prettyJSON(payload))"]
+        output.append(contentsOf: childPayloads.map { "Dummy subtask created:\n\($0)" })
+        return output.joined(separator: "\n\n")
     }
 
     private func createNote(_ arguments: [String: Any]) throws -> String {
@@ -224,6 +231,43 @@ private struct DummyToolExecutor {
         ]
 
         return "Dummy subtask created:\n\(prettyJSON(payload))"
+    }
+
+    private func subTaskTitlesValue(in arguments: [String: Any]) -> [String] {
+        guard let rawSubTasks = arrayValue(for: ["sub_tasks"], in: arguments) else {
+            return []
+        }
+
+        return rawSubTasks.compactMap { item in
+            guard let subTaskArguments = item as? [String: Any] else {
+                return nil
+            }
+
+            return firstNonEmptyString(for: ["title"], in: subTaskArguments)
+        }
+    }
+
+    private func arrayValue(for keys: [String], in arguments: [String: Any]) -> [Any]? {
+        for key in keys {
+            if let value = arguments[key] as? [Any] {
+                return value
+            }
+            if let value = arguments[key] as? NSArray {
+                return value as [Any]
+            }
+        }
+
+        return nil
+    }
+
+    private func dummySubTaskPayload(parentTaskID: String, title: String) -> String {
+        let payload: [String: Any] = [
+            "id": "dummy-subtask-\(UUID().uuidString)",
+            "task_id": parentTaskID,
+            "title": title,
+            "is_completed": false
+        ]
+        return prettyJSON(payload)
     }
 
     private func normalized(_ name: String) -> String {

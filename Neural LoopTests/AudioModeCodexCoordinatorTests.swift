@@ -55,6 +55,178 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertFalse(coordinator.isSending)
     }
 
+    func testCreateTaskToolCallPersistsTaskThenNestedSubTasksInOrder() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "create_task",
+                arguments: [
+                    "title": "Grocery list",
+                    "description": "Weekly shopping",
+                    "sub_tasks": [
+                        ["title": "  Milk  "],
+                        ["title": "Eggs"],
+                        ["title": "Bread"]
+                    ]
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Make a grocery list with milk, eggs, and bread")
+        await Task.yield()
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(client.converseCallCount, 1)
+        XCTAssertEqual(model.savedTasks.count, 1)
+        XCTAssertEqual(model.savedSubTasks.count, 3)
+        XCTAssertEqual(model.savedSubTasks.compactMap(\.task_id), [101, 101, 101])
+        XCTAssertEqual(model.savedSubTasks.map(\.title), ["Milk", "Eggs", "Bread"])
+        XCTAssertEqual(
+            model.saveEvents,
+            [
+                .task(title: "Grocery list", id: 101),
+                .subTask(title: "Milk", taskId: 101),
+                .subTask(title: "Eggs", taskId: 101),
+                .subTask(title: "Bread", taskId: 101)
+            ]
+        )
+        XCTAssertEqual(
+            coordinator.conversationFeed.last?.content,
+            "Task created (id: 101): Grocery list. Subtasks created: Milk, Eggs, Bread."
+        )
+        XCTAssertFalse(coordinator.isSending)
+        XCTAssertNil(coordinator.errorMessage)
+    }
+
+    func testCreateTaskToolCallIgnoresBlankNestedSubTaskTitles() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "create_task",
+                arguments: [
+                    "title": "Todo list",
+                    "sub_tasks": [
+                        ["title": "   "],
+                        ["title": "Call dentist"],
+                        ["title": ""]
+                    ]
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Make a todo list")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(client.converseCallCount, 1)
+        XCTAssertEqual(model.savedTasks.count, 1)
+        XCTAssertEqual(model.savedSubTasks.count, 1)
+        XCTAssertEqual(model.savedSubTasks.first?.title, "Call dentist")
+        XCTAssertEqual(model.saveEvents, [.task(title: "Todo list", id: 101), .subTask(title: "Call dentist", taskId: 101)])
+        XCTAssertEqual(
+            coordinator.conversationFeed.last?.content,
+            "Task created (id: 101): Todo list. Subtasks created: Call dentist."
+        )
+        XCTAssertNil(coordinator.errorMessage)
+    }
+
+    func testCreateTaskToolCallShowsFailureWhenParentSaveFails() async {
+        let model = FakeAudioModeCodexModel(
+            llmEnabled: true,
+            taskSaveShouldFail: true
+        )
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "create_task",
+                arguments: [
+                    "title": "Broken task",
+                    "sub_tasks": [
+                        ["title": "Should not save"]
+                    ]
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Create a broken task")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(client.converseCallCount, 1)
+        XCTAssertTrue(model.savedTasks.isEmpty)
+        XCTAssertTrue(model.savedSubTasks.isEmpty)
+        XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .error])
+        XCTAssertEqual(coordinator.errorMessage, "Task could not be saved.")
+    }
+
+    func testCreateTaskToolCallReportsPartialSuccessWhenNestedSubTaskSaveFails() async {
+        let model = FakeAudioModeCodexModel(
+            llmEnabled: true,
+            subTaskSaveShouldFail: true
+        )
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "create_task",
+                arguments: [
+                    "title": "Grocery list",
+                    "sub_tasks": [
+                        ["title": "Milk"],
+                        ["title": "Eggs"],
+                        ["title": "Bread"]
+                    ]
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Create a grocery list")
+        await Task.yield()
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(client.converseCallCount, 1)
+        XCTAssertEqual(model.savedTasks.count, 1)
+        XCTAssertEqual(model.savedSubTasks.count, 3)
+        XCTAssertEqual(
+            coordinator.conversationFeed.last?.content,
+            "Task created (id: 101): Grocery list. Subtasks not created: Milk, Eggs, Bread."
+        )
+        XCTAssertNil(coordinator.errorMessage)
+        XCTAssertFalse(coordinator.isSending)
+    }
+
+    func testCreateTaskToolCallReportsUnknownIdWhenSaveDoesNotReturnOne() async {
+        let model = FakeAudioModeCodexModel(
+            llmEnabled: true,
+            taskSaveResultID: 0
+        )
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "create_task",
+                arguments: [
+                    "title": "Loose task",
+                    "sub_tasks": [
+                        ["title": "Should not save"]
+                    ]
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Create a task without an id")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(client.converseCallCount, 1)
+        XCTAssertEqual(model.savedTasks.count, 1)
+        XCTAssertTrue(model.savedSubTasks.isEmpty)
+        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Task created (id: unknown): Loose task. Subtasks not created: Should not save.")
+        XCTAssertNil(coordinator.errorMessage)
+    }
+
     func testCreateSubTaskToolCallPersistsSubTaskAndShowsConfirmation() async {
         let model = FakeAudioModeCodexModel(llmEnabled: true)
         let client = FakeAudioModeCodexClient(
@@ -572,14 +744,22 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
     private(set) var savedFleetingNotes: [CreateFleetingNoteRequest] = []
     private let seededTasks: [Tasks]
     private let fleetingNoteSaveResult: FleetingNote?
+    private let taskSaveShouldFail: Bool
     private let subTaskSaveShouldFail: Bool
     private let subTaskSaveResult: SubTasks?
     private let taskSaveResultID: Int64
     private let subTaskSaveResultID: UUID
+    private(set) var saveEvents: [SaveEvent] = []
+
+    enum SaveEvent: Equatable {
+        case task(title: String, id: Int64)
+        case subTask(title: String, taskId: Int64)
+    }
 
     init(
         llmEnabled: Bool,
         seededTasks: [Tasks] = [],
+        taskSaveShouldFail: Bool = false,
         subTaskSaveShouldFail: Bool = false,
         subTaskSaveResult: SubTasks? = nil,
         fleetingNoteSaveResult: FleetingNote? = FleetingNote(
@@ -594,6 +774,7 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
     ) {
         self.llm_enabled = llmEnabled
         self.seededTasks = seededTasks
+        self.taskSaveShouldFail = taskSaveShouldFail
         self.subTaskSaveShouldFail = subTaskSaveShouldFail
         self.subTaskSaveResult = subTaskSaveResult
         self.fleetingNoteSaveResult = fleetingNoteSaveResult
@@ -612,6 +793,10 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
     }
 
     func saveTask(_ task: Tasks) async -> Tasks? {
+        guard !taskSaveShouldFail else {
+            return nil
+        }
+
         let savedTask = Tasks(
             id: task.id ?? taskSaveResultID,
             title: task.title,
@@ -629,6 +814,7 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
             updated_at: task.updated_at
         )
         savedTasks.append(savedTask)
+        saveEvents.append(.task(title: savedTask.title, id: savedTask.id ?? -1))
         return savedTask
     }
 
@@ -640,6 +826,7 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
             is_completed: false
         )
         savedSubTasks.append(request)
+        saveEvents.append(.subTask(title: title, taskId: taskId))
 
         if subTaskSaveShouldFail {
             return nil
