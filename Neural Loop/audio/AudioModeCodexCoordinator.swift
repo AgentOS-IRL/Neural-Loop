@@ -236,7 +236,28 @@ final class AudioModeCodexCoordinator: ObservableObject {
             return
         }
 
-        appendToolResult("Task created (id: \(savedTask.id.map(String.init) ?? "unknown")): \(savedTask.title)")
+        guard let savedTaskID = savedTask.id, savedTaskID > 0 else {
+            appendError("Task could not be saved.")
+            return
+        }
+
+        let subTaskTitles = subTaskTitlesValue(in: arguments)
+        var createdSubTaskTitles: [String] = []
+
+        for subTaskTitle in subTaskTitles {
+            guard let savedSubTask = await model.addSubTask(subTaskTitle, taskId: savedTaskID) else {
+                appendError("Subtask could not be saved.")
+                return
+            }
+
+            createdSubTaskTitles.append(savedSubTask.title)
+        }
+
+        appendToolResult(createTaskConfirmationText(
+            taskID: savedTaskID,
+            title: savedTask.title,
+            createdSubTaskTitles: createdSubTaskTitles
+        ))
     }
 
     private func handleCreateSubTask(arguments: [String: Any]) async throws {
@@ -331,6 +352,45 @@ final class AudioModeCodexCoordinator: ObservableObject {
         }
 
         return nil
+    }
+
+    private func subTaskTitlesValue(in arguments: [String: Any]) -> [String] {
+        guard let rawSubTasks = arrayValue(for: ["sub_tasks"], in: arguments) else {
+            return []
+        }
+
+        return rawSubTasks.compactMap { item in
+            guard let subTaskArguments = item as? [String: Any] else {
+                return nil
+            }
+
+            return firstNonEmptyTrimmedStringValue(for: ["title"], in: subTaskArguments)
+        }
+    }
+
+    private func arrayValue(for keys: [String], in arguments: [String: Any]) -> [Any]? {
+        for key in keys {
+            if let value = arguments[key] as? [Any] {
+                return value
+            }
+            if let value = arguments[key] as? NSArray {
+                return value as [Any]
+            }
+        }
+
+        return nil
+    }
+
+    private func createTaskConfirmationText(
+        taskID: Int64,
+        title: String,
+        createdSubTaskTitles: [String]
+    ) -> String {
+        guard !createdSubTaskTitles.isEmpty else {
+            return "Task created (id: \(taskID)): \(title)"
+        }
+
+        return "Task created (id: \(taskID)): \(title). Subtasks created: \(createdSubTaskTitles.joined(separator: ", "))."
     }
 
     private func handleCreateNote(arguments: [String: Any]) async {
