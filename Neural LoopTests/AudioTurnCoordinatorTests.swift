@@ -1,3 +1,4 @@
+import Combine
 import CodexCore
 import XCTest
 @testable import Neural_Loop
@@ -208,6 +209,31 @@ final class AudioTurnCoordinatorTests: XCTestCase {
         XCTAssertTrue(codexCoordinator.conversationFeed.isEmpty)
         XCTAssertEqual(speech.resetCallCount, 2)
         XCTAssertEqual(coordinator.turnState, .idle)
+    }
+
+    func testTranscriptionUpdatesInvalidateCoordinator() async {
+        let session = TurnFakeTranscribingSession(permissionState: .authorized)
+        let transcriptionManager = AudioTranscriptionManager(
+            session: session,
+            cooldownScheduler: TurnFakeCooldownTimerScheduler()
+        )
+        let coordinator = AudioTurnCoordinator(
+            model: TurnFakeCodexModel(),
+            transcriptionManager: transcriptionManager,
+            speechSynthesizer: TurnFakeSpeechSynthesizer()
+        )
+
+        await coordinator.startListening()
+
+        let expectation = expectation(description: "Coordinator should forward child changes")
+        let cancellable = coordinator.objectWillChange.sink {
+            expectation.fulfill()
+        }
+
+        session.emit(.update(AudioTranscriptionUpdate(transcript: "live text", isFinal: false)))
+
+        await fulfillment(of: [expectation], timeout: 1.0)
+        _ = cancellable
     }
 }
 

@@ -108,6 +108,18 @@ final class AudioTurnCoordinator: ObservableObject {
             }
         }
 
+        transcriptionManager.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        codexCoordinator.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
         codexCoordinator.$conversationFeed
             .sink { [weak self] _ in
                 self?.syncSpeechPlayback()
