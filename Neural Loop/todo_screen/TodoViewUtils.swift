@@ -76,11 +76,11 @@ func rebuildDateBuckets(tasks: [Tasks]) -> [DateBucket] {
         .foregroundColor(AppTheme.textPrimary)), start: .distantPast, end: .distantFuture, type: .completed)
 
     for task in tasks {
-        if task.start_date == nil {
-            inbox_bucket.appendTask(task)
-        }
-        else if task.is_completed {
+        if task.is_completed {
             completed_bucket.appendTask(task)
+        }
+        else if task.start_date == nil {
+            inbox_bucket.appendTask(task)
         }
         else if (task.recursion_rule == "" || task.recursion_rule == nil) && task.start_date != nil {
             if task.start_date! < todayStart {
