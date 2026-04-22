@@ -8,12 +8,12 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
 
-    let dataManager: any WorkoutDataManaging & FitnessTemplateDataManaging
+    let dataManager: any WorkoutTemplateEditingDataManaging
     private var hasLoaded = false
 
     init(
         summary: WorkoutTemplateSummary,
-        dataManager: (any WorkoutDataManaging & FitnessTemplateDataManaging)? = nil
+        dataManager: (any WorkoutTemplateEditingDataManaging)? = nil
     ) {
         self.summary = summary
         self.dataManager = dataManager ?? DBManager.newInstance()
