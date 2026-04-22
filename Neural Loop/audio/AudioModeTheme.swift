@@ -10,6 +10,10 @@ enum AudioModeTheme {
         static let heroMicSize: CGFloat = 176
         static let heroOrbitSize: CGFloat = 222
         static let heroSecondaryOrbitSize: CGFloat = 148
+        static let bottomMicSize: CGFloat = 70
+        static let bottomMicPulseSize: CGFloat = 94
+        static let bottomComposerCornerRadius: CGFloat = 24
+        static let chatMaxWidth: CGFloat = 840
     }
 
     enum Surface {
