@@ -3,6 +3,7 @@ import SwiftUI
 struct FitnessView: View {
     private let templates: [WorkoutTemplateSummary] = WorkoutTemplateSummary.samples
     private let bottomInsetHeight: CGFloat = 88
+    @State private var isNewWorkoutPresented = false
 
     var body: some View {
         NavigationStack {
@@ -22,6 +23,9 @@ struct FitnessView: View {
             }
             .navigationTitle("Fitness")
             .navigationBarTitleDisplayMode(.inline)
+            .fullScreenCover(isPresented: $isNewWorkoutPresented) {
+                NewWorkoutView()
+            }
         }
     }
 
@@ -41,11 +45,13 @@ struct FitnessView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Workout template options")
 
-            Button(action: {}) {
+            Button {
+                isNewWorkoutPresented = true
+            } label: {
                 headerIcon(systemName: "plus")
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Add workout template")
+            .accessibilityLabel("Add workout")
         }
     }
 
