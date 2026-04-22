@@ -26,35 +26,6 @@ func progressMiniBar(percentage: Double) -> some View {
     }
 }
 
-
-func topButton(
-    title: String,
-    isSelected: Bool,
-    action: @escaping () -> Void
-) ->  some View {
-    Button(action: action) {
-        Text(title)
-            .font(.system(.subheadline, design: .rounded).weight(.medium))
-            .foregroundStyle(isSelected ? .white : AppTheme.textPrimary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(
-                        isSelected
-                        ? AnyShapeStyle(AppTheme.accentGradient)
-                        : AnyShapeStyle(AppTheme.sectionGradient)
-                    )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(AppTheme.borderGradient, lineWidth: 1)
-                    .opacity(isSelected ? 0 : 1)
-            )
-    }
-    .buttonStyle(.plain)
-}
-
 extension Comparable {
     func clamped(to limits: ClosedRange<Self>) -> Self {
         min(max(self, limits.lowerBound), limits.upperBound)

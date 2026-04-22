@@ -15,32 +15,27 @@ import Foundation
 import SwiftUI
 import Combine
 
+enum GoalScreenSection: String, CaseIterable, Identifiable {
+    case inProgress = "In Progress"
+    case roadmap = "Roadmap"
+    case lifeAreas = "Life Areas"
+
+    var id: String { rawValue }
+}
+
 @MainActor
-final class GoalScreenViewModel: ObservableObject {
+final class GoalScreenNavigationModel: ObservableObject {
+    @Published var selectedSection: GoalScreenSection = .inProgress
 
-    enum TopTab {
-        case inProgress
-        case roadmap
-        case lifeAreas
+    func select(_ section: GoalScreenSection) {
+        selectedSection = section
     }
-
-    // MARK: - UI State
-    @Published var selectedTab: TopTab = .inProgress
-    @Published var error: String?
-    
 }
 
 struct GoalScreenView: View {
 
-//    @StateObject private var vm = GoalScreenViewModel()
-    enum TopTab {
-        case inProgress
-        case roadmap
-        case lifeAreas
-    }
-
     // MARK: - UI State
-    @State var selectedTab: TopTab = .inProgress
+    @StateObject private var navigationModel = GoalScreenNavigationModel()
     @State var error: String?
     @EnvironmentObject var model: UnifiedDataModel
 
@@ -57,36 +52,9 @@ struct GoalScreenView: View {
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
-
-                    // Top segmented buttons
-                    HStack(spacing: 8) {
-                        topButton(
-                            title: "In Progress",
-                            isSelected: selectedTab == .inProgress
-                        ) {
-                            selectedTab = .inProgress
-                        }
-
-                        topButton(
-                            title: "Roadmap",
-                            isSelected: selectedTab == .roadmap
-                        ) {
-                            selectedTab = .roadmap
-                        }
-
-                        topButton(
-                            title: "Life Areas",
-                            isSelected: selectedTab == .lifeAreas
-                        ) {
-                            selectedTab = .lifeAreas
-                        }
-                    }
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
                     // Content
                     Group {
-                        switch selectedTab {
+                        switch navigationModel.selectedSection {
                         case .inProgress:
                             inProgressView()
 
@@ -104,9 +72,18 @@ struct GoalScreenView: View {
                     )
                 }
             }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                GoalScreenSectionBar(
+                    selectedSection: $navigationModel.selectedSection,
+                    selectAction: navigationModel.select
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 8)
+            }
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                        Color.clear.frame(height: SAFE_AREA_INSET)
-                    }
+                Color.clear.frame(height: SAFE_AREA_INSET)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Text("Goals")
@@ -120,7 +97,7 @@ struct GoalScreenView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        if selectedTab == .lifeAreas {
+                        if navigationModel.selectedSection == .lifeAreas {
                             showAddLifeArea = true
                         } else {
                             hydrateGoal = nil
@@ -382,4 +359,71 @@ struct GoalScreenView: View {
     }
 
 
+}
+
+private struct GoalScreenSectionBar: View {
+    @Binding var selectedSection: GoalScreenSection
+    let selectAction: (GoalScreenSection) -> Void
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(GoalScreenSection.allCases) { section in
+                Button {
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                        selectAction(section)
+                    }
+                } label: {
+                    Text(section.rawValue)
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .foregroundStyle(sectionForeground(isSelected: selectedSection == section))
+                        .background {
+                            if selectedSection == section {
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .fill(sectionFill)
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+        .background {
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(backgroundFill)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
+                }
+                .shadow(color: .black.opacity(0.08), radius: 10, y: 5)
+        }
+    }
+
+    private var backgroundFill: AnyShapeStyle {
+        if reduceTransparency {
+            return AnyShapeStyle(Color(.secondarySystemBackground).opacity(0.96))
+        }
+
+        return AnyShapeStyle(AppTheme.sectionGradient)
+    }
+
+    private var sectionFill: AnyShapeStyle {
+        if reduceTransparency {
+            return AnyShapeStyle(Color(.tertiarySystemBackground))
+        }
+
+        return AnyShapeStyle(AppTheme.heroGradient)
+    }
+
+    private func sectionForeground(isSelected: Bool) -> Color {
+        if isSelected {
+            return AppTheme.textPrimary
+        }
+
+        return AppTheme.textSecondary
+    }
 }
