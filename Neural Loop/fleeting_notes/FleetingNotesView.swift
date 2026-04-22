@@ -9,6 +9,7 @@ import SwiftUI
 
 struct FleetingNotesView: View {
     private let manager: DBManager
+    let embeddedInTaskHub: Bool
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var notes: [FleetingNote] = []
@@ -19,27 +20,22 @@ struct FleetingNotesView: View {
     @State private var mutationErrorMessage: String?
     @State private var isMutatingNote = false
 
-    init(manager: DBManager = .newInstance()) {
+    init(manager: DBManager = .newInstance(), embeddedInTaskHub: Bool = false) {
         self.manager = manager
+        self.embeddedInTaskHub = embeddedInTaskHub
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                background
-
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
-                        heroCard
-                        content
-                    }
-                    .padding(.horizontal, AppTheme.Metrics.screenPadding)
-                    .padding(.top, 16)
-                    .padding(.bottom, 120)
+        Group {
+            if embeddedInTaskHub {
+                notesRootContent
+            } else {
+                NavigationStack {
+                    notesRootContent
+                        .navigationTitle("Notes")
+                        .navigationBarTitleDisplayMode(.inline)
                 }
             }
-            .navigationTitle("Notes")
-            .navigationBarTitleDisplayMode(.inline)
         }
         .task {
             await loadNotes()
@@ -84,6 +80,29 @@ struct FleetingNotesView: View {
         } message: {
             Text(mutationErrorMessage ?? "Please try again.")
         }
+    }
+
+    @ViewBuilder
+    private var notesRootContent: some View {
+        ZStack {
+            background
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
+                    if embeddedInTaskHub {
+                        notesEmbeddedHeader
+                    } else {
+                        heroCard
+                    }
+
+                    content
+                }
+                .padding(.horizontal, AppTheme.Metrics.screenPadding)
+                .padding(.top, 16)
+                .padding(.bottom, bottomContentPadding)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @ViewBuilder
@@ -133,6 +152,29 @@ struct FleetingNotesView: View {
                 )
             }
         }
+    }
+
+    private var notesEmbeddedHeader: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Notes")
+                    .font(.system(.title3, design: .rounded, weight: .bold))
+                    .foregroundStyle(AppTheme.textPrimary)
+
+                Text("Capture short thoughts before they become tasks.")
+                    .font(.system(.subheadline, design: .rounded, weight: .medium))
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+
+            Spacer()
+        }
+        .padding(20)
+        .background(AppTheme.heroGradient)
+        .overlay {
+            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
+        }
+        .cornerRadius(AppTheme.Metrics.cardCornerRadius)
     }
 
     private var heroCard: some View {
@@ -275,6 +317,10 @@ struct FleetingNotesView: View {
                 ? AnyShapeStyle(Color(.secondarySystemBackground))
                 : AnyShapeStyle(AppTheme.sectionGradient)
             )
+    }
+
+    private var bottomContentPadding: CGFloat {
+        embeddedInTaskHub ? SAFE_AREA_INSET + 104 : 120
     }
 
     @MainActor

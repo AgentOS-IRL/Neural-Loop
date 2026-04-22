@@ -3,22 +3,16 @@ import XCTest
 
 @MainActor
 final class ContentViewNavigationTests: XCTestCase {
-    func testTasksTabRoutesToMergedShellDestination() {
+    func testLoopTabRoutesToMergedShellDestination() {
         XCTAssertEqual(AppTab.tasks.shellDestination, .tasks)
-        XCTAssertEqual(AppTab.tasks.rawValue, "Tasks")
-        XCTAssertEqual(AppTab.tasks.systemImage, "checklist")
-    }
-
-    func testNotesTabRoutesToNotesShellDestination() {
-        XCTAssertEqual(AppTab.notes.shellDestination, .notes)
-        XCTAssertEqual(AppTab.notes.rawValue, "Notes")
-        XCTAssertEqual(AppTab.notes.systemImage, "note.text")
+        XCTAssertEqual(AppTab.tasks.rawValue, "Loop")
+        XCTAssertEqual(AppTab.tasks.systemImage, "square.grid.2x2")
     }
 
     func testPrimaryTabsContainMergedTasksDestination() {
-        XCTAssertEqual(AppTab.allCases.count, 5)
+        XCTAssertEqual(AppTab.allCases.count, 4)
         XCTAssertTrue(AppTab.allCases.contains(.tasks))
-        XCTAssertTrue(AppTab.allCases.contains(.notes))
+        XCTAssertFalse(AppTab.allCases.contains(where: { $0.rawValue == "Notes" }))
         XCTAssertFalse(AppTab.allCases.contains(where: { $0.rawValue == "To do" }))
         XCTAssertFalse(AppTab.allCases.contains(where: { $0.rawValue == "Habits" }))
     }

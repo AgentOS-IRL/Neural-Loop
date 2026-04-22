@@ -11,6 +11,7 @@ import Combine
 enum TaskHubSection: String, CaseIterable, Identifiable {
     case todo = "To Do"
     case habits = "Habits"
+    case notes = "Notes"
 
     var id: String { rawValue }
 }
@@ -29,14 +30,24 @@ final class TaskHubNavigationModel: ObservableObject {
     }
 
     func section(afterSwipe direction: TaskHubSwipeDirection) -> TaskHubSection {
-        switch (selectedSection, direction) {
-        case (.todo, .left):
-            return .habits
-        case (.habits, .right):
-            return .todo
-        default:
+        let sections = TaskHubSection.allCases
+        guard let currentIndex = sections.firstIndex(of: selectedSection) else {
             return selectedSection
         }
+
+        let proposedIndex: Int
+        switch direction {
+        case .left:
+            proposedIndex = currentIndex + 1
+        case .right:
+            proposedIndex = currentIndex - 1
+        }
+
+        guard sections.indices.contains(proposedIndex) else {
+            return selectedSection
+        }
+
+        return sections[proposedIndex]
     }
 
     func handleSwipe(_ direction: TaskHubSwipeDirection) {
@@ -60,13 +71,15 @@ struct TaskHubView: View {
                         TodoView(embeddedInTaskHub: true)
                     case .habits:
                         HabitView(embeddedInTaskHub: true)
+                    case .notes:
+                        FleetingNotesView(embeddedInTaskHub: true)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
                 .simultaneousGesture(taskHubEdgeSwipeGesture(width: proxy.size.width))
             }
-            .navigationTitle("Tasks")
+            .navigationTitle("Loop")
             .navigationBarTitleDisplayMode(.inline)
             .safeAreaInset(edge: .top, spacing: 0) {
                 TaskHubSectionBar(
