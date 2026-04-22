@@ -147,6 +147,57 @@ final class WorkoutTemplateEditorViewModelTests: XCTestCase {
         XCTAssertEqual(remainingRows.sorted { $0.order_index < $1.order_index }.map(\.target_reps), [12, 10])
     }
 
+    func testEditTemplateRollsBackRoutineExerciseStateWhenFinalUpdateFails() async {
+        let dataManager = FakeWorkoutTemplateEditorDataManager(
+            equipment: [equipment(id: 1, name: "Cable")],
+            exercises: [
+                exercise(id: 10, name: "Cable Row", equipmentID: 1),
+                exercise(id: 20, name: "Face Pull", equipmentID: 1),
+                exercise(id: 30, name: "Lat Pulldown", equipmentID: 1)
+            ],
+            routinesByID: [
+                800: Routine(id: 800, name: "Back Day", notes: "Old notes")
+            ],
+            routineExercisesByRoutineID: [
+                800: [
+                    routineExercise(id: 1, routineID: 800, exerciseID: 10, orderIndex: 1, targetSets: 3, targetReps: 10),
+                    routineExercise(id: 2, routineID: 800, exerciseID: 20, orderIndex: 2, targetSets: 2, targetReps: 15)
+                ]
+            ]
+        )
+        dataManager.failOnUpdateRoutineExerciseCall = 2
+
+        let viewModel = WorkoutTemplateEditorViewModel(
+            mode: .edit(WorkoutTemplateSummary(id: 800, title: "Back Day", exerciseCount: 2, setCount: 5)),
+            dataManager: dataManager
+        )
+
+        await viewModel.loadIfNeeded()
+        viewModel.title = "Updated Back Day"
+        viewModel.syncExercises(with: [
+            libraryItem(id: 10, name: "Cable Row"),
+            libraryItem(id: 30, name: "Lat Pulldown")
+        ])
+        viewModel.updateTargetSets(id: viewModel.exerciseDrafts[0].id, value: "5")
+        viewModel.updateTargetReps(id: viewModel.exerciseDrafts[0].id, value: "12")
+        viewModel.updateTargetSets(id: viewModel.exerciseDrafts[1].id, value: "4")
+        viewModel.updateTargetReps(id: viewModel.exerciseDrafts[1].id, value: "10")
+
+        let didSave = await viewModel.save()
+
+        XCTAssertFalse(didSave)
+        XCTAssertEqual(viewModel.errorMessage, "Unable to save routine exercise.")
+
+        let restoredRows = dataManager.routineExercisesByRoutineID[800] ?? []
+        XCTAssertEqual(restoredRows.count, 2)
+        XCTAssertEqual(restoredRows.sorted { $0.order_index < $1.order_index }.map(\.exercise_id), [10, 20])
+        XCTAssertEqual(restoredRows.sorted { $0.order_index < $1.order_index }.map(\.target_sets), [3, 2])
+        XCTAssertEqual(restoredRows.sorted { $0.order_index < $1.order_index }.map(\.target_reps), [10, 15])
+        XCTAssertTrue(restoredRows.allSatisfy { $0.order_index == 1 || $0.order_index == 2 })
+        XCTAssertFalse(restoredRows.contains { $0.exercise_id == 30 })
+        XCTAssertEqual(dataManager.deletedRoutineExerciseIDs, [2, 1000])
+    }
+
     func testCanSaveRequiresNameAndExercises() async {
         let dataManager = FakeWorkoutTemplateEditorDataManager(
             equipment: [equipment(id: 1, name: "Barbell")],
@@ -264,9 +315,11 @@ private final class FakeWorkoutTemplateEditorDataManager: WorkoutTemplateEditing
     var updatedRoutineExercises: [RoutineExercise] = []
     var deletedRoutineExerciseIDs: [Int64] = []
     var shouldFailAddingRoutineExercise = false
+    var failOnUpdateRoutineExerciseCall: Int?
 
     private var nextRoutineID: Int64 = 100
     private var nextRoutineExerciseID: Int64 = 1_000
+    private var updateRoutineExerciseCallCount = 0
 
     init(
         equipment: [Equipment] = [],
@@ -355,6 +408,11 @@ private final class FakeWorkoutTemplateEditorDataManager: WorkoutTemplateEditing
     }
 
     func updateRoutineExercise(_ routineExercise: RoutineExercise) async throws -> RoutineExercise {
+        updateRoutineExerciseCallCount += 1
+        if failOnUpdateRoutineExerciseCall == updateRoutineExerciseCallCount {
+            throw FakeWorkoutTemplateEditorError.unableToSaveRoutineExercise
+        }
+
         updatedRoutineExercises.append(routineExercise)
         guard let id = routineExercise.id else {
             return routineExercise

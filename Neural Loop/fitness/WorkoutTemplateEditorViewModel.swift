@@ -249,53 +249,68 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
 
     private func reconcileRoutineExercises(routineID: Int64) async throws {
         let currentRows = try await dataManager.fetchRoutineExercises(routineId: routineID)
-
         let retainedRoutineExerciseIDs = Set(exerciseDrafts.compactMap { $0.routineExerciseID })
         let rowsToDelete = currentRows.filter { row in
             guard let id = row.id else { return false }
             return !retainedRoutineExerciseIDs.contains(id)
         }
+        var createdRoutineExerciseIDs: [Int64] = []
 
-        for row in rowsToDelete {
-            guard let id = row.id else { continue }
-            try await dataManager.deleteRoutineExercise(id: id)
-        }
+        do {
+            for row in rowsToDelete {
+                guard let id = row.id else { continue }
+                try await dataManager.deleteRoutineExercise(id: id)
+            }
 
-        let retainedDrafts = exerciseDrafts.enumerated().compactMap { index, draft -> (Int, WorkoutTemplateExerciseDraft)? in
-            guard draft.routineExerciseID != nil else { return nil }
-            return (index, draft)
-        }
-
-        for (offset, entry) in retainedDrafts.enumerated() {
-            let tempOrderIndex = -1_000 - offset
-            let draft = entry.1
-            try await dataManager.updateRoutineExercise(
-                makeRoutineExercise(
-                    for: draft,
-                    routineID: routineID,
-                    orderIndex: tempOrderIndex
+            for (offset, draft) in exerciseDrafts.enumerated() where draft.routineExerciseID != nil {
+                try await dataManager.updateRoutineExercise(
+                    makeRoutineExercise(
+                        for: draft,
+                        routineID: routineID,
+                        orderIndex: -1_000 - offset
+                    )
                 )
-            )
-        }
+            }
 
-        for (index, draft) in exerciseDrafts.enumerated() where draft.routineExerciseID == nil {
-            try await dataManager.addRoutineExercise(
-                makeCreateRequest(
-                    for: draft,
-                    routineID: routineID,
-                    orderIndex: index + 1
+            for (index, draft) in exerciseDrafts.enumerated() where draft.routineExerciseID == nil {
+                let createdRoutineExercise = try await dataManager.addRoutineExercise(
+                    makeCreateRequest(
+                        for: draft,
+                        routineID: routineID,
+                        orderIndex: index + 1
+                    )
                 )
-            )
-        }
 
-        for (index, draft) in exerciseDrafts.enumerated() where draft.routineExerciseID != nil {
-            try await dataManager.updateRoutineExercise(
-                makeRoutineExercise(
-                    for: draft,
-                    routineID: routineID,
-                    orderIndex: index + 1
+                guard let createdID = createdRoutineExercise.id else {
+                    throw WorkoutDatabaseError.missingIdentifier
+                }
+                createdRoutineExerciseIDs.append(createdID)
+            }
+
+            for (index, draft) in exerciseDrafts.enumerated() where draft.routineExerciseID != nil {
+                try await dataManager.updateRoutineExercise(
+                    makeRoutineExercise(
+                        for: draft,
+                        routineID: routineID,
+                        orderIndex: index + 1
+                    )
                 )
-            )
+            }
+        } catch let saveError {
+            do {
+                try await rollbackRoutineExercises(
+                    originalRows: currentRows,
+                    rowsToDelete: rowsToDelete,
+                    createdRoutineExerciseIDs: createdRoutineExerciseIDs
+                )
+            } catch let rollbackError {
+                throw WorkoutTemplateEditorError.saveRollbackFailed(
+                    originalError: saveError,
+                    rollbackError: rollbackError
+                )
+            }
+
+            throw saveError
         }
     }
 
@@ -468,11 +483,62 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
 
         return Decimal(string: trimmed)
     }
+
+    private func rollbackRoutineExercises(
+        originalRows: [RoutineExercise],
+        rowsToDelete: [RoutineExercise],
+        createdRoutineExerciseIDs: [Int64]
+    ) async throws {
+        let rowsToRetain = originalRows.filter { row in
+            guard let id = row.id else { return false }
+            return !rowsToDelete.contains(where: { $0.id == id })
+        }
+
+        for createdID in createdRoutineExerciseIDs {
+            try await dataManager.deleteRoutineExercise(id: createdID)
+        }
+
+        for (index, row) in rowsToRetain.enumerated() {
+            try await dataManager.updateRoutineExercise(
+                RoutineExercise(
+                    id: row.id,
+                    routine_id: row.routine_id,
+                    exercise_id: row.exercise_id,
+                    order_index: -10_000 - index,
+                    target_sets: row.target_sets,
+                    target_reps: row.target_reps,
+                    rest_seconds: row.rest_seconds,
+                    superset_group_id: row.superset_group_id,
+                    duration: row.duration
+                )
+            )
+        }
+
+        for row in rowsToDelete.sorted(by: { $0.order_index < $1.order_index }) {
+            _ = try await dataManager.addRoutineExercise(
+                CreateRoutineExerciseRequest(
+                    routine_id: row.routine_id,
+                    exercise_id: row.exercise_id,
+                    order_index: row.order_index,
+                    target_sets: row.target_sets,
+                    target_reps: row.target_reps,
+                    rest_seconds: row.rest_seconds,
+                    superset_group_id: row.superset_group_id,
+                    duration: row.duration
+                )
+            )
+        }
+
+        for row in rowsToRetain {
+            try await dataManager.updateRoutineExercise(row)
+        }
+    }
 }
 
 private enum WorkoutTemplateEditorError: LocalizedError {
     case missingRoutine
     case saveCleanupFailed(originalError: Error, cleanupError: Error)
+    case saveRollbackFailed(originalError: Error, rollbackError: Error)
 
     var errorDescription: String? {
         switch self {
@@ -480,6 +546,8 @@ private enum WorkoutTemplateEditorError: LocalizedError {
             return "Workout template could not be found."
         case .saveCleanupFailed(let originalError, let cleanupError):
             return "\(originalError.localizedDescription) Cleanup failed: \(cleanupError.localizedDescription)"
+        case .saveRollbackFailed(let originalError, let rollbackError):
+            return "\(originalError.localizedDescription) Rollback failed: \(rollbackError.localizedDescription)"
         }
     }
 }
