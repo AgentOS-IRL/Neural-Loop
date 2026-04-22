@@ -16,8 +16,8 @@ final class ContentViewNavigationTests: XCTestCase {
     }
 
     func testPrimaryTabsContainMergedTasksDestination() {
-        XCTAssertEqual(AppTab.allCases.count, 5)
-        XCTAssertEqual(AppTab.allCases, [.goals, .tasks, .ai, .calendar, .settings])
+        XCTAssertEqual(AppTab.allCases.count, 6)
+        XCTAssertEqual(AppTab.allCases, [.goals, .tasks, .ai, .calendar, .fitness, .settings])
         XCTAssertTrue(AppTab.allCases.contains(.tasks))
         XCTAssertFalse(AppTab.allCases.contains(where: { $0.rawValue == "Notes" }))
         XCTAssertFalse(AppTab.allCases.contains(where: { $0.rawValue == "To do" }))
@@ -27,7 +27,14 @@ final class ContentViewNavigationTests: XCTestCase {
     func testContentNavigationTabsExcludeSettings() {
         XCTAssertEqual(AppTab.contentTabs, [.goals, .tasks, .ai, .calendar])
         XCTAssertTrue(AppTab.contentTabs.contains(.tasks))
+        XCTAssertFalse(AppTab.contentTabs.contains(.fitness))
         XCTAssertFalse(AppTab.contentTabs.contains(.settings))
+    }
+
+    func testFitnessRemainsUtilityDestination() {
+        XCTAssertEqual(AppTab.fitness.shellDestination, .fitness)
+        XCTAssertEqual(AppTab.fitness.rawValue, "Fitness")
+        XCTAssertEqual(AppTab.fitness.systemImage, "figure.strengthtraining.traditional")
     }
 
     func testSettingsRemainsUtilityDestination() {

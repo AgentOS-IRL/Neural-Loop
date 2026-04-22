@@ -13,6 +13,7 @@ enum AppTab: String, CaseIterable {
     case ai = "AI"
     case calendar = "Calendar"
 //    case insights = "Insights"
+    case fitness = "Fitness"
     case settings = "Settings"
 
     var systemImage: String {
@@ -22,6 +23,7 @@ enum AppTab: String, CaseIterable {
         case .calendar: return "calendar"
         case .goals: return "target"
 //        case .insights: return "chart.line.uptrend.xyaxis"
+        case .fitness: return "figure.strengthtraining.traditional"
         case .settings: return "gearshape"
         }
     }
@@ -32,6 +34,7 @@ enum AppShellDestination: Equatable {
     case tasks
     case ai
     case calendar
+    case fitness
     case settings
 }
 
@@ -48,6 +51,8 @@ extension AppTab {
             return .ai
         case .calendar:
             return .calendar
+        case .fitness:
+            return .fitness
         case .settings:
             return .settings
         }

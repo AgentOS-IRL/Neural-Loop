@@ -39,6 +39,8 @@ struct ContentView: View {
                 AudioModeView()
             case .calendar:
                 CalendarDayView()
+            case .fitness:
+                FitnessView()
             case .settings:
                 SettingsView()
             }
