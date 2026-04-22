@@ -167,56 +167,69 @@ struct LiquidGlassTabBar: View {
     private var utilityMenu: some View {
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
 
-        return Button {
+        return VStack(alignment: .leading, spacing: 6) {
+            utilityMenuButton(.fitness)
+            utilityMenuButton(.settings)
+        }
+        .padding(8)
+        .frame(minWidth: 150, alignment: .leading)
+        .background {
+            ZStack {
+                if reduceTransparency {
+                    shape
+                        .fill(Color(.secondarySystemBackground).opacity(0.96))
+                } else {
+                    GlassEffectContainer {
+                        shape
+                            .glassEffect(.clear.interactive(), in: shape)
+                    }
+                    .clipShape(shape)
+                    .allowsHitTesting(false)
+                }
+            }
+        }
+        .overlay {
+            shape
+                .strokeBorder(
+                    (colorScheme == .dark ? Color.white.opacity(0.16) : Color.black.opacity(0.10)),
+                    lineWidth: 1
+                )
+        }
+        .shadow(
+            color: .black.opacity(colorScheme == .dark ? 0.22 : 0.10),
+            radius: 14,
+            y: 8
+        )
+        .padding(.trailing, 16)
+    }
+
+    private func utilityMenuButton(_ tab: AppTab) -> some View {
+        Button {
             withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
-                selectedTab = .settings
+                selectedTab = tab
                 isUtilityMenuPresented = false
             }
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: AppTab.settings.systemImage)
+                Image(systemName: tab.systemImage)
                     .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 20)
 
-                Text(AppTab.settings.rawValue)
+                Text(tab.rawValue)
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .lineLimit(1)
                     .minimumScaleFactor(0.86)
+
+                Spacer(minLength: 0)
             }
             .foregroundStyle(colorScheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.88))
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background {
-                ZStack {
-                    if reduceTransparency {
-                        shape
-                            .fill(Color(.secondarySystemBackground).opacity(0.96))
-                    } else {
-                        GlassEffectContainer {
-                            shape
-                                .glassEffect(.clear.interactive(), in: shape)
-                        }
-                        .clipShape(shape)
-                        .allowsHitTesting(false)
-                    }
-                }
-            }
-            .overlay {
-                shape
-                    .strokeBorder(
-                        (colorScheme == .dark ? Color.white.opacity(0.16) : Color.black.opacity(0.10)),
-                        lineWidth: 1
-                    )
-            }
-            .shadow(
-                color: .black.opacity(colorScheme == .dark ? 0.22 : 0.10),
-                radius: 14,
-                y: 8
-            )
-            .contentShape(shape)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Settings")
-        .padding(.trailing, 16)
+        .accessibilityLabel(tab.rawValue)
     }
     
     private func tabButton(_ tab: AppTab) -> some View {
