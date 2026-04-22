@@ -75,22 +75,30 @@ extension DBManager {
     }
 
     // Create tracking (only once per goal)
-    func createGoalsTracking(_ tracking: GoalsTracking) async throws {
-        try await customsupabase
+    func createGoalsTracking(_ tracking: GoalsTracking) async throws -> GoalsTracking? {
+        let inserted: [GoalsTracking] = try await customsupabase
             .from(goalsTrackingTableName)
             .insert(tracking)
+            .select()
             .execute()
+            .value
+
+        return inserted.first
     }
 
     // Update tracking
-    func updateGoalsTracking(_ tracking: GoalsTracking) async throws {
-        guard let id = tracking.id else { return }
+    func updateGoalsTracking(_ tracking: GoalsTracking) async throws -> GoalsTracking? {
+        guard let id = tracking.id else { return nil }
 
-        try await customsupabase
+        let updated: [GoalsTracking] = try await customsupabase
             .from(goalsTrackingTableName)
             .update(tracking)
             .eq("id", value: Int(id))
+            .select()
             .execute()
+            .value
+
+        return updated.first
     }
 
     // Delete tracking for a goal

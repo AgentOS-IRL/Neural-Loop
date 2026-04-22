@@ -89,7 +89,7 @@ struct SetGoalTracking: View {
                     Button("Save") {
                         Task {
                             if selectedType == .custom {
-                                if value.isEmpty || target.isEmpty {
+                                if parsedDouble(value) == nil || parsedDouble(target) == nil {
                                     errorMessage = "Please enter both a value and a target."
                                     return
                                 }
@@ -126,14 +126,17 @@ struct SetGoalTracking: View {
     }
 
     private func saveCustom() async {
-        let valueDouble = Double(value)
-        let targetDouble = Double(target)
+        guard let valueDouble = parsedDouble(value),
+              let targetDouble = parsedDouble(target) else {
+            errorMessage = "Please enter valid decimal values."
+            return
+        }
 
         await upsertTracking(
             type: .custom,
             value: valueDouble,
             target: targetDouble,
-            label: label.isEmpty ? nil : label
+            label: trimmedLabel
         )
     }
 
@@ -145,21 +148,51 @@ struct SetGoalTracking: View {
     ) async {
         isSaving = true
         errorMessage = nil
-            
-        await model.deleteGoalsTracking(forGoal: goalId)
+        defer { isSaving = false }
+
         let tracking = GoalsTracking(
-            id: nil,
+            id: goalTracking.id,
             goal_id: goalId,
             type: type,
             value: value,
             target: target,
             label: label,
-            created_at: nil,
+            created_at: goalTracking.created_at,
             updated_at: nil
         )
-        await model.createGoalsTracking(tracking)
-        dismiss()
 
-        isSaving = false
+        if let trackingId = goalTracking.id {
+            if goalTracking.type != type {
+                let didClearRecords = await model.deleteGoalsTrackingRecords(forTracking: trackingId)
+                guard didClearRecords else {
+                    errorMessage = "Could not clear old progress records. Please try again."
+                    return
+                }
+            }
+
+            guard let savedTracking = await model.updateGoalsTracking(tracking) else {
+                errorMessage = "Could not update tracking. Please try again."
+                return
+            }
+            onSave(savedTracking)
+            dismiss()
+            return
+        }
+
+        guard let savedTracking = await model.createGoalsTracking(tracking) else {
+            errorMessage = "Could not create tracking. Please try again."
+            return
+        }
+        onSave(savedTracking)
+        dismiss()
+    }
+
+    private var trimmedLabel: String? {
+        let cleaned = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty ? nil : cleaned
+    }
+
+    private func parsedDouble(_ text: String) -> Double? {
+        Double(text.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 }

@@ -14,9 +14,8 @@ struct AddGoalProgressView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var model: UnifiedDataModel
 
-//    @State private var mode: Mode = .add
-    @State private var latestTotal: Int = 0
-    @State private var inputValue: Int = 0
+    @State private var latestTotal: Double = 0
+    @State private var inputValueText: String = ""
     @State private var error: String?
     
     @State private var selectedDate: Date = Date()
@@ -42,25 +41,21 @@ struct AddGoalProgressView: View {
                 .onChange(of: selectedDate) { _ in
                     Task {
                         await fetchProgress()
-                        await loadLatestTotal()
+                        loadLatestTotal()
                     }
                 }
 
                 VStack(spacing: 6) {
-                    Text("\(inputValue)")
+                    TextField("Amount", text: $inputValueText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.center)
                         .font(.system(size: 56, weight: .bold, design: .rounded))
 
-                    Text("Total for selected date: \(latestTotal) \(unitLabel)")
+                    Text("Total for selected date: \(formattedProgressValue(latestTotal)) \(unitLabel)")
                         .font(.footnote)
                         .foregroundColor(.secondary)
                 }
 
-                Stepper(
-                    value: $inputValue,
-                    in: 0...100000
-                ) {
-                    Text("Add amount")
-                }
                 Button {
                     showProgressHistory = true
                 } label: {
@@ -79,7 +74,13 @@ struct AddGoalProgressView: View {
                     Task { await save() }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(inputValue == 0)
+                .disabled(parsedInputValue == nil)
+
+                if let error {
+                    Text(error)
+                        .font(.footnote)
+                        .foregroundColor(.red)
+                }
             }
             .padding()
             .navigationTitle("Add Progress")
@@ -91,7 +92,7 @@ struct AddGoalProgressView: View {
             .onAppear {
                 Task {
                     await fetchProgress()
-                    await loadLatestTotal()
+                    loadLatestTotal()
                 }
             }
             .sheet(isPresented: $showProgressHistory) {
@@ -121,22 +122,26 @@ struct AddGoalProgressView: View {
     }
 
 
-    private func loadLatestTotal() async {
-        let total = recordsForDate.reduce(0) { $0 + Int($1.value) }
+    private func loadLatestTotal() {
+        let total = recordsForDate.reduce(0.0) { $0 + $1.value }
         latestTotal = total
-        inputValue = 0
+        inputValueText = ""
     }
 
     private func save() async {
         
         guard let trackingId = goalTracking.id else { return }
+        guard let inputValue = parsedInputValue else {
+            error = "Enter a valid amount greater than zero."
+            return
+        }
         
         
         let record = GoalsTrackingRecord(
             id: nil,
             goals_tracking_id: trackingId,
             type: goalTracking.type,
-            value: Double(inputValue),
+            value: inputValue,
             label: unitLabel,
             created_at: selectedDate
         )
@@ -146,5 +151,17 @@ struct AddGoalProgressView: View {
         onSaved()
         dismiss()
         
+    }
+
+    private var parsedInputValue: Double? {
+        let trimmedValue = inputValueText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Double(trimmedValue), value > 0 else {
+            return nil
+        }
+        return value
+    }
+
+    private func formattedProgressValue(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(0...2)))
     }
 }
