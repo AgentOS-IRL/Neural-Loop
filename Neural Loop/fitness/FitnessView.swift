@@ -4,6 +4,7 @@ struct FitnessView: View {
     @StateObject private var viewModel = FitnessViewModel()
     private let bottomInsetHeight: CGFloat = 88
     @State private var isNewWorkoutPresented = false
+    @State private var selectedTemplate: WorkoutTemplateSummary?
 
     var body: some View {
         NavigationStack {
@@ -25,6 +26,13 @@ struct FitnessView: View {
             .navigationBarTitleDisplayMode(.inline)
             .task {
                 await viewModel.loadIfNeeded()
+            }
+            .sheet(item: $selectedTemplate) { template in
+                WorkoutTemplateDetailView(template: template) {
+                    Task {
+                        await viewModel.reload()
+                    }
+                }
             }
             .fullScreenCover(isPresented: $isNewWorkoutPresented) {
                 NewWorkoutView()
@@ -88,7 +96,14 @@ struct FitnessView: View {
             spacing: 14
         ) {
             ForEach(viewModel.templates) { template in
-                WorkoutTemplateCard(template: template)
+                Button {
+                    selectedTemplate = template
+                } label: {
+                    WorkoutTemplateCard(template: template)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(template.title), \(template.countText)")
+                .accessibilityHint("Opens workout details")
             }
         }
     }

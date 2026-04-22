@@ -115,8 +115,24 @@ private final class FakeFitnessTemplateDataManager: FitnessTemplateDataManaging 
         return routines
     }
 
+    func fetchRoutine(by id: Int64) async throws -> Routine? {
+        routines.first { $0.id == id }
+    }
+
     func fetchRoutineExercises(routineId: Int64) async throws -> [RoutineExercise] {
         exercisesByRoutineID[routineId] ?? []
+    }
+
+    func updateRoutine(_ routine: Routine) async throws -> Routine {
+        guard let id = routine.id else {
+            return routine
+        }
+
+        if let index = routines.firstIndex(where: { $0.id == id }) {
+            routines[index] = routine
+        }
+
+        return routine
     }
 }
 

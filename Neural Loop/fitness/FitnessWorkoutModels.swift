@@ -52,6 +52,18 @@ struct WorkoutTemplateSummary: Identifiable, Equatable {
     }
 }
 
+struct WorkoutTemplateExerciseRow: Identifiable, Equatable {
+    let id: Int64
+    var exerciseName: String
+    var equipmentName: String
+    var setCount: Int
+    var orderIndex: Int
+
+    var setText: String {
+        setCount == 1 ? "1 set" : "\(setCount) sets"
+    }
+}
+
 protocol WorkoutDataManaging {
     func fetchAllEquipment() async throws -> [Equipment]
     func fetchAllExercises() async throws -> [Exercise]
@@ -61,8 +73,10 @@ protocol WorkoutDataManaging {
 }
 
 protocol FitnessTemplateDataManaging {
+    func fetchRoutine(by id: Int64) async throws -> Routine?
     func fetchAllRoutines() async throws -> [Routine]
     func fetchRoutineExercises(routineId: Int64) async throws -> [RoutineExercise]
+    func updateRoutine(_ routine: Routine) async throws -> Routine
 }
 
 extension DBManager: WorkoutDataManaging {}
