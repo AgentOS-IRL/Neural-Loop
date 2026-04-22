@@ -9,7 +9,6 @@ import SwiftUI
 
 struct AudioModeView: View {
     @EnvironmentObject private var model: UnifiedDataModel
-    @AppStorage("isAudioMode") private var isAudioMode = false
     @StateObject private var transcriptionManager = AudioTranscriptionManager()
     @StateObject private var coordinator: AudioModeCodexCoordinator
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -26,7 +25,7 @@ struct AudioModeView: View {
         let viewState = AudioModeViewState(
             transcription: transcriptionManager.viewData,
             conversation: conversationViewData,
-            isAudioModeAvailable: model.canUseAudioMode
+            isAIPageAvailable: model.canUseAudioMode
         )
 
         ZStack {
@@ -47,19 +46,16 @@ struct AudioModeView: View {
                     }
                     .padding(.horizontal, AudioModeTheme.Metrics.screenPadding)
                     .padding(.top, 20)
-                    .padding(.bottom, 150)
+                    .padding(.bottom, 104)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: geometry.size.height, alignment: .top)
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                    AudioModeActionBar(
-                        state: viewState.actionBar,
-                        onSwitchToManualMode: exitAudioMode
-                    )
+                    AudioModeActionBar(state: viewState.actionBar)
                     .equatable()
                     .padding(.horizontal, AudioModeTheme.Metrics.screenPadding)
                     .padding(.top, 8)
-                    .padding(.bottom, 10)
+                    .padding(.bottom, 86)
                     .background(Color.clear)
                 }
             }
@@ -69,7 +65,6 @@ struct AudioModeView: View {
             transcriptionManager.onCommittedTranscript = { [coordinator] transcript in
                 coordinator.handleCommittedTranscript(transcript)
             }
-            reconcileAuthorizationState()
             guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 1.7).repeatForever(autoreverses: true)) {
                 pulse = true
@@ -79,12 +74,6 @@ struct AudioModeView: View {
             transcriptionManager.stopRecording()
             transcriptionManager.onCommittedTranscript = nil
             coordinator.resetConversation()
-        }
-        .onChange(of: model.secretsLoaded) { _, _ in
-            reconcileAuthorizationState()
-        }
-        .onChange(of: model.canUseAudioMode) { _, _ in
-            reconcileAuthorizationState()
         }
     }
 
@@ -115,6 +104,11 @@ struct AudioModeView: View {
 
     private func toggleMicrophone() {
         Task {
+            guard model.canUseAudioMode else {
+                transcriptionManager.stopRecording()
+                return
+            }
+
             if transcriptionManager.isRecording {
                 transcriptionManager.stopRecording()
                 transcriptionManager.onCommittedTranscript = nil
@@ -126,32 +120,6 @@ struct AudioModeView: View {
                 }
                 await transcriptionManager.startRecording()
             }
-        }
-    }
-
-    private func exitAudioMode() {
-        transcriptionManager.stopRecording()
-        transcriptionManager.onCommittedTranscript = nil
-        coordinator.resetConversation()
-        withAnimation(.easeInOut(duration: 0.24)) {
-            isAudioMode = false
-        }
-    }
-
-    private func reconcileAuthorizationState() {
-        guard model.secretsLoaded else {
-            return
-        }
-
-        guard model.canUseAudioMode else {
-            if isAudioMode {
-                withAnimation(.easeInOut(duration: 0.24)) {
-                    isAudioMode = false
-                }
-            } else {
-                isAudioMode = false
-            }
-            return
         }
     }
 }
