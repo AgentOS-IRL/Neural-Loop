@@ -34,6 +34,7 @@ struct Exercise: Codable, Identifiable, Equatable {
     var name: String
     var type: ExerciseType
     var equipment_id: Int64?
+    var notes: String?
 }
 
 struct ExerciseMuscle: Codable, Identifiable, Equatable {
@@ -52,6 +53,7 @@ struct RoutineExercise: Codable, Identifiable, Equatable {
     var target_reps: Int?
     var rest_seconds: Int?
     var superset_group_id: Int?
+    var duration: Decimal?
 }
 
 struct WorkoutSession: Codable, Identifiable, Equatable {
@@ -124,6 +126,7 @@ struct CardioLog: Codable, Identifiable, Equatable {
     var exercise_id: Int64
     var distance_meters: Decimal?
     var duration_minutes: Decimal?
+    var calories: Decimal?
 }
 
 struct CreateEquipmentRequest: Codable, Equatable {
@@ -167,17 +170,20 @@ struct CreateExerciseRequest: Codable, Equatable {
     var name: String
     var type: ExerciseType
     var equipment_id: Int64?
+    var notes: String?
 }
 
 struct UpdateExerciseRequest: Codable, Equatable {
     var name: String
     var type: ExerciseType
     var equipment_id: Int64?
+    var notes: String?
 
     enum CodingKeys: String, CodingKey {
         case name
         case type
         case equipment_id
+        case notes
     }
 
     func encode(to encoder: Encoder) throws {
@@ -185,6 +191,7 @@ struct UpdateExerciseRequest: Codable, Equatable {
         try container.encode(name, forKey: .name)
         try container.encode(type, forKey: .type)
         try container.encodeNullable(equipment_id, forKey: .equipment_id)
+        try container.encodeNullable(notes, forKey: .notes)
     }
 }
 
@@ -202,6 +209,7 @@ struct CreateRoutineExerciseRequest: Codable, Equatable {
     var target_reps: Int?
     var rest_seconds: Int?
     var superset_group_id: Int?
+    var duration: Decimal?
 }
 
 struct UpdateRoutineExerciseRequest: Codable, Equatable {
@@ -212,6 +220,7 @@ struct UpdateRoutineExerciseRequest: Codable, Equatable {
     var target_reps: Int?
     var rest_seconds: Int?
     var superset_group_id: Int?
+    var duration: Decimal?
 
     enum CodingKeys: String, CodingKey {
         case routine_id
@@ -221,6 +230,7 @@ struct UpdateRoutineExerciseRequest: Codable, Equatable {
         case target_reps
         case rest_seconds
         case superset_group_id
+        case duration
     }
 
     func encode(to encoder: Encoder) throws {
@@ -232,6 +242,7 @@ struct UpdateRoutineExerciseRequest: Codable, Equatable {
         try container.encodeNullable(target_reps, forKey: .target_reps)
         try container.encodeNullable(rest_seconds, forKey: .rest_seconds)
         try container.encodeNullable(superset_group_id, forKey: .superset_group_id)
+        try container.encodeNullable(duration, forKey: .duration)
     }
 }
 
@@ -375,6 +386,7 @@ struct CreateCardioLogRequest: Codable, Equatable {
     var exercise_id: Int64
     var distance_meters: Decimal?
     var duration_minutes: Decimal?
+    var calories: Decimal?
 }
 
 struct UpdateCardioLogRequest: Codable, Equatable {
@@ -382,12 +394,14 @@ struct UpdateCardioLogRequest: Codable, Equatable {
     var exercise_id: Int64
     var distance_meters: Decimal?
     var duration_minutes: Decimal?
+    var calories: Decimal?
 
     enum CodingKeys: String, CodingKey {
         case workout_session_id
         case exercise_id
         case distance_meters
         case duration_minutes
+        case calories
     }
 
     func encode(to encoder: Encoder) throws {
@@ -396,6 +410,7 @@ struct UpdateCardioLogRequest: Codable, Equatable {
         try container.encode(exercise_id, forKey: .exercise_id)
         try container.encodeNullable(distance_meters, forKey: .distance_meters)
         try container.encodeNullable(duration_minutes, forKey: .duration_minutes)
+        try container.encodeNullable(calories, forKey: .calories)
     }
 }
 
@@ -726,7 +741,8 @@ extension DBManager {
         let request = UpdateExerciseRequest(
             name: exercise.name,
             type: exercise.type,
-            equipment_id: exercise.equipment_id
+            equipment_id: exercise.equipment_id,
+            notes: exercise.notes
         )
         let updated: [Exercise] = try await customsupabase
             .from(exerciseTableName)
@@ -835,7 +851,8 @@ extension DBManager {
             target_sets: routineExercise.target_sets,
             target_reps: routineExercise.target_reps,
             rest_seconds: routineExercise.rest_seconds,
-            superset_group_id: routineExercise.superset_group_id
+            superset_group_id: routineExercise.superset_group_id,
+            duration: routineExercise.duration
         )
         let updated: [RoutineExercise] = try await customsupabase
             .from(routineExerciseTableName)
@@ -1066,7 +1083,8 @@ extension DBManager {
             workout_session_id: log.workout_session_id,
             exercise_id: log.exercise_id,
             distance_meters: log.distance_meters,
-            duration_minutes: log.duration_minutes
+            duration_minutes: log.duration_minutes,
+            calories: log.calories
         )
         let updated: [CardioLog] = try await customsupabase
             .from(cardioLogTableName)
