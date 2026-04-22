@@ -4,14 +4,17 @@ struct WorkoutTemplateDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: WorkoutTemplateDetailViewModel
     @State private var isEditPresented = false
+    private let onSaved: () -> Void
 
     init(
         template: WorkoutTemplateSummary,
-        dataManager: (any WorkoutDataManaging & FitnessTemplateDataManaging)? = nil
+        dataManager: (any WorkoutDataManaging & FitnessTemplateDataManaging)? = nil,
+        onSaved: @escaping () -> Void = {}
     ) {
         self._viewModel = StateObject(
             wrappedValue: WorkoutTemplateDetailViewModel(summary: template, dataManager: dataManager)
         )
+        self.onSaved = onSaved
     }
 
     var body: some View {
@@ -42,7 +45,15 @@ struct WorkoutTemplateDetailView: View {
             .presentationDetents([.fraction(0.5), .large])
             .presentationDragIndicator(.visible)
             .sheet(isPresented: $isEditPresented) {
-                NewWorkoutView()
+                WorkoutTemplateEditView(
+                    template: viewModel.summary,
+                    dataManager: viewModel.dataManager
+                ) {
+                    Task {
+                        await viewModel.reload()
+                        onSaved()
+                    }
+                }
             }
             .task {
                 await viewModel.loadIfNeeded()

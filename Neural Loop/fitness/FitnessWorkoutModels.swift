@@ -73,8 +73,10 @@ protocol WorkoutDataManaging {
 }
 
 protocol FitnessTemplateDataManaging {
+    func fetchRoutine(by id: Int64) async throws -> Routine?
     func fetchAllRoutines() async throws -> [Routine]
     func fetchRoutineExercises(routineId: Int64) async throws -> [RoutineExercise]
+    func updateRoutine(_ routine: Routine) async throws -> Routine
 }
 
 extension DBManager: WorkoutDataManaging {}

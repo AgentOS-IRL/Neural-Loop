@@ -28,7 +28,11 @@ struct FitnessView: View {
                 await viewModel.loadIfNeeded()
             }
             .sheet(item: $selectedTemplate) { template in
-                WorkoutTemplateDetailView(template: template)
+                WorkoutTemplateDetailView(template: template) {
+                    Task {
+                        await viewModel.reload()
+                    }
+                }
             }
             .fullScreenCover(isPresented: $isNewWorkoutPresented) {
                 NewWorkoutView()

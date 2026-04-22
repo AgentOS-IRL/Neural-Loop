@@ -20,6 +20,9 @@ final class WorkoutTemplateDetailViewModelTests: XCTestCase {
                 ]
             ]
         )
+        dataManager.routinesByID = [
+            100: Routine(id: 100, name: "Push Day", notes: nil)
+        ]
         let viewModel = WorkoutTemplateDetailViewModel(
             summary: WorkoutTemplateSummary(id: 100, title: "Push Day", exerciseCount: 2, setCount: 7),
             dataManager: dataManager
@@ -64,6 +67,9 @@ final class WorkoutTemplateDetailViewModelTests: XCTestCase {
                 ]
             ]
         )
+        dataManager.routinesByID = [
+            200: Routine(id: 200, name: "Leg Day", notes: nil)
+        ]
         let viewModel = WorkoutTemplateDetailViewModel(
             summary: WorkoutTemplateSummary(id: 200, title: "Leg Day", exerciseCount: 2, setCount: 4),
             dataManager: dataManager
@@ -85,6 +91,9 @@ final class WorkoutTemplateDetailViewModelTests: XCTestCase {
                 ]
             ]
         )
+        dataManager.routinesByID = [
+            300: Routine(id: 300, name: "Upper Body", notes: nil)
+        ]
         let viewModel = WorkoutTemplateDetailViewModel(
             summary: WorkoutTemplateSummary(id: 300, title: "Upper Body", exerciseCount: 1, setCount: 1),
             dataManager: dataManager
@@ -102,6 +111,9 @@ final class WorkoutTemplateDetailViewModelTests: XCTestCase {
             exercises: [],
             routineExercisesByRoutineID: [:]
         )
+        dataManager.routinesByID = [
+            400: Routine(id: 400, name: "Fail Day", notes: nil)
+        ]
         dataManager.shouldFailFetchingExercises = true
 
         let viewModel = WorkoutTemplateDetailViewModel(
@@ -147,6 +159,7 @@ final class WorkoutTemplateDetailViewModelTests: XCTestCase {
 private final class FakeWorkoutTemplateDetailDataManager: WorkoutDataManaging {
     var equipment: [Equipment]
     var exercises: [Exercise]
+    var routinesByID: [Int64: Routine] = [:]
     var routineExercisesByRoutineID: [Int64: [RoutineExercise]]
     var shouldFailFetchingExercises = false
 
@@ -162,6 +175,10 @@ private final class FakeWorkoutTemplateDetailDataManager: WorkoutDataManaging {
 
     func fetchAllEquipment() async throws -> [Equipment] {
         equipment
+    }
+
+    func fetchRoutine(by id: Int64) async throws -> Routine? {
+        routinesByID[id]
     }
 
     func fetchAllExercises() async throws -> [Exercise] {
@@ -192,6 +209,15 @@ extension FakeWorkoutTemplateDetailDataManager: FitnessTemplateDataManaging {
 
     func fetchRoutineExercises(routineId: Int64) async throws -> [RoutineExercise] {
         routineExercisesByRoutineID[routineId] ?? []
+    }
+
+    func updateRoutine(_ routine: Routine) async throws -> Routine {
+        guard let id = routine.id else {
+            fatalError("Not used in detail view model tests.")
+        }
+
+        routinesByID[id] = routine
+        return routine
     }
 }
 

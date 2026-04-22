@@ -3,13 +3,12 @@ import Foundation
 
 @MainActor
 final class WorkoutTemplateDetailViewModel: ObservableObject {
+    @Published private(set) var summary: WorkoutTemplateSummary
     @Published private(set) var rows: [WorkoutTemplateExerciseRow] = []
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
 
-    let summary: WorkoutTemplateSummary
-
-    private let dataManager: any WorkoutDataManaging & FitnessTemplateDataManaging
+    let dataManager: any WorkoutDataManaging & FitnessTemplateDataManaging
     private var hasLoaded = false
 
     init(
@@ -39,6 +38,18 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
+            let routine = try await dataManager.fetchRoutine(by: summary.id)
+            guard let routine else {
+                throw WorkoutTemplateDetailError.missingRoutine
+            }
+
+            summary = WorkoutTemplateSummary(
+                id: routine.id ?? summary.id,
+                title: routine.name,
+                exerciseCount: summary.exerciseCount,
+                setCount: summary.setCount
+            )
+
             async let equipmentRows = dataManager.fetchAllEquipment()
             async let exerciseRows = dataManager.fetchAllExercises()
             async let routineExerciseRows = dataManager.fetchRoutineExercises(routineId: summary.id)
@@ -62,6 +73,8 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
                     return (id, exercise)
                 }
             )
+
+            summary = Self.makeSummary(for: routine, routineExercises: routineExercises)
 
             rows = routineExercises
                 .sorted { lhs, rhs in
@@ -87,6 +100,34 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
             hasLoaded = true
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private static func makeSummary(
+        for routine: Routine,
+        routineExercises: [RoutineExercise]
+    ) -> WorkoutTemplateSummary {
+        let exerciseCount = routineExercises.count
+        let setCount = routineExercises.reduce(0) { partialResult, routineExercise in
+            partialResult + (routineExercise.target_sets ?? 1)
+        }
+
+        return WorkoutTemplateSummary(
+            id: routine.id ?? 0,
+            title: routine.name,
+            exerciseCount: exerciseCount,
+            setCount: setCount
+        )
+    }
+}
+
+private enum WorkoutTemplateDetailError: LocalizedError {
+    case missingRoutine
+
+    var errorDescription: String? {
+        switch self {
+        case .missingRoutine:
+            return "Workout template could not be found."
         }
     }
 }
