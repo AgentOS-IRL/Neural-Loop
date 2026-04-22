@@ -197,57 +197,21 @@ extension  UnifiedDataModel {
 
 
 
-    func getGoalProgressBar(goalId: Int64, goalTracking: GoalsTracking?, goalTasks: [Tasks]?) -> some View {
-        let tracking: GoalsTracking =
-        goalTracking
-            ?? GoalsTracking(
-                id: nil,
-                goal_id: goalId,
-                type: .custom,
-                value: nil,
-                target: nil,
-                label: nil,
-                created_at: nil,
-                updated_at: nil
-            )
-
-        if tracking.type == .custom {
-            return progressMiniBar(
-                percentage: Double(tracking.value ?? 0)
-                    / Double(tracking.target ?? 1)
-            )
-        }
-
-        if tracking.type == .task {
-            let tasks: [Tasks] = goalTasks ?? []
-            let totalCount = tasks.count
-            let completedCount = tasks.filter { $0.is_completed }.count
-
-            let percentage: Double =
-                totalCount == 0
-                ? 0
-                : Double(completedCount) / Double(totalCount)
-            return progressMiniBar(percentage: percentage)
-
-        }
-
-        if tracking.type == .sub_goal {
-
-            Task {
-                let subGoals = getSubGoals(forPatentId: goalId)
-
-                let totalCount = subGoals.count
-                let completedCount = subGoals.filter { $0.is_completed }.count
-
-                let percentage: Double =
-                    totalCount == 0
-                    ? 0
-                    : Double(completedCount) / Double(totalCount)
-                return progressMiniBar(percentage: percentage)
-            }
-        }
-
-        return progressMiniBar(percentage: 0)
+    func getGoalProgressBar(
+        goalId: Int64,
+        goalTracking: GoalsTracking?,
+        goalTasks: [Tasks]?,
+        subGoals: [Goals]? = nil,
+        customRecords: [GoalsTrackingRecord]? = nil
+    ) -> some View {
+        GoalProgressMiniBarView(
+            model: self,
+            goalId: goalId,
+            goalTracking: goalTracking,
+            goalTasks: goalTasks ?? getTasks(goalId: goalId),
+            subGoals: subGoals ?? getSubGoals(forPatentId: goalId),
+            customRecords: customRecords
+        )
     }
 
     func fetchGoalsTrackingRecords(
@@ -284,12 +248,42 @@ extension  UnifiedDataModel {
         }
     }
 
-    func createGoalsTracking(_ tracking: GoalsTracking) async {
+    func createGoalsTracking(_ tracking: GoalsTracking) async -> GoalsTracking? {
         do{
-            try await manager.createGoalsTracking(tracking)
+            guard let savedTracking = try await manager.createGoalsTracking(tracking) else {
+                return nil
+            }
+            upsertGoalTrackingInMemory(savedTracking)
+            return savedTracking
         }
         catch{
             print("Failed to create goal tracking: \(error)")
+            return nil
+        }
+    }
+
+    func updateGoalsTracking(_ tracking: GoalsTracking) async -> GoalsTracking? {
+        do {
+            guard let savedTracking = try await manager.updateGoalsTracking(tracking) else {
+                return nil
+            }
+            upsertGoalTrackingInMemory(savedTracking)
+            return savedTracking
+        }
+        catch {
+            print("Failed to update goal tracking: \(error)")
+            return nil
+        }
+    }
+
+    func deleteGoalsTrackingRecords(forTracking trackingId: Int64) async -> Bool {
+        do {
+            try await manager.deleteGoalsTrackingRecords(forTracking: trackingId)
+            return true
+        }
+        catch {
+            print("Failed to delete goal tracking records: \(error)")
+            return false
         }
     }
 
@@ -303,5 +297,64 @@ extension  UnifiedDataModel {
         }
         return GoalsTracking.empty
 
+    }
+
+    private func upsertGoalTrackingInMemory(_ tracking: GoalsTracking) {
+        if let id = tracking.id,
+           let index = goalTracking.firstIndex(where: { $0.id == id }) {
+            goalTracking[index] = tracking
+            return
+        }
+
+        if let index = goalTracking.firstIndex(where: { $0.goal_id == tracking.goal_id }) {
+            goalTracking[index] = tracking
+            return
+        }
+
+        goalTracking.append(tracking)
+    }
+}
+
+@MainActor
+private struct GoalProgressMiniBarView: View {
+    @ObservedObject var model: UnifiedDataModel
+
+    let goalId: Int64
+    let goalTracking: GoalsTracking?
+    let goalTasks: [Tasks]
+    let subGoals: [Goals]
+    let customRecords: [GoalsTrackingRecord]?
+
+    @State private var loadedCustomRecords: [GoalsTrackingRecord]?
+
+    var body: some View {
+        progressMiniBar(percentage: snapshot.percentage)
+            .task(id: goalTracking?.id) {
+                await loadCustomRecordsIfNeeded()
+            }
+    }
+
+    private var snapshot: GoalProgressSnapshot {
+        GoalProgressCalculator.snapshot(
+            goalId: goalId,
+            tracking: goalTracking,
+            tasks: goalTasks,
+            subGoals: subGoals,
+            customRecords: customRecords ?? loadedCustomRecords
+        )
+    }
+
+    private func loadCustomRecordsIfNeeded() async {
+        guard customRecords == nil,
+              goalTracking?.type == .custom,
+              let trackingId = goalTracking?.id else {
+            loadedCustomRecords = nil
+            return
+        }
+
+        loadedCustomRecords = await model.fetchGoalsTrackingRecords(
+            forTracking: trackingId,
+            type: .custom
+        )
     }
 }
