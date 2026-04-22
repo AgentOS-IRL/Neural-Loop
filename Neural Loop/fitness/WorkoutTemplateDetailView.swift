@@ -8,7 +8,7 @@ struct WorkoutTemplateDetailView: View {
 
     init(
         template: WorkoutTemplateSummary,
-        dataManager: (any WorkoutDataManaging & FitnessTemplateDataManaging)? = nil,
+        dataManager: (any WorkoutTemplateEditingDataManaging)? = nil,
         onSaved: @escaping () -> Void = {}
     ) {
         self._viewModel = StateObject(
@@ -45,8 +45,8 @@ struct WorkoutTemplateDetailView: View {
             .presentationDetents([.fraction(0.5), .large])
             .presentationDragIndicator(.visible)
             .sheet(isPresented: $isEditPresented) {
-                WorkoutTemplateEditView(
-                    template: viewModel.summary,
+                WorkoutTemplateEditorView(
+                    mode: .edit(viewModel.summary),
                     dataManager: viewModel.dataManager
                 ) {
                     Task {
@@ -184,7 +184,7 @@ struct WorkoutTemplateDetailView: View {
             ProgressView()
                 .tint(AppTheme.textPrimary)
 
-            Text("Loading workout details")
+            Text("Loading template details")
                 .font(.system(.subheadline, design: .rounded, weight: .medium))
                 .foregroundStyle(AppTheme.textSecondary)
         }
