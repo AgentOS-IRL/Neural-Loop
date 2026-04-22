@@ -21,7 +21,7 @@ struct LiquidGlassTabBar: View {
     @State private var hoveredTab: AppTab? = nil
     
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        VStack(alignment: .trailing, spacing: 8) {
             if isUtilityMenuPresented {
                 utilityMenu
                     .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .bottomTrailing)))
@@ -36,7 +36,7 @@ struct LiquidGlassTabBar: View {
             }
             .padding(.horizontal, 16)
         }
-        .frame(height: 78, alignment: .bottom)
+        .frame(maxWidth: .infinity, alignment: .trailing)
     }
 
     private var contentNavigationPill: some View {
@@ -217,7 +217,6 @@ struct LiquidGlassTabBar: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Settings")
         .padding(.trailing, 16)
-        .offset(y: -76)
     }
     
     private func tabButton(_ tab: AppTab) -> some View {
