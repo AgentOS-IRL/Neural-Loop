@@ -36,6 +36,8 @@ enum AppShellDestination: Equatable {
 }
 
 extension AppTab {
+    static let contentTabs: [AppTab] = [.goals, .tasks, .ai, .calendar]
+
     var shellDestination: AppShellDestination {
         switch self {
         case .goals:

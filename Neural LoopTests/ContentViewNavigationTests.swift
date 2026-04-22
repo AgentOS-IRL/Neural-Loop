@@ -23,4 +23,16 @@ final class ContentViewNavigationTests: XCTestCase {
         XCTAssertFalse(AppTab.allCases.contains(where: { $0.rawValue == "To do" }))
         XCTAssertFalse(AppTab.allCases.contains(where: { $0.rawValue == "Habits" }))
     }
+
+    func testContentNavigationTabsExcludeSettings() {
+        XCTAssertEqual(AppTab.contentTabs, [.goals, .tasks, .ai, .calendar])
+        XCTAssertTrue(AppTab.contentTabs.contains(.tasks))
+        XCTAssertFalse(AppTab.contentTabs.contains(.settings))
+    }
+
+    func testSettingsRemainsUtilityDestination() {
+        XCTAssertEqual(AppTab.settings.shellDestination, .settings)
+        XCTAssertEqual(AppTab.settings.rawValue, "Settings")
+        XCTAssertEqual(AppTab.settings.systemImage, "gearshape")
+    }
 }

@@ -15,7 +15,7 @@ struct GlassTabBar: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            ForEach(AppTab.allCases, id: \.self) { tab in
+            ForEach(AppTab.contentTabs, id: \.self) { tab in
                 tabButton(tab)
             }
         }
