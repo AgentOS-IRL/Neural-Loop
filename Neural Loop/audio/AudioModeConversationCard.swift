@@ -125,12 +125,7 @@ struct AudioModeConversationCard: View, Equatable {
     }
 
     private func row(_ message: AudioTranscriptMessage) -> some View {
-        let playbackState = message.playbackState
-        let statusLabel = playbackState.shortLabel
-        let statusSystemImage = playbackState.systemImage
-        let isSubdued = playbackState.isTerminal && playbackState != .finished
-
-        return HStack {
+        HStack {
             if message.role.alignsTrailing {
                 Spacer(minLength: 34)
             }
@@ -153,24 +148,7 @@ struct AudioModeConversationCard: View, Equatable {
                     .foregroundStyle(AudioModeTheme.messageBodyColor(for: message.role))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
-
-                if let statusLabel, let statusSystemImage {
-                    HStack(spacing: 6) {
-                        Image(systemName: statusSystemImage)
-                            .font(.system(size: 11, weight: .semibold))
-                        Text(statusLabel)
-                            .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    }
-                    .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textSecondaryOpacity))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(Color.white.opacity(0.08))
-                    )
-                }
             }
-            .opacity(isSubdued ? 0.88 : 1.0)
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity, alignment: .leading)

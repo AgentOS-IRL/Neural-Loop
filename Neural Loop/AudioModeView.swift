@@ -10,22 +10,22 @@ import SwiftUI
 struct AudioModeView: View {
     @EnvironmentObject private var model: UnifiedDataModel
     @AppStorage("isAudioMode") private var isAudioMode = false
-    @AppStorage("isAudioModeSpeechMuted") private var isAudioModeSpeechMuted = true
-    @StateObject private var turnCoordinator: AudioTurnCoordinator
+    @StateObject private var transcriptionManager = AudioTranscriptionManager()
+    @StateObject private var coordinator: AudioModeCodexCoordinator
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var pulse = false
 
     @MainActor
     init(model: UnifiedDataModel = .shared) {
-        _turnCoordinator = StateObject(wrappedValue: AudioTurnCoordinator(model: model))
+        _coordinator = StateObject(wrappedValue: AudioModeCodexCoordinator(model: model))
     }
 
     var body: some View {
+        let conversationViewData = coordinator.viewData
         let viewState = AudioModeViewState(
-            transcription: turnCoordinator.transcriptionViewData,
-            conversation: turnCoordinator.conversationViewData,
-            turnState: turnCoordinator.turnState,
+            transcription: transcriptionManager.viewData,
+            conversation: conversationViewData,
             isAudioModeAvailable: model.canUseAudioMode
         )
 
@@ -54,8 +54,6 @@ struct AudioModeView: View {
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     AudioModeActionBar(
                         state: viewState.actionBar,
-                        isSpeechMuted: isAudioModeSpeechMuted,
-                        onToggleSpeechMute: toggleSpeechMute,
                         onSwitchToManualMode: exitAudioMode
                     )
                     .equatable()
@@ -67,8 +65,10 @@ struct AudioModeView: View {
             }
         }
         .onAppear {
-            turnCoordinator.refreshPermissionState()
-            turnCoordinator.setSpeechMuted(isAudioModeSpeechMuted)
+            transcriptionManager.refreshPermissionState()
+            transcriptionManager.onCommittedTranscript = { [coordinator] transcript in
+                coordinator.handleCommittedTranscript(transcript)
+            }
             reconcileAuthorizationState()
             guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 1.7).repeatForever(autoreverses: true)) {
@@ -76,10 +76,9 @@ struct AudioModeView: View {
             }
         }
         .onDisappear {
-            turnCoordinator.tearDown()
-        }
-        .onChange(of: isAudioModeSpeechMuted) { _, newValue in
-            turnCoordinator.setSpeechMuted(newValue)
+            transcriptionManager.stopRecording()
+            transcriptionManager.onCommittedTranscript = nil
+            coordinator.resetConversation()
         }
         .onChange(of: model.secretsLoaded) { _, _ in
             reconcileAuthorizationState()
@@ -116,19 +115,27 @@ struct AudioModeView: View {
 
     private func toggleMicrophone() {
         Task {
-            await turnCoordinator.toggleMicrophone()
+            if transcriptionManager.isRecording {
+                transcriptionManager.stopRecording()
+                transcriptionManager.onCommittedTranscript = nil
+                coordinator.resetConversation()
+            } else {
+                coordinator.resetConversation()
+                transcriptionManager.onCommittedTranscript = { [coordinator] transcript in
+                    coordinator.handleCommittedTranscript(transcript)
+                }
+                await transcriptionManager.startRecording()
+            }
         }
     }
 
     private func exitAudioMode() {
-        turnCoordinator.tearDown()
+        transcriptionManager.stopRecording()
+        transcriptionManager.onCommittedTranscript = nil
+        coordinator.resetConversation()
         withAnimation(.easeInOut(duration: 0.24)) {
             isAudioMode = false
         }
-    }
-
-    private func toggleSpeechMute() {
-        isAudioModeSpeechMuted.toggle()
     }
 
     private func reconcileAuthorizationState() {

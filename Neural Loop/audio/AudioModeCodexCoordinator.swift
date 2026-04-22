@@ -24,7 +24,6 @@ protocol AudioModeCodexModel: AnyObject {
 @MainActor
 final class AudioModeCodexCoordinator: ObservableObject {
     @Published private(set) var conversationFeed: [AudioTranscriptMessage] = []
-    @Published private(set) var messagePlaybackStates: [AudioTranscriptMessage.ID: AudioTranscriptMessagePlaybackState] = [:]
     @Published private(set) var codexState = CodexConversationState()
     @Published private(set) var isSending = false
     @Published private(set) var errorMessage: String?
@@ -65,7 +64,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
 
     var viewData: AudioModeConversationViewData {
         AudioModeConversationViewData(
-            messages: conversationFeed.map(decoratedMessage),
+            messages: conversationFeed,
             bannerText: bannerText,
             bannerTone: bannerTone,
             isSending: isSending,
@@ -86,7 +85,6 @@ final class AudioModeCodexCoordinator: ObservableObject {
         drainTask = nil
         pendingTranscripts.removeAll()
         conversationFeed.removeAll()
-        messagePlaybackStates.removeAll()
         codexMessages.removeAll()
         intentInstructions = NeuralLoopCodexIntents.getDefaultIntentInstructions(currentDateISO: ISO8601DateFormatter().string(from: Date()))
         codexState = CodexConversationState()
@@ -105,55 +103,6 @@ final class AudioModeCodexCoordinator: ObservableObject {
         conversationFeed.append(.init(role: .user, content: trimmedTranscript))
         pendingTranscripts.append(trimmedTranscript)
         startDrainIfNeeded()
-    }
-
-    func newestSpeakableMessage(excluding excludedMessageIDs: Set<AudioTranscriptMessage.ID> = []) -> AudioTranscriptMessage? {
-        conversationFeed.last { message in
-            guard !excludedMessageIDs.contains(message.id) else {
-                return false
-            }
-
-            guard isSpeakable(message) else {
-                return false
-            }
-
-            return playbackState(for: message.id).isReplayEligible
-        }.map(decoratedMessage)
-    }
-
-    func markMessagePlaybackState(
-        _ state: AudioTranscriptMessagePlaybackState,
-        for messageID: AudioTranscriptMessage.ID
-    ) {
-        guard playbackState(for: messageID) != state else {
-            return
-        }
-
-        messagePlaybackStates[messageID] = state
-    }
-
-    func markMessagePlaybackStarted(_ messageID: AudioTranscriptMessage.ID) {
-        markMessagePlaybackState(.speaking, for: messageID)
-    }
-
-    func markMessagePlaybackFinished(_ messageID: AudioTranscriptMessage.ID) {
-        markMessagePlaybackState(.finished, for: messageID)
-    }
-
-    func markMessagePlaybackInterrupted(_ messageID: AudioTranscriptMessage.ID) {
-        markMessagePlaybackState(.interrupted, for: messageID)
-    }
-
-    func markMessagePlaybackMuted(_ messageID: AudioTranscriptMessage.ID) {
-        markMessagePlaybackState(.muted, for: messageID)
-    }
-
-    func markMessagePlaybackSkipped(_ messageID: AudioTranscriptMessage.ID) {
-        markMessagePlaybackState(.skipped, for: messageID)
-    }
-
-    func markMessagePlaybackFailed(_ messageID: AudioTranscriptMessage.ID) {
-        markMessagePlaybackState(.failed, for: messageID)
     }
 
     private func startDrainIfNeeded() {
@@ -537,28 +486,6 @@ final class AudioModeCodexCoordinator: ObservableObject {
         conversationFeed.append(.init(role: .error, content: trimmed))
     }
 
-    private func decoratedMessage(_ message: AudioTranscriptMessage) -> AudioTranscriptMessage {
-        AudioTranscriptMessage(
-            id: message.id,
-            role: message.role,
-            content: message.content,
-            playbackState: playbackState(for: message.id)
-        )
-    }
-
-    private func isSpeakable(_ message: AudioTranscriptMessage) -> Bool {
-        switch message.role {
-        case .assistant, .toolResult, .error:
-            return true
-        case .user, .status:
-            return false
-        }
-    }
-
-    private func playbackState(for messageID: AudioTranscriptMessage.ID) -> AudioTranscriptMessagePlaybackState {
-        messagePlaybackStates[messageID] ?? .idle
-    }
-
     private func normalizedToolName(_ name: String) -> String {
         name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
@@ -714,15 +641,4 @@ extension AudioModeCodexCoordinator {
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
     }()
-}
-
-extension AudioTranscriptMessagePlaybackState {
-    var isReplayEligible: Bool {
-        switch self {
-        case .idle, .speaking:
-            return true
-        case .finished, .interrupted, .muted, .skipped, .canceled, .failed:
-            return false
-        }
-    }
 }
