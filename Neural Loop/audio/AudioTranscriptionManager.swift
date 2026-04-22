@@ -370,13 +370,6 @@ final class AudioTranscriptionManager: ObservableObject {
     }
 
     func pauseRecording() {
-        if isAwaitingSegmentCommit || isSegmentOpen {
-            invalidateCooldownTimer()
-            session.rolloverSegment()
-            commitCurrentTranscriptIfNeeded()
-            isAwaitingSegmentCommit = false
-            isSegmentOpen = false
-        }
         stopRecording(clearTranscript: false, clearHistory: false)
     }
 
