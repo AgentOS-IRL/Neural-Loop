@@ -16,7 +16,7 @@ struct AudioModeHeroCard: View, Equatable {
         VStack(alignment: .leading, spacing: AudioModeTheme.Metrics.cardSpacing) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Audio Mode")
+                    Text(AudioModeTransitionCopy.pageTitle)
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textTertiaryOpacity))
 

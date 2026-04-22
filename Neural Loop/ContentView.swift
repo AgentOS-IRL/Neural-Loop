@@ -13,23 +13,11 @@ let logger = Logger(subsystem: "NeuralLoop", category: "App")
 
 struct ContentView: View {
     @EnvironmentObject private var model: UnifiedDataModel
-    @AppStorage("isAudioMode") private var isAudioMode = false
     @State private var selectedTab: AppTab = .calendar
 
     var body: some View {
-        ZStack {
-            if shouldPresentAudioModeShell {
-                AudioModeView()
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-            } else {
-                manualShell
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(.easeInOut(duration: 0.26), value: shouldPresentAudioModeShell)
+        manualShell
         .onAppear {
-            reconcileAudioModePreference()
             if !isRunningUnderTests() {
                 Task {
                     _ = await NotificationManager.shared.requestPermission()
@@ -37,19 +25,6 @@ struct ContentView: View {
                 }
             }
         }
-        .onChange(of: model.secretsLoaded) { _, _ in
-            reconcileAudioModePreference()
-        }
-        .onChange(of: model.canUseAudioMode) { _, _ in
-            reconcileAudioModePreference()
-        }
-    }
-
-    private var shouldPresentAudioModeShell: Bool {
-        shouldShowAudioModeShell(
-            isAudioModeEnabled: isAudioMode,
-            canUseAudioMode: model.canUseAudioMode
-        )
     }
 
     @ViewBuilder
@@ -60,6 +35,8 @@ struct ContentView: View {
                 GoalScreenView()
             case .tasks:
                 TaskHubView()
+            case .ai:
+                AudioModeView()
             case .calendar:
                 CalendarDayView()
             case .settings:
@@ -74,27 +51,6 @@ struct ContentView: View {
                 .padding(.bottom, -20)
         }
     }
-
-    private func reconcileAudioModePreference() {
-        guard model.secretsLoaded else {
-            return
-        }
-
-        guard !model.canUseAudioMode else {
-            return
-        }
-
-        if isAudioMode {
-            isAudioMode = false
-        }
-    }
-}
-
-func shouldShowAudioModeShell(
-    isAudioModeEnabled: Bool,
-    canUseAudioMode: Bool
-) -> Bool {
-    isAudioModeEnabled && canUseAudioMode
 }
 
 struct ContentView_Previews: PreviewProvider {

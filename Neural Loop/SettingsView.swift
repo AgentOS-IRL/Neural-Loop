@@ -16,7 +16,6 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @EnvironmentObject private var model: UnifiedDataModel
     @State private var pendingRequests: [UNNotificationRequest] = []
-    @AppStorage("isAudioMode") private var isAudioMode = false
     @AppStorage(llmEnabledOverrideStorageKey) private var llmEnabledOverride = false
     @AppStorage(settingsDebugEnabledStorageKey) private var isDebugEnabled = false
     @State private var isRefreshingSecrets = false
@@ -49,7 +48,6 @@ struct SettingsView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
                         llmSection
-                        appModeSection
                         systemSection
                         if shouldShowSettingsDebugSections(isDebugEnabled: isDebugEnabled) {
                             loadedSecretsSection
@@ -87,21 +85,6 @@ struct SettingsView: View {
                 await notificationTester.refreshAuthorizationStatus()
                 await loadPendingNotifications()
             }
-            .onAppear {
-                if model.secretsLoaded, !model.canUseAudioMode {
-                    isAudioMode = false
-                }
-            }
-            .onChange(of: model.secretsLoaded) { _, _ in
-                if model.secretsLoaded, !model.canUseAudioMode {
-                    isAudioMode = false
-                }
-            }
-            .onChange(of: model.canUseAudioMode) { _, _ in
-                if model.secretsLoaded, !model.canUseAudioMode {
-                    isAudioMode = false
-                }
-            }
             .onChange(of: isDebugEnabled) { _, newValue in
                 guard newValue else { return }
                 Task { await loadPendingNotifications() }
@@ -137,7 +120,7 @@ struct SettingsView: View {
 
                     statusRow(
                         isOn: model.secretsLoaded && model.canUseAudioMode,
-                        text: model.secretsLoaded ? (model.canUseAudioMode ? "Audio mode secrets present" : "Audio mode secrets missing") : "Refreshing secrets..."
+                        text: model.secretsLoaded ? (model.canUseAudioMode ? "AI secrets present" : "AI secrets missing") : "Refreshing secrets..."
                     )
                 }
 
@@ -176,104 +159,13 @@ struct SettingsView: View {
         }
     }
 
-    private var appModeSection: some View {
-        settingsCard(title: "App Mode") {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(alignment: .top, spacing: 14) {
-                    ZStack {
-                        Circle()
-                            .fill(Color(red: 0.14, green: 0.49, blue: 0.53).opacity(0.22))
-                            .frame(width: 44, height: 44)
-
-                        Image(systemName: "waveform.circle.fill")
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(AppTheme.accentGradient)
-                    }
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(AudioModeTransitionCopy.modeTitle)
-                            .font(.system(.headline, design: .rounded, weight: .bold))
-                            .foregroundStyle(AppTheme.textPrimary)
-
-                        Text(AudioModeTransitionCopy.settingsSummary)
-                            .font(.system(.subheadline, design: .rounded, weight: .medium))
-                            .foregroundStyle(AppTheme.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-
-                Divider()
-                    .background(AppTheme.borderGradient)
-
-                HStack(alignment: .center, spacing: 10) {
-                    Text("Current mode")
-                        .font(.system(.caption, design: .rounded, weight: .semibold))
-                        .foregroundStyle(AppTheme.textSecondary)
-
-                    Text(AudioModeTransitionCopy.manualModeTitle)
-                        .font(.system(.caption, design: .rounded, weight: .bold))
-                        .foregroundStyle(AppTheme.textPrimary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(Color(red: 0.14, green: 0.49, blue: 0.53).opacity(0.16))
-                        )
-
-                    Spacer()
-                }
-
-                Button {
-                    guard shouldEnableAudioModeEntry(
-                        secretsLoaded: model.secretsLoaded,
-                        canUseAudioMode: model.canUseAudioMode
-                    ) else {
-                        return
-                    }
-
-                    isAudioMode = true
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "chevron.right.circle.fill")
-                            .font(.system(size: 18, weight: .semibold))
-                        Text(AudioModeTransitionCopy.enterActionTitle)
-                            .font(.system(.body, design: .rounded, weight: .semibold))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .foregroundStyle(AppTheme.textPrimary)
-                    .background(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(AppTheme.cardGradient.opacity(0.72))
-                    )
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
-                    }
-                }
-                .buttonStyle(.plain)
-                .disabled(!shouldEnableAudioModeEntry(secretsLoaded: model.secretsLoaded, canUseAudioMode: model.canUseAudioMode))
-                .opacity(shouldEnableAudioModeEntry(secretsLoaded: model.secretsLoaded, canUseAudioMode: model.canUseAudioMode) ? 1 : 0.55)
-                .accessibilityLabel(AudioModeTransitionCopy.enterActionTitle)
-                .accessibilityHint(AudioModeTransitionCopy.entryAccessibilityHint)
-
-                Text(AudioModeTransitionCopy.availabilityMessage(
-                    secretsLoaded: model.secretsLoaded,
-                    canUseAudioMode: model.canUseAudioMode
-                ))
-                .font(.system(.caption, design: .rounded, weight: .medium))
-                .foregroundStyle(AppTheme.textSecondary)
-            }
-        }
-    }
-
     private var systemSection: some View {
         settingsCard(title: "System") {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 8) {
                     Image(systemName: model.canUseAudioMode ? "checkmark.seal.fill" : "xmark.seal")
                         .foregroundStyle(model.canUseAudioMode ? .green : AppTheme.textSecondary)
-                    Text(model.secretsLoaded ? (model.canUseAudioMode ? "\(codexAuthTokenSecretKey) present" : "\(codexAuthTokenSecretKey) missing") : "Checking audio entitlement...")
+                    Text(model.secretsLoaded ? (model.canUseAudioMode ? "\(codexAuthTokenSecretKey) present" : "\(codexAuthTokenSecretKey) missing") : "Checking AI entitlement...")
                         .font(.system(.subheadline, design: .rounded, weight: .medium))
                         .foregroundStyle(AppTheme.textSecondary)
                 }
@@ -503,13 +395,6 @@ struct SettingsView: View {
             .padding(.vertical, 8)
         }
     }
-}
-
-func shouldEnableAudioModeEntry(
-    secretsLoaded: Bool,
-    canUseAudioMode: Bool
-) -> Bool {
-    secretsLoaded && canUseAudioMode
 }
 
 let settingsDebugEnabledStorageKey = "settingsDebugEnabled"

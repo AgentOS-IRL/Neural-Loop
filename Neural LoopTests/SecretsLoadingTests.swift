@@ -253,50 +253,10 @@ final class SecretsLoadingTests: XCTestCase {
         XCTAssertFalse(model.llm_enabled)
     }
 
-    func testAudioModeRoutingRequiresAuthorization() {
-        XCTAssertFalse(
-            shouldShowAudioModeShell(
-                isAudioModeEnabled: true,
-                canUseAudioMode: false
-            )
-        )
-
-        XCTAssertTrue(
-            shouldShowAudioModeShell(
-                isAudioModeEnabled: true,
-                canUseAudioMode: true
-            )
-        )
-    }
-
-    func testSettingsAudioModeEntryOnlyEnablesWhenAuthorizedSecretsAreLoaded() {
-        XCTAssertFalse(
-            shouldEnableAudioModeEntry(
-                secretsLoaded: false,
-                canUseAudioMode: true
-            )
-        )
-
-        XCTAssertFalse(
-            shouldEnableAudioModeEntry(
-                secretsLoaded: true,
-                canUseAudioMode: false
-            )
-        )
-
-        XCTAssertTrue(
-            shouldEnableAudioModeEntry(
-                secretsLoaded: true,
-                canUseAudioMode: true
-            )
-        )
-    }
-
-    func testAudioModeTransitionCopyUsesSymmetricLabels() {
-        XCTAssertEqual(AudioModeTransitionCopy.enterActionTitle, "Enter Audio Mode")
-        XCTAssertEqual(AudioModeTransitionCopy.returnActionTitle, "Return to Manual Mode")
-        XCTAssertEqual(AudioModeTransitionCopy.manualModeTitle, "Manual Mode")
-        XCTAssertEqual(AudioModeTransitionCopy.activeStatusTitle, "Audio Mode active")
+    func testAudioModeTransitionCopyUsesAIPageLabels() {
+        XCTAssertEqual(AudioModeTransitionCopy.pageTitle, "AI")
+        XCTAssertEqual(AudioModeTransitionCopy.activeStatusTitle, "AI ready")
+        XCTAssertEqual(AudioModeTransitionCopy.activeStatusDetail, "Voice capture can send committed segments to Codex.")
     }
 
     func testSettingsDebugSectionsOnlyShowWhenDebugIsEnabled() {

@@ -71,8 +71,6 @@ struct AudioModeViewState: Equatable {
         let primaryStatusChips: [String]
         let modeStatusTitle: String
         let modeStatusDetail: String
-        let switchButtonTitle: String
-        let switchButtonAccessibilityHint: String
     }
 
     let hero: Hero
@@ -83,9 +81,9 @@ struct AudioModeViewState: Equatable {
     init(
         transcription: AudioModeTranscriptionViewData,
         conversation: AudioModeConversationViewData,
-        isAudioModeAvailable: Bool = true
+        isAIPageAvailable: Bool = true
     ) {
-        let heroBadge = if !isAudioModeAvailable {
+        let heroBadge = if !isAIPageAvailable {
             "Unavailable"
         } else {
             transcription.badgeText
@@ -112,9 +110,9 @@ struct AudioModeViewState: Equatable {
 
         let emptyTitle: String
         let emptyDetail: String
-        if !isAudioModeAvailable {
-            emptyTitle = "Audio Mode is unavailable"
-            emptyDetail = "Return to manual mode to keep working while audio access is unavailable."
+        if !isAIPageAvailable {
+            emptyTitle = "AI is unavailable"
+            emptyDetail = "Load the required Codex secrets in Settings before starting a voice session."
         } else if conversation.isLLMDisabled {
             emptyTitle = "Codex replies are turned off"
             emptyDetail = "Voice capture still works, but assistant responses stay paused until LLM access is enabled."
@@ -132,7 +130,7 @@ struct AudioModeViewState: Equatable {
             tintState: transcription.displayState,
             microphoneSystemImage: transcription.microphoneSystemImage,
             micButtonLabel: transcription.micButtonLabel,
-            isActionDisabled: transcription.isActionDisabled,
+            isActionDisabled: !isAIPageAvailable || transcription.isActionDisabled,
             isRecording: transcription.isRecording
         )
         self.transcript = Transcript(
@@ -152,10 +150,8 @@ struct AudioModeViewState: Equatable {
         )
         self.actionBar = ActionBar(
             primaryStatusChips: chips,
-            modeStatusTitle: isAudioModeAvailable ? AudioModeTransitionCopy.activeStatusTitle : "Audio Mode unavailable",
-            modeStatusDetail: isAudioModeAvailable ? AudioModeTransitionCopy.activeStatusDetail : "Return to Manual Mode to keep working while audio access is unavailable.",
-            switchButtonTitle: AudioModeTransitionCopy.returnActionTitle,
-            switchButtonAccessibilityHint: AudioModeTransitionCopy.returnAccessibilityHint
+            modeStatusTitle: isAIPageAvailable ? AudioModeTransitionCopy.activeStatusTitle : "AI unavailable",
+            modeStatusDetail: isAIPageAvailable ? AudioModeTransitionCopy.activeStatusDetail : "AI requires loaded Codex secrets before voice capture can start."
         )
     }
 }
