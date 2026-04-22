@@ -147,11 +147,20 @@ extension  UnifiedDataModel {
             let removedGoalIds = goals
                 .filter { $0.lifearea_id == lifeAreaId }
                 .compactMap(\.id)
+            let removedGoalIdSet = Set(removedGoalIds)
+            let taskBelongsToDeletedLifeArea: (Tasks) -> Bool = { task in
+                task.lifearea_id == lifeAreaId ||
+                task.goal_id.map { removedGoalIdSet.contains($0) } == true
+            }
+            let habitBelongsToDeletedLifeArea: (Habits) -> Bool = { habit in
+                habit.lifearea_id == lifeAreaId ||
+                habit.goal_id.map { removedGoalIdSet.contains($0) } == true
+            }
             let removedTaskIds = tasks
-                .filter { $0.lifearea_id == lifeAreaId }
+                .filter(taskBelongsToDeletedLifeArea)
                 .compactMap(\.id)
             let removedHabitIds = habits
-                .filter { $0.lifearea_id == lifeAreaId }
+                .filter(habitBelongsToDeletedLifeArea)
                 .compactMap(\.id)
 
             try await manager.deleteLifeArea(id: lifeAreaId)
@@ -169,8 +178,8 @@ extension  UnifiedDataModel {
             goalTracking.removeAll { tracking in
                 removedGoalIds.contains(tracking.goal_id)
             }
-            tasks.removeAll { $0.lifearea_id == lifeAreaId }
-            habits.removeAll { $0.lifearea_id == lifeAreaId }
+            tasks.removeAll(where: taskBelongsToDeletedLifeArea)
+            habits.removeAll(where: habitBelongsToDeletedLifeArea)
             removeGoalsFromLongTermBuckets(goalIds: removedGoalIds)
         }
         catch {
