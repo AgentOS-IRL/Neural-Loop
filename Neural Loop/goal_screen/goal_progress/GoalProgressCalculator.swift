@@ -34,7 +34,7 @@ enum GoalProgressCalculator {
         tracking: GoalsTracking?,
         tasks: [Tasks],
         subGoals: [Goals],
-        customRecords: [GoalsTrackingRecord] = [],
+        customRecords: [GoalsTrackingRecord]? = nil,
         calendar: Calendar = .neuralLoopDisplay
     ) -> GoalProgressSnapshot {
         guard let tracking, !tracking.isEmpty else {
@@ -55,11 +55,22 @@ enum GoalProgressCalculator {
 
     private static func customSnapshot(
         tracking: GoalsTracking,
-        records: [GoalsTrackingRecord],
+        records: [GoalsTrackingRecord]?,
         calendar: Calendar
     ) -> GoalProgressSnapshot {
         let target = tracking.target ?? 0
         let label = tracking.label ?? "Times"
+        guard let records, !records.isEmpty else {
+            let current = tracking.value ?? 0
+            return GoalProgressSnapshot(
+                current: current,
+                target: target,
+                label: label,
+                percentage: percentage(current: current, target: target),
+                chartRecords: [:]
+            )
+        }
+
         var runningTotal = 0.0
         var chartRecords: [Date: Double] = [:]
 

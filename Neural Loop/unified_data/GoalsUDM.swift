@@ -201,16 +201,17 @@ extension  UnifiedDataModel {
         goalId: Int64,
         goalTracking: GoalsTracking?,
         goalTasks: [Tasks]?,
-        subGoals: [Goals]? = nil
+        subGoals: [Goals]? = nil,
+        customRecords: [GoalsTrackingRecord]? = nil
     ) -> some View {
-        let snapshot = GoalProgressCalculator.snapshot(
+        GoalProgressMiniBarView(
+            model: self,
             goalId: goalId,
-            tracking: goalTracking,
-            tasks: goalTasks ?? getTasks(goalId: goalId),
-            subGoals: subGoals ?? getSubGoals(forPatentId: goalId)
+            goalTracking: goalTracking,
+            goalTasks: goalTasks ?? getTasks(goalId: goalId),
+            subGoals: subGoals ?? getSubGoals(forPatentId: goalId),
+            customRecords: customRecords
         )
-
-        return progressMiniBar(percentage: snapshot.percentage)
     }
 
     func fetchGoalsTrackingRecords(
@@ -311,5 +312,49 @@ extension  UnifiedDataModel {
         }
 
         goalTracking.append(tracking)
+    }
+}
+
+@MainActor
+private struct GoalProgressMiniBarView: View {
+    @ObservedObject var model: UnifiedDataModel
+
+    let goalId: Int64
+    let goalTracking: GoalsTracking?
+    let goalTasks: [Tasks]
+    let subGoals: [Goals]
+    let customRecords: [GoalsTrackingRecord]?
+
+    @State private var loadedCustomRecords: [GoalsTrackingRecord]?
+
+    var body: some View {
+        progressMiniBar(percentage: snapshot.percentage)
+            .task(id: goalTracking?.id) {
+                await loadCustomRecordsIfNeeded()
+            }
+    }
+
+    private var snapshot: GoalProgressSnapshot {
+        GoalProgressCalculator.snapshot(
+            goalId: goalId,
+            tracking: goalTracking,
+            tasks: goalTasks,
+            subGoals: subGoals,
+            customRecords: customRecords ?? loadedCustomRecords
+        )
+    }
+
+    private func loadCustomRecordsIfNeeded() async {
+        guard customRecords == nil,
+              goalTracking?.type == .custom,
+              let trackingId = goalTracking?.id else {
+            loadedCustomRecords = nil
+            return
+        }
+
+        loadedCustomRecords = await model.fetchGoalsTrackingRecords(
+            forTracking: trackingId,
+            type: .custom
+        )
     }
 }

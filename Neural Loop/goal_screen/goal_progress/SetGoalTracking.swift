@@ -150,19 +150,20 @@ struct SetGoalTracking: View {
         errorMessage = nil
         defer { isSaving = false }
 
+        let existingTracking = await existingTrackingForSave()
         let tracking = GoalsTracking(
-            id: goalTracking.id,
+            id: existingTracking?.id,
             goal_id: goalId,
             type: type,
             value: value,
             target: target,
             label: label,
-            created_at: goalTracking.created_at,
+            created_at: existingTracking?.created_at,
             updated_at: nil
         )
 
-        if let trackingId = goalTracking.id {
-            if goalTracking.type != type {
+        if let trackingId = existingTracking?.id {
+            if existingTracking?.type != type {
                 let didClearRecords = await model.deleteGoalsTrackingRecords(forTracking: trackingId)
                 guard didClearRecords else {
                     errorMessage = "Could not clear old progress records. Please try again."
@@ -175,6 +176,7 @@ struct SetGoalTracking: View {
                 return
             }
             onSave(savedTracking)
+            goalTracking = savedTracking
             dismiss()
             return
         }
@@ -184,7 +186,22 @@ struct SetGoalTracking: View {
             return
         }
         onSave(savedTracking)
+        goalTracking = savedTracking
         dismiss()
+    }
+
+    private func existingTrackingForSave() async -> GoalsTracking? {
+        if let id = goalTracking.id {
+            return goalTracking
+        }
+
+        if let cachedTracking = model.getGoalTracking(goalId: goalId),
+           !cachedTracking.isEmpty {
+            return cachedTracking
+        }
+
+        let fetchedTracking = await model.fetchGoalsTracking(forGoal: goalId)
+        return fetchedTracking.isEmpty ? nil : fetchedTracking
     }
 
     private var trimmedLabel: String? {

@@ -46,6 +46,20 @@ final class GoalProgressCalculatorTests: XCTestCase {
         XCTAssertEqual(snapshot.label, "Miles")
     }
 
+    func testCustomSnapshotFallsBackToTrackingValueWhenRecordsAreNotLoaded() {
+        let snapshot = GoalProgressCalculator.snapshot(
+            goalId: 10,
+            tracking: customTracking(value: 4, target: 10, label: "Hours"),
+            tasks: [],
+            subGoals: [],
+            calendar: calendar
+        )
+
+        XCTAssertEqual(snapshot.current, 4)
+        XCTAssertEqual(snapshot.target, 10)
+        XCTAssertEqual(snapshot.percentage, 0.4)
+    }
+
     func testTaskProgressCountsCompletedTasksAndAccumulatesSameDayCompletions() {
         let completionDate = date(year: 2026, month: 4, day: 20, hour: 11)
         let snapshot = GoalProgressCalculator.snapshot(
@@ -142,11 +156,15 @@ final class GoalProgressCalculatorTests: XCTestCase {
     }
 
     private func customTracking(target: Double, label: String?) -> GoalsTracking {
+        customTracking(value: nil, target: target, label: label)
+    }
+
+    private func customTracking(value: Double?, target: Double, label: String?) -> GoalsTracking {
         GoalsTracking(
             id: 1,
             goal_id: 10,
             type: .custom,
-            value: nil,
+            value: value,
             target: target,
             label: label,
             created_at: nil,
