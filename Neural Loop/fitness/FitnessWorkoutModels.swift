@@ -52,6 +52,18 @@ struct WorkoutTemplateSummary: Identifiable, Equatable {
     }
 }
 
+struct WorkoutTemplateExerciseRow: Identifiable, Equatable {
+    let id: Int64
+    var exerciseName: String
+    var equipmentName: String
+    var setCount: Int
+    var orderIndex: Int
+
+    var setText: String {
+        setCount == 1 ? "1 set" : "\(setCount) sets"
+    }
+}
+
 protocol WorkoutDataManaging {
     func fetchAllEquipment() async throws -> [Equipment]
     func fetchAllExercises() async throws -> [Exercise]
