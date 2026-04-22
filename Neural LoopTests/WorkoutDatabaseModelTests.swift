@@ -109,7 +109,8 @@ final class WorkoutDatabaseModelTests: XCTestCase {
         let exercisePayload = try encodedPayload(exercise)
 
         XCTAssertTrue(exercisePayload["equipment_id"] is NSNull)
-        XCTAssertEqual(exercisePayload.count, 3)
+        XCTAssertTrue(exercisePayload["notes"] is NSNull)
+        XCTAssertEqual(exercisePayload.count, 4)
 
         let session = UpdateWorkoutSessionRequest(
             date: workoutDate("2026-04-22"),
