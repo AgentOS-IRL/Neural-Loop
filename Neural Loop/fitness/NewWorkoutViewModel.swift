@@ -103,6 +103,25 @@ final class NewWorkoutViewModel: ObservableObject {
         exerciseCards.append(contentsOf: newCards)
     }
 
+    func syncExercises(with selections: [ExerciseLibraryItem]) {
+        let existingCardsByID = Dictionary(uniqueKeysWithValues: exerciseCards.map { ($0.id, $0) })
+        let nextCards = selections.map { item -> WorkoutExerciseCardState in
+            if let existingCard = existingCardsByID[item.id] {
+                var updatedCard = existingCard
+                updatedCard.exercise = item
+                return updatedCard
+            }
+
+            return WorkoutExerciseCardState(
+                id: item.id,
+                exercise: item,
+                sets: [WorkoutSetDraft(setNumber: 1)]
+            )
+        }
+
+        exerciseCards = nextCards
+    }
+
     func addSet(to cardID: WorkoutExerciseCardState.ID) {
         guard let cardIndex = exerciseCards.firstIndex(where: { $0.id == cardID }) else {
             return
@@ -140,6 +159,8 @@ final class NewWorkoutViewModel: ObservableObject {
         errorMessage = nil
         defer { isSaving = false }
 
+        var createdSessionID: Int64?
+
         do {
             let session = try await dataManager.createWorkoutSession(
                 CreateWorkoutSessionRequest(date: Date(), session_type: "Strength")
@@ -148,6 +169,7 @@ final class NewWorkoutViewModel: ObservableObject {
             guard let sessionID = session.id else {
                 throw WorkoutDatabaseError.missingIdentifier
             }
+            createdSessionID = sessionID
 
             for card in exerciseCards {
                 for draftSet in card.sets {
@@ -176,8 +198,17 @@ final class NewWorkoutViewModel: ObservableObject {
             }
 
             return true
-        } catch {
-            errorMessage = error.localizedDescription
+        } catch let saveError {
+            if let createdSessionID {
+                do {
+                    try await dataManager.deleteWorkoutSession(id: createdSessionID)
+                } catch {
+                    errorMessage = "\(saveError.localizedDescription) Cleanup failed: \(error.localizedDescription)"
+                    return false
+                }
+            }
+
+            errorMessage = saveError.localizedDescription
             return false
         }
     }

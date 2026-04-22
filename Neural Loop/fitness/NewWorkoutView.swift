@@ -34,7 +34,7 @@ struct NewWorkoutView: View {
                     items: viewModel.availableExercises,
                     initiallySelectedExerciseIDs: viewModel.selectedExerciseIDs,
                     onAdd: { selections in
-                        viewModel.addExercises(selections)
+                        viewModel.syncExercises(with: selections)
                     }
                 )
             }

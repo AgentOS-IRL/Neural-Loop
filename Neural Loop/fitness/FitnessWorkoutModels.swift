@@ -44,6 +44,7 @@ protocol WorkoutDataManaging {
     func fetchAllExercises() async throws -> [Exercise]
     func createWorkoutSession(_ request: CreateWorkoutSessionRequest) async throws -> WorkoutSession
     func createWorkoutSet(_ request: CreateWorkoutSetRequest) async throws -> WorkoutSet
+    func deleteWorkoutSession(id: Int64) async throws
 }
 
 extension DBManager: WorkoutDataManaging {}

@@ -30,6 +30,27 @@ final class NewWorkoutViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.exerciseCards.count, 1)
     }
 
+    func testSyncExercisesRemovesDeselectedCardsAndPreservesRetainedDrafts() {
+        let viewModel = NewWorkoutViewModel(dataManager: FakeWorkoutDataManager())
+        let benchPress = exercise(id: 1, name: "Bench Press")
+        let squat = exercise(id: 2, name: "Squat")
+        let row = exercise(id: 3, name: "Cable Row")
+
+        viewModel.addExercises([benchPress, squat])
+        let retainedCardID = viewModel.exerciseCards[0].id
+        let retainedSetID = viewModel.exerciseCards[0].sets[0].id
+        viewModel.updateWeight(cardID: retainedCardID, setID: retainedSetID, value: "80.5")
+        viewModel.updateReps(cardID: retainedCardID, setID: retainedSetID, value: "8")
+
+        viewModel.syncExercises(with: [benchPress, row])
+
+        XCTAssertEqual(viewModel.exerciseCards.map(\.id), [1, 3])
+        XCTAssertEqual(viewModel.exerciseCards[0].sets.count, 1)
+        XCTAssertEqual(viewModel.exerciseCards[0].sets[0].weightText, "80.5")
+        XCTAssertEqual(viewModel.exerciseCards[0].sets[0].repsText, "8")
+        XCTAssertEqual(viewModel.exerciseCards[1].sets.count, 1)
+    }
+
     func testAddSetDuplicatesPreviousWeightAndReps() {
         let viewModel = NewWorkoutViewModel(dataManager: FakeWorkoutDataManager())
         viewModel.addExercises([exercise(id: 1, name: "Bench Press")])
@@ -95,6 +116,23 @@ final class NewWorkoutViewModelTests: XCTestCase {
         XCTAssertEqual(dataManager.createdSetRequests[1].weight, Decimal(string: "82.5"))
     }
 
+    func testSaveRollsBackSessionWhenSetCreationFails() async {
+        let dataManager = FailingWorkoutDataManager()
+        let viewModel = NewWorkoutViewModel(dataManager: dataManager)
+        viewModel.addExercises([exercise(id: 11, name: "Bench Press")])
+        let cardID = viewModel.exerciseCards[0].id
+        let firstSetID = viewModel.exerciseCards[0].sets[0].id
+        viewModel.updateWeight(cardID: cardID, setID: firstSetID, value: "80.5")
+        viewModel.updateReps(cardID: cardID, setID: firstSetID, value: "8")
+
+        let didSave = await viewModel.save()
+
+        XCTAssertFalse(didSave)
+        XCTAssertEqual(dataManager.createdSessionRequests.count, 1)
+        XCTAssertEqual(dataManager.deletedSessionIDs, [99])
+        XCTAssertEqual(dataManager.createdSetRequests.count, 0)
+    }
+
     private func exercise(id: Int64, name: String, equipmentName: String = "Barbell") -> ExerciseLibraryItem {
         ExerciseLibraryItem(
             id: id,
@@ -106,11 +144,12 @@ final class NewWorkoutViewModelTests: XCTestCase {
     }
 }
 
-private final class FakeWorkoutDataManager: WorkoutDataManaging {
+private class FakeWorkoutDataManager: WorkoutDataManaging {
     var equipment: [Equipment] = []
     var exercises: [Exercise] = []
     var createdSessionRequests: [CreateWorkoutSessionRequest] = []
     var createdSetRequests: [CreateWorkoutSetRequest] = []
+    var deletedSessionIDs: [Int64] = []
     var callOrder: [String] = []
 
     func fetchAllEquipment() async throws -> [Equipment] {
@@ -146,5 +185,15 @@ private final class FakeWorkoutDataManager: WorkoutDataManaging {
             weight: request.weight,
             superset_group_id: request.superset_group_id
         )
+    }
+
+    func deleteWorkoutSession(id: Int64) async throws {
+        deletedSessionIDs.append(id)
+    }
+}
+
+private final class FailingWorkoutDataManager: FakeWorkoutDataManager {
+    override func createWorkoutSet(_ request: CreateWorkoutSetRequest) async throws -> WorkoutSet {
+        throw URLError(.cannotConnectToHost)
     }
 }
