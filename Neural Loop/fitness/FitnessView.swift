@@ -3,7 +3,7 @@ import SwiftUI
 struct FitnessView: View {
     @StateObject private var viewModel = FitnessViewModel()
     private let bottomInsetHeight: CGFloat = 88
-    @State private var isNewWorkoutPresented = false
+    @State private var isTemplateEditorPresented = false
     @State private var selectedTemplate: WorkoutTemplateSummary?
 
     var body: some View {
@@ -34,8 +34,12 @@ struct FitnessView: View {
                     }
                 }
             }
-            .fullScreenCover(isPresented: $isNewWorkoutPresented) {
-                NewWorkoutView()
+            .fullScreenCover(isPresented: $isTemplateEditorPresented) {
+                WorkoutTemplateEditorView(mode: .create) {
+                    Task {
+                        await viewModel.reload()
+                    }
+                }
             }
         }
     }
@@ -57,12 +61,12 @@ struct FitnessView: View {
             .accessibilityLabel("Workout template options")
 
             Button {
-                isNewWorkoutPresented = true
+                isTemplateEditorPresented = true
             } label: {
                 headerIcon(systemName: "plus")
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Add workout")
+            .accessibilityLabel("Add workout template")
         }
     }
 
@@ -103,7 +107,7 @@ struct FitnessView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(template.title), \(template.countText)")
-                .accessibilityHint("Opens workout details")
+                .accessibilityHint("Opens workout template details")
             }
         }
     }

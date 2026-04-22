@@ -123,7 +123,7 @@ final class WorkoutTemplateDetailViewModelTests: XCTestCase {
 
         await viewModel.loadIfNeeded()
 
-        XCTAssertEqual(viewModel.errorMessage, "Unable to load workout details.")
+        XCTAssertEqual(viewModel.errorMessage, "Unable to load template details.")
         XCTAssertTrue(viewModel.rows.isEmpty)
     }
 
@@ -156,12 +156,18 @@ final class WorkoutTemplateDetailViewModelTests: XCTestCase {
     }
 }
 
-private final class FakeWorkoutTemplateDetailDataManager: WorkoutDataManaging {
+private final class FakeWorkoutTemplateDetailDataManager: WorkoutTemplateEditingDataManaging {
     var equipment: [Equipment]
     var exercises: [Exercise]
     var routinesByID: [Int64: Routine] = [:]
     var routineExercisesByRoutineID: [Int64: [RoutineExercise]]
     var shouldFailFetchingExercises = false
+    var createdRoutineRequests: [CreateRoutineRequest] = []
+    var updatedRoutineRequests: [Routine] = []
+    var deletedRoutineIDs: [Int64] = []
+    var createdRoutineExercises: [CreateRoutineExerciseRequest] = []
+    var updatedRoutineExercises: [RoutineExercise] = []
+    var deletedRoutineExerciseIDs: [Int64] = []
 
     init(
         equipment: [Equipment],
@@ -177,6 +183,10 @@ private final class FakeWorkoutTemplateDetailDataManager: WorkoutDataManaging {
         equipment
     }
 
+    func fetchAllRoutines() async throws -> [Routine] {
+        []
+    }
+
     func fetchRoutine(by id: Int64) async throws -> Routine? {
         routinesByID[id]
     }
@@ -189,35 +199,59 @@ private final class FakeWorkoutTemplateDetailDataManager: WorkoutDataManaging {
         return exercises
     }
 
-    func createWorkoutSession(_ request: CreateWorkoutSessionRequest) async throws -> WorkoutSession {
-        fatalError("Not used in detail view model tests.")
-    }
-
-    func createWorkoutSet(_ request: CreateWorkoutSetRequest) async throws -> WorkoutSet {
-        fatalError("Not used in detail view model tests.")
-    }
-
-    func deleteWorkoutSession(id: Int64) async throws {
-        fatalError("Not used in detail view model tests.")
-    }
-}
-
-extension FakeWorkoutTemplateDetailDataManager: FitnessTemplateDataManaging {
-    func fetchAllRoutines() async throws -> [Routine] {
-        []
-    }
-
-    func fetchRoutineExercises(routineId: Int64) async throws -> [RoutineExercise] {
-        routineExercisesByRoutineID[routineId] ?? []
+    func createRoutine(_ request: CreateRoutineRequest) async throws -> Routine {
+        createdRoutineRequests.append(request)
+        let routine = Routine(id: 999, name: request.name, notes: request.notes)
+        routinesByID[999] = routine
+        return routine
     }
 
     func updateRoutine(_ routine: Routine) async throws -> Routine {
+        updatedRoutineRequests.append(routine)
         guard let id = routine.id else {
-            fatalError("Not used in detail view model tests.")
+            return routine
         }
 
         routinesByID[id] = routine
         return routine
+    }
+
+    func deleteRoutine(id: Int64) async throws {
+        deletedRoutineIDs.append(id)
+        routinesByID[id] = nil
+        routineExercisesByRoutineID[id] = nil
+    }
+
+    func addRoutineExercise(_ request: CreateRoutineExerciseRequest) async throws -> RoutineExercise {
+        createdRoutineExercises.append(request)
+        let routineExercise = RoutineExercise(
+            id: 9_999,
+            routine_id: request.routine_id,
+            exercise_id: request.exercise_id,
+            order_index: request.order_index,
+            target_sets: request.target_sets,
+            target_reps: request.target_reps,
+            rest_seconds: request.rest_seconds,
+            superset_group_id: request.superset_group_id,
+            duration: request.duration
+        )
+        var rows = routineExercisesByRoutineID[request.routine_id] ?? []
+        rows.append(routineExercise)
+        routineExercisesByRoutineID[request.routine_id] = rows
+        return routineExercise
+    }
+
+    func updateRoutineExercise(_ routineExercise: RoutineExercise) async throws -> RoutineExercise {
+        updatedRoutineExercises.append(routineExercise)
+        return routineExercise
+    }
+
+    func deleteRoutineExercise(id: Int64) async throws {
+        deletedRoutineExerciseIDs.append(id)
+    }
+
+    func fetchRoutineExercises(routineId: Int64) async throws -> [RoutineExercise] {
+        routineExercisesByRoutineID[routineId] ?? []
     }
 }
 
@@ -227,7 +261,7 @@ private enum FakeWorkoutTemplateDetailError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unableToLoadWorkoutDetails:
-            return "Unable to load workout details."
+            return "Unable to load template details."
         }
     }
 }

@@ -64,6 +64,34 @@ struct WorkoutTemplateExerciseRow: Identifiable, Equatable {
     }
 }
 
+struct WorkoutTemplateExerciseDraft: Identifiable, Equatable {
+    let id: UUID
+    var routineExerciseID: Int64?
+    var exercise: ExerciseLibraryItem
+    var orderIndex: Int
+    var targetSetsText: String
+    var targetRepsText: String
+    var durationText: String
+
+    init(
+        id: UUID = UUID(),
+        routineExerciseID: Int64? = nil,
+        exercise: ExerciseLibraryItem,
+        orderIndex: Int,
+        targetSetsText: String,
+        targetRepsText: String,
+        durationText: String
+    ) {
+        self.id = id
+        self.routineExerciseID = routineExerciseID
+        self.exercise = exercise
+        self.orderIndex = orderIndex
+        self.targetSetsText = targetSetsText
+        self.targetRepsText = targetRepsText
+        self.durationText = durationText
+    }
+}
+
 protocol WorkoutDataManaging {
     func fetchAllEquipment() async throws -> [Equipment]
     func fetchAllExercises() async throws -> [Exercise]
@@ -79,5 +107,24 @@ protocol FitnessTemplateDataManaging {
     func updateRoutine(_ routine: Routine) async throws -> Routine
 }
 
+protocol WorkoutTemplateReadingDataManaging {
+    func fetchAllEquipment() async throws -> [Equipment]
+    func fetchAllExercises() async throws -> [Exercise]
+    func fetchRoutine(by id: Int64) async throws -> Routine?
+    func fetchAllRoutines() async throws -> [Routine]
+    func fetchRoutineExercises(routineId: Int64) async throws -> [RoutineExercise]
+}
+
+protocol WorkoutTemplateEditingDataManaging: WorkoutTemplateReadingDataManaging {
+    func createRoutine(_ request: CreateRoutineRequest) async throws -> Routine
+    func updateRoutine(_ routine: Routine) async throws -> Routine
+    func deleteRoutine(id: Int64) async throws
+    func addRoutineExercise(_ request: CreateRoutineExerciseRequest) async throws -> RoutineExercise
+    func updateRoutineExercise(_ routineExercise: RoutineExercise) async throws -> RoutineExercise
+    func deleteRoutineExercise(id: Int64) async throws
+}
+
 extension DBManager: WorkoutDataManaging {}
 extension DBManager: FitnessTemplateDataManaging {}
+extension DBManager: WorkoutTemplateReadingDataManaging {}
+extension DBManager: WorkoutTemplateEditingDataManaging {}
