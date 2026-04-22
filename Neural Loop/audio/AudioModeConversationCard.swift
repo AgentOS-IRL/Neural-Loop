@@ -1,7 +1,13 @@
 import SwiftUI
 
+enum AudioModeConversationLayout: Equatable {
+    case card
+    case primaryFeed
+}
+
 struct AudioModeConversationCard: View, Equatable {
     let state: AudioModeViewState.Conversation
+    var layout: AudioModeConversationLayout = .card
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -25,7 +31,10 @@ struct AudioModeConversationCard: View, Equatable {
                         .padding(.vertical, 2)
                     }
                     .scrollIndicators(.hidden)
-                    .frame(minHeight: 180, maxHeight: 320)
+                    .frame(
+                        minHeight: layout == .primaryFeed ? 0 : 180,
+                        maxHeight: layout == .primaryFeed ? .infinity : 320
+                    )
                     .onAppear {
                         scrollToBottom(proxy)
                     }
@@ -35,9 +44,16 @@ struct AudioModeConversationCard: View, Equatable {
                 }
             }
         }
-        .padding(22)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(layout == .primaryFeed ? 18 : 22)
+        .frame(maxWidth: .infinity, maxHeight: maxHeight, alignment: .leading)
         .background(AudioModeCardBackground())
+    }
+
+    private var maxHeight: CGFloat? {
+        if layout == .primaryFeed {
+            return .infinity
+        }
+        return nil
     }
 
     private var header: some View {
@@ -107,7 +123,11 @@ struct AudioModeConversationCard: View, Equatable {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: layout == .primaryFeed ? .infinity : nil,
+            alignment: .leading
+        )
         .background(
             RoundedRectangle(
                 cornerRadius: AudioModeTheme.Metrics.innerCornerRadius,

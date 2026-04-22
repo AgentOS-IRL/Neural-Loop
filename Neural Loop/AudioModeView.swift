@@ -32,32 +32,38 @@ struct AudioModeView: View {
             ModeBackdropView()
 
             GeometryReader { geometry in
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: AudioModeTheme.Metrics.sectionSpacing) {
-                        AudioModeHeroCard(
-                            state: viewState.hero,
-                            isReduceMotionEnabled: reduceMotion,
-                            isPulsing: pulse,
-                            onTapMic: toggleMicrophone
-                        )
+                VStack(spacing: 14) {
+                    AudioModeHeroCard(state: viewState.hero)
                         .equatable()
 
-                        contentLayout(for: geometry.size, viewState: viewState)
-                    }
-                    .padding(.horizontal, AudioModeTheme.Metrics.screenPadding)
-                    .padding(.top, 20)
-                    .padding(.bottom, 104)
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: geometry.size.height, alignment: .top)
-                }
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    AudioModeActionBar(state: viewState.actionBar)
+                    AudioModeConversationCard(
+                        state: viewState.conversation,
+                        layout: .primaryFeed
+                    )
                     .equatable()
-                    .padding(.horizontal, AudioModeTheme.Metrics.screenPadding)
-                    .padding(.top, 8)
-                    .padding(.bottom, 86)
-                    .background(Color.clear)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
                 }
+                .padding(.horizontal, AudioModeTheme.Metrics.screenPadding)
+                .padding(.top, 20)
+                .frame(maxWidth: min(geometry.size.width, AudioModeTheme.Metrics.chatMaxWidth))
+                .frame(maxWidth: .infinity)
+                .frame(maxHeight: .infinity, alignment: .top)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                AudioModeVoiceInputBar(
+                    micState: viewState.hero,
+                    transcriptState: viewState.transcript,
+                    actionBarState: viewState.actionBar,
+                    isReduceMotionEnabled: reduceMotion,
+                    isPulsing: pulse,
+                    onTapMic: toggleMicrophone
+                )
+                .equatable()
+                .padding(.horizontal, AudioModeTheme.Metrics.screenPadding)
+                .frame(maxWidth: AudioModeTheme.Metrics.chatMaxWidth)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 8)
+                .padding(.bottom, 86)
             }
         }
         .onAppear {
@@ -74,31 +80,6 @@ struct AudioModeView: View {
             transcriptionManager.stopRecording()
             transcriptionManager.onCommittedTranscript = nil
             coordinator.resetConversation()
-        }
-    }
-
-    @ViewBuilder
-    private func contentLayout(for size: CGSize, viewState: AudioModeViewState) -> some View {
-        if size.width >= 780 {
-            HStack(alignment: .top, spacing: AudioModeTheme.Metrics.sectionSpacing) {
-                VStack(spacing: AudioModeTheme.Metrics.sectionSpacing) {
-                    AudioModeTranscriptCard(state: viewState.transcript)
-                        .equatable()
-                    Spacer(minLength: 0)
-                }
-                .frame(maxWidth: .infinity, alignment: .top)
-
-                AudioModeConversationCard(state: viewState.conversation)
-                    .equatable()
-                    .frame(maxWidth: .infinity, alignment: .top)
-            }
-        } else {
-            VStack(spacing: AudioModeTheme.Metrics.sectionSpacing) {
-                AudioModeTranscriptCard(state: viewState.transcript)
-                    .equatable()
-                AudioModeConversationCard(state: viewState.conversation)
-                    .equatable()
-            }
         }
     }
 
