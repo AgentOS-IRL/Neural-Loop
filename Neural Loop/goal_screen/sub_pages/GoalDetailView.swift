@@ -29,7 +29,7 @@ enum ProgressRange: String, CaseIterable, Identifiable {
 struct ProgressPoint: Identifiable {
     let id = UUID()
     let date: Date
-    let value: Int64
+    let value: Double
 }
 
 struct GoalDetailView: View {
@@ -51,7 +51,7 @@ struct GoalDetailView: View {
         duration: 900
     )
     
-    @State private var goalTrackingRecords: [Date: Int64] = [:]
+    @State private var progressSnapshot: GoalProgressSnapshot = .empty
     
     @State private var progressRange : ProgressRange = .thisWeek
     
@@ -333,127 +333,54 @@ struct GoalDetailView: View {
         }
         .onAppear()
         {
+            for task in tasks {
+                tasksMapping[task.id!] = task
+            }
             Task{
                 await fetchSubGoals()
                 setTasksDateBuckets()
                 setGoalsDateBuclets()
                 await setGoalTrackingRecords()
             }
-            for task in tasks {
-                tasksMapping[task.id!] = task
-            }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Color.clear.frame(height: SAFE_AREA_INSET)
         }
     }
-    private func setCustomGoalTrackingRecords(goalTracking: GoalsTracking) async {
-        
-        var records: [GoalsTrackingRecord] = []
-        
-        
-        print("✅ goalTracking type is .custom")
-        
-        if goalTracking.label != nil {
-            print("📥 Fetching records from DB...")
-            
-            records = await model.fetchGoalsTrackingRecords(
-                forTracking: goalTracking.id!,
-                type: goalTracking.type
-            )
-            
-            print("📊 Records fetched:", records.count)
-        } else {
-            print("⚠️ goalTracking label is not nil — skipping fetch")
-        }
-        print("🔄 Processing records...")
-        
-        // 1. Sort records by ascending created_at (nil-safe)
-        let sortedRecords = records.sorted {
-            guard let d1 = $0.created_at, let d2 = $1.created_at else {
-                return false
-            }
-            return d1 < d2
-        }
-        
-        var runningTotal: Int64 = 0
-        goalTrackingRecords.removeAll()
-        
-        // 2. Build cumulative values
-        for (index, record) in sortedRecords.enumerated() {
-            print("➡️ Record \(index):", record)
-            
-            guard let createdAt = record.created_at else {
-                print("⚠️ Record \(index) has nil created_at — skipping")
-                continue
-            }
-            
-            let value = Int64(record.value)
-            runningTotal += value
-            
-            goalTrackingRecords[createdAt] = runningTotal
-            
-            print("✅ Saved → Date:", createdAt, "Cumulative Value:", runningTotal)
-        }
-        
-        print("🏁 Finished setGoalTrackingRecords()")
-        print("📦 Final goalTrackingRecords count:", goalTrackingRecords.count)
-        
-    }
-    
     private func setGoalTrackingRecords() async {
-        
-        print("➡️ setGoalTrackingRecords() called")
-        
         goalTracking = await model.fetchGoalsTracking(forGoal: goal.id!)
-        
 
         if goalTracking.isEmpty {
-            print("❌ goalTracking is nil — exiting")
+            progressSnapshot = .empty
             return
         }
 
+        var customRecords: [GoalsTrackingRecord] = []
+        if goalTracking.type == .custom,
+           let trackingId = goalTracking.id {
+            customRecords = await model.fetchGoalsTrackingRecords(
+                forTracking: trackingId,
+                type: goalTracking.type
+            )
+        }
 
-        print("ℹ️ goalTracking id:", goalTracking.id ?? -1)
-        print("ℹ️ goalTracking type:", goalTracking.type)
-        print("ℹ️ goalTracking label:", goalTracking.label as Any)
-        
-        goalTrackingRecords = [:]
-        
-        switch goalTracking.type{
-        case .custom:
-            await setCustomGoalTrackingRecords(goalTracking: goalTracking)
-        case .sub_goal:
-            await setSubGoalTrackingRecords()
-        case .task:
-            await setTaskGoalTrackingRecords()
-        case .unknown:
-            break
-        }
+        progressSnapshot = makeProgressSnapshot(
+            tracking: goalTracking,
+            customRecords: customRecords
+        )
     }
-    
-    private func setTaskGoalTrackingRecords() async {
-        print("setSubGoalTrackingRecords")
-        
-        goalTracking.target = Double(tasksMapping.count)
-        
-        for task in tasksMapping.values {
-            print(task)
-            if task.is_completed {
-                goalTrackingRecords[task.updated_at ?? .now] = 1
-            }
-            
-        }
-    
-    }
-    private func setSubGoalTrackingRecords() async {
-        goalTracking.target = Double(subGoals.count)
-        for goal in subGoals{
-            if goal.is_completed {
-                goalTrackingRecords[goal.updated_at] = 1
-            }
-        }
-        
+
+    private func makeProgressSnapshot(
+        tracking: GoalsTracking,
+        customRecords: [GoalsTrackingRecord] = []
+    ) -> GoalProgressSnapshot {
+        GoalProgressCalculator.snapshot(
+            goalId: goal.id!,
+            tracking: tracking,
+            tasks: Array(tasksMapping.values),
+            subGoals: subGoals,
+            customRecords: customRecords
+        )
     }
     
     struct ChartShape: Shape {
@@ -507,46 +434,21 @@ struct GoalDetailView: View {
         if goalTracking.isEmpty {
             EmptyProgressCard()
         } else {
-            ProgressChartCard(
-                goalTrackingRecords: goalTrackingRecords,
-                targetValue: Int64(goalTracking.target ?? 1)
-            )
+            ProgressChartCard(snapshot: progressSnapshot)
         }
     }
     
     @ViewBuilder
-    private func ProgressChartCard(
-        goalTrackingRecords: [Date: Int64],
-        targetValue: Int64
-        
-    ) -> some View {
+    private func ProgressChartCard(snapshot: GoalProgressSnapshot) -> some View {
 
         let points = buildProgressPoints(
             range: progressRange,
-            records: goalTrackingRecords
+            records: snapshot.chartRecords
         )
 
-        let totalProgress: Int64 = points
-            .max(by: { $0.date < $1.date })?
-            .value ?? 0
-        let progressPercent = Double(totalProgress) / Double(targetValue)
-        
-        let label: String = {
-            let tracking = goalTracking
-
-            switch tracking.type {
-            case .custom:
-                return "Times"
-
-            case .task:
-                return "Tasks"
-
-            case .sub_goal:
-                return "Goals"
-            case .unknown:
-                return "Goals"
-            }
-        }()
+        let totalProgress = snapshot.current
+        let progressPercent = snapshot.percentage
+        let label = snapshot.label
 
         VStack(alignment: .leading, spacing: 16) {
 
@@ -566,7 +468,9 @@ struct GoalDetailView: View {
                             // Edit goal tracking
                             SetGoalTracking(goalId: goal.id!, goalTracking: goalTracking ) { newGoalTracking in
                                 goalTracking = newGoalTracking
-                                
+                                Task {
+                                    await setGoalTrackingRecords()
+                                }
                             }
                         } label: {
                             Label("Edit tracking", systemImage: "pencil")
@@ -597,7 +501,7 @@ struct GoalDetailView: View {
             HStack {
                     
                     
-                    Text("\(totalProgress) \(label)")
+                    Text("\(formattedProgressValue(totalProgress)) \(label)")
                         .font(.system(.subheadline, design: .rounded, weight: .semibold))
                         .foregroundStyle(AppTheme.textSecondary)
                     
@@ -629,11 +533,11 @@ struct GoalDetailView: View {
                     .foregroundStyle(AppTheme.accentGradient)
                     .symbolSize(80)
                 }
-                .chartYScale(domain: 0...targetValue)
+                .chartYScale(domain: 0...max(snapshot.target, snapshot.current, 1))
                 .frame(height: 180)
             }
             else{
-                FancyProgressBar(totalProgress:Double(totalProgress), targetValue: Double(targetValue))
+                FancyProgressBar(totalProgress: totalProgress, targetValue: snapshot.target)
             }
             
             if goalTracking.type == .custom {
@@ -642,6 +546,9 @@ struct GoalDetailView: View {
                 
                     // Edit goal tracking
                     AddGoalProgressView( goalTracking: goalTracking ) {
+                        Task {
+                            await setGoalTrackingRecords()
+                        }
                     }
                 }  label: {
                     Text("Update progress")
@@ -692,7 +599,9 @@ struct GoalDetailView: View {
                 NavigationLink{
                     SetGoalTracking(goalId: goal.id!, goalTracking: goalTracking ) { newGoalTracking in
                         goalTracking = newGoalTracking
-                        
+                        Task {
+                            await setGoalTrackingRecords()
+                        }
                     }
                 
                     
@@ -866,7 +775,7 @@ struct GoalDetailView: View {
     
     private func buildProgressPoints(
         range: ProgressRange,
-        records: [Date: Int64]
+        records: [Date: Double]
     ) -> [ProgressPoint] {
 
         let calendar = Calendar.current
@@ -905,7 +814,7 @@ struct GoalDetailView: View {
             step = .month
         }
 
-        var buckets: [Date: Int64] = [:]
+        var buckets: [Date: Double] = [:]
 
         for (date, value) in records where date >= startDate {
             let bucketDate: Date
@@ -927,6 +836,10 @@ struct GoalDetailView: View {
         return buckets
             .sorted(by: { $0.key < $1.key })
             .map { ProgressPoint(date: $0.key, value: $0.value) }
+    }
+
+    private func formattedProgressValue(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(0...2)))
     }
 
 }
