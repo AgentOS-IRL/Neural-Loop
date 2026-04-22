@@ -427,7 +427,18 @@ private enum WorkoutDateCoding {
     }
 
     static func string(from date: Date) -> String {
-        makeDateOnlyFormatter().string(from: date)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        guard
+            let year = components.year,
+            let month = components.month,
+            let day = components.day
+        else {
+            return makeDateOnlyFormatter().string(from: date)
+        }
+
+        return String(format: "%04d-%02d-%02d", year, month, day)
     }
 
     static func decodeDate<Key: CodingKey>(

@@ -1,3 +1,4 @@
+import Darwin
 import XCTest
 @testable import Neural_Loop
 
@@ -47,6 +48,34 @@ final class WorkoutDatabaseModelTests: XCTestCase {
         XCTAssertEqual(payload["notes"] as? String, "Lower body")
         XCTAssertNil(payload["id"])
         XCTAssertEqual(payload.count, 3)
+    }
+
+    func testWorkoutSessionDateEncodingPreservesCurrentCalendarDay() throws {
+        let originalTimeZone = ProcessInfo.processInfo.environment["TZ"]
+        setenv("TZ", "America/Los_Angeles", 1)
+        tzset()
+        NSTimeZone.resetSystemTimeZone()
+        defer {
+            if let originalTimeZone {
+                setenv("TZ", originalTimeZone, 1)
+            } else {
+                unsetenv("TZ")
+            }
+            tzset()
+            NSTimeZone.resetSystemTimeZone()
+        }
+
+        let request = CreateWorkoutSessionRequest(
+            date: localDate("2026-04-22 20:30:00", timeZoneIdentifier: "America/Los_Angeles"),
+            start_time: nil,
+            end_time: nil,
+            session_type: "Strength",
+            notes: nil
+        )
+
+        let payload = try encodedPayload(request)
+
+        XCTAssertEqual(payload["date"] as? String, "2026-04-22")
     }
 
     func testCreateWorkoutSetRequestEncodesWritableColumns() throws {
@@ -206,6 +235,15 @@ final class WorkoutDatabaseModelTests: XCTestCase {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: value)!
+    }
+
+    private func localDate(_ value: String, timeZoneIdentifier: String) -> Date {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: timeZoneIdentifier)
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         return formatter.date(from: value)!
     }
 }
