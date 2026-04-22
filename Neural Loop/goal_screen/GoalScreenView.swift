@@ -44,6 +44,12 @@ struct GoalScreenView: View {
     @State private var hydrateGoal: Goals? = nil
     @State private var hydrateGoalDeadline: TaskTiming? = nil
     @State private var addGoalSheetID = UUID()
+    @State private var editingLifeArea: LifeAreas? = nil
+    @State private var selectedGoalForDelete: Goals? = nil
+    @State private var selectedLifeAreaForDelete: LifeAreas? = nil
+    @State private var showDeleteGoalConfirmation = false
+    @State private var showDeleteLifeAreaConfirmation = false
+    @State private var addLifeAreaSheetID = UUID()
 
     var body: some View {
         NavigationStack {
@@ -98,10 +104,9 @@ struct GoalScreenView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         if navigationModel.selectedSection == .lifeAreas {
-                            showAddLifeArea = true
+                            startAddLifeArea()
                         } else {
-                            hydrateGoal = nil
-                            showAddGoal = true
+                            startAddGoal()
                         }
                     } label: {
                         Image(systemName: "plus")
@@ -110,10 +115,13 @@ struct GoalScreenView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showAddLifeArea) {
-                AddLifeAreas {
-                    
+            .sheet(isPresented: $showAddLifeArea, onDismiss: {
+                editingLifeArea = nil
+            }) {
+                AddLifeAreas(lifeArea: editingLifeArea) {
+                    editingLifeArea = nil
                 }
+                .id(addLifeAreaSheetID)
             }
             .sheet(isPresented: $showAddGoal) {
                 AddEditGoal(
@@ -122,7 +130,112 @@ struct GoalScreenView: View {
                     deadline: hydrateGoalDeadline
                 ) {
                 }
-            }.id(addGoalSheetID)
+                .id(addGoalSheetID)
+            }
+            .confirmationDialog(
+                "Delete this goal?",
+                isPresented: $showDeleteGoalConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Delete Goal", role: .destructive) {
+                    guard let goal = selectedGoalForDelete else { return }
+                    Task {
+                        await model.deleteGoal(goal)
+                        selectedGoalForDelete = nil
+                    }
+                }
+                Button("Cancel", role: .cancel) {
+                    selectedGoalForDelete = nil
+                }
+            } message: {
+                Text("This action cannot be undone.")
+            }
+            .confirmationDialog(
+                "Delete this life area?",
+                isPresented: $showDeleteLifeAreaConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Delete Life Area", role: .destructive) {
+                    guard let area = selectedLifeAreaForDelete else { return }
+                    Task {
+                        await model.deleteLifeArea(area)
+                        selectedLifeAreaForDelete = nil
+                    }
+                }
+                Button("Cancel", role: .cancel) {
+                    selectedLifeAreaForDelete = nil
+                }
+            } message: {
+                Text("This will also remove goals in this life area. This action cannot be undone.")
+            }
+        }
+    }
+
+    // MARK: - Actions
+
+    private func startAddGoal(deadline: TaskTiming? = nil) {
+        hydrateGoal = nil
+        hydrateGoalDeadline = deadline
+        addGoalSheetID = UUID()
+        showAddGoal = true
+    }
+
+    private func editGoal(_ goal: Goals) {
+        hydrateGoal = goal
+        hydrateGoalDeadline = goal.deadline.map { TaskTiming(start: $0, duration: 0) }
+        addGoalSheetID = UUID()
+        showAddGoal = true
+    }
+
+    private func requestDeleteGoal(_ goal: Goals) {
+        selectedGoalForDelete = goal
+        showDeleteGoalConfirmation = true
+    }
+
+    private func startAddLifeArea() {
+        editingLifeArea = nil
+        addLifeAreaSheetID = UUID()
+        showAddLifeArea = true
+    }
+
+    private func editLifeArea(_ area: LifeAreas) {
+        editingLifeArea = area
+        addLifeAreaSheetID = UUID()
+        showAddLifeArea = true
+    }
+
+    private func requestDeleteLifeArea(_ area: LifeAreas) {
+        selectedLifeAreaForDelete = area
+        showDeleteLifeAreaConfirmation = true
+    }
+
+    @ViewBuilder
+    private func goalContextMenu(for goal: Goals) -> some View {
+        Button {
+            editGoal(goal)
+        } label: {
+            Label("Edit Goal", systemImage: "pencil")
+        }
+
+        Button(role: .destructive) {
+            requestDeleteGoal(goal)
+        } label: {
+            Label("Delete Goal", systemImage: "trash")
+        }
+    }
+
+    @ViewBuilder
+    private func lifeAreaContextMenu(for area: LifeAreas) -> some View {
+        Button {
+            editLifeArea(area)
+        } label: {
+            Label("Edit Life Area", systemImage: "pencil")
+        }
+
+        Button(role: .destructive) {
+            requestDeleteLifeArea(area)
+        } label: {
+            Label("Delete Life Area", systemImage: "trash")
         }
     }
 
@@ -170,6 +283,10 @@ struct GoalScreenView: View {
 
                         }
                         .padding()
+                        .contentShape(Rectangle())
+                        .contextMenu {
+                            lifeAreaContextMenu(for: lifeArea)
+                        }
                         .background(AppTheme.sectionGradient)
                         .cornerRadius(AppTheme.Metrics.cardCornerRadius, corners: model.lifeAreaExpandedIds.contains(lifeArea.id!) && !model.getGoals(lifeAreaId: lifeArea.id!).isEmpty ? [.topLeft, .topRight] : .allCorners)
 
@@ -185,6 +302,11 @@ struct GoalScreenView: View {
                                         )
                                     } label: {
                                         goalRow(goal)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .contentShape(Rectangle())
+                                    .contextMenu {
+                                        goalContextMenu(for: goal)
                                     }
                                     
                                     if goal.id != model.getGoals(lifeAreaId: lifeArea.id!).last?.id {
@@ -234,6 +356,11 @@ struct GoalScreenView: View {
                                 } label: {
                                     goalRow(goal)
                                 }
+                                .buttonStyle(.plain)
+                                .contentShape(Rectangle())
+                                .contextMenu {
+                                    goalContextMenu(for: goal)
+                                }
                                 
                                 if goal.id != bucketGoals.last?.id {
                                     Divider()
@@ -268,13 +395,10 @@ struct GoalScreenView: View {
                             .padding()
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                hydrateGoal = nil
-                                hydrateGoalDeadline = TaskTiming(
+                                startAddGoal(deadline: TaskTiming(
                                     start: bucket.end,
                                     duration: 0
-                                )
-                                addGoalSheetID = UUID()
-                                showAddGoal = true
+                                ))
                             }
                         }
                         .background(AppTheme.cardGradient)
@@ -305,6 +429,10 @@ struct GoalScreenView: View {
                         lifeAreaRow(area)
                     }
                     .buttonStyle(.plain)
+                    .contentShape(Rectangle())
+                    .contextMenu {
+                        lifeAreaContextMenu(for: area)
+                    }
                     .background(AppTheme.cardGradient)
                     .cornerRadius(AppTheme.Metrics.cardCornerRadius)
                     .overlay(
