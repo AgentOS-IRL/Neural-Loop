@@ -83,7 +83,6 @@ final class AudioModeViewStateTests: XCTestCase {
         XCTAssertEqual(state.conversation.emptyTitle, "Codex activity will appear here")
         XCTAssertEqual(state.actionBar.primaryStatusChips, ["Open session"])
         XCTAssertEqual(state.actionBar.modeStatusTitle, AudioModeTransitionCopy.activeStatusTitle)
-        XCTAssertEqual(state.actionBar.switchButtonTitle, AudioModeTransitionCopy.returnActionTitle)
     }
 
     func testMapsSendingConversationIntoBannerAndHeaderBadge() {
@@ -145,20 +144,22 @@ final class AudioModeViewStateTests: XCTestCase {
         let state = AudioModeViewState(
             transcription: transcription,
             conversation: conversation,
-            isAudioModeAvailable: false
+            isAIPageAvailable: false
         )
 
         XCTAssertEqual(state.hero.badgeText, "Unavailable")
-        XCTAssertEqual(state.conversation.emptyTitle, "Audio Mode is unavailable")
+        XCTAssertTrue(state.hero.isActionDisabled)
+        XCTAssertEqual(state.conversation.emptyTitle, "AI is unavailable")
+        XCTAssertEqual(state.conversation.emptyDetail, "Load the required Codex secrets in Settings before starting a voice session.")
         XCTAssertEqual(state.actionBar.primaryStatusChips, ["Unavailable"])
-        XCTAssertEqual(state.actionBar.modeStatusTitle, "Audio Mode unavailable")
-        XCTAssertEqual(state.actionBar.switchButtonAccessibilityHint, AudioModeTransitionCopy.returnAccessibilityHint)
+        XCTAssertEqual(state.actionBar.modeStatusTitle, "AI unavailable")
+        XCTAssertEqual(state.actionBar.modeStatusDetail, "AI requires loaded Codex secrets before voice capture can start.")
     }
 
     func testMapsLLMDisabledConversationIntoWarningState() {
         let transcription = AudioModeTranscriptionViewData(
             displayState: .inactive,
-            title: "Audio Mode",
+            title: "AI",
             detail: "Voice stays active across pauses until you stop the session.",
             badgeText: "Ready",
             transcriptTitle: "Live transcript",

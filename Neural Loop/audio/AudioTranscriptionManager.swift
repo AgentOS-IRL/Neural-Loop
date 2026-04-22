@@ -182,7 +182,7 @@ final class AudioTranscriptionManager: ObservableObject {
 
         switch displayState {
         case .inactive:
-            return "Audio Mode"
+            return "AI"
         case .checkingPermissions:
             return "Checking permissions"
         case .listening:
