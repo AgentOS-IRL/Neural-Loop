@@ -11,12 +11,15 @@ struct AddLifeAreas: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var name: String = ""
-    @State private var vision: String = ""
-    @State private var color: String = "#4F46E5" // default indigo
-    @State private var icon: String = "heart"
+    @State private var name: String
+    @State private var vision: String
+    @State private var color: String
+    @State private var icon: String
     @State private var showIconPicker: Bool = false
     @EnvironmentObject var model: UnifiedDataModel
+
+    private let existingLifeArea: LifeAreas?
+    var onSaved: () -> Void
 
     private let colorOptions: [(name: String, hex: String)] = [
         ("Indigo", "#4F46E5"),
@@ -30,7 +33,14 @@ struct AddLifeAreas: View {
         ("Gray", "#6B7280")
     ]
 
-    var onSaved: () -> Void
+    init(lifeArea: LifeAreas? = nil, onSaved: @escaping () -> Void) {
+        self.existingLifeArea = lifeArea
+        self.onSaved = onSaved
+        _name = State(initialValue: lifeArea?.name ?? "")
+        _vision = State(initialValue: lifeArea?.vision ?? "")
+        _color = State(initialValue: lifeArea?.color ?? "#4F46E5")
+        _icon = State(initialValue: lifeArea?.icon ?? "heart")
+    }
 
     var body: some View {
         NavigationView {
@@ -92,7 +102,7 @@ struct AddLifeAreas: View {
                     }
                 }
             }
-            .navigationTitle("Add Life Area")
+            .navigationTitle(existingLifeArea == nil ? "Add Life Area" : "Edit Life Area")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -102,12 +112,12 @@ struct AddLifeAreas: View {
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
+                    Button(existingLifeArea == nil ? "Save" : "Update") {
                         Task {
                             await save()
                         }
                     }
-                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }
@@ -123,15 +133,21 @@ struct AddLifeAreas: View {
     // MARK: - Actions
 
     private func save() async {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedVision = vision.trimmingCharacters(in: .whitespacesAndNewlines)
         let area = LifeAreas(
-            id: nil,
-            name: name,
-            vision: vision.isEmpty ? nil : vision,
-            is_sample: false,
+            id: existingLifeArea?.id,
+            name: trimmedName,
+            vision: trimmedVision.isEmpty ? nil : trimmedVision,
+            is_sample: existingLifeArea?.is_sample ?? false,
             color: color,
             icon: icon
         )
-        await model.saveLifeArea(area)
+        if existingLifeArea == nil {
+            await model.saveLifeArea(area)
+        } else {
+            await model.updateLifeArea(area)
+        }
         onSaved()
         dismiss()
         
