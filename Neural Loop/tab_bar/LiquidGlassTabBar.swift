@@ -14,15 +14,35 @@ struct LiquidGlassTabBar: View {
     
     @Binding var selectedTab: AppTab
     @Namespace private var glassNS
+    @State private var isUtilityMenuPresented = false
     
     // MARK: - Touch-following hover bubble
     @State private var isTouchingBar: Bool = false
     @State private var hoveredTab: AppTab? = nil
     
     var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            if isUtilityMenuPresented {
+                utilityMenu
+                    .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .bottomTrailing)))
+                    .zIndex(1)
+            }
+
+            HStack(spacing: 12) {
+                contentNavigationPill
+                    .frame(maxWidth: .infinity)
+
+                utilityActionButton
+            }
+            .padding(.horizontal, 16)
+        }
+        .frame(height: 78, alignment: .bottom)
+    }
+
+    private var contentNavigationPill: some View {
         let shape = RoundedRectangle(cornerRadius: 32, style: .continuous)
         
-        ZStack {
+        return ZStack {
             // ✅ Render the glass surface *behind* the content so icons/text stay crisp.
             if reduceTransparency {
                 shape
@@ -52,7 +72,7 @@ struct LiquidGlassTabBar: View {
                     }
 
                     HStack(spacing: tabSpacing) {
-                        ForEach(AppTab.allCases, id: \.self) { tab in
+                        ForEach(visibleTabs, id: \.self) { tab in
                             tabButton(tab)
                         }
                     }
@@ -71,6 +91,7 @@ struct LiquidGlassTabBar: View {
                             if let hoveredTab {
                                 withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) {
                                     selectedTab = hoveredTab
+                                    isUtilityMenuPresented = false
                                 }
                             }
                             withAnimation(.easeOut(duration: 0.18)) {
@@ -95,7 +116,108 @@ struct LiquidGlassTabBar: View {
             y: 8
         )
         .frame(height: 78) // ✅ keep tab bar compact (prevents full-screen expansion)
-        .padding(.horizontal, 16)
+    }
+
+    private var utilityActionButton: some View {
+        let shape = Circle()
+
+        return Button {
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                isUtilityMenuPresented.toggle()
+            }
+        } label: {
+            ZStack {
+                if reduceTransparency {
+                    shape
+                        .fill(Color(.secondarySystemBackground).opacity(0.95))
+                } else {
+                    GlassEffectContainer {
+                        shape
+                            .glassEffect(.clear.interactive(), in: shape)
+                    }
+                    .clipShape(shape)
+                    .allowsHitTesting(false)
+                }
+
+                Image(systemName: "plus")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(colorScheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.88))
+                    .rotationEffect(.degrees(isUtilityMenuPresented ? 45 : 0))
+            }
+            .frame(width: 60, height: 60)
+            .overlay {
+                shape
+                    .strokeBorder(
+                        (colorScheme == .dark ? Color.white.opacity(0.14) : Color.black.opacity(0.10)),
+                        lineWidth: 1
+                    )
+            }
+            .shadow(
+                color: .black.opacity(colorScheme == .dark ? 0.22 : 0.10),
+                radius: 14,
+                y: 8
+            )
+            .contentShape(shape)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open utilities")
+        .accessibilityHint("Shows settings and additional app actions.")
+    }
+
+    private var utilityMenu: some View {
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+
+        return Button {
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                selectedTab = .settings
+                isUtilityMenuPresented = false
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: AppTab.settings.systemImage)
+                    .font(.system(size: 17, weight: .semibold))
+
+                Text(AppTab.settings.rawValue)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.86)
+            }
+            .foregroundStyle(colorScheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.88))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background {
+                ZStack {
+                    if reduceTransparency {
+                        shape
+                            .fill(Color(.secondarySystemBackground).opacity(0.96))
+                    } else {
+                        GlassEffectContainer {
+                            shape
+                                .glassEffect(.clear.interactive(), in: shape)
+                        }
+                        .clipShape(shape)
+                        .allowsHitTesting(false)
+                    }
+                }
+            }
+            .overlay {
+                shape
+                    .strokeBorder(
+                        (colorScheme == .dark ? Color.white.opacity(0.16) : Color.black.opacity(0.10)),
+                        lineWidth: 1
+                    )
+            }
+            .shadow(
+                color: .black.opacity(colorScheme == .dark ? 0.22 : 0.10),
+                radius: 14,
+                y: 8
+            )
+            .contentShape(shape)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Settings")
+        .padding(.trailing, 16)
+        .offset(y: -76)
     }
     
     private func tabButton(_ tab: AppTab) -> some View {
@@ -104,6 +226,7 @@ struct LiquidGlassTabBar: View {
         return Button {
             withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) {
                 selectedTab = tab
+                isUtilityMenuPresented = false
             }
         } label: {
             VStack(spacing: 4) {
@@ -245,22 +368,27 @@ struct LiquidGlassTabBar: View {
     }
 
     // MARK: - Touch -> Tab mapping helpers
+    private var visibleTabs: [AppTab] {
+        AppTab.contentTabs
+    }
+
     private func tabSlotWidth(in geo: GeometryProxy) -> CGFloat {
-        let availableWidth = geo.size.width - (horizontalPadding * 2) - (CGFloat(AppTab.allCases.count - 1) * tabSpacing)
-        return max(availableWidth / CGFloat(AppTab.allCases.count), 1)
+        let tabCount = max(visibleTabs.count, 1)
+        let availableWidth = geo.size.width - (horizontalPadding * 2) - (CGFloat(tabCount - 1) * tabSpacing)
+        return max(availableWidth / CGFloat(tabCount), 1)
     }
 
     private func tabFromTouch(x: CGFloat, in geo: GeometryProxy) -> AppTab {
         let width = tabSlotWidth(in: geo)
         let normalizedX = x - horizontalPadding
         let idx = Int((normalizedX / max(width + tabSpacing, 1)).rounded(.down))
-        let clamped = min(max(idx, 0), AppTab.allCases.count - 1)
-        return AppTab.allCases[clamped]
+        let clamped = min(max(idx, 0), visibleTabs.count - 1)
+        return visibleTabs[clamped]
     }
 
     private func tabSlotX(for tab: AppTab, in geo: GeometryProxy) -> CGFloat {
         let width = tabSlotWidth(in: geo)
-        let idx = AppTab.allCases.firstIndex(of: tab) ?? 0
+        let idx = visibleTabs.firstIndex(of: tab) ?? 0
         return horizontalPadding + CGFloat(idx) * (width + tabSpacing)
     }
 
@@ -273,10 +401,10 @@ struct LiquidGlassTabBar: View {
     }
 
     private var horizontalPadding: CGFloat {
-        AppTab.allCases.count > 4 ? 10 : 14
+        visibleTabs.count > 4 ? 10 : 14
     }
 
     private var tabSpacing: CGFloat {
-        AppTab.allCases.count > 4 ? 2 : 6
+        visibleTabs.count > 4 ? 2 : 6
     }
 }
