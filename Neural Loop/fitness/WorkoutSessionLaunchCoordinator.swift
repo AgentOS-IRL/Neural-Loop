@@ -43,14 +43,15 @@ actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
         let allExercises = try await db.fetchAllExercises()
         let allEquipment = try await db.fetchAllEquipment()
 
-        // 2. Create WorkoutSession
-        let request = CreateWorkoutSessionRequest(
+        // 2. Prepare WorkoutSession Draft
+        let session = WorkoutSession(
+            id: nil,
             date: Date(),
             start_time: ISO8601DateFormatter().string(from: Date()),
+            end_time: nil,
             session_type: routine.name,
             notes: routine.notes
         )
-        let session = try await db.createWorkoutSession(request)
 
         // 3. Transform to WorkoutExerciseCardState
         let exerciseStates = routineExercises.compactMap { re -> WorkoutExerciseCardState? in
@@ -68,7 +69,7 @@ actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
                 equipmentName: equipment?.name ?? "No Equipment"
             )
 
-            let targetSets = re.target_sets ?? 1
+            let targetSets = max(1, re.target_sets ?? 1)
             let weightText = ""
             let repsText = re.target_reps.map { String($0) } ?? ""
 

@@ -4,7 +4,7 @@ import XCTest
 @MainActor
 final class WorkoutSessionLaunchTests: XCTestCase {
     
-    func testLaunchSessionCreatesWorkoutSessionAndExerciseStates() async throws {
+    func testLaunchSessionPreparesWorkoutSessionAndExerciseStatesWithoutSaving() async throws {
         let routineID: Int64 = 1
         let routine = Routine(id: routineID, name: "Test Routine", notes: "Some notes")
         let exercises = [
@@ -30,32 +30,42 @@ final class WorkoutSessionLaunchTests: XCTestCase {
         
         let (session, states) = try await coordinator.launchSession(for: routineID)
         
-        let sessionType = session.session_type
-        let sessionNotes = session.notes
-        XCTAssertEqual(sessionType, "Test Routine")
-        XCTAssertEqual(sessionNotes, "Some notes")
+        XCTAssertNil(session.id)
+        XCTAssertEqual(session.session_type, "Test Routine")
+        XCTAssertEqual(session.notes, "Some notes")
         XCTAssertEqual(states.count, 2)
         
-        let name0 = states[0].exercise.name
-        let equip0 = states[0].exercise.equipmentName
-        let sets0 = states[0].sets.count
-        let reps0 = states[0].sets[0].repsText
-        XCTAssertEqual(name0, "Exercise 1")
-        XCTAssertEqual(equip0, "Dumbbell")
-        XCTAssertEqual(sets0, 3)
-        XCTAssertEqual(reps0, "10")
+        XCTAssertEqual(states[0].exercise.name, "Exercise 1")
+        XCTAssertEqual(states[0].sets.count, 3)
         
-        let name1 = states[1].exercise.name
-        let equip1 = states[1].exercise.equipmentName
-        let sets1 = states[1].sets.count
-        let reps1 = states[1].sets[0].repsText
-        XCTAssertEqual(name1, "Exercise 2")
-        XCTAssertEqual(equip1, "Barbell")
-        XCTAssertEqual(sets1, 4)
-        XCTAssertEqual(reps1, "8")
+        XCTAssertEqual(states[1].exercise.name, "Exercise 2")
+        XCTAssertEqual(states[1].sets.count, 4)
         
-        let capturedType = db.capturedCreateSessionRequest?.session_type
-        XCTAssertEqual(capturedType, "Test Routine")
+        XCTAssertNil(db.capturedCreateSessionRequest, "Should not create session in DB during launch")
+    }
+
+    func testLaunchSessionClampsNonPositiveTargetSets() async throws {
+        let routineID: Int64 = 1
+        let routine = Routine(id: routineID, name: "Test", notes: nil)
+        let routineExercises = [
+            RoutineExercise(id: 1000, routine_id: routineID, exercise_id: 10, order_index: 0, target_sets: 0, target_reps: 10, rest_seconds: 60, superset_group_id: nil, duration: nil),
+            RoutineExercise(id: 1001, routine_id: routineID, exercise_id: 11, order_index: 1, target_sets: -5, target_reps: 8, rest_seconds: 90, superset_group_id: nil, duration: nil)
+        ]
+        
+        let db = FakeLaunchDataManager()
+        db.stubRoutine = routine
+        db.stubExercises = [
+            Exercise(id: 10, name: "E1", type: .repBased, equipment_id: nil, notes: nil),
+            Exercise(id: 11, name: "E2", type: .repBased, equipment_id: nil, notes: nil)
+        ]
+        db.stubRoutineExercises = routineExercises
+        
+        let coordinator = WorkoutSessionLaunchCoordinator(db: db)
+        
+        let (_, states) = try await coordinator.launchSession(for: routineID)
+        
+        XCTAssertEqual(states[0].sets.count, 1, "Should clamp 0 to 1")
+        XCTAssertEqual(states[1].sets.count, 1, "Should clamp negative to 1")
     }
     
     func testLaunchSessionThrowsRoutineNotFoundIfRoutineMissing() async {

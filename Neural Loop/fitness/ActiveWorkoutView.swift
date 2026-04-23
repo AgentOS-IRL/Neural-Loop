@@ -38,12 +38,23 @@ struct ActiveWorkoutView: View {
             }
             .navigationTitle(viewModel.session.session_type)
             .navigationBarTitleDisplayMode(.inline)
+            .alert("Error", isPresented: Binding(
+                get: { viewModel.errorMessage != nil },
+                set: { if !$0 { viewModel.errorMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                if let error = viewModel.errorMessage {
+                    Text(error)
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
                         dismiss()
                     }
                     .foregroundColor(.red)
+                    .disabled(viewModel.isLoading)
                 }
             }
         }
@@ -66,17 +77,29 @@ struct ActiveWorkoutView: View {
     
     private var finishButton: some View {
         Button(action: {
-            viewModel.finishWorkout()
-            dismiss()
+            Task {
+                await viewModel.finishWorkout()
+                if viewModel.errorMessage == nil {
+                    dismiss()
+                }
+            }
         }) {
-            Text("Finish Workout")
-                .font(.headline)
-                .foregroundColor(.black)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .cornerRadius(12)
+            Group {
+                if viewModel.isLoading {
+                    ProgressView()
+                        .tint(.black)
+                } else {
+                    Text("Finish Workout")
+                        .font(.headline)
+                        .foregroundColor(.black)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Color.blue)
+            .cornerRadius(12)
         }
+        .disabled(viewModel.isLoading)
         .padding()
     }
 }
