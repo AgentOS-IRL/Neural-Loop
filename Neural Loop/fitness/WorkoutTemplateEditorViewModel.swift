@@ -454,12 +454,7 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
     }
 
     private func parsedDecimal(from text: String) -> Decimal? {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            return nil
-        }
-
-        return Decimal(string: trimmed)
+        return WeightFormatter.parse(text)
     }
 
     private func rollbackRoutineExercises(

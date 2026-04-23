@@ -66,4 +66,8 @@ class FakeWorkoutDataManager: WorkoutDataManaging {
     }
     
     func deleteWorkoutSession(id: Int64) async throws {}
+    
+    func fetchWorkoutSets(exerciseId: Int64) async throws -> [WorkoutSet] {
+        return []
+    }
 }

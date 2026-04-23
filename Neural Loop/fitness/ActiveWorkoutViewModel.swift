@@ -48,7 +48,7 @@ class ActiveWorkoutViewModel: ObservableObject {
                         exercise_id: exerciseState.exercise.id,
                         set_number: draft.setNumber,
                         reps: reps,
-                        weight: Decimal(string: draft.weightText),
+                        weight: WeightFormatter.parse(draft.weightText),
                         superset_group_id: nil
                     )
                     _ = try await db.createWorkoutSet(setRequest)
