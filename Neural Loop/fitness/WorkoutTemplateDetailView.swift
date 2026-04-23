@@ -102,7 +102,6 @@ struct WorkoutTemplateDetailView: View {
                             previewGallery = gallery
                         }
                     )
-                        .frame(width: 92, height: 92)
                 }
             }
             .padding(.vertical, 2)
@@ -142,7 +141,6 @@ struct WorkoutTemplateDetailView: View {
                     previewGallery = gallery
                 }
             )
-                .frame(width: 68, height: 68)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(row.exerciseName)
