@@ -70,6 +70,12 @@ final class WorkoutRoutineGenerationCodexCoordinator: ObservableObject {
 
         do {
             let catalog = try await loadCatalog()
+            let catalogItems = catalog.map {
+                WorkoutRoutineCodexIntents.CatalogItem(
+                    exerciseName: $0.name,
+                    equipmentName: $0.equipmentName
+                )
+            }
             let result = try await client.converse(
                 messages: [
                     CodexInputMessage(
@@ -80,7 +86,8 @@ final class WorkoutRoutineGenerationCodexCoordinator: ObservableObject {
                 state: CodexConversationState(),
                 tools: WorkoutRoutineCodexIntents.workoutGenerationIntentTools,
                 instructions: WorkoutRoutineCodexIntents.getWorkoutGenerationIntentInstructions(
-                    currentDateISO: ISO8601DateFormatter().string(from: Date())
+                    currentDateISO: ISO8601DateFormatter().string(from: Date()),
+                    catalog: catalogItems
                 )
             )
 

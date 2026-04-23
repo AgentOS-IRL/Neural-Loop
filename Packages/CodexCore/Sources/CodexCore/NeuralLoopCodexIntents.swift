@@ -23,17 +23,6 @@ public enum NeuralLoopCodexIntents {
         """
     }
 
-    public static func getWorkoutGenerationIntentInstructions(currentDateISO: String) -> String {
-        return """
-        You are an assistant that generates workout routines.
-        CURRENT DATE AND TIME: \(currentDateISO).
-        When the user is asking for a workout routine or workout template, you must call generate_workout_routine.
-        Do not invent exercises, equipment, or routine structure on your own.
-        Use the tool to submit the proposed routine payload, and rely on the app to validate and filter invalid exercises before the routine is shown to the user.
-        The tool returns the same top-level shape with only valid exercises preserved.
-        If the user is not asking for a workout routine, respond normally.
-        """
-    }
     public static let defaultIntentTools: [CodexTool] = [
         CodexTool(
             name: "create_task",
@@ -99,49 +88,5 @@ public enum NeuralLoopCodexIntents {
         )
     ]
 
-    public static let workoutGenerationIntentTools: [CodexTool] = [
-        CodexTool(
-            name: "generate_workout_routine",
-            description: "Generate a workout routine payload. Only use this tool when the user is asking for a routine or workout template. Do not invent exercises. Return routine_name, notes, and an exercises array with name and equipment for each proposed exercise. The app will validate the proposed exercises against its catalog and remove invalid entries before showing the result.",
-            parameters: .object([
-                "type": .string("object"),
-                "properties": .object([
-                    "routine_name": .object([
-                        "type": .string("string"),
-                        "description": .string("Short routine title.")
-                    ]),
-                    "notes": .object([
-                        "type": .string("string"),
-                        "description": .string("Optional routine notes and coaching context.")
-                    ]),
-                    "exercises": .object([
-                        "type": .string("array"),
-                        "description": .string("Ordered workout exercises proposed for the routine. Keep the order stable."),
-                        "items": .object([
-                            "type": .string("object"),
-                            "properties": .object([
-                                "name": .object([
-                                    "type": .string("string"),
-                                    "description": .string("Exercise name.")
-                                ]),
-                                "equipment": .object([
-                                    "type": .string("string"),
-                                    "description": .string("Equipment name, or an empty string if the exercise uses no equipment.")
-                                ])
-                            ]),
-                            "required": .array([
-                                .string("name"),
-                                .string("equipment")
-                            ])
-                        ])
-                    ])
-                ]),
-                "required": .array([
-                    .string("routine_name"),
-                    .string("notes"),
-                    .string("exercises")
-                ])
-            ])
-        )
-    ]
+    
 }
