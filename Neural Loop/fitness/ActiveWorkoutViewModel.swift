@@ -50,13 +50,13 @@ class ActiveWorkoutViewModel: ObservableObject {
                             exercise_id: exerciseState.exercise.id,
                             set_number: draft.setNumber,
                             reps: reps,
-                            weight: WeightFormatter.parse(draft.weightText),
+                            weight: NumericFormatter.parse(draft.weightText),
                             superset_group_id: nil
                         )
                         _ = try await db.createWorkoutSet(setRequest)
                     case .duration:
                         // Only save logs that have duration
-                        guard let duration = Decimal(string: draft.durationText), duration > 0 else { continue }
+                        guard let duration = NumericFormatter.parse(draft.durationText), duration > 0 else { continue }
                         
                         let cardioRequest = CreateCardioLogRequest(
                             workout_session_id: savedSession.id ?? 0,

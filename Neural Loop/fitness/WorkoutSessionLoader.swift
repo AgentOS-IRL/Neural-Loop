@@ -23,7 +23,7 @@ struct WorkoutSessionLoader {
                 // Extract weights and find the maximum
                 let weights = history.compactMap { $0.weight }
                 if let maxWeight = weights.max() {
-                    let weightString = WeightFormatter.format(maxWeight)
+                    let weightString = NumericFormatter.format(maxWeight)
                     
                     // Update all sets in this exercise
                     for j in 0..<updatedExercises[i].sets.count {

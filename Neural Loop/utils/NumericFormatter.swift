@@ -1,6 +1,6 @@
 import Foundation
 
-enum WeightFormatter {
+enum NumericFormatter {
     private static var formatter: NumberFormatter = {
         let f = NumberFormatter()
         f.numberStyle = .decimal
@@ -10,8 +10,8 @@ enum WeightFormatter {
         return f
     }()
 
-    static func format(_ weight: Decimal) -> String {
-        return formatter.string(from: weight as NSDecimalNumber) ?? ""
+    static func format(_ value: Decimal) -> String {
+        return formatter.string(from: value as NSDecimalNumber) ?? ""
     }
 
     static func parse(_ text: String) -> Decimal? {

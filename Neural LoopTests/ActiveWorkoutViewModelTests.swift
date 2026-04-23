@@ -64,6 +64,24 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
         XCTAssertEqual(db.capturedCardioRequests[0].duration_minutes, 30)
         XCTAssertEqual(db.capturedCardioRequests[1].duration_minutes, 45)
     }
+
+    func testFinishWorkoutSavesCardioLogsWithDecimalDuration() async throws {
+        let db = FakeWorkoutDataManager()
+        let session = WorkoutSession(id: nil, date: Date(), start_time: "2026-04-23T10:00:00Z", end_time: nil, session_type: "Test", notes: "Notes")
+        let exercise = ExerciseLibraryItem(id: 20, name: "Running", type: .duration, equipmentID: nil, equipmentName: "None")
+        
+        // Testing decimal duration
+        let state = WorkoutExerciseCardState(id: 2, exercise: exercise, sets: [
+            WorkoutSetDraft(setNumber: 1, durationText: "15.5")
+        ])
+        
+        let viewModel = ActiveWorkoutViewModel(session: session, exerciseStates: [state], db: db)
+        
+        await viewModel.finishWorkout()
+        
+        XCTAssertEqual(db.capturedCardioRequests.count, 1)
+        XCTAssertEqual(db.capturedCardioRequests[0].duration_minutes, 15.5)
+    }
     
     func testFinishWorkoutSetsErrorMessageOnFailure() async {
         let db = FakeWorkoutDataManager()
