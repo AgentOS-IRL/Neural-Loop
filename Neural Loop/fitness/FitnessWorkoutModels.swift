@@ -24,6 +24,15 @@ struct WorkoutExerciseCardState: Identifiable, Equatable, Codable {
     var targetReps: Int?
     var restSeconds: Int?
     var targetDuration: Decimal?
+
+    var columnHeaders: [String] {
+        switch exercise.type {
+        case .repBased:
+            return ["SET", "KG", "REPS"]
+        case .duration:
+            return ["SET", "DURATION"]
+        }
+    }
 }
 
 struct WorkoutSetDraft: Identifiable, Equatable, Codable {
@@ -31,17 +40,32 @@ struct WorkoutSetDraft: Identifiable, Equatable, Codable {
     var setNumber: Int
     var weightText: String
     var repsText: String
+    var durationText: String
 
     init(
         id: UUID = UUID(),
         setNumber: Int,
         weightText: String = "",
-        repsText: String = ""
+        repsText: String = "",
+        durationText: String = ""
     ) {
         self.id = id
         self.setNumber = setNumber
         self.weightText = weightText
         self.repsText = repsText
+        self.durationText = durationText
+    }
+
+    func weightAccessibilityLabel(exerciseName: String) -> String {
+        "\(exerciseName) set \(setNumber) kilograms"
+    }
+
+    func repsAccessibilityLabel(exerciseName: String) -> String {
+        "\(exerciseName) set \(setNumber) reps"
+    }
+
+    func durationAccessibilityLabel(exerciseName: String) -> String {
+        "\(exerciseName) set \(setNumber) duration"
     }
 }
 
@@ -108,6 +132,7 @@ protocol WorkoutDataManaging {
     func fetchAllExercises() async throws -> [Exercise]
     func createWorkoutSession(_ request: CreateWorkoutSessionRequest) async throws -> WorkoutSession
     func createWorkoutSet(_ request: CreateWorkoutSetRequest) async throws -> WorkoutSet
+    func createCardioLog(_ request: CreateCardioLogRequest) async throws -> CardioLog
     func deleteWorkoutSession(id: Int64) async throws
     func fetchWorkoutSets(exerciseId: Int64) async throws -> [WorkoutSet]
 }

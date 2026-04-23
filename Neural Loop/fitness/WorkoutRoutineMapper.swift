@@ -44,12 +44,14 @@ struct WorkoutRoutineMapper {
             
             let weightText = ""
             let repsText = re.target_reps.map { String($0) } ?? ""
+            let durationText = re.duration.map { String(describing: $0) } ?? ""
 
             let setDrafts = (1...targetSets).map { setNumber in
                 WorkoutSetDraft(
                     setNumber: setNumber,
                     weightText: weightText,
-                    repsText: repsText
+                    repsText: repsText,
+                    durationText: durationText
                 )
             }
 

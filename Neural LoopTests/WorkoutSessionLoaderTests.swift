@@ -37,7 +37,7 @@ final class WorkoutSessionLoaderTests: XCTestCase {
         
         let results = await loader.prefillHistoricalWeights(for: [exerciseState])
         
-        XCTAssertEqual(results[0].sets[0].weightText, WeightFormatter.format(100))
+        XCTAssertEqual(results[0].sets[0].weightText, NumericFormatter.format(100))
     }
     
     func testMultiplePriorSetsMaxWins() async {
@@ -57,8 +57,8 @@ final class WorkoutSessionLoaderTests: XCTestCase {
         
         let results = await loader.prefillHistoricalWeights(for: [exerciseState])
         
-        XCTAssertEqual(results[0].sets[0].weightText, WeightFormatter.format(120.5))
-        XCTAssertEqual(results[0].sets[1].weightText, WeightFormatter.format(120.5))
+        XCTAssertEqual(results[0].sets[0].weightText, NumericFormatter.format(120.5))
+        XCTAssertEqual(results[0].sets[1].weightText, NumericFormatter.format(120.5))
     }
     
     func testMixedNilNonNilWeights() async {
@@ -74,7 +74,7 @@ final class WorkoutSessionLoaderTests: XCTestCase {
         
         let results = await loader.prefillHistoricalWeights(for: [exerciseState])
         
-        XCTAssertEqual(results[0].sets[0].weightText, WeightFormatter.format(50))
+        XCTAssertEqual(results[0].sets[0].weightText, NumericFormatter.format(50))
     }
     
     func testCardioUntouched() async {
@@ -108,6 +108,9 @@ class MockWorkoutSessionLoaderDataManager: WorkoutDataManaging {
         fatalError("Not used")
     }
     func createWorkoutSet(_ request: CreateWorkoutSetRequest) async throws -> WorkoutSet {
+        fatalError("Not used")
+    }
+    func createCardioLog(_ request: CreateCardioLogRequest) async throws -> CardioLog {
         fatalError("Not used")
     }
     func deleteWorkoutSession(id: Int64) async throws {}

@@ -97,6 +97,7 @@ final class WorkoutRoutineMapperTests: XCTestCase {
         
         XCTAssertEqual(state.exercises[1].exercise.type, .duration)
         XCTAssertEqual(state.exercises[1].targetDuration, Decimal(20))
+        XCTAssertEqual(state.exercises[1].sets[0].durationText, "20")
     }
     
     func testMissingOptionalValues() {
