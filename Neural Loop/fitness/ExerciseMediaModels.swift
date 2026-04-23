@@ -11,6 +11,15 @@ enum ExerciseMediaDisplayMode: Equatable, Sendable {
     case thumbnail
     case hero
 
+    var tileSize: CGSize {
+        switch self {
+        case .thumbnail:
+            return CGSize(width: 58, height: 58)
+        case .hero:
+            return CGSize(width: 100, height: 72)
+        }
+    }
+
     var aspectRatio: CGFloat {
         switch self {
         case .thumbnail:
@@ -32,9 +41,9 @@ enum ExerciseMediaDisplayMode: Equatable, Sendable {
     var iconSize: CGFloat {
         switch self {
         case .thumbnail:
-            return 18
+            return 16
         case .hero:
-            return 22
+            return 20
         }
     }
 }

@@ -53,6 +53,7 @@ struct ExerciseMediaView: View {
                 }
             }
         }
+        .frame(width: mode.tileSize.width, height: mode.tileSize.height)
         .task(id: exerciseName) {
             await MainActor.run {
                 state = .loading
@@ -156,10 +157,10 @@ private struct ExerciseMediaLoadedTile: View {
 
     private var previewBadge: some View {
         Image(systemName: "arrow.up.left.and.arrow.down.right")
-            .font(.system(size: mode == .thumbnail ? 11 : 12, weight: .semibold))
+            .font(.system(size: mode == .thumbnail ? 10 : 11, weight: .semibold))
             .foregroundStyle(.white)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 5)
             .background {
                 Capsule()
                     .fill(Color.black.opacity(0.55))
