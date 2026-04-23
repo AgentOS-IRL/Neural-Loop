@@ -57,6 +57,38 @@ final class ExerciseMediaResolverTests: XCTestCase {
         XCTAssertEqual(signedURLCallCount, 1)
     }
 
+    func testConcurrentResolveStateSharesInFlightLoad() async {
+        let gate = AsyncGate()
+        let provider = MockExerciseMediaStorageProvider(
+            filesByFolder: [
+                "bench_press": [
+                    .init(name: "poster.png"),
+                    .init(name: "hero.gif")
+                ]
+            ],
+            listGate: gate
+        )
+        let resolver = ExerciseMediaResolver(storage: provider, cacheLifetime: 60)
+
+        async let firstState = resolver.resolveState(for: "Bench Press")
+        async let secondState = resolver.resolveState(for: "Bench Press")
+
+        await gate.open()
+
+        let resolvedFirstState = await firstState
+        let resolvedSecondState = await secondState
+
+        guard case .loaded(let firstGallery) = resolvedFirstState,
+              case .loaded(let secondGallery) = resolvedSecondState else {
+            XCTFail("Expected both concurrent resolves to load successfully")
+            return
+        }
+
+        XCTAssertEqual(firstGallery, secondGallery)
+        XCTAssertEqual(await provider.listCallCount(), 1)
+        XCTAssertEqual(await provider.createSignedURLsCallCount(), 1)
+    }
+
     func testBlankAndUnsupportedNamesDegradeCleanly() async {
         let provider = MockExerciseMediaStorageProvider(
             filesByFolder: [
@@ -91,15 +123,23 @@ final class ExerciseMediaResolverTests: XCTestCase {
 
 private actor MockExerciseMediaStorageProvider: ExerciseMediaStorageProviding {
     private let filesByFolder: [String: [ExerciseMediaStorageEntry]]
+    private let listGate: AsyncGate?
     private var listCallCountValue = 0
     private var createSignedURLsCallCountValue = 0
 
-    init(filesByFolder: [String: [ExerciseMediaStorageEntry]]) {
+    init(
+        filesByFolder: [String: [ExerciseMediaStorageEntry]],
+        listGate: AsyncGate? = nil
+    ) {
         self.filesByFolder = filesByFolder
+        self.listGate = listGate
     }
 
     func listMedia(in folderPath: String) async throws -> [ExerciseMediaStorageEntry] {
         listCallCountValue += 1
+        if let listGate {
+            await listGate.wait()
+        }
         return filesByFolder[folderPath] ?? []
     }
 
@@ -114,5 +154,31 @@ private actor MockExerciseMediaStorageProvider: ExerciseMediaStorageProviding {
 
     func createSignedURLsCallCount() -> Int {
         createSignedURLsCallCountValue
+    }
+}
+
+private actor AsyncGate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        if isOpen {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+
+    func open() {
+        guard !isOpen else { return }
+        isOpen = true
+
+        let pendingWaiters = waiters
+        waiters.removeAll()
+        for waiter in pendingWaiters {
+            waiter.resume()
+        }
     }
 }

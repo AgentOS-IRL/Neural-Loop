@@ -34,7 +34,11 @@ struct ExerciseMediaView: View {
             case .fallback:
                 ExerciseMediaFallbackTile(mode: mode)
             case .loaded(let gallery):
-                if let asset = gallery.heroAsset(allowsMotion: !reduceMotion) {
+                let asset = mode == .thumbnail
+                    ? gallery.thumbnailAsset
+                    : gallery.heroAsset(allowsMotion: !reduceMotion)
+
+                if let asset {
                     ExerciseMediaLoadedTile(
                         exerciseName: exerciseName,
                         mode: mode,

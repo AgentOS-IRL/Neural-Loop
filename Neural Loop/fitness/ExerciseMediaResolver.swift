@@ -37,6 +37,7 @@ actor ExerciseMediaResolver {
     private let storage: any ExerciseMediaStorageProviding
     private let cacheLifetime: TimeInterval
     private var cache: [String: CacheEntry] = [:]
+    private var inFlightTasks: [String: Task<ExerciseMediaResolutionState, Never>] = [:]
 
     init(
         storage: any ExerciseMediaStorageProviding = SupabaseExerciseMediaStorageProvider(),
@@ -56,15 +57,22 @@ actor ExerciseMediaResolver {
             return cachedState
         }
 
-        do {
-            let state = try await loadGallery(exerciseName: exerciseName, slug: slug)
-            cache[slug] = CacheEntry(state: state, resolvedAt: .now)
-            return state
-        } catch {
-            let state = ExerciseMediaResolutionState.fallback(.failedToLoad)
-            cache[slug] = CacheEntry(state: state, resolvedAt: .now)
-            return state
+        if let task = inFlightTasks[slug] {
+            return await task.value
         }
+
+        let task = Task { [storage] in
+            await Self.loadGallery(exerciseName: exerciseName, slug: slug, storage: storage)
+        }
+
+        inFlightTasks[slug] = task
+        defer {
+            inFlightTasks[slug] = nil
+        }
+
+        let state = await task.value
+        cache[slug] = CacheEntry(state: state, resolvedAt: .now)
+        return state
     }
 
     func resolveGallery(for exerciseName: String) async -> ExerciseMediaGallery? {
@@ -86,13 +94,23 @@ actor ExerciseMediaResolver {
         return entry.state
     }
 
-    private func loadGallery(exerciseName: String, slug: String) async throws -> ExerciseMediaResolutionState {
+    private static func loadGallery(
+        exerciseName: String,
+        slug: String,
+        storage: any ExerciseMediaStorageProviding
+    ) async -> ExerciseMediaResolutionState {
+
         let folderPath = ExerciseMediaPathBuilder.folderPath(for: exerciseName)
         guard !folderPath.isEmpty else {
             return .fallback(.missingName)
         }
 
-        let entries = try await storage.listMedia(in: folderPath)
+        let entries: [ExerciseMediaStorageEntry]
+        do {
+            entries = try await storage.listMedia(in: folderPath)
+        } catch {
+            return .fallback(.failedToLoad)
+        }
         guard !entries.isEmpty else {
             return .fallback(.emptyFolder)
         }
@@ -122,7 +140,12 @@ actor ExerciseMediaResolver {
         }
 
         let paths = orderedEntries.map { "\(folderPath)/\($0.entry.name)" }
-        let urls = try await storage.createSignedURLs(for: paths)
+        let urls: [URL]
+        do {
+            urls = try await storage.createSignedURLs(for: paths)
+        } catch {
+            return .fallback(.failedToLoad)
+        }
 
         let assets: [ExerciseMediaAsset] = zip(orderedEntries, urls).map { element in
             let (entry, url) = element
