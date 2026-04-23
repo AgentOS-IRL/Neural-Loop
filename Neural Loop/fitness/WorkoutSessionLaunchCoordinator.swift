@@ -43,51 +43,14 @@ actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
         let allExercises = try await db.fetchAllExercises()
         let allEquipment = try await db.fetchAllEquipment()
 
-        // 2. Prepare WorkoutSession Draft
-        let session = WorkoutSession(
-            id: nil,
-            date: Date(),
-            start_time: ISO8601DateFormatter().string(from: Date()),
-            end_time: nil,
-            session_type: routine.name,
-            notes: routine.notes
+        // 2. Map to WorkoutSessionState using the mapper
+        let sessionState = WorkoutRoutineMapper.mapToSessionState(
+            routine: routine,
+            routineExercises: routineExercises,
+            allExercises: allExercises,
+            allEquipment: allEquipment
         )
 
-        // 3. Transform to WorkoutExerciseCardState
-        let exerciseStates = routineExercises.compactMap { re -> WorkoutExerciseCardState? in
-            guard let exercise = allExercises.first(where: { $0.id == re.exercise_id }) else {
-                return nil
-            }
-
-            let equipment = allEquipment.first(where: { $0.id == exercise.equipment_id })
-            
-            let libraryItem = ExerciseLibraryItem(
-                id: exercise.id ?? 0,
-                name: exercise.name,
-                type: exercise.type,
-                equipmentID: exercise.equipment_id,
-                equipmentName: equipment?.name ?? "No Equipment"
-            )
-
-            let targetSets = max(1, re.target_sets ?? 1)
-            let weightText = ""
-            let repsText = re.target_reps.map { String($0) } ?? ""
-
-            let setDrafts = (1...targetSets).map { setNumber in
-                WorkoutSetDraft(
-                    setNumber: setNumber,
-                    weightText: weightText,
-                    repsText: repsText
-                )
-            }
-
-            return WorkoutExerciseCardState(
-                id: re.id ?? 0,
-                exercise: libraryItem,
-                sets: setDrafts
-            )
-        }
-
-        return (session, exerciseStates)
+        return (sessionState.session, sessionState.exercises)
     }
 }
