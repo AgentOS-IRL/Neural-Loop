@@ -59,6 +59,9 @@ struct FitnessView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Workout template options")
+            .contextMenu {
+                Button("Generate Workout Template") {}
+            }
 
             Button {
                 isTemplateEditorPresented = true
