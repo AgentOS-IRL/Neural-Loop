@@ -321,18 +321,11 @@ final class WorkoutTemplateEditorViewModelTests: XCTestCase {
                 WorkoutRoutineGenerationExercise(name: "Cable Row", equipment: "Cable")
             ]
         )
-        let filteredRoutine = WorkoutCatalogMapper.filteredRoutine(
-            generatedRoutine,
-            matching: WorkoutCatalogMapper.makeLibraryItems(
-                equipment: dataManager.equipment,
-                exercises: dataManager.exercises
-            )
-        )
 
         let viewModel = WorkoutTemplateEditorViewModel(
             mode: .create,
             dataManager: dataManager,
-            generatedRoutine: filteredRoutine
+            generatedRoutine: generatedRoutine
         )
 
         await viewModel.loadIfNeeded()

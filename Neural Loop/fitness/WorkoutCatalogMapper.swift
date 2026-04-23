@@ -57,9 +57,10 @@ enum WorkoutCatalogMapper {
         from generatedRoutine: WorkoutRoutineGenerationPayload,
         availableExercises: [ExerciseLibraryItem]
     ) -> [WorkoutTemplateExerciseDraft] {
+        let validatedRoutine = filteredRoutine(generatedRoutine, matching: availableExercises)
         let index = CatalogIndex(items: availableExercises)
 
-        return generatedRoutine.exercises.enumerated().compactMap { offset, proposedExercise in
+        return validatedRoutine.exercises.enumerated().compactMap { offset, proposedExercise in
             guard let exercise = index.matchingItem(for: proposedExercise) else {
                 return nil
             }
