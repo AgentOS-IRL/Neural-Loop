@@ -37,21 +37,36 @@ class ActiveWorkoutViewModel: ObservableObject {
             )
             let savedSession = try await db.createWorkoutSession(sessionRequest)
             
-            // 2. Create sets
+            // 2. Create sets or cardio logs
             for exerciseState in exerciseStates {
                 for draft in exerciseState.sets {
-                    // Only save sets that have reps
-                    guard let reps = Int(draft.repsText), reps > 0 else { continue }
-                    
-                    let setRequest = CreateWorkoutSetRequest(
-                        workout_session_id: savedSession.id ?? 0,
-                        exercise_id: exerciseState.exercise.id,
-                        set_number: draft.setNumber,
-                        reps: reps,
-                        weight: WeightFormatter.parse(draft.weightText),
-                        superset_group_id: nil
-                    )
-                    _ = try await db.createWorkoutSet(setRequest)
+                    switch exerciseState.exercise.type {
+                    case .repBased:
+                        // Only save sets that have reps
+                        guard let reps = Int(draft.repsText), reps > 0 else { continue }
+                        
+                        let setRequest = CreateWorkoutSetRequest(
+                            workout_session_id: savedSession.id ?? 0,
+                            exercise_id: exerciseState.exercise.id,
+                            set_number: draft.setNumber,
+                            reps: reps,
+                            weight: WeightFormatter.parse(draft.weightText),
+                            superset_group_id: nil
+                        )
+                        _ = try await db.createWorkoutSet(setRequest)
+                    case .duration:
+                        // Only save logs that have duration
+                        guard let duration = Decimal(string: draft.durationText), duration > 0 else { continue }
+                        
+                        let cardioRequest = CreateCardioLogRequest(
+                            workout_session_id: savedSession.id ?? 0,
+                            exercise_id: exerciseState.exercise.id,
+                            distance_meters: nil, // Distance not tracked in this simplified UI yet
+                            duration_minutes: duration,
+                            calories: nil
+                        )
+                        _ = try await db.createCardioLog(cardioRequest)
+                    }
                 }
             }
         } catch {
@@ -77,5 +92,11 @@ class ActiveWorkoutViewModel: ObservableObject {
         guard let exerciseIndex = exerciseStates.firstIndex(where: { $0.id == exerciseID }),
               let setIndex = exerciseStates[exerciseIndex].sets.firstIndex(where: { $0.id == setID }) else { return }
         exerciseStates[exerciseIndex].sets[setIndex].repsText = repsText
+    }
+
+    func updateDuration(for exerciseID: Int64, setID: UUID, durationText: String) {
+        guard let exerciseIndex = exerciseStates.firstIndex(where: { $0.id == exerciseID }),
+              let setIndex = exerciseStates[exerciseIndex].sets.firstIndex(where: { $0.id == setID }) else { return }
+        exerciseStates[exerciseIndex].sets[setIndex].durationText = durationText
     }
 }

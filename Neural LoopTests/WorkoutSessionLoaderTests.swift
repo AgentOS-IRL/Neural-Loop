@@ -110,5 +110,8 @@ class MockWorkoutSessionLoaderDataManager: WorkoutDataManaging {
     func createWorkoutSet(_ request: CreateWorkoutSetRequest) async throws -> WorkoutSet {
         fatalError("Not used")
     }
+    func createCardioLog(_ request: CreateCardioLogRequest) async throws -> CardioLog {
+        fatalError("Not used")
+    }
     func deleteWorkoutSession(id: Int64) async throws {}
 }

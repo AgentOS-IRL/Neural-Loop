@@ -5,6 +5,7 @@ struct WorkoutExerciseCard: View {
     let onAddSet: () -> Void
     let onWeightChange: (WorkoutSetDraft.ID, String) -> Void
     let onRepsChange: (WorkoutSetDraft.ID, String) -> Void
+    let onDurationChange: (WorkoutSetDraft.ID, String) -> Void
 
     private let setColumnWidth: CGFloat = 48
 
@@ -69,10 +70,11 @@ struct WorkoutExerciseCard: View {
             HStack(spacing: 10) {
                 tableHeader("SET")
                     .frame(width: setColumnWidth, alignment: .leading)
-                tableHeader("KG")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                tableHeader("REPS")
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                ForEach(card.columnHeaders.filter { $0 != "SET" }, id: \.self) { header in
+                    tableHeader(header)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             .padding(.bottom, 6)
 
@@ -83,25 +85,38 @@ struct WorkoutExerciseCard: View {
                         .foregroundStyle(AppTheme.textPrimary)
                         .frame(width: setColumnWidth, height: 44, alignment: .leading)
 
-                    numericField(
-                        text: Binding(
-                            get: { set.weightText },
-                            set: { onWeightChange(set.id, $0) }
-                        ),
-                        placeholder: "0",
-                        keyboardType: .decimalPad,
-                        accessibilityLabel: "\(card.exercise.name) set \(set.setNumber) kilograms"
-                    )
+                    switch card.exercise.type {
+                    case .repBased:
+                        numericField(
+                            text: Binding(
+                                get: { set.weightText },
+                                set: { onWeightChange(set.id, $0) }
+                            ),
+                            placeholder: "0",
+                            keyboardType: .decimalPad,
+                            accessibilityLabel: set.weightAccessibilityLabel(exerciseName: card.exercise.name)
+                        )
 
-                    numericField(
-                        text: Binding(
-                            get: { set.repsText },
-                            set: { onRepsChange(set.id, $0) }
-                        ),
-                        placeholder: "0",
-                        keyboardType: .numberPad,
-                        accessibilityLabel: "\(card.exercise.name) set \(set.setNumber) reps"
-                    )
+                        numericField(
+                            text: Binding(
+                                get: { set.repsText },
+                                set: { onRepsChange(set.id, $0) }
+                            ),
+                            placeholder: "0",
+                            keyboardType: .numberPad,
+                            accessibilityLabel: set.repsAccessibilityLabel(exerciseName: card.exercise.name)
+                        )
+                    case .duration:
+                        numericField(
+                            text: Binding(
+                                get: { set.durationText },
+                                set: { onDurationChange(set.id, $0) }
+                            ),
+                            placeholder: "0",
+                            keyboardType: .decimalPad,
+                            accessibilityLabel: set.durationAccessibilityLabel(exerciseName: card.exercise.name)
+                        )
+                    }
                 }
                 .padding(.vertical, 6)
 

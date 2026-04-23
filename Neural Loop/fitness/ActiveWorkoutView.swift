@@ -25,6 +25,9 @@ struct ActiveWorkoutView: View {
                                     },
                                     onRepsChange: { setID, reps in
                                         viewModel.updateReps(for: state.id, setID: setID, repsText: reps)
+                                    },
+                                    onDurationChange: { setID, duration in
+                                        viewModel.updateDuration(for: state.id, setID: setID, durationText: duration)
                                     }
                                 )
                                 .padding(.horizontal)
