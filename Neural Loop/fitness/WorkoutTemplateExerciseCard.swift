@@ -12,8 +12,6 @@ struct WorkoutTemplateExerciseCard: View {
     let onDurationChange: (String) -> Void
     let onPreviewRequested: ((ExerciseMediaGallery) -> Void)?
 
-    private let setColumnWidth: CGFloat = 48
-
     init(
         draft: WorkoutTemplateExerciseDraft,
         canMoveUp: Bool,
@@ -75,6 +73,7 @@ struct WorkoutTemplateExerciseCard: View {
                 HStack(spacing: 6) {
                     pillLabel(draft.exercise.equipmentName, systemImage: "dumbbell")
                     pillLabel(draft.exercise.type == .repBased ? "Rep-based" : "Duration", systemImage: draft.exercise.type == .repBased ? "repeat" : "timer")
+                    orderPill
                 }
             }
 
@@ -117,8 +116,6 @@ struct WorkoutTemplateExerciseCard: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 tableHeader("SETS")
-                    .frame(width: setColumnWidth, alignment: .leading)
-                tableHeader("TARGET")
                     .frame(maxWidth: .infinity, alignment: .leading)
                 tableHeader(targetHeaderLabel)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -126,11 +123,6 @@ struct WorkoutTemplateExerciseCard: View {
             .padding(.bottom, 6)
 
             HStack(spacing: 10) {
-                Text("\(draft.orderIndex)")
-                    .font(.system(.body, design: .rounded, weight: .semibold))
-                    .foregroundStyle(AppTheme.textPrimary)
-                    .frame(width: setColumnWidth, height: 44, alignment: .leading)
-
                 numericField(
                     text: Binding(
                         get: { draft.targetSetsText },
@@ -165,6 +157,19 @@ struct WorkoutTemplateExerciseCard: View {
                 }
             }
         }
+    }
+
+    private var orderPill: some View {
+        Text("#\(draft.orderIndex)")
+            .font(.system(.caption, design: .rounded, weight: .bold))
+            .foregroundStyle(AppTheme.textPrimary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background {
+                Capsule()
+                    .fill(AppTheme.sectionGradient)
+            }
+            .accessibilityLabel("Order \(draft.orderIndex)")
     }
 
     private var targetHeaderLabel: String {

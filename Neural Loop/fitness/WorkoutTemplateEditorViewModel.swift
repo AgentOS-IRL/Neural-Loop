@@ -521,7 +521,7 @@ private enum WorkoutTemplateEditorError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingRoutine:
-            return "Workout template could not be found."
+            return "Routine could not be found."
         case .saveCleanupFailed(let originalError, let cleanupError):
             return "\(originalError.localizedDescription) Cleanup failed: \(cleanupError.localizedDescription)"
         case .saveRollbackFailed(let originalError, let rollbackError):
@@ -540,7 +540,7 @@ private enum WorkoutTemplateEditorValidationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingName:
-            return "Enter a template name."
+            return "Enter a routine name."
         case .missingExercises:
             return "Add at least one exercise."
         case .invalidSetCount(let exerciseName):

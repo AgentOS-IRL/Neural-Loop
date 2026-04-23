@@ -88,7 +88,7 @@ private enum WorkoutTemplateEditError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingRoutine:
-            return "Workout template could not be found."
+            return "Routine could not be found."
         }
     }
 }

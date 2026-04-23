@@ -77,7 +77,7 @@ struct WorkoutTemplateEditorView: View {
                 .font(.system(.title2, design: .rounded, weight: .bold))
                 .foregroundStyle(AppTheme.textPrimary)
 
-            Text("Create a reusable routine template. This does not create a workout log.")
+            Text("Create a reusable routine. This does not create a workout log.")
                 .font(.system(.subheadline, design: .rounded, weight: .medium))
                 .foregroundStyle(AppTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -97,11 +97,11 @@ struct WorkoutTemplateEditorView: View {
     private var templateForm: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Template Name")
+                Text("Routine Name")
                     .font(.system(.subheadline, design: .rounded, weight: .semibold))
                     .foregroundStyle(AppTheme.textSecondary)
 
-                TextField("Template name", text: $viewModel.title)
+                TextField("Routine name", text: $viewModel.title)
                     .textInputAutocapitalization(.words)
                     .autocorrectionDisabled()
                     .font(.system(.body, design: .rounded, weight: .medium))
@@ -201,7 +201,7 @@ struct WorkoutTemplateEditorView: View {
             ProgressView()
                 .tint(AppTheme.textPrimary)
 
-            Text("Loading template")
+            Text("Loading routine")
                 .font(.system(.subheadline, design: .rounded, weight: .medium))
                 .foregroundStyle(AppTheme.textSecondary)
         }
@@ -214,7 +214,7 @@ struct WorkoutTemplateEditorView: View {
                 .font(.system(.headline, design: .rounded, weight: .semibold))
                 .foregroundStyle(AppTheme.textPrimary)
 
-            Text("Add exercises to build this routine template.")
+            Text("Add exercises to build this routine.")
                 .font(.system(.subheadline, design: .rounded, weight: .medium))
                 .foregroundStyle(AppTheme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -307,18 +307,18 @@ private extension WorkoutTemplateEditorMode {
     var navigationTitle: String {
         switch self {
         case .create:
-            return "New Template"
+            return "New Routine"
         case .edit:
-            return "Edit Template"
+            return "Edit Routine"
         }
     }
 
     var headerTitle: String {
         switch self {
         case .create:
-            return "New Routine Template"
+            return "New Routine"
         case .edit:
-            return "Edit Routine Template"
+            return "Edit Routine"
         }
     }
 }
