@@ -144,6 +144,7 @@ private final class FakeFitnessTemplateDataManager: FitnessTemplateDataManaging,
         WorkoutSet(id: 1, workout_session_id: 1, exercise_id: 1, set_number: 1, reps: 1, weight: nil, superset_group_id: nil)
     }
     func deleteWorkoutSession(id: Int64) async throws {}
+    func fetchWorkoutSets(exerciseId: Int64) async throws -> [WorkoutSet] { [] }
 }
 
 private enum FakeFitnessTemplateError: LocalizedError {
