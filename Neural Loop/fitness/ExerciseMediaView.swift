@@ -115,40 +115,53 @@ private struct ExerciseMediaLoadedTile: View {
     let onPreviewRequested: ((ExerciseMediaGallery) -> Void)?
 
     var body: some View {
-        Button {
-            guard showsPreviewAffordance else { return }
-            onPreviewRequested?(gallery)
-        } label: {
-            ZStack(alignment: .topTrailing) {
-                ExerciseMediaAssetContent(
-                    asset: asset,
-                    mode: mode,
-                    allowsMotion: allowsMotion
-                )
+        let canPreview = showsPreviewAffordance && gallery.previewAvailable
 
-                if showsPreviewAffordance {
-                    previewBadge
-                        .padding(8)
+        Group {
+            if canPreview {
+                Button {
+                    onPreviewRequested?(gallery)
+                } label: {
+                    tileContent(canPreview: canPreview)
                 }
-
-                if asset.isAnimated {
-                    gifBadge
-                        .padding(10)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                }
+                .buttonStyle(.plain)
+            } else {
+                tileContent(canPreview: canPreview)
             }
-            .background(
-                RoundedRectangle(cornerRadius: mode.cornerRadius, style: .continuous)
-                    .fill(AppTheme.cardGradient)
-            )
         }
-        .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
     }
 
+    @ViewBuilder
+    private func tileContent(canPreview: Bool) -> some View {
+        ZStack(alignment: .topTrailing) {
+            ExerciseMediaAssetContent(
+                asset: asset,
+                mode: mode,
+                allowsMotion: allowsMotion
+            )
+
+            if canPreview {
+                previewBadge
+                    .padding(8)
+            }
+
+            if asset.isAnimated {
+                gifBadge
+                    .padding(10)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: mode.cornerRadius, style: .continuous)
+                .fill(AppTheme.cardGradient)
+        )
+    }
+
     private var accessibilityLabel: String {
-        let mediaLabel = asset.isAnimated ? "animated media" : "media preview"
-        if gallery.assets.count == 1 {
+        let mediaLabel = asset.isAnimated ? "animated media" : "media thumbnail"
+        if !gallery.previewAvailable || gallery.previewAssets.count == 1 {
             return "\(exerciseName), \(mediaLabel)"
         }
 
@@ -201,6 +214,7 @@ private struct ExerciseMediaAssetContent: View {
                 endPoint: .bottom
             )
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: mode.cornerRadius, style: .continuous))
     }
 }
@@ -234,7 +248,7 @@ struct ExerciseMediaPreviewSheet: View {
                 }
             }
             .onAppear {
-                if selectedAssetID == nil {
+                if selectedAssetID == nil, gallery.previewAvailable {
                     selectedAssetID = gallery.heroAsset(allowsMotion: allowsMotion)?.id
                 }
             }
@@ -244,11 +258,10 @@ struct ExerciseMediaPreviewSheet: View {
     private var hero: some View {
         let asset = gallery.previewAssets.first(where: { $0.id == selectedAssetID })
             ?? gallery.heroAsset(allowsMotion: allowsMotion)
-            ?? gallery.thumbnailAsset
 
         return Group {
             if let asset {
-                ExerciseMediaPreviewAssetView(asset: asset, allowsMotion: allowsMotion)
+                ExerciseMediaPreviewAssetView(asset: asset)
                     .frame(height: 260)
             } else {
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -269,9 +282,15 @@ struct ExerciseMediaPreviewSheet: View {
                 .font(.system(.headline, design: .rounded, weight: .semibold))
                 .foregroundStyle(AppTheme.textPrimary)
 
-            Text("Tap a tile to focus a different asset.")
-                .font(.system(.subheadline, design: .rounded, weight: .medium))
-                .foregroundStyle(AppTheme.textSecondary)
+            if gallery.previewAvailable {
+                Text("Tap a tile to focus a different asset.")
+                    .font(.system(.subheadline, design: .rounded, weight: .medium))
+                    .foregroundStyle(AppTheme.textSecondary)
+            } else {
+                Text("Only the compact thumbnail is available for this exercise.")
+                    .font(.system(.subheadline, design: .rounded, weight: .medium))
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
         }
     }
 
@@ -287,7 +306,7 @@ struct ExerciseMediaPreviewSheet: View {
                 Button {
                     selectedAssetID = asset.id
                 } label: {
-                    ExerciseMediaPreviewAssetView(asset: asset, allowsMotion: allowsMotion)
+                    ExerciseMediaPreviewAssetView(asset: asset)
                         .frame(height: 132)
                         .overlay {
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -305,7 +324,6 @@ struct ExerciseMediaPreviewSheet: View {
 
 private struct ExerciseMediaPreviewAssetView: View {
     let asset: ExerciseMediaAsset
-    let allowsMotion: Bool
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -314,7 +332,7 @@ private struct ExerciseMediaPreviewAssetView: View {
 
             RemoteMediaImageView(
                 url: asset.url,
-                animateGIF: asset.isAnimated && allowsMotion
+                animateGIF: asset.isAnimated
             )
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
 
@@ -334,6 +352,7 @@ private struct ExerciseMediaPreviewAssetView: View {
                 .lineLimit(1)
                 .padding(10)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
@@ -356,6 +375,10 @@ private struct RemoteMediaImageView: UIViewRepresentable {
         imageView.clipsToBounds = true
         imageView.backgroundColor = .clear
         return imageView
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UIImageView, context: Context) -> CGSize? {
+        proposal.replacingUnspecifiedDimensions()
     }
 
     func updateUIView(_ uiView: UIImageView, context: Context) {
