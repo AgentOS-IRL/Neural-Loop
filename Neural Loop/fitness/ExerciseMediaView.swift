@@ -249,7 +249,7 @@ struct ExerciseMediaPreviewSheet: View {
             }
             .onAppear {
                 if selectedAssetID == nil, gallery.previewAvailable {
-                    selectedAssetID = gallery.heroAsset(allowsMotion: allowsMotion)?.id
+                    selectedAssetID = gallery.expandedPreviewAsset?.id
                 }
             }
         }
@@ -257,7 +257,7 @@ struct ExerciseMediaPreviewSheet: View {
 
     private var hero: some View {
         let asset = gallery.previewAssets.first(where: { $0.id == selectedAssetID })
-            ?? gallery.heroAsset(allowsMotion: allowsMotion)
+            ?? gallery.expandedPreviewAsset
 
         return Group {
             if let asset {

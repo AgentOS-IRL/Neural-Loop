@@ -46,6 +46,7 @@ final class ExerciseMediaResolverTests: XCTestCase {
         )
         XCTAssertEqual(gallery.previewAssets.map(\.path), ["bench_press/hero.gif"])
         XCTAssertEqual(gallery.thumbnailAsset?.path, "bench_press/bench_press_small.webp")
+        XCTAssertEqual(gallery.expandedPreviewAsset?.path, "bench_press/hero.gif")
         XCTAssertEqual(gallery.expandedAsset?.path, "bench_press/hero.gif")
         XCTAssertEqual(gallery.heroAsset(allowsMotion: true)?.path, "bench_press/hero.gif")
         XCTAssertEqual(gallery.heroAsset(allowsMotion: false)?.path, "bench_press/hero.gif")
@@ -84,6 +85,7 @@ final class ExerciseMediaResolverTests: XCTestCase {
 
         XCTAssertNil(gallery.compactAsset)
         XCTAssertEqual(gallery.thumbnailAsset?.path, "bench_press/poster.png")
+        XCTAssertEqual(gallery.expandedPreviewAsset?.path, "bench_press/hero.gif")
         XCTAssertEqual(gallery.expandedAsset?.path, "bench_press/hero.gif")
         XCTAssertEqual(gallery.previewAssets.map(\.path), ["bench_press/hero.gif"])
         XCTAssertEqual(gallery.heroAsset(allowsMotion: true)?.path, "bench_press/hero.gif")
@@ -112,6 +114,7 @@ final class ExerciseMediaResolverTests: XCTestCase {
         XCTAssertEqual(gallery.compactAsset?.path, "cable_row/1_small.webp")
         XCTAssertEqual(gallery.thumbnailAsset?.path, "cable_row/1_small.webp")
         XCTAssertEqual(gallery.previewAssets.map(\.path), ["cable_row/demo.gif"])
+        XCTAssertEqual(gallery.expandedPreviewAsset?.path, "cable_row/demo.gif")
         XCTAssertEqual(gallery.expandedAsset?.path, "cable_row/demo.gif")
     }
 
@@ -133,6 +136,7 @@ final class ExerciseMediaResolverTests: XCTestCase {
         }
 
         XCTAssertEqual(gallery.compactAsset?.path, "bench_press/bench_press_small.webp")
+        XCTAssertNil(gallery.expandedPreviewAsset)
         XCTAssertNil(gallery.expandedAsset)
         XCTAssertEqual(gallery.thumbnailAsset?.path, "bench_press/bench_press_small.webp")
         XCTAssertEqual(gallery.previewAssets.map(\.path), [])
@@ -170,8 +174,10 @@ final class ExerciseMediaResolverTests: XCTestCase {
         }
 
         XCTAssertEqual(firstGallery, secondGallery)
-        XCTAssertEqual(await provider.listCallCount(), 1)
-        XCTAssertEqual(await provider.createSignedURLsCallCount(), 1)
+        let listCallCount = await provider.listCallCount()
+        let signedURLCallCount = await provider.createSignedURLsCallCount()
+        XCTAssertEqual(listCallCount, 1)
+        XCTAssertEqual(signedURLCallCount, 1)
     }
 
     func testBlankAndUnsupportedNamesDegradeCleanly() async {
