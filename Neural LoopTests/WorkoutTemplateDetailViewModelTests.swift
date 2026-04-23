@@ -260,6 +260,9 @@ private final class FakeWorkoutTemplateDetailDataManager: WorkoutTemplateEditing
     func createWorkoutSet(_ request: CreateWorkoutSetRequest) async throws -> WorkoutSet {
         WorkoutSet(id: 1, workout_session_id: 1, exercise_id: 1, set_number: 1, reps: 1, weight: nil, superset_group_id: nil)
     }
+    func createCardioLog(_ request: CreateCardioLogRequest) async throws -> CardioLog {
+        CardioLog(id: 1, workout_session_id: 1, exercise_id: 1, distance_meters: nil, duration_minutes: nil, calories: nil)
+    }
     func deleteWorkoutSession(id: Int64) async throws {}
     func fetchWorkoutSets(exerciseId: Int64) async throws -> [WorkoutSet] { [] }
 }

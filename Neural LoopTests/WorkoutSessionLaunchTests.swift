@@ -171,6 +171,10 @@ class FakeLaunchDataManager: WorkoutTemplateReadingDataManaging, WorkoutDataMana
     func createWorkoutSet(_ request: CreateWorkoutSetRequest) async throws -> WorkoutSet {
         fatalError("Not implemented")
     }
+
+    func createCardioLog(_ request: CreateCardioLogRequest) async throws -> CardioLog {
+        fatalError("Not implemented")
+    }
     
     func deleteWorkoutSession(id: Int64) async throws {}
 
