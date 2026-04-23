@@ -37,7 +37,7 @@ final class WorkoutSessionLoaderTests: XCTestCase {
         
         let results = await loader.prefillHistoricalWeights(for: [exerciseState])
         
-        XCTAssertEqual(results[0].sets[0].weightText, "100")
+        XCTAssertEqual(results[0].sets[0].weightText, WeightFormatter.format(100))
     }
     
     func testMultiplePriorSetsMaxWins() async {
@@ -57,8 +57,8 @@ final class WorkoutSessionLoaderTests: XCTestCase {
         
         let results = await loader.prefillHistoricalWeights(for: [exerciseState])
         
-        XCTAssertEqual(results[0].sets[0].weightText, "120.5")
-        XCTAssertEqual(results[0].sets[1].weightText, "120.5")
+        XCTAssertEqual(results[0].sets[0].weightText, WeightFormatter.format(120.5))
+        XCTAssertEqual(results[0].sets[1].weightText, WeightFormatter.format(120.5))
     }
     
     func testMixedNilNonNilWeights() async {
@@ -74,7 +74,7 @@ final class WorkoutSessionLoaderTests: XCTestCase {
         
         let results = await loader.prefillHistoricalWeights(for: [exerciseState])
         
-        XCTAssertEqual(results[0].sets[0].weightText, "50")
+        XCTAssertEqual(results[0].sets[0].weightText, WeightFormatter.format(50))
     }
     
     func testCardioUntouched() async {

@@ -23,7 +23,7 @@ struct WorkoutSessionLoader {
                 // Extract weights and find the maximum
                 let weights = history.compactMap { $0.weight }
                 if let maxWeight = weights.max() {
-                    let weightString = formatWeight(maxWeight)
+                    let weightString = WeightFormatter.format(maxWeight)
                     
                     // Update all sets in this exercise
                     for j in 0..<updatedExercises[i].sets.count {
@@ -37,14 +37,5 @@ struct WorkoutSessionLoader {
         }
 
         return updatedExercises
-    }
-
-    private func formatWeight(_ weight: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 2
-        formatter.numberStyle = .decimal
-        formatter.groupingSeparator = "" // Avoid commas in weights for text fields
-        return formatter.string(from: weight as NSDecimalNumber) ?? ""
     }
 }
