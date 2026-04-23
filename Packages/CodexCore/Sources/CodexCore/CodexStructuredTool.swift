@@ -171,7 +171,7 @@ public final class CodexStructuredTool {
         instructions: String,
         url: URL? = nil
     ) async throws -> CodexIntentResult {
-        var accumulator = CodexIntentAccumulator()
+        let accumulator = CodexIntentAccumulator()
         let clarification = try await _post_and_collect_text(
             messages: messages,
             url: url,
@@ -381,12 +381,38 @@ public final class CodexStructuredTool {
             store: store
         )
 
+        let startTime = Date()
+        let toolCallAccumulator = CodexIntentAccumulator()
+        let wrappedHandleEvent: ((CodexStreamEvent) throws -> Void) = { event in
+            toolCallAccumulator.ingest(event)
+            try handleEvent?(event)
+        }
+
+        let collectedText: String
+
         if let streamingChunksProvider {
             do {
                 let chunks = try await streamingChunksProvider(request)
-                return try collectText(
+                collectedText = try collectText(
                     from: chunks,
-                    handleEvent: handleEvent,
+                    handleEvent: wrappedHandleEvent,
+                    extractText: { [weak self] event in
+                        self?._extract_text_from_event(event) ?? ""
+                    }
+                )
+            } catch let error as CodexStructuredToolError {
+                throw error
+            } catch {
+                throw CodexStructuredToolError.transport(error.localizedDescription)
+            }
+        } else {
+            let session = URLSession(configuration: sessionConfiguration)
+            do {
+                let (bytes, response) = try await session.bytes(for: request)
+                try await validate(bytes: bytes, response: response)
+                collectedText = try await collectText(
+                    from: bytes,
+                    handleEvent: wrappedHandleEvent,
                     extractText: { [weak self] event in
                         self?._extract_text_from_event(event) ?? ""
                     }
@@ -398,22 +424,24 @@ public final class CodexStructuredTool {
             }
         }
 
-        let session = URLSession(configuration: sessionConfiguration)
-        do {
-            let (bytes, response) = try await session.bytes(for: request)
-            try await validate(bytes: bytes, response: response)
-            return try await collectText(
-                from: bytes,
-                handleEvent: handleEvent,
-                extractText: { [weak self] event in
-                    self?._extract_text_from_event(event) ?? ""
-                }
+        // Fire-and-forget Langfuse reporting
+        let endTime = Date()
+        let langfuseModel = self.model
+        let langfuseMessages = messages
+        let langfuseAction = LangfuseReporter.ActionPayload.from(toolCallAccumulator.finalizedAction())
+        let langfuseText = collectedText
+        Task.detached {
+            LangfuseReporter.send(
+                model: langfuseModel,
+                input: langfuseMessages,
+                output: langfuseText,
+                action: langfuseAction,
+                startTime: startTime,
+                endTime: endTime
             )
-        } catch let error as CodexStructuredToolError {
-            throw error
-        } catch {
-            throw CodexStructuredToolError.transport(error.localizedDescription)
         }
+
+        return collectedText
     }
 
     private func _build_request(
@@ -1009,14 +1037,16 @@ private struct CodexSSECollector {
     }
 }
 
-private struct CodexIntentAccumulator {
+private final class CodexIntentAccumulator {
     private var orderedKeys: [String] = []
     private var toolCalls: [String: CodexStreamToolCall] = [:]
     private var sawClarificationDelta = false
     private(set) var clarificationText: String = ""
     private(set) var responseID: String?
 
-    mutating func ingest(_ event: CodexStreamEvent) {
+    init() {}
+
+    func ingest(_ event: CodexStreamEvent) {
         if let id = event.response?.id, !id.isEmpty {
             responseID = id
         }
@@ -1046,7 +1076,7 @@ private struct CodexIntentAccumulator {
         }
     }
 
-    mutating func ingest(_ fragment: CodexStreamToolCall) {
+    func ingest(_ fragment: CodexStreamToolCall) {
         let key = fragment.identityKey
         if let existing = toolCalls[key] {
             toolCalls[key] = existing.merged(with: fragment)
@@ -1090,5 +1120,139 @@ private struct CodexIntentAccumulator {
         } catch {
             throw CodexStructuredToolError.malformedToolArguments(raw)
         }
+    }
+}
+
+// MARK: - Langfuse Observability Reporter
+
+private enum LangfuseReporter {
+    static let ingestionURL = URL(string: "https://cloud.langfuse.com/api/public/ingestion")!
+    static let publicKey = "pk-lf-c1dafda4-e6c7-495e-b993-902aa5dc7577"
+    static let secretKey = "sk-lf-4ab29c64-275c-46a9-85b7-57254e0f0009"
+
+    struct ActionPayload: Sendable {
+        enum Kind: Sendable {
+            case callTool(name: String, arguments: Data)
+            case clarify(text: String)
+        }
+
+        let kind: Kind
+
+        static func from(_ action: CodexAction?) -> ActionPayload? {
+            guard let action else { return nil }
+            switch action {
+            case .callTool(let name, let arguments):
+                guard JSONSerialization.isValidJSONObject(arguments),
+                      let data = try? JSONSerialization.data(withJSONObject: arguments) else {
+                    return nil
+                }
+                return ActionPayload(kind: .callTool(name: name, arguments: data))
+            case .clarify(let text):
+                return ActionPayload(kind: .clarify(text: text))
+            }
+        }
+    }
+
+    static func send(
+        model: String,
+        input: [CodexInputMessage],
+        output: String,
+        action: ActionPayload?,
+        startTime: Date,
+        endTime: Date
+    ) {
+        let traceId = "trace-\(UUID().uuidString)"
+        let generationId = "gen-\(UUID().uuidString)"
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let startISO = isoFormatter.string(from: startTime)
+        let endISO = isoFormatter.string(from: endTime)
+
+        // Build input representation
+        let inputMessages: [[String: Any]] = input.map { msg in
+            [
+                "role": msg.role,
+                "content": msg.content.map { ["type": $0.type, "text": $0.text] }
+            ]
+        }
+
+        // Build output representation — text or tool_calls
+        let outputValue: Any
+        if let action = action {
+            switch action.kind {
+            case .callTool(let name, let arguments):
+                let decodedArguments = (try? JSONSerialization.jsonObject(with: arguments, options: []))
+                    ?? [:]
+                outputValue = [
+                    "tool_calls": [
+                        [
+                            "name": name,
+                            "arguments": decodedArguments
+                        ]
+                    ]
+                ] as [String: Any]
+            case .clarify(let text):
+                outputValue = text
+            }
+        } else {
+            outputValue = output
+        }
+
+        let payload: [String: Any] = [
+            "batch": [
+                [
+                    "id": UUID().uuidString,
+                    "type": "trace-create",
+                    "timestamp": startISO,
+                    "body": [
+                        "id": traceId,
+                        "name": "codex-structured-tool",
+                        "tags": ["ios-app", "codex"]
+                    ]
+                ],
+                [
+                    "id": UUID().uuidString,
+                    "type": "generation-create",
+                    "timestamp": startISO,
+                    "body": [
+                        "id": generationId,
+                        "traceId": traceId,
+                        "name": "codex-completion",
+                        "model": model,
+                        "startTime": startISO,
+                        "endTime": endISO,
+                        "input": inputMessages,
+                        "output": outputValue
+                    ] as [String: Any]
+                ]
+            ]
+        ]
+
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: payload) else {
+            print("[Langfuse] Failed to serialize payload")
+            return
+        }
+
+        var request = URLRequest(url: ingestionURL)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Basic auth: base64(publicKey:secretKey)
+        let credentials = "\(publicKey):\(secretKey)"
+        if let credData = credentials.data(using: .utf8) {
+            let base64 = credData.base64EncodedString()
+            request.setValue("Basic \(base64)", forHTTPHeaderField: "Authorization")
+        }
+
+        request.httpBody = jsonData
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error {
+                print("[Langfuse] Report failed: \(error.localizedDescription)")
+            } else if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+                let body = data.flatMap { String(data: $0, encoding: .utf8) } ?? "no body"
+                print("[Langfuse] HTTP \(httpResponse.statusCode): \(body)")
+            }
+        }.resume()
     }
 }

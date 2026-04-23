@@ -3,7 +3,13 @@ import XCTest
 
 private enum CodexStructuredToolTestFixtures {
     static let defaultIntentInstructions = NeuralLoopCodexIntents.getDefaultIntentInstructions(currentDateISO: "2026-04-20T12:00:00Z")
-    static let workoutIntentInstructions = WorkoutRoutineCodexIntents.getWorkoutGenerationIntentInstructions(currentDateISO: "2026-04-20T12:00:00Z")
+    static let workoutIntentInstructions = WorkoutRoutineCodexIntents.getWorkoutGenerationIntentInstructions(
+        currentDateISO: "2026-04-20T12:00:00Z",
+        catalog: [
+            .init(exerciseName: "Bench Press", equipmentName: "Barbell"),
+            .init(exerciseName: "Push Up", equipmentName: "No equipment")
+        ]
+    )
 
     static var defaultIntentTools: [CodexTool] {
         [
