@@ -36,6 +36,7 @@ final class ExerciseMediaViewTests: XCTestCase {
         )
 
         XCTAssertEqual(gallery.thumbnailAsset?.path, compactAsset.path)
+        XCTAssertEqual(gallery.expandedPreviewAsset?.path, gifAsset.path)
         XCTAssertEqual(gallery.expandedAsset?.path, gifAsset.path)
         XCTAssertEqual(gallery.previewAssets.map(\.path), [gifAsset.path])
         XCTAssertEqual(gallery.heroAsset(allowsMotion: false)?.path, gifAsset.path)
