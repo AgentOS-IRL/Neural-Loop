@@ -19,14 +19,22 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
     let mode: WorkoutTemplateEditorMode
 
     private let dataManager: any WorkoutTemplateEditingDataManaging
+    private let generatedRoutine: WorkoutRoutineGenerationPayload?
     private var hasLoaded = false
 
     init(
         mode: WorkoutTemplateEditorMode,
-        dataManager: any WorkoutTemplateEditingDataManaging
+        dataManager: any WorkoutTemplateEditingDataManaging,
+        generatedRoutine: WorkoutRoutineGenerationPayload? = nil
     ) {
         self.mode = mode
         self.dataManager = dataManager
+        self.generatedRoutine = generatedRoutine
+
+        if case .create = mode, let generatedRoutine {
+            title = generatedRoutine.routineName
+            notes = generatedRoutine.notes
+        }
     }
 
     var selectedExerciseIDs: Set<Int64> {
@@ -155,13 +163,22 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
             switch mode {
             case .create:
                 let (equipment, exercises) = try await (equipmentRows, exerciseRows)
-                availableExercises = Self.makeLibraryItems(
+                availableExercises = WorkoutCatalogMapper.makeLibraryItems(
                     equipment: equipment,
                     exercises: exercises
                 )
-                title = ""
-                notes = ""
-                exerciseDrafts = []
+                if let generatedRoutine {
+                    title = generatedRoutine.routineName
+                    notes = generatedRoutine.notes
+                    exerciseDrafts = WorkoutCatalogMapper.makeDrafts(
+                        from: generatedRoutine,
+                        availableExercises: availableExercises
+                    )
+                } else {
+                    title = ""
+                    notes = ""
+                    exerciseDrafts = []
+                }
 
             case .edit(let summary):
                 async let routineRow = dataManager.fetchRoutine(by: summary.id)
@@ -178,7 +195,7 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
                     throw WorkoutTemplateEditorError.missingRoutine
                 }
 
-                availableExercises = Self.makeLibraryItems(
+                availableExercises = WorkoutCatalogMapper.makeLibraryItems(
                     equipment: equipment,
                     exercises: exercises
                 )
@@ -391,45 +408,6 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
             superset_group_id: nil,
             duration: draft.exercise.type == .duration ? parsedDecimal(from: draft.durationText) : nil
         )
-    }
-
-    private static func makeLibraryItems(
-        equipment: [Equipment],
-        exercises: [Exercise]
-    ) -> [ExerciseLibraryItem] {
-        let equipmentNamesByID = Dictionary(
-            uniqueKeysWithValues: equipment.compactMap { equipment -> (Int64, String)? in
-                guard let id = equipment.id else { return nil }
-                return (id, equipment.name)
-            }
-        )
-
-        return exercises.compactMap { exercise in
-            guard let id = exercise.id else {
-                return nil
-            }
-
-            let equipmentName = exercise.equipment_id.flatMap { equipmentNamesByID[$0] } ?? "No equipment"
-            return ExerciseLibraryItem(
-                id: id,
-                name: exercise.name,
-                type: exercise.type,
-                equipmentID: exercise.equipment_id,
-                equipmentName: equipmentName
-            )
-        }
-        .sorted { lhs, rhs in
-            switch lhs.name.localizedCaseInsensitiveCompare(rhs.name) {
-            case .orderedAscending:
-                return true
-            case .orderedDescending:
-                return false
-            case .orderedSame:
-                return lhs.id < rhs.id
-            @unknown default:
-                return lhs.id < rhs.id
-            }
-        }
     }
 
     private static func makeDrafts(

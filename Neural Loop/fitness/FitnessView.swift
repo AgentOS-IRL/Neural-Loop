@@ -1,10 +1,13 @@
 import SwiftUI
 
 struct FitnessView: View {
+    @EnvironmentObject private var model: UnifiedDataModel
     @StateObject private var viewModel = FitnessViewModel()
     private let bottomInsetHeight: CGFloat = 88
     @State private var isTemplateEditorPresented = false
+    @State private var isRoutineGeneratorPresented = false
     @State private var selectedTemplate: WorkoutTemplateSummary?
+    @State private var generatedRoutine: WorkoutRoutineGenerationPayload?
 
     var body: some View {
         NavigationStack {
@@ -34,8 +37,24 @@ struct FitnessView: View {
                     }
                 }
             }
-            .fullScreenCover(isPresented: $isTemplateEditorPresented) {
-                WorkoutTemplateEditorView(mode: .create) {
+            .fullScreenCover(isPresented: $isRoutineGeneratorPresented) {
+                WorkoutRoutineGenerationView(
+                    model: model,
+                    dataManager: model.manager
+                ) { routine in
+                    generatedRoutine = routine
+                    isTemplateEditorPresented = true
+                }
+            }
+            .fullScreenCover(isPresented: $isTemplateEditorPresented, onDismiss: {
+                generatedRoutine = nil
+            }) {
+                WorkoutTemplateEditorView(
+                    mode: .create,
+                    dataManager: model.manager,
+                    generatedRoutine: generatedRoutine
+                ) {
+                    generatedRoutine = nil
                     Task {
                         await viewModel.reload()
                     }
@@ -60,7 +79,9 @@ struct FitnessView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Workout template options")
             .contextMenu {
-                Button("Generate Workout Template") {}
+                Button("Generate Workout Template") {
+                    isRoutineGeneratorPresented = true
+                }
             }
 
             Button {
@@ -232,4 +253,5 @@ private struct WorkoutTemplateCard: View {
 
 #Preview {
     FitnessView()
+        .environmentObject(UnifiedDataModel(autoStart: false))
 }

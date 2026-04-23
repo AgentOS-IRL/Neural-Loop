@@ -3,6 +3,7 @@ import XCTest
 
 private enum CodexStructuredToolTestFixtures {
     static let defaultIntentInstructions = NeuralLoopCodexIntents.getDefaultIntentInstructions(currentDateISO: "2026-04-20T12:00:00Z")
+    static let workoutIntentInstructions = WorkoutRoutineCodexIntents.getWorkoutGenerationIntentInstructions(currentDateISO: "2026-04-20T12:00:00Z")
 
     static var defaultIntentTools: [CodexTool] {
         [
@@ -17,6 +18,10 @@ private enum CodexStructuredToolTestFixtures {
             createSubTaskTool,
             notesTool
         ]
+    }
+
+    static var workoutIntentTools: [CodexTool] {
+        WorkoutRoutineCodexIntents.workoutGenerationIntentTools
     }
 
     static let createTaskTool = CodexTool(
@@ -93,6 +98,50 @@ private enum CodexStructuredToolTestFixtures {
             "required": .array([.string("content")])
         ])
     )
+
+    static let workoutGenerationTool = CodexTool(
+        name: "generate_workout_routine",
+        description: "Generate a workout routine payload. Only use this tool when the user is asking for a routine or workout template. Do not invent exercises. Return routine_name, notes, and an exercises array with name and equipment for each proposed exercise. The app will validate the proposed exercises against its catalog and remove invalid entries before showing the result.",
+        parameters: .object([
+            "type": .string("object"),
+            "properties": .object([
+                "routine_name": .object([
+                    "type": .string("string"),
+                    "description": .string("Short routine title.")
+                ]),
+                "notes": .object([
+                    "type": .string("string"),
+                    "description": .string("Optional routine notes and coaching context.")
+                ]),
+                "exercises": .object([
+                    "type": .string("array"),
+                    "description": .string("Ordered workout exercises proposed for the routine. Keep the order stable."),
+                    "items": .object([
+                        "type": .string("object"),
+                        "properties": .object([
+                            "name": .object([
+                                "type": .string("string"),
+                                "description": .string("Exercise name.")
+                            ]),
+                            "equipment": .object([
+                                "type": .string("string"),
+                                "description": .string("Equipment name, or an empty string if the exercise uses no equipment.")
+                            ])
+                        ]),
+                        "required": .array([
+                            .string("name"),
+                            .string("equipment")
+                        ])
+                    ])
+                ])
+            ]),
+            "required": .array([
+                .string("routine_name"),
+                .string("notes"),
+                .string("exercises")
+            ])
+        ])
+    )
 }
 
 final class CodexStructuredToolTests: XCTestCase {
@@ -128,6 +177,15 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertTrue(instructions.localizedCaseInsensitiveContains("sub_tasks"))
         XCTAssertTrue(instructions.localizedCaseInsensitiveContains("trim each child title"))
         XCTAssertFalse(instructions.contains("create_sub_task"))
+    }
+
+    func testWorkoutInstructionsDescribeRequiredToolUsageAndFilteringBehavior() {
+        let instructions = CodexStructuredToolTestFixtures.workoutIntentInstructions
+
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("must call generate_workout_routine"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("do not invent exercises"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("same top-level shape"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("filter invalid exercises"))
     }
 
     func testBuildHeadersIncludeCodexFieldsAndUniqueSessionId() {
@@ -236,6 +294,36 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertNotNil(properties["title"])
     }
 
+    func testWorkoutGenerationToolEncodesRequiredRoutinePayload() throws {
+        let encoded = try JSONEncoder().encode(CodexStructuredToolTestFixtures.workoutGenerationTool)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        XCTAssertEqual(json["type"] as? String, "function")
+        XCTAssertEqual(json["name"] as? String, "generate_workout_routine")
+
+        let parameters = try XCTUnwrap(json["parameters"] as? [String: Any])
+        XCTAssertEqual(parameters["type"] as? String, "object")
+        XCTAssertEqual(parameters["required"] as? [String], ["routine_name", "notes", "exercises"])
+
+        let properties = try XCTUnwrap(parameters["properties"] as? [String: Any])
+        XCTAssertNotNil(properties["routine_name"])
+        XCTAssertNotNil(properties["notes"])
+        XCTAssertNotNil(properties["exercises"])
+
+        let exercises = try XCTUnwrap(properties["exercises"] as? [String: Any])
+        XCTAssertEqual(exercises["type"] as? String, "array")
+
+        let items = try XCTUnwrap(exercises["items"] as? [String: Any])
+        XCTAssertEqual(items["type"] as? String, "object")
+
+        let itemProperties = try XCTUnwrap(items["properties"] as? [String: Any])
+        XCTAssertNotNil(itemProperties["name"])
+        XCTAssertNotNil(itemProperties["equipment"])
+
+        let required = try XCTUnwrap(items["required"] as? [String])
+        XCTAssertEqual(required, ["name", "equipment"])
+    }
+
     func testIntentRequestIncludesToolDefinitionsAndAutoChoice() async throws {
         var capturedRequests: [URLRequest] = []
 
@@ -280,6 +368,50 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(tools.count, 2)
         XCTAssertEqual(tools[0]["name"] as? String, "create_task")
         XCTAssertEqual(tools[1]["name"] as? String, "Notes")
+    }
+
+    func testWorkoutRequestIncludesWorkoutToolDefinitionsAndAutoChoice() async throws {
+        var capturedRequests: [URLRequest] = []
+
+        let tool = CodexStructuredTool(
+            access_token: "token",
+            account_id: "account",
+            streamingChunksProvider: { request in
+                capturedRequests.append(request)
+                return [
+                    "data: {\"type\":\"response.completed\",\"response\":{\"output\":[{\"content\":[{\"text\":\"Which routine do you want me to generate?\"}]}]}}\n".data(using: .utf8)!
+                ]
+            }
+        )
+
+        let result = try await tool.converse(
+            messages: [
+                CodexInputMessage(
+                    role: "user",
+                    content: [CodexInputContent(type: "input_text", text: "make me a workout")]
+                )
+            ],
+            tools: CodexStructuredToolTestFixtures.workoutIntentTools,
+            instructions: CodexStructuredToolTestFixtures.workoutIntentInstructions
+        )
+
+        guard case .clarify(let text) = result.action else {
+            return XCTFail("Expected clarification response")
+        }
+
+        XCTAssertEqual(text, "Which routine do you want me to generate?")
+
+        let request = try XCTUnwrap(capturedRequests.first)
+        let body = try XCTUnwrap(request.httpBody)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        XCTAssertEqual(json["instructions"] as? String, CodexStructuredToolTestFixtures.workoutIntentInstructions)
+        XCTAssertEqual(json["tool_choice"] as? String, "auto")
+        XCTAssertEqual(json["parallel_tool_calls"] as? Bool, false)
+        XCTAssertEqual(json["store"] as? Bool, false)
+
+        let tools = try XCTUnwrap(json["tools"] as? [[String: Any]])
+        XCTAssertEqual(tools.count, 1)
+        XCTAssertEqual(tools[0]["name"] as? String, "generate_workout_routine")
     }
 
     func testStatefulConverseCapturesLatestResponseID() async throws {
