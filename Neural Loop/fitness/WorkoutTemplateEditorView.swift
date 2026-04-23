@@ -9,12 +9,14 @@ struct WorkoutTemplateEditorView: View {
     init(
         mode: WorkoutTemplateEditorMode,
         dataManager: (any WorkoutTemplateEditingDataManaging)? = nil,
+        generatedRoutine: WorkoutRoutineGenerationPayload? = nil,
         onSaved: @escaping () -> Void = {}
     ) {
         _viewModel = StateObject(
             wrappedValue: WorkoutTemplateEditorViewModel(
                 mode: mode,
-                dataManager: dataManager ?? DBManager.newInstance()
+                dataManager: dataManager ?? DBManager.newInstance(),
+                generatedRoutine: generatedRoutine
             )
         )
         self.onSaved = onSaved

@@ -269,6 +269,82 @@ final class WorkoutTemplateEditorViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.canSave)
     }
 
+    func testWorkoutCatalogFilteringKeepsValidExercisesAndDropsInvalidEntries() {
+        let catalog = WorkoutCatalogMapper.makeLibraryItems(
+            equipment: [
+                equipment(id: 1, name: "Barbell"),
+                equipment(id: 2, name: "Cable")
+            ],
+            exercises: [
+                exercise(id: 10, name: "Bench Press", equipmentID: 1),
+                exercise(id: 20, name: "Cable Row", equipmentID: 2),
+                exercise(id: 30, name: "Deadlift", equipmentID: 1)
+            ]
+        )
+        let payload = WorkoutRoutineGenerationPayload(
+            routineName: "Push Day",
+            notes: "Upper body focus",
+            exercises: [
+                WorkoutRoutineGenerationExercise(name: "Bench Press", equipment: "Barbell"),
+                WorkoutRoutineGenerationExercise(name: "Bench Press", equipment: "Dumbbell"),
+                WorkoutRoutineGenerationExercise(name: "Not Real", equipment: "Barbell"),
+                WorkoutRoutineGenerationExercise(name: "   ", equipment: "   "),
+                WorkoutRoutineGenerationExercise(name: "Cable Row", equipment: "Cable")
+            ]
+        )
+
+        let filtered = WorkoutCatalogMapper.filteredRoutine(payload, matching: catalog)
+
+        XCTAssertEqual(filtered.routineName, "Push Day")
+        XCTAssertEqual(filtered.notes, "Upper body focus")
+        XCTAssertEqual(filtered.exercises.map(\.name), ["Bench Press", "Cable Row"])
+        XCTAssertEqual(filtered.exercises.map(\.equipment), ["Barbell", "Cable"])
+    }
+
+    func testGeneratedRoutineSeedsEditorWithFilteredExercisesOnly() async {
+        let dataManager = FakeWorkoutTemplateEditorDataManager(
+            equipment: [
+                equipment(id: 1, name: "Barbell"),
+                equipment(id: 2, name: "Cable")
+            ],
+            exercises: [
+                exercise(id: 10, name: "Bench Press", equipmentID: 1),
+                exercise(id: 20, name: "Cable Row", equipmentID: 2)
+            ]
+        )
+        let generatedRoutine = WorkoutRoutineGenerationPayload(
+            routineName: "Push Day",
+            notes: "Upper body focus",
+            exercises: [
+                WorkoutRoutineGenerationExercise(name: "Bench Press", equipment: "Barbell"),
+                WorkoutRoutineGenerationExercise(name: "Bench Press", equipment: "Dumbbell"),
+                WorkoutRoutineGenerationExercise(name: "Cable Row", equipment: "Cable")
+            ]
+        )
+        let filteredRoutine = WorkoutCatalogMapper.filteredRoutine(
+            generatedRoutine,
+            matching: WorkoutCatalogMapper.makeLibraryItems(
+                equipment: dataManager.equipment,
+                exercises: dataManager.exercises
+            )
+        )
+
+        let viewModel = WorkoutTemplateEditorViewModel(
+            mode: .create,
+            dataManager: dataManager,
+            generatedRoutine: filteredRoutine
+        )
+
+        await viewModel.loadIfNeeded()
+
+        XCTAssertEqual(viewModel.title, "Push Day")
+        XCTAssertEqual(viewModel.notes, "Upper body focus")
+        XCTAssertEqual(viewModel.exerciseDrafts.map(\.exercise.id), [10, 20])
+        XCTAssertEqual(viewModel.exerciseDrafts.map(\.orderIndex), [1, 2])
+        XCTAssertEqual(viewModel.exerciseDrafts.map(\.targetSetsText), ["1", "1"])
+        XCTAssertEqual(viewModel.exerciseDrafts.map(\.exercise.name), ["Bench Press", "Cable Row"])
+    }
+
     private func equipment(id: Int64, name: String) -> Equipment {
         Equipment(id: id, name: name)
     }
