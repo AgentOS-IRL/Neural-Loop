@@ -4,6 +4,7 @@ struct WorkoutRoutineGenerationView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var coordinator: WorkoutRoutineGenerationCodexCoordinator
     @State private var prompt: String = ""
+    @State private var generationTask: Task<Void, Never>?
     private let onGenerated: (WorkoutRoutineGenerationPayload) -> Void
 
     init(
@@ -42,12 +43,16 @@ struct WorkoutRoutineGenerationView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Cancel") {
+                        cancelGeneration()
                         dismiss()
                     }
                 }
             }
             .safeAreaInset(edge: .bottom) {
                 bottomActionBar
+            }
+            .onDisappear {
+                cancelGeneration()
             }
         }
     }
@@ -147,12 +152,21 @@ struct WorkoutRoutineGenerationView: View {
 
         return HStack(spacing: 12) {
             Button {
-                Task {
+                generationTask?.cancel()
+                generationTask = Task {
                     guard let routine = await coordinator.generateRoutine(prompt: prompt) else {
                         return
                     }
 
+                    guard !Task.isCancelled else {
+                        return
+                    }
+
                     await MainActor.run {
+                        guard !Task.isCancelled else {
+                            return
+                        }
+
                         onGenerated(routine)
                         dismiss()
                     }
@@ -179,6 +193,11 @@ struct WorkoutRoutineGenerationView: View {
         .padding(.top, 12)
         .padding(.bottom, 10)
         .background(.ultraThinMaterial)
+    }
+
+    private func cancelGeneration() {
+        generationTask?.cancel()
+        generationTask = nil
     }
 }
 
