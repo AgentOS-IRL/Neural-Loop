@@ -100,13 +100,6 @@ protocol WorkoutDataManaging {
     func deleteWorkoutSession(id: Int64) async throws
 }
 
-protocol FitnessTemplateDataManaging {
-    func fetchRoutine(by id: Int64) async throws -> Routine?
-    func fetchAllRoutines() async throws -> [Routine]
-    func fetchRoutineExercises(routineId: Int64) async throws -> [RoutineExercise]
-    func updateRoutine(_ routine: Routine) async throws -> Routine
-}
-
 protocol WorkoutTemplateReadingDataManaging {
     func fetchAllEquipment() async throws -> [Equipment]
     func fetchAllExercises() async throws -> [Exercise]
@@ -115,13 +108,28 @@ protocol WorkoutTemplateReadingDataManaging {
     func fetchRoutineExercises(routineId: Int64) async throws -> [RoutineExercise]
 }
 
-protocol WorkoutTemplateEditingDataManaging: WorkoutTemplateReadingDataManaging {
-    func createRoutine(_ request: CreateRoutineRequest) async throws -> Routine
+protocol FitnessTemplateDataManaging: WorkoutTemplateReadingDataManaging {
     func updateRoutine(_ routine: Routine) async throws -> Routine
+}
+
+protocol WorkoutTemplateEditingDataManaging: FitnessTemplateDataManaging {
+    func createRoutine(_ request: CreateRoutineRequest) async throws -> Routine
     func deleteRoutine(id: Int64) async throws
     func addRoutineExercise(_ request: CreateRoutineExerciseRequest) async throws -> RoutineExercise
     func updateRoutineExercise(_ routineExercise: RoutineExercise) async throws -> RoutineExercise
     func deleteRoutineExercise(id: Int64) async throws
+}
+
+struct ActiveWorkoutSessionWrapper: Identifiable {
+    let id: Int64
+    let session: WorkoutSession
+    let exercises: [WorkoutExerciseCardState]
+    
+    init(session: WorkoutSession, exercises: [WorkoutExerciseCardState]) {
+        self.id = session.id ?? 0
+        self.session = session
+        self.exercises = exercises
+    }
 }
 
 extension DBManager: WorkoutDataManaging {}

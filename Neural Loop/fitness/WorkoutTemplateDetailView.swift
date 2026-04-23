@@ -10,7 +10,7 @@ struct WorkoutTemplateDetailView: View {
 
     init(
         template: WorkoutTemplateSummary,
-        dataManager: (any WorkoutTemplateEditingDataManaging)? = nil,
+        dataManager: (any WorkoutDataManaging & WorkoutTemplateEditingDataManaging)? = nil,
         onSaved: @escaping () -> Void = {}
     ) {
         self._viewModel = StateObject(
@@ -44,6 +44,18 @@ struct WorkoutTemplateDetailView: View {
             }
             .safeAreaInset(edge: .bottom) {
                 bottomActionBar
+            }
+            .fullScreenCover(item: Binding(
+                get: { viewModel.activeSession.map { ActiveWorkoutSessionWrapper(session: $0.0, exercises: $0.1) } },
+                set: { if $0 == nil { viewModel.activeSession = nil } }
+            )) { wrapper in
+                if let db = viewModel.dataManager as? WorkoutDataManaging {
+                    ActiveWorkoutView(viewModel: ActiveWorkoutViewModel(
+                        session: wrapper.session,
+                        exerciseStates: wrapper.exercises,
+                        db: db
+                    ))
+                }
             }
             .sheet(item: $previewGallery) { gallery in
                 ExerciseMediaPreviewSheet(gallery: gallery, allowsMotion: !reduceMotion)
@@ -217,13 +229,22 @@ struct WorkoutTemplateDetailView: View {
             }
 
             Button {
-                // Placeholder for the future workout-start flow.
+                Task {
+                    await viewModel.startWorkout()
+                }
             } label: {
-                Text("Start")
-                    .font(.system(.subheadline, design: .rounded, weight: .bold))
-                    .frame(maxWidth: .infinity, minHeight: 48)
+                if viewModel.isLoading && viewModel.activeSession == nil {
+                    ProgressView()
+                        .tint(.white)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                } else {
+                    Text("Start")
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                }
             }
             .buttonStyle(.plain)
+            .disabled(viewModel.isLoading)
             .foregroundStyle(.white)
             .background {
                 Capsule()

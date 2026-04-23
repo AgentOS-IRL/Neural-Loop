@@ -6,12 +6,33 @@ final class FitnessViewModel: ObservableObject {
     @Published private(set) var templates: [WorkoutTemplateSummary] = []
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
+    @Published var activeSession: (WorkoutSession, [WorkoutExerciseCardState])?
 
-    private let dataManager: FitnessTemplateDataManaging
+    private let dataManager: FitnessTemplateDataManaging & WorkoutDataManaging
+    let launchCoordinator: WorkoutSessionLaunching
     private var hasLoaded = false
 
-    init(dataManager: FitnessTemplateDataManaging? = nil) {
-        self.dataManager = dataManager ?? DBManager.newInstance()
+    init(
+        dataManager: (any FitnessTemplateDataManaging & WorkoutDataManaging)? = nil,
+        launchCoordinator: WorkoutSessionLaunching? = nil
+    ) {
+        let dm = dataManager ?? DBManager.newInstance()
+        self.dataManager = dm
+        self.launchCoordinator = launchCoordinator ?? WorkoutSessionLaunchCoordinator(db: dm)
+    }
+
+    func startWorkout(routineID: Int64) async {
+        guard !isLoading else { return }
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            activeSession = try await launchCoordinator.launchSession(for: routineID)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        
+        isLoading = false
     }
 
     func loadIfNeeded() async {

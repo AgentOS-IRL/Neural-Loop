@@ -63,6 +63,21 @@ struct FitnessView: View {
                     }
                 }
             }
+            .fullScreenCover(item: Binding(
+                get: { viewModel.activeSession.map { ActiveWorkoutSessionWrapper(session: $0.0, exercises: $0.1) } },
+                set: { if $0 == nil { viewModel.activeSession = nil } }
+            )) { wrapper in
+                if let db = viewModel.launchCoordinator as? WorkoutSessionLaunchCoordinator {
+                    // This is a bit of a hack to get the DB, but WorkoutSessionLaunchCoordinator is an actor.
+                    // Actually, I should probably just use the model's manager.
+                }
+                
+                ActiveWorkoutView(viewModel: ActiveWorkoutViewModel(
+                    session: wrapper.session,
+                    exerciseStates: wrapper.exercises,
+                    db: model.manager
+                ))
+            }
             .fullScreenCover(isPresented: $isRoutineGeneratorPresented) {
                 WorkoutRoutineGenerationView(
                     model: model,
@@ -174,6 +189,15 @@ struct FitnessView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(template.title), \(template.countText)")
                 .accessibilityHint("Opens routine details")
+                .contextMenu {
+                    Button {
+                        Task {
+                            await viewModel.startWorkout(routineID: template.id)
+                        }
+                    } label: {
+                        Label("Start Workout", systemImage: "play.fill")
+                    }
+                }
             }
         }
     }

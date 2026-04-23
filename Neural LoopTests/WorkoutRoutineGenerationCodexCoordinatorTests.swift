@@ -49,8 +49,8 @@ final class WorkoutRoutineGenerationCodexCoordinatorTests: XCTestCase {
         XCTAssertEqual(client.converseCallCount, 1)
         XCTAssertEqual(result?.routineName, "Push Day")
         XCTAssertEqual(result?.notes, "Upper body focus")
-        XCTAssertEqual(result?.exercises.map(\.name), ["Bench Press", "Cable Row"])
-        XCTAssertEqual(result?.exercises.map(\.equipment), ["Barbell", "Cable"])
+        XCTAssertEqual(result?.exercises.map { $0.name }, ["Bench Press", "Cable Row"])
+        XCTAssertEqual(result?.exercises.map { $0.equipment }, ["Barbell", "Cable"])
         XCTAssertNil(coordinator.errorMessage)
         XCTAssertNil(coordinator.statusMessage)
     }
@@ -154,10 +154,10 @@ private final class FakeWorkoutRoutineGenerationCodexModel: WorkoutRoutineGenera
 }
 
 private final class FakeWorkoutRoutineGenerationCodexClient: WorkoutRoutineGenerationCodexExecuting {
-    private let result: CodexIntentResult
+    private let result: CodexAction
     private(set) var converseCallCount = 0
 
-    init(result: CodexIntentResult) {
+    init(result: CodexAction) {
         self.result = result
     }
 
@@ -172,7 +172,7 @@ private final class FakeWorkoutRoutineGenerationCodexClient: WorkoutRoutineGener
         _ = tools
         _ = instructions
         converseCallCount += 1
-        return result
+        return CodexIntentResult(action: result, state: state)
     }
 }
 
