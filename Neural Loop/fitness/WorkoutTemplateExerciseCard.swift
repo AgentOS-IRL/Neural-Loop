@@ -61,7 +61,7 @@ struct WorkoutTemplateExerciseCard: View {
         HStack(alignment: .top, spacing: 12) {
             ExerciseMediaView(
                 exerciseName: draft.exercise.name,
-                mode: .hero,
+                mode: .thumbnail,
                 onPreviewRequested: onPreviewRequested
             )
 

@@ -242,7 +242,7 @@ struct ExerciseMediaPreviewSheet: View {
     }
 
     private var hero: some View {
-        let asset = gallery.assets.first(where: { $0.id == selectedAssetID })
+        let asset = gallery.previewAssets.first(where: { $0.id == selectedAssetID })
             ?? gallery.heroAsset(allowsMotion: allowsMotion)
             ?? gallery.thumbnailAsset
 
@@ -283,7 +283,7 @@ struct ExerciseMediaPreviewSheet: View {
             ],
             spacing: 12
         ) {
-            ForEach(gallery.assets) { asset in
+            ForEach(gallery.previewAssets) { asset in
                 Button {
                     selectedAssetID = asset.id
                 } label: {
