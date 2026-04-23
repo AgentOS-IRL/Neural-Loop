@@ -115,31 +115,40 @@ actor ExerciseMediaResolver {
             return .fallback(.emptyFolder)
         }
 
-        let supportedEntries = entries.compactMap { entry -> (entry: ExerciseMediaStorageEntry, fileExtension: String)? in
+        let compactFileName = "\(slug)_small.webp"
+        let supportedEntries = entries.compactMap { entry -> (entry: ExerciseMediaStorageEntry, fileExtension: String, isCompact: Bool)? in
             let fileExtension = Self.fileExtension(for: entry.name).lowercased()
             guard Self.supportedExtensions.contains(fileExtension) else {
                 return nil
             }
 
-            return (entry, fileExtension)
+            let isCompact = entry.name.caseInsensitiveCompare(compactFileName) == .orderedSame
+            return (entry, fileExtension, isCompact)
         }
 
         guard !supportedEntries.isEmpty else {
             return .fallback(.unsupportedFiles)
         }
 
-        let orderedEntries = supportedEntries.sorted {
-            let leftPriority = Self.sortPriority(for: $0.fileExtension)
-            let rightPriority = Self.sortPriority(for: $1.fileExtension)
+        let compactEntry = supportedEntries.first(where: { $0.isCompact })
+        let originalEntries = supportedEntries
+            .filter { !$0.isCompact }
+            .sorted {
+                let leftPriority = Self.sortPriority(for: $0.fileExtension)
+                let rightPriority = Self.sortPriority(for: $1.fileExtension)
 
-            if leftPriority == rightPriority {
-                return $0.entry.name.localizedCaseInsensitiveCompare($1.entry.name) == .orderedAscending
+                if leftPriority == rightPriority {
+                    return $0.entry.name.localizedCaseInsensitiveCompare($1.entry.name) == .orderedAscending
+                }
+
+                return leftPriority < rightPriority
             }
 
-            return leftPriority < rightPriority
+        var selectedEntries = originalEntries
+        if let compactEntry {
+            selectedEntries.insert(compactEntry, at: 0)
         }
-
-        let paths = orderedEntries.map { "\(folderPath)/\($0.entry.name)" }
+        let paths = selectedEntries.map { "\(folderPath)/\($0.entry.name)" }
         let urls: [URL]
         do {
             urls = try await storage.createSignedURLs(for: paths)
@@ -147,7 +156,8 @@ actor ExerciseMediaResolver {
             return .fallback(.failedToLoad)
         }
 
-        let assets: [ExerciseMediaAsset] = zip(orderedEntries, urls).map { element in
+        let originalURLs = urls.dropFirst(compactEntry == nil ? 0 : 1)
+        let assets: [ExerciseMediaAsset] = zip(originalEntries, originalURLs).map { element in
             let (entry, url) = element
             return ExerciseMediaAsset(
                 path: "\(folderPath)/\(entry.entry.name)",
@@ -159,10 +169,25 @@ actor ExerciseMediaResolver {
             )
         }
 
+        let compactAsset: ExerciseMediaAsset?
+        if let compactEntry, let compactURL = urls.first {
+            compactAsset = ExerciseMediaAsset(
+                path: "\(folderPath)/\(compactEntry.entry.name)",
+                url: compactURL,
+                fileName: compactEntry.entry.name,
+                fileExtension: compactEntry.fileExtension,
+                isAnimated: compactEntry.fileExtension == "gif",
+                sortPriority: Self.sortPriority(for: compactEntry.fileExtension)
+            )
+        } else {
+            compactAsset = nil
+        }
+
         return .loaded(
             ExerciseMediaGallery(
                 exerciseName: exerciseName,
                 slug: slug,
+                compactAsset: compactAsset,
                 assets: assets
             )
         )

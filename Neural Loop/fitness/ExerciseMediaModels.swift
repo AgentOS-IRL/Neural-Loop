@@ -86,12 +86,19 @@ struct ExerciseMediaGallery: Identifiable, Equatable, Sendable {
     let id: String
     let exerciseName: String
     let slug: String
+    let compactAsset: ExerciseMediaAsset?
     let assets: [ExerciseMediaAsset]
 
-    init(exerciseName: String, slug: String, assets: [ExerciseMediaAsset]) {
+    init(
+        exerciseName: String,
+        slug: String,
+        compactAsset: ExerciseMediaAsset?,
+        assets: [ExerciseMediaAsset]
+    ) {
         self.id = slug
         self.exerciseName = exerciseName
         self.slug = slug
+        self.compactAsset = compactAsset
         self.assets = assets.sorted {
             if $0.sortPriority == $1.sortPriority {
                 return $0.fileName.localizedCaseInsensitiveCompare($1.fileName) == .orderedAscending
@@ -102,7 +109,11 @@ struct ExerciseMediaGallery: Identifiable, Equatable, Sendable {
     }
 
     var thumbnailAsset: ExerciseMediaAsset? {
-        assets.first(where: { !$0.isAnimated }) ?? assets.first
+        compactAsset ?? assets.first(where: { !$0.isAnimated }) ?? assets.first
+    }
+
+    var expandedAsset: ExerciseMediaAsset? {
+        assets.first
     }
 
     func heroAsset(allowsMotion: Bool) -> ExerciseMediaAsset? {
@@ -110,15 +121,23 @@ struct ExerciseMediaGallery: Identifiable, Equatable, Sendable {
             return animatedAsset
         }
 
-        return thumbnailAsset
+        return assets.first ?? compactAsset
     }
 
     var hasAnimatedAsset: Bool {
         assets.contains(where: { $0.isAnimated })
     }
 
+    var previewAssets: [ExerciseMediaAsset] {
+        assets.isEmpty ? compactAsset.map { [$0] } ?? [] : assets
+    }
+
+    var previewAvailable: Bool {
+        !previewAssets.isEmpty
+    }
+
     var previewCaption: String {
-        let count = assets.count
+        let count = previewAssets.count
         return count == 1 ? "1 media file" : "\(count) media files"
     }
 }
