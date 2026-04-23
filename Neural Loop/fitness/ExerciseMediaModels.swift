@@ -112,16 +112,20 @@ struct ExerciseMediaGallery: Identifiable, Equatable, Sendable {
         compactAsset ?? assets.first(where: { !$0.isAnimated }) ?? assets.first
     }
 
-    var expandedAsset: ExerciseMediaAsset? {
+    var expandedPreviewAsset: ExerciseMediaAsset? {
         previewAssets.first
     }
 
+    var expandedAsset: ExerciseMediaAsset? {
+        expandedPreviewAsset
+    }
+
     func heroAsset(allowsMotion: Bool) -> ExerciseMediaAsset? {
-        if allowsMotion, let animatedAsset = previewAssets.first(where: { $0.isAnimated }) {
+        if allowsMotion, let animatedAsset = assets.first(where: { $0.isAnimated }) {
             return animatedAsset
         }
 
-        return previewAssets.first
+        return expandedPreviewAsset
     }
 
     var hasAnimatedAsset: Bool {
