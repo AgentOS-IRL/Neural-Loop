@@ -7,16 +7,21 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
     @Published private(set) var rows: [WorkoutTemplateExerciseRow] = []
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
+    @Published var activeSession: (WorkoutSession, [WorkoutExerciseCardState])?
 
-    let dataManager: any WorkoutTemplateEditingDataManaging
+    let dataManager: any WorkoutTemplateEditingDataManaging & WorkoutDataManaging
+    let launchCoordinator: WorkoutSessionLaunching
     private var hasLoaded = false
 
     init(
         summary: WorkoutTemplateSummary,
-        dataManager: (any WorkoutTemplateEditingDataManaging)? = nil
+        dataManager: (any WorkoutTemplateEditingDataManaging & WorkoutDataManaging)? = nil,
+        launchCoordinator: WorkoutSessionLaunching? = nil
     ) {
         self.summary = summary
-        self.dataManager = dataManager ?? DBManager.newInstance()
+        let dm = dataManager ?? DBManager.newInstance()
+        self.dataManager = dm
+        self.launchCoordinator = launchCoordinator ?? WorkoutSessionLaunchCoordinator(db: dm)
     }
 
     func loadIfNeeded() async {
@@ -25,6 +30,20 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
         }
 
         await load()
+    }
+
+    func startWorkout() async {
+        guard !isLoading else { return }
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            activeSession = try await launchCoordinator.launchSession(for: summary.id)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        
+        isLoading = false
     }
 
     func reload() async {

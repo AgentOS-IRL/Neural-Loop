@@ -74,4 +74,7 @@ private final class FakeWorkoutTemplateEditDataManager: FitnessTemplateDataManag
         routineByID[routine.id ?? 0] = routine
         return routine
     }
+
+    func fetchAllEquipment() async throws -> [Equipment] { [] }
+    func fetchAllExercises() async throws -> [Exercise] { [] }
 }
