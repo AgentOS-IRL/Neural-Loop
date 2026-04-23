@@ -51,6 +51,10 @@ actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
             allEquipment: allEquipment
         )
 
-        return (sessionState.session, sessionState.exercises)
+        // 3. Prefill historical weights
+        let loader = WorkoutSessionLoader(db: db)
+        let prefilledExercises = await loader.prefillHistoricalWeights(for: sessionState.exercises)
+
+        return (sessionState.session, prefilledExercises)
     }
 }
