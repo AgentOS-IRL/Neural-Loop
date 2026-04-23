@@ -6,6 +6,9 @@ struct ExerciseLibraryItem: Identifiable, Equatable, Codable {
     var type: ExerciseType
     var equipmentID: Int64?
     var equipmentName: String
+
+    var isRepBased: Bool { type.isRepBased }
+    var isDurationBased: Bool { type.isDurationBased }
 }
 
 struct ExerciseLibrarySection: Identifiable, Equatable {
@@ -26,10 +29,9 @@ struct WorkoutExerciseCardState: Identifiable, Equatable, Codable {
     var targetDuration: Decimal?
 
     var columnHeaders: [String] {
-        switch exercise.type {
-        case .repBased:
+        if exercise.isRepBased {
             return ["SET", "KG", "REPS"]
-        case .duration:
+        } else {
             return ["SET", "DURATION"]
         }
     }

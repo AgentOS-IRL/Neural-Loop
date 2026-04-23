@@ -40,8 +40,7 @@ class ActiveWorkoutViewModel: ObservableObject {
             // 2. Create sets or cardio logs
             for exerciseState in exerciseStates {
                 for draft in exerciseState.sets {
-                    switch exerciseState.exercise.type {
-                    case .repBased:
+                    if exerciseState.exercise.isRepBased {
                         // Only save sets that have reps
                         guard let reps = Int(draft.repsText), reps > 0 else { continue }
                         
@@ -54,7 +53,7 @@ class ActiveWorkoutViewModel: ObservableObject {
                             superset_group_id: nil
                         )
                         _ = try await db.createWorkoutSet(setRequest)
-                    case .duration:
+                    } else if exerciseState.exercise.isDurationBased {
                         // Only save logs that have duration
                         guard let duration = NumericFormatter.parse(draft.durationText), duration > 0 else { continue }
                         

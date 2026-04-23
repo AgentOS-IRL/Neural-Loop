@@ -148,7 +148,7 @@ struct ExerciseLibrarySelectionSheet: View {
 
                 HStack(spacing: 6) {
                     pillLabel(item.equipmentName, systemImage: "dumbbell")
-                    pillLabel(item.type == .repBased ? "Reps" : "Duration", systemImage: item.type == .repBased ? "repeat" : "timer")
+                    pillLabel(item.isRepBased ? "Reps" : "Duration", systemImage: item.isRepBased ? "repeat" : "timer")
                 }
             }
 

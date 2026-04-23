@@ -85,8 +85,7 @@ struct WorkoutExerciseCard: View {
                         .foregroundStyle(AppTheme.textPrimary)
                         .frame(width: setColumnWidth, height: 44, alignment: .leading)
 
-                    switch card.exercise.type {
-                    case .repBased:
+                    if card.exercise.isRepBased {
                         numericField(
                             text: Binding(
                                 get: { set.weightText },
@@ -106,7 +105,7 @@ struct WorkoutExerciseCard: View {
                             keyboardType: .numberPad,
                             accessibilityLabel: set.repsAccessibilityLabel(exerciseName: card.exercise.name)
                         )
-                    case .duration:
+                    } else if card.exercise.isDurationBased {
                         numericField(
                             text: Binding(
                                 get: { set.durationText },
