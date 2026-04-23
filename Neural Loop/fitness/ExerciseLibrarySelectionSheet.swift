@@ -139,7 +139,6 @@ struct ExerciseLibrarySelectionSheet: View {
                     previewGallery = gallery
                 }
             )
-                .frame(width: 64, height: 64)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(item.name)

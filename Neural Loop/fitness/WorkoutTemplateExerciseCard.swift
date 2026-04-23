@@ -64,7 +64,6 @@ struct WorkoutTemplateExerciseCard: View {
                 mode: .hero,
                 onPreviewRequested: onPreviewRequested
             )
-                .frame(width: 116, height: 80)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(draft.exercise.name)
