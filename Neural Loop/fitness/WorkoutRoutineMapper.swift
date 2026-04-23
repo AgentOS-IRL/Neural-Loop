@@ -43,8 +43,8 @@ struct WorkoutRoutineMapper {
             // and "Distinguish between rep-based and duration (cardio) exercises"
             
             let weightText = ""
-            let repsText = re.target_reps.map { String($0) } ?? ""
-            let durationText = re.duration.map { String(describing: $0) } ?? ""
+            let repsText = exercise.isRepBased ? (re.target_reps.map { String($0) } ?? "") : ""
+            let durationText = exercise.isDurationBased ? (re.duration.map { String(describing: $0) } ?? "") : ""
 
             let setDrafts = (1...targetSets).map { setNumber in
                 WorkoutSetDraft(

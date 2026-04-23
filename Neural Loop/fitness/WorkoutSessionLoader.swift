@@ -14,7 +14,7 @@ struct WorkoutSessionLoader {
             let exerciseState = updatedExercises[i]
             
             // Only prefill for rep-based exercises
-            guard exerciseState.exercise.type == .repBased else { continue }
+            guard exerciseState.exercise.isRepBased else { continue }
             
             do {
                 let exerciseId = exerciseState.exercise.id
