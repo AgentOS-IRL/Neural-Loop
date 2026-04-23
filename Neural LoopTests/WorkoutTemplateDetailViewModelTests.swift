@@ -156,7 +156,7 @@ final class WorkoutTemplateDetailViewModelTests: XCTestCase {
     }
 }
 
-private final class FakeWorkoutTemplateDetailDataManager: WorkoutTemplateEditingDataManaging {
+private final class FakeWorkoutTemplateDetailDataManager: WorkoutTemplateEditingDataManaging, WorkoutDataManaging {
     var equipment: [Equipment]
     var exercises: [Exercise]
     var routinesByID: [Int64: Routine] = [:]
@@ -253,6 +253,14 @@ private final class FakeWorkoutTemplateDetailDataManager: WorkoutTemplateEditing
     func fetchRoutineExercises(routineId: Int64) async throws -> [RoutineExercise] {
         routineExercisesByRoutineID[routineId] ?? []
     }
+
+    func createWorkoutSession(_ request: CreateWorkoutSessionRequest) async throws -> WorkoutSession {
+        WorkoutSession(id: 1, date: Date(), start_time: nil, end_time: nil, session_type: "Test", notes: nil)
+    }
+    func createWorkoutSet(_ request: CreateWorkoutSetRequest) async throws -> WorkoutSet {
+        WorkoutSet(id: 1, workout_session_id: 1, exercise_id: 1, set_number: 1, reps: 1, weight: nil, superset_group_id: nil)
+    }
+    func deleteWorkoutSession(id: Int64) async throws {}
 }
 
 private enum FakeWorkoutTemplateDetailError: LocalizedError {
