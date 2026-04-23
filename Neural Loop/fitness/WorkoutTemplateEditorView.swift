@@ -2,8 +2,10 @@ import SwiftUI
 
 struct WorkoutTemplateEditorView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var viewModel: WorkoutTemplateEditorViewModel
     @State private var isLibraryPresented = false
+    @State private var previewGallery: ExerciseMediaGallery?
     private let onSaved: () -> Void
 
     init(
@@ -50,6 +52,9 @@ struct WorkoutTemplateEditorView: View {
             }
             .safeAreaInset(edge: .bottom) {
                 bottomActionBar
+            }
+            .sheet(item: $previewGallery) { gallery in
+                ExerciseMediaPreviewSheet(gallery: gallery, allowsMotion: !reduceMotion)
             }
             .sheet(isPresented: $isLibraryPresented) {
                 ExerciseLibrarySelectionSheet(
@@ -174,6 +179,9 @@ struct WorkoutTemplateEditorView: View {
                         },
                         onDurationChange: { value in
                             viewModel.updateDuration(id: draft.id, value: value)
+                        },
+                        onPreviewRequested: { gallery in
+                            previewGallery = gallery
                         }
                     )
                 }

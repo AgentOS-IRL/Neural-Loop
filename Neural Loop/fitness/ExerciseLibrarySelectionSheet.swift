@@ -2,7 +2,9 @@ import SwiftUI
 
 struct ExerciseLibrarySelectionSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var viewModel: ExerciseLibrarySelectionViewModel
+    @State private var previewGallery: ExerciseMediaGallery?
 
     let onAdd: ([ExerciseLibraryItem]) -> Void
 
@@ -34,6 +36,9 @@ struct ExerciseLibrarySelectionSheet: View {
             .background(AppTheme.backgroundGradient.ignoresSafeArea())
             .navigationTitle("Library")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(item: $previewGallery) { gallery in
+                ExerciseMediaPreviewSheet(gallery: gallery, allowsMotion: !reduceMotion)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Add") {
@@ -102,6 +107,8 @@ struct ExerciseLibrarySelectionSheet: View {
                     ForEach(section.items) { item in
                         exerciseRow(item)
                             .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 6, leading: AppTheme.Metrics.screenPadding, bottom: 6, trailing: AppTheme.Metrics.screenPadding))
                     }
                 }
             }
@@ -124,17 +131,26 @@ struct ExerciseLibrarySelectionSheet: View {
     }
 
     private func exerciseRow(_ item: ExerciseLibraryItem) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .center, spacing: 12) {
+            ExerciseMediaView(
+                exerciseName: item.name,
+                mode: .thumbnail,
+                onPreviewRequested: { gallery in
+                    previewGallery = gallery
+                }
+            )
+                .frame(width: 64, height: 64)
+
+            VStack(alignment: .leading, spacing: 8) {
                 Text(item.name)
                     .font(.system(.body, design: .rounded, weight: .semibold))
                     .foregroundStyle(AppTheme.textPrimary)
                     .lineLimit(2)
 
-                Text(item.equipmentName)
-                    .font(.system(.subheadline, design: .rounded, weight: .medium))
-                    .foregroundStyle(AppTheme.textSecondary)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    pillLabel(item.equipmentName, systemImage: "dumbbell")
+                    pillLabel(item.type == .repBased ? "Reps" : "Duration", systemImage: item.type == .repBased ? "repeat" : "timer")
+                }
             }
 
             Spacer(minLength: 8)
@@ -150,7 +166,33 @@ struct ExerciseLibrarySelectionSheet: View {
             .buttonStyle(.plain)
             .accessibilityLabel(viewModel.selectedIDs.contains(item.id) ? "Remove \(item.name)" : "Select \(item.name)")
         }
-        .contentShape(Rectangle())
+        .padding(12)
+        .background {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(AppTheme.cardGradient)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
+        }
+    }
+
+    private func pillLabel(_ title: String, systemImage: String) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: systemImage)
+                .font(.caption2.weight(.semibold))
+            Text(title)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+        .font(.system(.caption, design: .rounded, weight: .semibold))
+        .foregroundStyle(AppTheme.textSecondary)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background {
+            Capsule()
+                .fill(AppTheme.sectionGradient)
+        }
     }
 
     private func filterLabel(_ title: String, systemImage: String) -> some View {
