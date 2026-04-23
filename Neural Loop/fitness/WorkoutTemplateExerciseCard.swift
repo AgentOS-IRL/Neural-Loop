@@ -10,17 +10,37 @@ struct WorkoutTemplateExerciseCard: View {
     let onTargetSetsChange: (String) -> Void
     let onTargetRepsChange: (String) -> Void
     let onDurationChange: (String) -> Void
+    let onPreviewRequested: ((ExerciseMediaGallery) -> Void)?
 
     private let setColumnWidth: CGFloat = 48
+
+    init(
+        draft: WorkoutTemplateExerciseDraft,
+        canMoveUp: Bool,
+        canMoveDown: Bool,
+        onMoveUp: @escaping () -> Void,
+        onMoveDown: @escaping () -> Void,
+        onRemove: @escaping () -> Void,
+        onTargetSetsChange: @escaping (String) -> Void,
+        onTargetRepsChange: @escaping (String) -> Void,
+        onDurationChange: @escaping (String) -> Void,
+        onPreviewRequested: ((ExerciseMediaGallery) -> Void)? = nil
+    ) {
+        self.draft = draft
+        self.canMoveUp = canMoveUp
+        self.canMoveDown = canMoveDown
+        self.onMoveUp = onMoveUp
+        self.onMoveDown = onMoveDown
+        self.onRemove = onRemove
+        self.onTargetSetsChange = onTargetSetsChange
+        self.onTargetRepsChange = onTargetRepsChange
+        self.onDurationChange = onDurationChange
+        self.onPreviewRequested = onPreviewRequested
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
-
-            Text(draft.exercise.equipmentName)
-                .font(.system(.subheadline, design: .rounded, weight: .medium))
-                .foregroundStyle(AppTheme.textSecondary)
-                .lineLimit(1)
 
             targetTable
         }
@@ -38,17 +58,25 @@ struct WorkoutTemplateExerciseCard: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .top, spacing: 12) {
+            ExerciseMediaView(
+                exerciseName: draft.exercise.name,
+                mode: .hero,
+                onPreviewRequested: onPreviewRequested
+            )
+                .frame(width: 116, height: 80)
+
+            VStack(alignment: .leading, spacing: 8) {
                 Text(draft.exercise.name)
                     .font(.system(.headline, design: .rounded, weight: .semibold))
                     .foregroundStyle(AppTheme.textPrimary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.82)
 
-                Text(draft.exercise.type == .repBased ? "Rep-based exercise" : "Duration-based exercise")
-                    .font(.system(.caption, design: .rounded, weight: .semibold))
-                    .foregroundStyle(AppTheme.textSecondary)
+                HStack(spacing: 6) {
+                    pillLabel(draft.exercise.equipmentName, systemImage: "dumbbell")
+                    pillLabel(draft.exercise.type == .repBased ? "Rep-based" : "Duration", systemImage: draft.exercise.type == .repBased ? "repeat" : "timer")
+                }
             }
 
             Spacer(minLength: 8)
@@ -153,6 +181,24 @@ struct WorkoutTemplateExerciseCard: View {
         Text(title)
             .font(.system(.caption, design: .rounded, weight: .bold))
             .foregroundStyle(AppTheme.textSecondary)
+    }
+
+    private func pillLabel(_ title: String, systemImage: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: systemImage)
+                .font(.caption2.weight(.semibold))
+            Text(title)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .font(.system(.caption, design: .rounded, weight: .semibold))
+        .foregroundStyle(AppTheme.textSecondary)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background {
+            Capsule()
+                .fill(AppTheme.sectionGradient)
+        }
     }
 
     private func numericField(
