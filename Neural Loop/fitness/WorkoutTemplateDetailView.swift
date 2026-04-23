@@ -241,7 +241,7 @@ struct WorkoutTemplateDetailView: View {
             ProgressView()
                 .tint(AppTheme.textPrimary)
 
-            Text("Loading template details")
+            Text("Loading routine details")
                 .font(.system(.subheadline, design: .rounded, weight: .medium))
                 .foregroundStyle(AppTheme.textSecondary)
         }

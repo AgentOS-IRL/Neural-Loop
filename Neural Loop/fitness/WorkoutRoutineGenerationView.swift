@@ -63,7 +63,7 @@ struct WorkoutRoutineGenerationView: View {
                 .font(.system(.title2, design: .rounded, weight: .bold))
                 .foregroundStyle(AppTheme.textPrimary)
 
-            Text("Describe the routine you want. Codex will turn it into a workout template and the app will drop any exercises that do not exist in the catalog.")
+            Text("Describe the routine you want. Codex will turn it into a routine and the app will drop any exercises that do not exist in the catalog.")
                 .font(.system(.subheadline, design: .rounded, weight: .medium))
                 .foregroundStyle(AppTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)

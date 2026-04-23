@@ -32,7 +32,7 @@ struct WorkoutTemplateEditView: View {
                     .padding(.bottom, 20)
                 }
             }
-            .navigationTitle("Edit Template")
+            .navigationTitle("Edit Routine")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -63,7 +63,7 @@ struct WorkoutTemplateEditView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Workout template")
+            Text("Routine")
                 .font(.system(.title2, design: .rounded, weight: .bold))
                 .foregroundStyle(AppTheme.textPrimary)
 
@@ -95,11 +95,11 @@ struct WorkoutTemplateEditView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Template Name")
+                    Text("Routine Name")
                         .font(.system(.subheadline, design: .rounded, weight: .semibold))
                         .foregroundStyle(AppTheme.textSecondary)
 
-                    TextField("Template name", text: $viewModel.title)
+                    TextField("Routine name", text: $viewModel.title)
                         .textInputAutocapitalization(.words)
                         .autocorrectionDisabled()
                         .font(.system(.body, design: .rounded, weight: .medium))
@@ -156,7 +156,7 @@ struct WorkoutTemplateEditView: View {
             ProgressView()
                 .tint(AppTheme.textPrimary)
 
-            Text("Loading template")
+            Text("Loading routine")
                 .font(.system(.subheadline, design: .rounded, weight: .medium))
                 .foregroundStyle(AppTheme.textSecondary)
         }
