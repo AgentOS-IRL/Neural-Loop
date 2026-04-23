@@ -11,7 +11,7 @@ final class ExerciseMediaViewTests: XCTestCase {
         XCTAssertLessThan(ExerciseMediaDisplayMode.thumbnail.tileSize.height, ExerciseMediaDisplayMode.hero.tileSize.height)
     }
 
-    func testGalleryPrefersCompactAssetForThumbnailsAndOriginalAssetForExpandedPreview() {
+    func testGalleryPrefersCompactAssetForThumbnailsAndGifAssetsForExpandedPreview() {
         let compactAsset = ExerciseMediaAsset(
             path: "bench_press/bench_press_small.webp",
             url: URL(string: "https://example.com/bench_press/bench_press_small.webp")!,
@@ -20,25 +20,25 @@ final class ExerciseMediaViewTests: XCTestCase {
             isAnimated: false,
             sortPriority: 1
         )
-        let originalAsset = ExerciseMediaAsset(
-            path: "bench_press/poster.png",
-            url: URL(string: "https://example.com/bench_press/poster.png")!,
-            fileName: "poster.png",
-            fileExtension: "png",
-            isAnimated: false,
-            sortPriority: 0
+        let gifAsset = ExerciseMediaAsset(
+            path: "bench_press/hero.gif",
+            url: URL(string: "https://example.com/bench_press/hero.gif")!,
+            fileName: "hero.gif",
+            fileExtension: "gif",
+            isAnimated: true,
+            sortPriority: 3
         )
         let gallery = ExerciseMediaGallery(
             exerciseName: "Bench Press",
             slug: "bench_press",
             compactAsset: compactAsset,
-            assets: [originalAsset]
+            assets: [gifAsset]
         )
 
         XCTAssertEqual(gallery.thumbnailAsset?.path, compactAsset.path)
-        XCTAssertEqual(gallery.expandedAsset?.path, originalAsset.path)
-        XCTAssertEqual(gallery.previewAssets.map(\.path), [originalAsset.path])
-        XCTAssertEqual(gallery.heroAsset(allowsMotion: false)?.path, originalAsset.path)
+        XCTAssertEqual(gallery.expandedAsset?.path, gifAsset.path)
+        XCTAssertEqual(gallery.previewAssets.map(\.path), [gifAsset.path])
+        XCTAssertEqual(gallery.heroAsset(allowsMotion: false)?.path, gifAsset.path)
         XCTAssertEqual(gallery.previewCaption, "1 media file")
     }
 }

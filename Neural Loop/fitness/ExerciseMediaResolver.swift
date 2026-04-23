@@ -115,14 +115,13 @@ actor ExerciseMediaResolver {
             return .fallback(.emptyFolder)
         }
 
-        let compactFileName = "\(slug)_small.webp"
         let supportedEntries = entries.compactMap { entry -> (entry: ExerciseMediaStorageEntry, fileExtension: String, isCompact: Bool)? in
             let fileExtension = Self.fileExtension(for: entry.name).lowercased()
             guard Self.supportedExtensions.contains(fileExtension) else {
                 return nil
             }
 
-            let isCompact = entry.name.caseInsensitiveCompare(compactFileName) == .orderedSame
+            let isCompact = Self.isCompactMediaFile(named: entry.name, slug: slug)
             return (entry, fileExtension, isCompact)
         }
 
@@ -143,6 +142,10 @@ actor ExerciseMediaResolver {
 
                 return leftPriority < rightPriority
             }
+
+        guard !originalEntries.isEmpty || compactEntry != nil else {
+            return .fallback(.unsupportedFiles)
+        }
 
         var selectedEntries = originalEntries
         if let compactEntry {
@@ -216,5 +219,21 @@ actor ExerciseMediaResolver {
         default:
             return 4
         }
+    }
+
+    private static func isCompactMediaFile(named fileName: String, slug: String) -> Bool {
+        let normalizedFileName = fileName.lowercased()
+        let expectedCompactName = "\(slug.lowercased())_small.webp"
+
+        if normalizedFileName == expectedCompactName {
+            return true
+        }
+
+        guard normalizedFileName.hasSuffix("_small.webp") else {
+            return false
+        }
+
+        let compactBaseName = normalizedFileName.dropLast(".webp".count)
+        return compactBaseName.last != "."
     }
 }

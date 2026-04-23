@@ -11,7 +11,7 @@ final class ExerciseMediaResolverTests: XCTestCase {
         XCTAssertEqual(ExerciseMediaPathBuilder.slugify("  Lat Pull-Down / Wide Grip  "), "lat_pull_down_wide_grip")
     }
 
-    func testResolveUsesSmallAssetForCompactSurfacesAndOriginalAssetsForPreview() async {
+    func testResolveUsesSmallAssetForCompactSurfacesAndGifAssetsForPreview() async {
         let provider = MockExerciseMediaStorageProvider(
             filesByFolder: [
                 "bench_press": [
@@ -44,12 +44,12 @@ final class ExerciseMediaResolverTests: XCTestCase {
                 "bench_press/hero.gif"
             ]
         )
-        XCTAssertEqual(gallery.previewAssets.map(\.path), gallery.assets.map(\.path))
+        XCTAssertEqual(gallery.previewAssets.map(\.path), ["bench_press/hero.gif"])
         XCTAssertEqual(gallery.thumbnailAsset?.path, "bench_press/bench_press_small.webp")
-        XCTAssertEqual(gallery.expandedAsset?.path, "bench_press/poster.png")
+        XCTAssertEqual(gallery.expandedAsset?.path, "bench_press/hero.gif")
         XCTAssertEqual(gallery.heroAsset(allowsMotion: true)?.path, "bench_press/hero.gif")
-        XCTAssertEqual(gallery.heroAsset(allowsMotion: false)?.path, "bench_press/poster.png")
-        XCTAssertEqual(gallery.previewCaption, "4 media files")
+        XCTAssertEqual(gallery.heroAsset(allowsMotion: false)?.path, "bench_press/hero.gif")
+        XCTAssertEqual(gallery.previewCaption, "1 media file")
         XCTAssertTrue(gallery.previewAvailable)
 
         guard case .loaded(let cachedGallery) = secondState else {
@@ -84,13 +84,38 @@ final class ExerciseMediaResolverTests: XCTestCase {
 
         XCTAssertNil(gallery.compactAsset)
         XCTAssertEqual(gallery.thumbnailAsset?.path, "bench_press/poster.png")
-        XCTAssertEqual(gallery.expandedAsset?.path, "bench_press/poster.png")
-        XCTAssertEqual(gallery.previewAssets.map(\.path), ["bench_press/poster.png", "bench_press/hero.gif"])
+        XCTAssertEqual(gallery.expandedAsset?.path, "bench_press/hero.gif")
+        XCTAssertEqual(gallery.previewAssets.map(\.path), ["bench_press/hero.gif"])
         XCTAssertEqual(gallery.heroAsset(allowsMotion: true)?.path, "bench_press/hero.gif")
-        XCTAssertEqual(gallery.previewCaption, "2 media files")
+        XCTAssertEqual(gallery.previewCaption, "1 media file")
     }
 
-    func testResolveFallsBackToSmallWhenOriginalAssetIsMissing() async {
+    func testResolveTreatsAlternateSmallWebPNamesAsCompactAssets() async {
+        let provider = MockExerciseMediaStorageProvider(
+            filesByFolder: [
+                "cable_row": [
+                    .init(name: "1_small.webp"),
+                    .init(name: "poster.png"),
+                    .init(name: "demo.gif")
+                ]
+            ]
+        )
+        let resolver = ExerciseMediaResolver(storage: provider, cacheLifetime: 60)
+
+        let state = await resolver.resolveState(for: "Cable Row")
+
+        guard case .loaded(let gallery) = state else {
+            XCTFail("Expected loaded gallery")
+            return
+        }
+
+        XCTAssertEqual(gallery.compactAsset?.path, "cable_row/1_small.webp")
+        XCTAssertEqual(gallery.thumbnailAsset?.path, "cable_row/1_small.webp")
+        XCTAssertEqual(gallery.previewAssets.map(\.path), ["cable_row/demo.gif"])
+        XCTAssertEqual(gallery.expandedAsset?.path, "cable_row/demo.gif")
+    }
+
+    func testResolveLeavesPreviewEmptyWhenOnlyCompactAssetExists() async {
         let provider = MockExerciseMediaStorageProvider(
             filesByFolder: [
                 "bench_press": [
@@ -110,9 +135,10 @@ final class ExerciseMediaResolverTests: XCTestCase {
         XCTAssertEqual(gallery.compactAsset?.path, "bench_press/bench_press_small.webp")
         XCTAssertNil(gallery.expandedAsset)
         XCTAssertEqual(gallery.thumbnailAsset?.path, "bench_press/bench_press_small.webp")
-        XCTAssertEqual(gallery.previewAssets.map(\.path), ["bench_press/bench_press_small.webp"])
-        XCTAssertEqual(gallery.heroAsset(allowsMotion: true)?.path, "bench_press/bench_press_small.webp")
-        XCTAssertEqual(gallery.previewCaption, "1 media file")
+        XCTAssertEqual(gallery.previewAssets.map(\.path), [])
+        XCTAssertNil(gallery.heroAsset(allowsMotion: true))
+        XCTAssertFalse(gallery.previewAvailable)
+        XCTAssertEqual(gallery.previewCaption, "No GIF preview")
     }
 
     func testConcurrentResolveStateSharesInFlightLoad() async {

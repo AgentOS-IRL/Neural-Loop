@@ -113,23 +113,23 @@ struct ExerciseMediaGallery: Identifiable, Equatable, Sendable {
     }
 
     var expandedAsset: ExerciseMediaAsset? {
-        assets.first
+        previewAssets.first
     }
 
     func heroAsset(allowsMotion: Bool) -> ExerciseMediaAsset? {
-        if allowsMotion, let animatedAsset = assets.first(where: { $0.isAnimated }) {
+        if allowsMotion, let animatedAsset = previewAssets.first(where: { $0.isAnimated }) {
             return animatedAsset
         }
 
-        return assets.first ?? compactAsset
+        return previewAssets.first
     }
 
     var hasAnimatedAsset: Bool {
-        assets.contains(where: { $0.isAnimated })
+        previewAssets.contains(where: { $0.isAnimated })
     }
 
     var previewAssets: [ExerciseMediaAsset] {
-        assets.isEmpty ? compactAsset.map { [$0] } ?? [] : assets
+        assets.filter { $0.isAnimated }
     }
 
     var previewAvailable: Bool {
@@ -138,7 +138,14 @@ struct ExerciseMediaGallery: Identifiable, Equatable, Sendable {
 
     var previewCaption: String {
         let count = previewAssets.count
-        return count == 1 ? "1 media file" : "\(count) media files"
+        switch count {
+        case 0:
+            return "No GIF preview"
+        case 1:
+            return "1 media file"
+        default:
+            return "\(count) media files"
+        }
     }
 }
 
