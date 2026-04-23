@@ -1,6 +1,6 @@
 import Foundation
 
-struct ExerciseLibraryItem: Identifiable, Equatable {
+struct ExerciseLibraryItem: Identifiable, Equatable, Codable {
     let id: Int64
     var name: String
     var type: ExerciseType
@@ -14,13 +14,19 @@ struct ExerciseLibrarySection: Identifiable, Equatable {
     var items: [ExerciseLibraryItem]
 }
 
-struct WorkoutExerciseCardState: Identifiable, Equatable {
+struct WorkoutExerciseCardState: Identifiable, Equatable, Codable {
     let id: Int64
     var exercise: ExerciseLibraryItem
     var sets: [WorkoutSetDraft]
+    
+    // Metadata from RoutineExercise
+    var targetSets: Int?
+    var targetReps: Int?
+    var restSeconds: Int?
+    var targetDuration: Decimal?
 }
 
-struct WorkoutSetDraft: Identifiable, Equatable {
+struct WorkoutSetDraft: Identifiable, Equatable, Codable {
     let id: UUID
     var setNumber: Int
     var weightText: String
@@ -37,6 +43,11 @@ struct WorkoutSetDraft: Identifiable, Equatable {
         self.weightText = weightText
         self.repsText = repsText
     }
+}
+
+struct WorkoutSessionState: Codable, Equatable {
+    var session: WorkoutSession
+    var exercises: [WorkoutExerciseCardState]
 }
 
 struct WorkoutTemplateSummary: Identifiable, Equatable {
