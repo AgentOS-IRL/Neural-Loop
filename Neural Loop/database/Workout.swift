@@ -11,6 +11,14 @@ import Supabase
 enum ExerciseType: String, Codable, Equatable, CaseIterable {
     case repBased = "rep-based"
     case duration
+
+    var isRepBased: Bool {
+        self == .repBased
+    }
+
+    var isDurationBased: Bool {
+        self == .duration
+    }
 }
 
 struct Equipment: Codable, Identifiable, Equatable {
@@ -35,6 +43,9 @@ struct Exercise: Codable, Identifiable, Equatable {
     var type: ExerciseType
     var equipment_id: Int64?
     var notes: String?
+
+    var isRepBased: Bool { type.isRepBased }
+    var isDurationBased: Bool { type.isDurationBased }
 }
 
 struct ExerciseMuscle: Codable, Identifiable, Equatable {

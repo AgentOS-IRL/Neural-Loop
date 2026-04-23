@@ -346,12 +346,11 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
                 return .invalidSetCount(exerciseName: draft.exercise.name)
             }
 
-            switch draft.exercise.type {
-            case .repBased:
+            if draft.exercise.isRepBased {
                 guard let reps = parsedInteger(from: draft.targetRepsText), reps > 0 else {
                     return .invalidReps(exerciseName: draft.exercise.name)
                 }
-            case .duration:
+            } else if draft.exercise.isDurationBased {
                 guard let duration = parsedDecimal(from: draft.durationText), duration > 0 else {
                     return .invalidDuration(exerciseName: draft.exercise.name)
                 }
@@ -385,10 +384,10 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
             exercise_id: draft.exercise.id,
             order_index: orderIndex,
             target_sets: parsedSetCount(from: draft.targetSetsText),
-            target_reps: draft.exercise.type == .repBased ? parsedInteger(from: draft.targetRepsText) : nil,
+            target_reps: draft.exercise.isRepBased ? parsedInteger(from: draft.targetRepsText) : nil,
             rest_seconds: nil,
             superset_group_id: nil,
-            duration: draft.exercise.type == .duration ? parsedDecimal(from: draft.durationText) : nil
+            duration: draft.exercise.isDurationBased ? parsedDecimal(from: draft.durationText) : nil
         )
     }
 
@@ -403,10 +402,10 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
             exercise_id: draft.exercise.id,
             order_index: orderIndex,
             target_sets: parsedSetCount(from: draft.targetSetsText),
-            target_reps: draft.exercise.type == .repBased ? parsedInteger(from: draft.targetRepsText) : nil,
+            target_reps: draft.exercise.isRepBased ? parsedInteger(from: draft.targetRepsText) : nil,
             rest_seconds: nil,
             superset_group_id: nil,
-            duration: draft.exercise.type == .duration ? parsedDecimal(from: draft.durationText) : nil
+            duration: draft.exercise.isDurationBased ? parsedDecimal(from: draft.durationText) : nil
         )
     }
 
@@ -439,7 +438,7 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
             exercise: item,
             orderIndex: orderIndex,
             targetSetsText: "1",
-            targetRepsText: item.type == .repBased ? "" : "",
+            targetRepsText: item.isRepBased ? "" : "",
             durationText: ""
         )
     }

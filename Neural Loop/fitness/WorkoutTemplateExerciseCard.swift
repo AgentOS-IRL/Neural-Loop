@@ -72,7 +72,7 @@ struct WorkoutTemplateExerciseCard: View {
 
                 HStack(spacing: 6) {
                     pillLabel(draft.exercise.equipmentName, systemImage: "dumbbell")
-                    pillLabel(draft.exercise.type == .repBased ? "Rep-based" : "Duration", systemImage: draft.exercise.type == .repBased ? "repeat" : "timer")
+                    pillLabel(draft.exercise.isRepBased ? "Rep-based" : "Duration", systemImage: draft.exercise.isRepBased ? "repeat" : "timer")
                     orderPill
                 }
             }
@@ -133,8 +133,7 @@ struct WorkoutTemplateExerciseCard: View {
                     accessibilityLabel: "\(draft.exercise.name) target sets"
                 )
 
-                switch draft.exercise.type {
-                case .repBased:
+                if draft.exercise.isRepBased {
                     numericField(
                         text: Binding(
                             get: { draft.targetRepsText },
@@ -144,7 +143,7 @@ struct WorkoutTemplateExerciseCard: View {
                         keyboardType: .numberPad,
                         accessibilityLabel: "\(draft.exercise.name) target reps"
                     )
-                case .duration:
+                } else if draft.exercise.isDurationBased {
                     numericField(
                         text: Binding(
                             get: { draft.durationText },
@@ -173,12 +172,7 @@ struct WorkoutTemplateExerciseCard: View {
     }
 
     private var targetHeaderLabel: String {
-        switch draft.exercise.type {
-        case .repBased:
-            return "REPS"
-        case .duration:
-            return "DURATION"
-        }
+        draft.exercise.isRepBased ? "REPS" : "DURATION"
     }
 
     private func tableHeader(_ title: String) -> some View {
