@@ -2,8 +2,10 @@ import SwiftUI
 
 struct WorkoutTemplateDetailView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var viewModel: WorkoutTemplateDetailViewModel
     @State private var isEditPresented = false
+    @State private var previewGallery: ExerciseMediaGallery?
     private let onSaved: () -> Void
 
     init(
@@ -25,6 +27,7 @@ struct WorkoutTemplateDetailView: View {
 
                 VStack(alignment: .leading, spacing: 16) {
                     header
+                    showcaseStrip
                     content
                 }
                 .padding(.horizontal, AppTheme.Metrics.screenPadding)
@@ -41,6 +44,9 @@ struct WorkoutTemplateDetailView: View {
             }
             .safeAreaInset(edge: .bottom) {
                 bottomActionBar
+            }
+            .sheet(item: $previewGallery) { gallery in
+                ExerciseMediaPreviewSheet(gallery: gallery, allowsMotion: !reduceMotion)
             }
             .presentationDetents([.fraction(0.5), .large])
             .presentationDragIndicator(.visible)
@@ -85,6 +91,26 @@ struct WorkoutTemplateDetailView: View {
         }
     }
 
+    private var showcaseStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(Array(viewModel.rows.prefix(4))) { row in
+                    ExerciseMediaView(
+                        exerciseName: row.exerciseName,
+                        mode: .thumbnail,
+                        onPreviewRequested: { gallery in
+                            previewGallery = gallery
+                        }
+                    )
+                        .frame(width: 92, height: 92)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .opacity(viewModel.rows.isEmpty ? 0 : 1)
+        .accessibilityHidden(viewModel.rows.isEmpty)
+    }
+
     @ViewBuilder
     private var content: some View {
         if viewModel.isLoading && viewModel.rows.isEmpty {
@@ -108,24 +134,39 @@ struct WorkoutTemplateDetailView: View {
     }
 
     private func workoutRow(_ row: WorkoutTemplateExerciseRow) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .center, spacing: 12) {
+            ExerciseMediaView(
+                exerciseName: row.exerciseName,
+                mode: .thumbnail,
+                onPreviewRequested: { gallery in
+                    previewGallery = gallery
+                }
+            )
+                .frame(width: 68, height: 68)
+
+            VStack(alignment: .leading, spacing: 8) {
                 Text(row.exerciseName)
                     .font(.system(.headline, design: .rounded, weight: .semibold))
                     .foregroundStyle(AppTheme.textPrimary)
                     .lineLimit(2)
 
-                Text(row.equipmentName)
-                    .font(.system(.subheadline, design: .rounded, weight: .medium))
-                    .foregroundStyle(AppTheme.textSecondary)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    pillLabel(row.equipmentName, systemImage: "dumbbell")
+                    pillLabel("Set \(row.orderIndex + 1)", systemImage: "number")
+                }
             }
 
             Spacer(minLength: 12)
 
             Text(row.setText)
-                .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                .foregroundStyle(AppTheme.textPrimary)
+                .font(.system(.subheadline, design: .rounded, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background {
+                    Capsule()
+                        .fill(AppTheme.accentGradient)
+                }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
@@ -136,6 +177,24 @@ struct WorkoutTemplateDetailView: View {
         .overlay {
             RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
                 .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
+        }
+    }
+
+    private func pillLabel(_ title: String, systemImage: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: systemImage)
+                .font(.caption2.weight(.semibold))
+            Text(title)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .font(.system(.caption, design: .rounded, weight: .semibold))
+        .foregroundStyle(AppTheme.textSecondary)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background {
+            Capsule()
+                .fill(AppTheme.sectionGradient)
         }
     }
 
