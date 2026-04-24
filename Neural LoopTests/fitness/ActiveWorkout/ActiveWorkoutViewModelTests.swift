@@ -152,6 +152,36 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
         
         XCTAssertNotNil(viewModel.errorMessage)
     }
+
+    func testToggleSetCompletionStartsTimer() async {
+        let db = FakeWorkoutDataManager()
+        let session = WorkoutSession(id: nil, date: Date(), start_time: nil, end_time: nil, session_type: "Test", notes: nil)
+        let exercise = ExerciseLibraryItem(id: 1, name: "E1", type: .repBased, equipmentID: nil, equipmentName: "None")
+        let set = WorkoutSetDraft(setNumber: 1)
+        var state = WorkoutExerciseCardState(id: 1, exercise: exercise, sets: [set])
+        state.restSeconds = 60
+        let viewModel = ActiveWorkoutViewModel(session: session, exerciseStates: [state], db: db)
+
+        viewModel.toggleSetCompletion(exerciseID: 1, setID: set.id)
+
+        XCTAssertTrue(viewModel.exerciseStates[0].sets[0].isCompleted)
+        XCTAssertTrue(viewModel.isTimerRunning)
+        XCTAssertEqual(viewModel.restTimerSeconds, 60)
+    }
+
+    func testStopTimerResetsState() async {
+        let db = FakeWorkoutDataManager()
+        let session = WorkoutSession(id: nil, date: Date(), start_time: nil, end_time: nil, session_type: "Test", notes: nil)
+        let viewModel = ActiveWorkoutViewModel(session: session, exerciseStates: [], db: db)
+
+        viewModel.restTimerSeconds = 30
+        viewModel.isTimerRunning = true
+
+        viewModel.stopTimer()
+
+        XCTAssertFalse(viewModel.isTimerRunning)
+        XCTAssertEqual(viewModel.restTimerSeconds, 0)
+    }
 }
 
 class FakeWorkoutDataManager: WorkoutDataManaging {

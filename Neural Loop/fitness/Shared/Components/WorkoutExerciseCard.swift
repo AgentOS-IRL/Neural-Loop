@@ -8,6 +8,7 @@ struct WorkoutExerciseCard: View {
     let onDurationChange: (WorkoutSetDraft.ID, String) -> Void
     let onDistanceChange: (WorkoutSetDraft.ID, String) -> Void
     let onCaloriesChange: (WorkoutSetDraft.ID, String) -> Void
+    let onToggleComplete: (WorkoutSetDraft.ID) -> Void
 
     private let setColumnWidth: CGFloat = 48
 
@@ -77,6 +78,9 @@ struct WorkoutExerciseCard: View {
                     tableHeader(header)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+
+                tableHeader("DONE")
+                    .frame(width: 44, alignment: .center)
             }
             .padding(.bottom, 6)
 
@@ -84,7 +88,7 @@ struct WorkoutExerciseCard: View {
                 HStack(spacing: 10) {
                     Text("\(set.setNumber)")
                         .font(.system(.body, design: .rounded, weight: .semibold))
-                        .foregroundStyle(AppTheme.textPrimary)
+                        .foregroundStyle(set.isCompleted ? AppTheme.textSecondary : AppTheme.textPrimary)
                         .frame(width: setColumnWidth, height: 44, alignment: .leading)
 
                     if card.exercise.isRepBased {
@@ -95,7 +99,8 @@ struct WorkoutExerciseCard: View {
                             ),
                             placeholder: "0",
                             keyboardType: .decimalPad,
-                            accessibilityLabel: set.weightAccessibilityLabel(exerciseName: card.exercise.name)
+                            accessibilityLabel: set.weightAccessibilityLabel(exerciseName: card.exercise.name),
+                            isDisabled: set.isCompleted
                         )
 
                         numericField(
@@ -105,7 +110,8 @@ struct WorkoutExerciseCard: View {
                             ),
                             placeholder: "0",
                             keyboardType: .numberPad,
-                            accessibilityLabel: set.repsAccessibilityLabel(exerciseName: card.exercise.name)
+                            accessibilityLabel: set.repsAccessibilityLabel(exerciseName: card.exercise.name),
+                            isDisabled: set.isCompleted
                         )
                     } else if card.exercise.isDurationBased {
                         numericField(
@@ -115,7 +121,8 @@ struct WorkoutExerciseCard: View {
                             ),
                             placeholder: "0",
                             keyboardType: .decimalPad,
-                            accessibilityLabel: set.durationAccessibilityLabel(exerciseName: card.exercise.name)
+                            accessibilityLabel: set.durationAccessibilityLabel(exerciseName: card.exercise.name),
+                            isDisabled: set.isCompleted
                         )
 
                         numericField(
@@ -125,7 +132,8 @@ struct WorkoutExerciseCard: View {
                             ),
                             placeholder: "KM",
                             keyboardType: .decimalPad,
-                            accessibilityLabel: set.distanceAccessibilityLabel(exerciseName: card.exercise.name)
+                            accessibilityLabel: set.distanceAccessibilityLabel(exerciseName: card.exercise.name),
+                            isDisabled: set.isCompleted
                         )
 
                         numericField(
@@ -135,11 +143,22 @@ struct WorkoutExerciseCard: View {
                             ),
                             placeholder: "KCAL",
                             keyboardType: .decimalPad,
-                            accessibilityLabel: set.caloriesAccessibilityLabel(exerciseName: card.exercise.name)
+                            accessibilityLabel: set.caloriesAccessibilityLabel(exerciseName: card.exercise.name),
+                            isDisabled: set.isCompleted
                         )
                     }
+
+                    Button(action: { onToggleComplete(set.id) }) {
+                        Image(systemName: set.isCompleted ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 24))
+                            .foregroundStyle(set.isCompleted ? Color.green : AppTheme.textSecondary.opacity(0.3))
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Toggle completion for set \(set.setNumber)")
                 }
                 .padding(.vertical, 6)
+                .opacity(set.isCompleted ? 0.6 : 1.0)
 
                 if set.id != card.sets.last?.id {
                     Divider()
@@ -180,19 +199,21 @@ struct WorkoutExerciseCard: View {
         text: Binding<String>,
         placeholder: String,
         keyboardType: UIKeyboardType,
-        accessibilityLabel: String
+        accessibilityLabel: String,
+        isDisabled: Bool = false
     ) -> some View {
         TextField(placeholder, text: text)
             .keyboardType(keyboardType)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
+            .disabled(isDisabled)
             .font(.system(.body, design: .rounded, weight: .semibold))
-            .foregroundStyle(AppTheme.textPrimary)
+            .foregroundStyle(isDisabled ? AppTheme.textSecondary : AppTheme.textPrimary)
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.horizontal, 12)
             .background {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(.secondarySystemBackground).opacity(0.72))
+                    .fill(Color(.secondarySystemBackground).opacity(isDisabled ? 0.35 : 0.72))
             }
             .accessibilityLabel(accessibilityLabel)
     }
