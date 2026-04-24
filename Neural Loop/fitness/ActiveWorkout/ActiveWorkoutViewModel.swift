@@ -54,15 +54,19 @@ class ActiveWorkoutViewModel: ObservableObject {
                         )
                         _ = try await db.createWorkoutSet(setRequest)
                     } else if exerciseState.exercise.isDurationBased {
-                        // Only save logs that have duration
-                        guard let duration = NumericFormatter.parse(draft.durationText), duration > 0 else { continue }
-                        
+                        // Only save logs that have duration, distance or calories
+                        let duration = NumericFormatter.parse(draft.durationText) ?? 0
+                        let distanceKM = NumericFormatter.parse(draft.distanceText)
+                        let calories = NumericFormatter.parse(draft.caloriesText)
+
+                        guard duration > 0 || (distanceKM ?? 0) > 0 || (calories ?? 0) > 0 else { continue }
+
                         let cardioRequest = CreateCardioLogRequest(
                             workout_session_id: savedSession.id ?? 0,
                             exercise_id: exerciseState.exercise.id,
-                            distance_meters: nil, // Distance not tracked in this simplified UI yet
-                            duration_minutes: duration,
-                            calories: nil
+                            distance_meters: distanceKM.map { $0 * 1000 },
+                            duration_minutes: duration > 0 ? duration : nil,
+                            calories: calories
                         )
                         _ = try await db.createCardioLog(cardioRequest)
                     }
@@ -80,7 +84,18 @@ class ActiveWorkoutViewModel: ObservableObject {
         let nextSetNumber = (exerciseStates[index].sets.map(\.setNumber).max() ?? 0) + 1
         let lastReps = exerciseStates[index].sets.last?.repsText ?? ""
         let lastWeight = exerciseStates[index].sets.last?.weightText ?? ""
-        exerciseStates[index].sets.append(WorkoutSetDraft(setNumber: nextSetNumber, weightText: lastWeight, repsText: lastReps))
+        let lastDuration = exerciseStates[index].sets.last?.durationText ?? ""
+        let lastDistance = exerciseStates[index].sets.last?.distanceText ?? ""
+        let lastCalories = exerciseStates[index].sets.last?.caloriesText ?? ""
+        
+        exerciseStates[index].sets.append(WorkoutSetDraft(
+            setNumber: nextSetNumber,
+            weightText: lastWeight,
+            repsText: lastReps,
+            durationText: lastDuration,
+            distanceText: lastDistance,
+            caloriesText: lastCalories
+        ))
     }
     
     func updateWeight(for exerciseID: Int64, setID: UUID, weightText: String) {
@@ -99,5 +114,17 @@ class ActiveWorkoutViewModel: ObservableObject {
         guard let exerciseIndex = exerciseStates.firstIndex(where: { $0.id == exerciseID }),
               let setIndex = exerciseStates[exerciseIndex].sets.firstIndex(where: { $0.id == setID }) else { return }
         exerciseStates[exerciseIndex].sets[setIndex].durationText = durationText
+    }
+
+    func updateDistance(for exerciseID: Int64, setID: UUID, distanceText: String) {
+        guard let exerciseIndex = exerciseStates.firstIndex(where: { $0.id == exerciseID }),
+              let setIndex = exerciseStates[exerciseIndex].sets.firstIndex(where: { $0.id == setID }) else { return }
+        exerciseStates[exerciseIndex].sets[setIndex].distanceText = distanceText
+    }
+
+    func updateCalories(for exerciseID: Int64, setID: UUID, caloriesText: String) {
+        guard let exerciseIndex = exerciseStates.firstIndex(where: { $0.id == exerciseID }),
+              let setIndex = exerciseStates[exerciseIndex].sets.firstIndex(where: { $0.id == setID }) else { return }
+        exerciseStates[exerciseIndex].sets[setIndex].caloriesText = caloriesText
     }
 }

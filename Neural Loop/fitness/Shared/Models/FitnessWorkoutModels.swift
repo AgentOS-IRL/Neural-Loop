@@ -32,7 +32,7 @@ struct WorkoutExerciseCardState: Identifiable, Equatable, Codable {
         if exercise.isRepBased {
             return ["SET", "KG", "REPS"]
         } else {
-            return ["SET", "DURATION"]
+            return ["SET", "MIN", "KM", "KCAL"]
         }
     }
 }
@@ -43,19 +43,25 @@ struct WorkoutSetDraft: Identifiable, Equatable, Codable {
     var weightText: String
     var repsText: String
     var durationText: String
+    var distanceText: String
+    var caloriesText: String
 
     init(
         id: UUID = UUID(),
         setNumber: Int,
         weightText: String = "",
         repsText: String = "",
-        durationText: String = ""
+        durationText: String = "",
+        distanceText: String = "",
+        caloriesText: String = ""
     ) {
         self.id = id
         self.setNumber = setNumber
         self.weightText = weightText
         self.repsText = repsText
         self.durationText = durationText
+        self.distanceText = distanceText
+        self.caloriesText = caloriesText
     }
 
     func weightAccessibilityLabel(exerciseName: String) -> String {
@@ -68,6 +74,14 @@ struct WorkoutSetDraft: Identifiable, Equatable, Codable {
 
     func durationAccessibilityLabel(exerciseName: String) -> String {
         "\(exerciseName) set \(setNumber) duration"
+    }
+
+    func distanceAccessibilityLabel(exerciseName: String) -> String {
+        "\(exerciseName) set \(setNumber) distance"
+    }
+
+    func caloriesAccessibilityLabel(exerciseName: String) -> String {
+        "\(exerciseName) set \(setNumber) calories"
     }
 }
 

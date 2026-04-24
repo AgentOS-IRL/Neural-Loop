@@ -45,6 +45,32 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.exerciseStates[0].sets[0].durationText, "15.5")
     }
 
+    func testUpdateDistanceUpdatesState() async {
+        let db = FakeWorkoutDataManager()
+        let session = WorkoutSession(id: nil, date: Date(), start_time: nil, end_time: nil, session_type: "Test", notes: nil)
+        let exercise = ExerciseLibraryItem(id: 1, name: "E1", type: .duration, equipmentID: nil, equipmentName: "None")
+        let set = WorkoutSetDraft(setNumber: 1)
+        let state = WorkoutExerciseCardState(id: 1, exercise: exercise, sets: [set])
+        let viewModel = ActiveWorkoutViewModel(session: session, exerciseStates: [state], db: db)
+
+        viewModel.updateDistance(for: 1, setID: set.id, distanceText: "5.2")
+
+        XCTAssertEqual(viewModel.exerciseStates[0].sets[0].distanceText, "5.2")
+    }
+
+    func testUpdateCaloriesUpdatesState() async {
+        let db = FakeWorkoutDataManager()
+        let session = WorkoutSession(id: nil, date: Date(), start_time: nil, end_time: nil, session_type: "Test", notes: nil)
+        let exercise = ExerciseLibraryItem(id: 1, name: "E1", type: .duration, equipmentID: nil, equipmentName: "None")
+        let set = WorkoutSetDraft(setNumber: 1)
+        let state = WorkoutExerciseCardState(id: 1, exercise: exercise, sets: [set])
+        let viewModel = ActiveWorkoutViewModel(session: session, exerciseStates: [state], db: db)
+
+        viewModel.updateCalories(for: 1, setID: set.id, caloriesText: "500")
+
+        XCTAssertEqual(viewModel.exerciseStates[0].sets[0].caloriesText, "500")
+    }
+
     func testFinishWorkoutSavesCardioLogs() async throws {
         let db = FakeWorkoutDataManager()
         let session = WorkoutSession(id: nil, date: Date(), start_time: "2026-04-23T10:00:00Z", end_time: nil, session_type: "Test", notes: "Notes")
@@ -63,6 +89,38 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
         XCTAssertEqual(db.capturedCardioRequests[0].exercise_id, 20)
         XCTAssertEqual(db.capturedCardioRequests[0].duration_minutes, 30)
         XCTAssertEqual(db.capturedCardioRequests[1].duration_minutes, 45)
+    }
+
+    func testFinishWorkoutSavesCardioLogsWithDistanceAndCalories() async throws {
+        let db = FakeWorkoutDataManager()
+        let session = WorkoutSession(id: nil, date: Date(), start_time: "2026-04-23T10:00:00Z", end_time: nil, session_type: "Test", notes: "Notes")
+        let exercise = ExerciseLibraryItem(id: 20, name: "Running", type: .duration, equipmentID: nil, equipmentName: "None")
+        let state = WorkoutExerciseCardState(id: 2, exercise: exercise, sets: [
+            WorkoutSetDraft(setNumber: 1, durationText: "30", distanceText: "5", caloriesText: "400"),
+            WorkoutSetDraft(setNumber: 2, durationText: "", distanceText: "2.5", caloriesText: ""),
+            WorkoutSetDraft(setNumber: 3, durationText: "10", distanceText: "", caloriesText: "100")
+        ])
+        
+        let viewModel = ActiveWorkoutViewModel(session: session, exerciseStates: [state], db: db)
+        
+        await viewModel.finishWorkout()
+        
+        XCTAssertEqual(db.capturedCardioRequests.count, 3)
+        
+        // Set 1
+        XCTAssertEqual(db.capturedCardioRequests[0].duration_minutes, 30)
+        XCTAssertEqual(db.capturedCardioRequests[0].distance_meters, 5000)
+        XCTAssertEqual(db.capturedCardioRequests[0].calories, 400)
+        
+        // Set 2
+        XCTAssertNil(db.capturedCardioRequests[1].duration_minutes)
+        XCTAssertEqual(db.capturedCardioRequests[1].distance_meters, 2500)
+        XCTAssertNil(db.capturedCardioRequests[1].calories)
+        
+        // Set 3
+        XCTAssertEqual(db.capturedCardioRequests[2].duration_minutes, 10)
+        XCTAssertNil(db.capturedCardioRequests[2].distance_meters)
+        XCTAssertEqual(db.capturedCardioRequests[2].calories, 100)
     }
 
     func testFinishWorkoutSavesCardioLogsWithDecimalDuration() async throws {
