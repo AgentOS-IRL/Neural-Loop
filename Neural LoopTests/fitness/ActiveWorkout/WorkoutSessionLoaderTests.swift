@@ -117,4 +117,8 @@ class MockWorkoutSessionLoaderDataManager: WorkoutDataManaging {
     func fetchWorkoutSessions() async throws -> [WorkoutSession] {
         []
     }
+
+    func fetchWorkoutSessionDetail(sessionId: Int64) async throws -> WorkoutSessionDetail {
+        throw WorkoutDatabaseError.missingIdentifier
+    }
 }

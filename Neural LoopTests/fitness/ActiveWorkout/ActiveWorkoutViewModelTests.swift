@@ -129,7 +129,9 @@ class FakeWorkoutDataManager: WorkoutDataManaging {
         return []
     }
 
-    func fetchWorkoutSessions() async throws -> [WorkoutSession] {
-        []
+    func fetchWorkoutSessions() async throws -> [WorkoutSession] { [] }
+
+    func fetchWorkoutSessionDetail(sessionId: Int64) async throws -> WorkoutSessionDetail {
+        throw WorkoutDatabaseError.missingIdentifier
     }
 }

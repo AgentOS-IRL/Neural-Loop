@@ -154,19 +154,36 @@ struct WorkoutSessionDetailView: View {
                     }
                     .padding(.horizontal, 8)
                 }
-            } else if let log = exercise.cardioLog {
-                VStack(alignment: .leading, spacing: 8) {
-                    if let distance = log.distance_meters {
-                        labelValueRow(label: "Distance", value: "\(NumericFormatter.format(distance)) m")
+            } else {
+                ForEach(Array(exercise.cardioLogs.enumerated()), id: \.offset) { index, log in
+                    VStack(alignment: .leading, spacing: 4) {
+                        if exercise.cardioLogs.count > 1 {
+                            Text("Set \(index + 1)")
+                                .font(.caption.bold())
+                                .foregroundColor(AppTheme.accentColor)
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            if let distance = log.distance_meters {
+                                labelValueRow(label: "Distance", value: "\(NumericFormatter.format(distance)) m")
+                            }
+                            if let duration = log.duration_minutes {
+                                labelValueRow(label: "Duration", value: "\(NumericFormatter.format(duration)) min")
+                            }
+                            if let calories = log.calories {
+                                labelValueRow(label: "Calories", value: "\(NumericFormatter.format(calories)) kcal")
+                            }
+                        }
+                        .padding(.leading, exercise.cardioLogs.count > 1 ? 8 : 0)
                     }
-                    if let duration = log.duration_minutes {
-                        labelValueRow(label: "Duration", value: "\(NumericFormatter.format(duration)) min")
-                    }
-                    if let calories = log.calories {
-                        labelValueRow(label: "Calories", value: "\(NumericFormatter.format(calories)) kcal")
+                    .padding(.horizontal, 8)
+
+                    if index < exercise.cardioLogs.count - 1 {
+                        Divider()
+                            .opacity(0.3)
+                            .padding(.vertical, 4)
                     }
                 }
-                .padding(.horizontal, 8)
             }
         }
         .padding()

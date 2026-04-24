@@ -181,6 +181,10 @@ private final class FakeFitnessTemplateDataManager: FitnessTemplateDataManaging,
     func fetchWorkoutSessions() async throws -> [WorkoutSession] {
         sessions
     }
+
+    func fetchWorkoutSessionDetail(sessionId: Int64) async throws -> WorkoutSessionDetail {
+        throw WorkoutDatabaseError.missingIdentifier
+    }
 }
 
 private enum FakeFitnessTemplateError: LocalizedError {

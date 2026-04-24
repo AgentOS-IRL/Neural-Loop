@@ -150,7 +150,7 @@ struct WorkoutSessionExerciseDetail: Equatable {
     let exerciseName: String
     let exerciseType: ExerciseType
     let sets: [WorkoutSet]
-    let cardioLog: CardioLog?
+    let cardioLogs: [CardioLog]
 }
 
 struct CreateEquipmentRequest: Codable, Equatable {
@@ -1147,14 +1147,14 @@ extension DBManager {
         for id in exerciseIds {
             if let exercise = try await fetchExercise(by: id) {
                 let exerciseSets = sets.filter { $0.exercise_id == id }
-                let exerciseLog = logs.first { $0.exercise_id == id }
+                let exerciseLogs = logs.filter { $0.exercise_id == id }
 
                 exerciseDetails.append(WorkoutSessionExerciseDetail(
                     exerciseId: id,
                     exerciseName: exercise.name,
                     exerciseType: exercise.type,
                     sets: exerciseSets,
-                    cardioLog: exerciseLog
+                    cardioLogs: exerciseLogs
                 ))
             }
         }
