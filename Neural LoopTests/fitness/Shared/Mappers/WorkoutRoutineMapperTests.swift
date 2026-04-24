@@ -12,9 +12,9 @@ final class WorkoutRoutineMapperTests: XCTestCase {
             RoutineExercise(id: 12, routine_id: 1, exercise_id: 102, order_index: 3)
         ]
         let allExercises = [
-            Exercise(id: 100, name: "Ex 100", type: .repBased, equipment_id: 1),
-            Exercise(id: 101, name: "Ex 101", type: .repBased, equipment_id: 1),
-            Exercise(id: 102, name: "Ex 102", type: .repBased, equipment_id: 1)
+            ExerciseWithMuscles(id: 100, name: "Ex 100", type: .repBased, equipment_id: 1, notes: nil, exercise_muscles: []),
+            ExerciseWithMuscles(id: 101, name: "Ex 101", type: .repBased, equipment_id: 1, notes: nil, exercise_muscles: []),
+            ExerciseWithMuscles(id: 102, name: "Ex 102", type: .repBased, equipment_id: 1, notes: nil, exercise_muscles: [])
         ]
         let allEquipment = [Equipment(id: 1, name: "Barbell")]
         
@@ -48,7 +48,7 @@ final class WorkoutRoutineMapperTests: XCTestCase {
                 duration: Decimal(30)
             )
         ]
-        let allExercises = [Exercise(id: 100, name: "Ex 100", type: .repBased, equipment_id: 1)]
+        let allExercises = [ExerciseWithMuscles(id: 100, name: "Ex 100", type: .repBased, equipment_id: 1, notes: nil, exercise_muscles: [])]
         let allEquipment = [Equipment(id: 1, name: "Barbell")]
         
         // When
@@ -78,8 +78,8 @@ final class WorkoutRoutineMapperTests: XCTestCase {
             RoutineExercise(id: 11, routine_id: 1, exercise_id: 101, order_index: 2, target_sets: 1, duration: Decimal(20))
         ]
         let allExercises = [
-            Exercise(id: 100, name: "Rep Based", type: .repBased, equipment_id: 1),
-            Exercise(id: 101, name: "Cardio", type: .duration, equipment_id: nil)
+            ExerciseWithMuscles(id: 100, name: "Rep Based", type: .repBased, equipment_id: 1, notes: nil, exercise_muscles: []),
+            ExerciseWithMuscles(id: 101, name: "Cardio", type: .duration, equipment_id: nil, notes: nil, exercise_muscles: [])
         ]
         let allEquipment = [Equipment(id: 1, name: "Barbell")]
         
@@ -106,7 +106,7 @@ final class WorkoutRoutineMapperTests: XCTestCase {
         let routineExercises = [
             RoutineExercise(id: 10, routine_id: 1, exercise_id: 100, order_index: 1, target_sets: nil, target_reps: nil)
         ]
-        let allExercises = [Exercise(id: 100, name: "Ex 100", type: .repBased, equipment_id: nil)]
+        let allExercises = [ExerciseWithMuscles(id: 100, name: "Ex 100", type: .repBased, equipment_id: nil, notes: nil, exercise_muscles: [])]
         let allEquipment: [Equipment] = []
         
         // When
@@ -167,9 +167,9 @@ final class WorkoutRoutineMapperTests: XCTestCase {
             RoutineExercise(id: 12, routine_id: 1, exercise_id: 102, order_index: 3, superset_group_id: nil)
         ]
         let allExercises = [
-            Exercise(id: 100, name: "Ex 100", type: .repBased, equipment_id: 1),
-            Exercise(id: 101, name: "Ex 101", type: .repBased, equipment_id: 1),
-            Exercise(id: 102, name: "Ex 102", type: .repBased, equipment_id: 1)
+            ExerciseWithMuscles(id: 100, name: "Ex 100", type: .repBased, equipment_id: 1, notes: nil, exercise_muscles: []),
+            ExerciseWithMuscles(id: 101, name: "Ex 101", type: .repBased, equipment_id: 1, notes: nil, exercise_muscles: []),
+            ExerciseWithMuscles(id: 102, name: "Ex 102", type: .repBased, equipment_id: 1, notes: nil, exercise_muscles: [])
         ]
         let allEquipment = [Equipment(id: 1, name: "Barbell")]
 
