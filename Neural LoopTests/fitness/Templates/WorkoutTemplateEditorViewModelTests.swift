@@ -583,8 +583,15 @@ final class WorkoutTemplateEditorViewModelTests: XCTestCase {
         Equipment(id: id, name: name)
     }
 
-    private func exercise(id: Int64, name: String, equipmentID: Int64?) -> Exercise {
-        Exercise(id: id, name: name, type: .repBased, equipment_id: equipmentID, notes: nil)
+    private func exercise(id: Int64, name: String, equipmentID: Int64?) -> ExerciseWithMuscles {
+        ExerciseWithMuscles(
+            id: id,
+            name: name,
+            type: .repBased,
+            equipment_id: equipmentID,
+            notes: nil,
+            exercise_muscles: []
+        )
     }
 
     private func libraryItem(id: Int64, name: String) -> ExerciseLibraryItem {
@@ -617,7 +624,7 @@ final class WorkoutTemplateEditorViewModelTests: XCTestCase {
 
 private final class FakeWorkoutTemplateEditorDataManager: WorkoutTemplateEditingDataManaging {
     var equipment: [Equipment]
-    var exercises: [Exercise]
+    var exercises: [ExerciseWithMuscles]
     var routinesByID: [Int64: Routine]
     var routineExercisesByRoutineID: [Int64: [RoutineExercise]]
     var createdRoutineRequests: [CreateRoutineRequest] = []
@@ -635,7 +642,7 @@ private final class FakeWorkoutTemplateEditorDataManager: WorkoutTemplateEditing
 
     init(
         equipment: [Equipment] = [],
-        exercises: [Exercise] = [],
+        exercises: [ExerciseWithMuscles] = [],
         routinesByID: [Int64: Routine] = [:],
         routineExercisesByRoutineID: [Int64: [RoutineExercise]] = [:]
     ) {
@@ -650,8 +657,13 @@ private final class FakeWorkoutTemplateEditorDataManager: WorkoutTemplateEditing
     }
 
     func fetchAllExercises() async throws -> [Exercise] {
-        exercises
+        return []
     }
+
+    func fetchAllExercisesWithMuscles() async throws -> [ExerciseWithMuscles] {
+        return exercises
+    }
+
 
     func fetchRoutine(by id: Int64) async throws -> Routine? {
         routinesByID[id]

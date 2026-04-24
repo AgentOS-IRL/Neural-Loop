@@ -8,8 +8,8 @@ final class WorkoutSessionLaunchTests: XCTestCase {
         let routineID: Int64 = 1
         let routine = Routine(id: routineID, name: "Test Routine", notes: "Some notes")
         let exercises = [
-            Exercise(id: 10, name: "Exercise 1", type: .repBased, equipment_id: 100, notes: nil),
-            Exercise(id: 11, name: "Exercise 2", type: .repBased, equipment_id: 101, notes: nil)
+            ExerciseWithMuscles(id: 10, name: "Exercise 1", type: .repBased, equipment_id: 100, notes: nil, exercise_muscles: []),
+            ExerciseWithMuscles(id: 11, name: "Exercise 2", type: .repBased, equipment_id: 101, notes: nil, exercise_muscles: [])
         ]
         let equipment = [
             Equipment(id: 100, name: "Dumbbell"),
@@ -22,7 +22,7 @@ final class WorkoutSessionLaunchTests: XCTestCase {
         
         let db = FakeLaunchDataManager()
         db.stubRoutine = routine
-        db.stubExercises = exercises
+        db.stubExercisesWithMuscles = exercises
         db.stubEquipment = equipment
         db.stubRoutineExercises = routineExercises
         
@@ -54,9 +54,9 @@ final class WorkoutSessionLaunchTests: XCTestCase {
         
         let db = FakeLaunchDataManager()
         db.stubRoutine = routine
-        db.stubExercises = [
-            Exercise(id: 10, name: "E1", type: .repBased, equipment_id: nil, notes: nil),
-            Exercise(id: 11, name: "E2", type: .repBased, equipment_id: nil, notes: nil)
+        db.stubExercisesWithMuscles = [
+            ExerciseWithMuscles(id: 10, name: "E1", type: .repBased, equipment_id: nil, notes: nil, exercise_muscles: []),
+            ExerciseWithMuscles(id: 11, name: "E2", type: .repBased, equipment_id: nil, notes: nil, exercise_muscles: [])
         ]
         db.stubRoutineExercises = routineExercises
         
@@ -127,6 +127,7 @@ final class WorkoutSessionLaunchTests: XCTestCase {
 class FakeLaunchDataManager: WorkoutTemplateReadingDataManaging, WorkoutDataManaging {
     var stubRoutine: Routine?
     var stubExercises: [Exercise] = []
+    var stubExercisesWithMuscles: [ExerciseWithMuscles] = []
     var stubEquipment: [Equipment] = []
     var stubRoutineExercises: [RoutineExercise] = []
     var fetchRoutineExercisesDelay: TimeInterval = 0
@@ -149,8 +150,13 @@ class FakeLaunchDataManager: WorkoutTemplateReadingDataManaging, WorkoutDataMana
     }
     
     func fetchAllExercises() async throws -> [Exercise] {
-        stubExercises
+        return stubExercises
     }
+
+    func fetchAllExercisesWithMuscles() async throws -> [ExerciseWithMuscles] {
+        return stubExercisesWithMuscles
+    }
+
     
     func fetchAllEquipment() async throws -> [Equipment] {
         stubEquipment

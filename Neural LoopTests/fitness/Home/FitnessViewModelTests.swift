@@ -167,6 +167,7 @@ private final class FakeFitnessTemplateDataManager: FitnessTemplateDataManaging,
 
     func fetchAllEquipment() async throws -> [Equipment] { [] }
     func fetchAllExercises() async throws -> [Exercise] { [] }
+    func fetchAllExercisesWithMuscles() async throws -> [ExerciseWithMuscles] { [] }
     func createWorkoutSession(_ request: CreateWorkoutSessionRequest) async throws -> WorkoutSession {
         WorkoutSession(id: 1, date: Date(), start_time: nil, end_time: nil, session_type: "Test", notes: nil)
     }

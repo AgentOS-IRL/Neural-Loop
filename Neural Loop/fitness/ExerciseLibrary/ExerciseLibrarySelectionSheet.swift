@@ -150,6 +150,16 @@ struct ExerciseLibrarySelectionSheet: View {
                     pillLabel(item.equipmentName, systemImage: "dumbbell")
                     pillLabel(item.isRepBased ? "Reps" : "Duration", systemImage: item.isRepBased ? "repeat" : "timer")
                 }
+
+                if !item.muscles.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(item.muscles) { muscle in
+                                muscleChip(muscle)
+                            }
+                        }
+                    }
+                }
             }
 
             Spacer(minLength: 8)
@@ -174,6 +184,29 @@ struct ExerciseLibrarySelectionSheet: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
         }
+    }
+
+    private func muscleChip(_ muscle: MuscleMetadata) -> some View {
+        Text(muscle.muscleName)
+            .font(.system(.caption2, design: .rounded, weight: .bold))
+            .foregroundStyle(muscle.isPrimary ? AppTheme.accentColor : AppTheme.textSecondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background {
+                if muscle.isPrimary {
+                    Capsule()
+                        .fill(AppTheme.accentColor.opacity(0.12))
+                } else {
+                    Capsule()
+                        .fill(AppTheme.sectionGradient)
+                }
+            }
+            .overlay {
+                if muscle.isPrimary {
+                    Capsule()
+                        .strokeBorder(AppTheme.accentColor.opacity(0.3), lineWidth: 1)
+                }
+            }
     }
 
     private func pillLabel(_ title: String, systemImage: String) -> some View {

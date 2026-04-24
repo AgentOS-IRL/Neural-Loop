@@ -4,7 +4,7 @@ struct WorkoutRoutineMapper {
     static func mapToSessionState(
         routine: Routine,
         routineExercises: [RoutineExercise],
-        allExercises: [Exercise],
+        allExercises: [ExerciseWithMuscles],
         allEquipment: [Equipment]
     ) -> WorkoutSessionState {
         // 1. Prepare WorkoutSession Draft
@@ -28,12 +28,22 @@ struct WorkoutRoutineMapper {
 
             let equipment = allEquipment.first(where: { $0.id == exercise.equipment_id })
             
+            let muscles = exercise.exercise_muscles
+                .map { MuscleMetadata(muscleID: $0.muscle.id ?? 0, muscleName: $0.muscle.name, isPrimary: $0.is_primary) }
+                .sorted { lhs, rhs in
+                    if lhs.isPrimary != rhs.isPrimary {
+                        return lhs.isPrimary // Primaries first
+                    }
+                    return lhs.muscleName.localizedCaseInsensitiveCompare(rhs.muscleName) == .orderedAscending
+                }
+
             let libraryItem = ExerciseLibraryItem(
-                id: exercise.id ?? 0,
+                id: exercise.id,
                 name: exercise.name,
                 type: exercise.type,
                 equipmentID: exercise.equipment_id,
-                equipmentName: equipment?.name ?? "No Equipment"
+                equipmentName: equipment?.name ?? "No Equipment",
+                muscles: muscles
             )
 
             let targetSets = max(1, re.target_sets ?? 1)

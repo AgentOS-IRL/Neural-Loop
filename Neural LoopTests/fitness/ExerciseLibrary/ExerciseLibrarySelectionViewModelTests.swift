@@ -50,6 +50,42 @@ final class ExerciseLibrarySelectionViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedItems.map(\.id), [1, 3])
     }
 
+    func testSearchByMuscleName() {
+        let itemsWithMuscles = [
+            ExerciseLibraryItem(
+                id: 1,
+                name: "Bench Press",
+                type: .repBased,
+                equipmentID: 1,
+                equipmentName: "Barbell",
+                muscles: [
+                    MuscleMetadata(muscleID: 1, muscleName: "Chest", isPrimary: true),
+                    MuscleMetadata(muscleID: 2, muscleName: "Triceps", isPrimary: false)
+                ]
+            ),
+            ExerciseLibraryItem(
+                id: 2,
+                name: "Squat",
+                type: .repBased,
+                equipmentID: 1,
+                equipmentName: "Barbell",
+                muscles: [
+                    MuscleMetadata(muscleID: 3, muscleName: "Quads", isPrimary: true)
+                ]
+            )
+        ]
+        let viewModel = ExerciseLibrarySelectionViewModel(items: itemsWithMuscles, initiallySelectedExerciseIDs: [])
+
+        viewModel.searchText = "chest"
+        XCTAssertEqual(viewModel.filteredSections.flatMap(\.items).map(\.name), ["Bench Press"])
+
+        viewModel.searchText = "triceps"
+        XCTAssertEqual(viewModel.filteredSections.flatMap(\.items).map(\.name), ["Bench Press"])
+
+        viewModel.searchText = "quads"
+        XCTAssertEqual(viewModel.filteredSections.flatMap(\.items).map(\.name), ["Squat"])
+    }
+
     private var items: [ExerciseLibraryItem] {
         [
             ExerciseLibraryItem(id: 1, name: "Bench Press", type: .repBased, equipmentID: 1, equipmentName: "Barbell"),

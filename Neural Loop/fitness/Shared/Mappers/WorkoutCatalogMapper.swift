@@ -3,7 +3,7 @@ import Foundation
 enum WorkoutCatalogMapper {
     static func makeLibraryItems(
         equipment: [Equipment],
-        exercises: [Exercise]
+        exercises: [ExerciseWithMuscles]
     ) -> [ExerciseLibraryItem] {
         let equipmentNamesByID = Dictionary(
             uniqueKeysWithValues: equipment.compactMap { equipment -> (Int64, String)? in
@@ -12,18 +12,25 @@ enum WorkoutCatalogMapper {
             }
         )
 
-        return exercises.compactMap { exercise in
-            guard let id = exercise.id else {
-                return nil
-            }
-
+        return exercises.map { exercise in
             let equipmentName = exercise.equipment_id.flatMap { equipmentNamesByID[$0] } ?? "No equipment"
+            
+            let muscles = exercise.exercise_muscles
+                .map { MuscleMetadata(muscleID: $0.muscle.id ?? 0, muscleName: $0.muscle.name, isPrimary: $0.is_primary) }
+                .sorted { lhs, rhs in
+                    if lhs.isPrimary != rhs.isPrimary {
+                        return lhs.isPrimary // Primaries first
+                    }
+                    return lhs.muscleName.localizedCaseInsensitiveCompare(rhs.muscleName) == .orderedAscending
+                }
+
             return ExerciseLibraryItem(
-                id: id,
+                id: exercise.id,
                 name: exercise.name,
                 type: exercise.type,
                 equipmentID: exercise.equipment_id,
-                equipmentName: equipmentName
+                equipmentName: equipmentName,
+                muscles: muscles
             )
         }
         .sorted { lhs, rhs in

@@ -164,7 +164,7 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
 
         do {
             async let equipmentRows = dataManager.fetchAllEquipment()
-            async let exerciseRows = dataManager.fetchAllExercises()
+            async let exerciseRows = dataManager.fetchAllExercisesWithMuscles()
 
             switch mode {
             case .create:
