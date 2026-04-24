@@ -128,4 +128,8 @@ class FakeWorkoutDataManager: WorkoutDataManaging {
     func fetchWorkoutSets(exerciseId: Int64) async throws -> [WorkoutSet] {
         return []
     }
+
+    func fetchWorkoutSessions() async throws -> [WorkoutSession] {
+        []
+    }
 }
