@@ -384,6 +384,18 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
         for index in exerciseDrafts.indices {
             exerciseDrafts[index].orderIndex = index + 1
         }
+        normalizeSupersets()
+    }
+
+    private func normalizeSupersets() {
+        let groupCounts = Dictionary(grouping: exerciseDrafts.compactMap { $0.supersetGroupID }, by: { $0 })
+            .mapValues { $0.count }
+
+        for index in exerciseDrafts.indices {
+            if let gid = exerciseDrafts[index].supersetGroupID, groupCounts[gid, default: 0] < 2 {
+                exerciseDrafts[index].supersetGroupID = nil
+            }
+        }
     }
 
     private func makeCreateRequest(
