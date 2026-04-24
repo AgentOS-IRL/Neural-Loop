@@ -11,7 +11,7 @@ struct WorkoutRoutineMapper {
         let session = WorkoutSession(
             id: nil,
             date: Date(),
-            start_time: ISO8601DateFormatter().string(from: Date()),
+            start_time: WorkoutTimeCoding.string(from: Date()),
             end_time: nil,
             session_type: routine.name,
             notes: routine.notes
