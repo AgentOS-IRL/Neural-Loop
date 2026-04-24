@@ -140,6 +140,19 @@ struct CardioLog: Codable, Identifiable, Equatable {
     var calories: Decimal?
 }
 
+struct WorkoutSessionDetail: Equatable {
+    let session: WorkoutSession
+    let exercises: [WorkoutSessionExerciseDetail]
+}
+
+struct WorkoutSessionExerciseDetail: Equatable {
+    let exerciseId: Int64
+    let exerciseName: String
+    let exerciseType: ExerciseType
+    let sets: [WorkoutSet]
+    let cardioLogs: [CardioLog]
+}
+
 struct CreateEquipmentRequest: Codable, Equatable {
     var name: String
 }
@@ -1118,5 +1131,34 @@ extension DBManager {
             .delete()
             .eq("id", value: Int(id))
             .execute()
+    }
+
+    func fetchWorkoutSessionDetail(sessionId: Int64) async throws -> WorkoutSessionDetail {
+        guard let session = try await fetchWorkoutSession(by: sessionId) else {
+            throw WorkoutDatabaseError.missingIdentifier
+        }
+
+        let sets = try await fetchWorkoutSets(sessionId: sessionId)
+        let logs = try await fetchCardioLogs(sessionId: sessionId)
+
+        let exerciseIds = Array(Set(sets.map { $0.exercise_id } + logs.map { $0.exercise_id })).sorted()
+        var exerciseDetails: [WorkoutSessionExerciseDetail] = []
+
+        for id in exerciseIds {
+            if let exercise = try await fetchExercise(by: id) {
+                let exerciseSets = sets.filter { $0.exercise_id == id }
+                let exerciseLogs = logs.filter { $0.exercise_id == id }
+
+                exerciseDetails.append(WorkoutSessionExerciseDetail(
+                    exerciseId: id,
+                    exerciseName: exercise.name,
+                    exerciseType: exercise.type,
+                    sets: exerciseSets,
+                    cardioLogs: exerciseLogs
+                ))
+            }
+        }
+
+        return WorkoutSessionDetail(session: session, exercises: exerciseDetails)
     }
 }
