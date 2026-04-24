@@ -74,6 +74,10 @@ struct WorkoutTemplateExerciseCard: View {
                     .minimumScaleFactor(0.82)
 
                 HStack(spacing: 6) {
+                    if let supersetLabel = draft.supersetLabel {
+                        pillLabel(supersetLabel, systemImage: "link")
+                            .foregroundStyle(AppTheme.accentColor)
+                    }
                     pillLabel(draft.exercise.equipmentName, systemImage: "dumbbell")
                     pillLabel(draft.exercise.isRepBased ? "Rep-based" : "Duration", systemImage: draft.exercise.isRepBased ? "repeat" : "timer")
                     orderPill

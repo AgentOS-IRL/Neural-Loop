@@ -53,7 +53,7 @@ class ActiveWorkoutViewModel: ObservableObject {
                             set_number: draft.setNumber,
                             reps: reps,
                             weight: NumericFormatter.parse(draft.weightText),
-                            superset_group_id: nil
+                            superset_group_id: exerciseState.supersetGroupID
                         )
                         _ = try await db.createWorkoutSet(setRequest)
                     } else if exerciseState.exercise.isDurationBased {
