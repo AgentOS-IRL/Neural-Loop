@@ -145,6 +145,7 @@ protocol WorkoutDataManaging {
     func deleteWorkoutSession(id: Int64) async throws
     func fetchWorkoutSets(exerciseId: Int64) async throws -> [WorkoutSet]
     func fetchWorkoutSessions() async throws -> [WorkoutSession]
+    func fetchWorkoutSessionDetail(sessionId: Int64) async throws -> WorkoutSessionDetail
 }
 
 protocol WorkoutTemplateReadingDataManaging {
