@@ -66,7 +66,7 @@ class ActiveWorkoutViewModel: ObservableObject {
                             exercise_id: exerciseState.exercise.id,
                             distance_meters: distanceKM.map { $0 * 1000 },
                             duration_minutes: duration > 0 ? duration : nil,
-                            calories: calories
+                            calories: nil // Guarded: calories // FIXME: Restore once cardio_log.calories column is verified in production
                         )
                         _ = try await db.createCardioLog(cardioRequest)
                     }

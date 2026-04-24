@@ -1108,7 +1108,7 @@ extension DBManager {
             exercise_id: log.exercise_id,
             distance_meters: log.distance_meters,
             duration_minutes: log.duration_minutes,
-            calories: log.calories
+            calories: nil // log.calories // Guarded until cardio_log.calories column is verified in production
         )
         let updated: [CardioLog] = try await customsupabase
             .from(cardioLogTableName)

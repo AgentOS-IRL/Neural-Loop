@@ -65,7 +65,8 @@ create table cardio_log (
   workout_session_id bigint references workout_session (id) on delete cascade not null,
   exercise_id bigint references exercise (id) on delete cascade not null,
   distance_meters numeric,
-  duration_minutes numeric
+  duration_minutes numeric,
+  calories numeric
 );
 
 create index idx_exercise_equipment_id on exercise(equipment_id);

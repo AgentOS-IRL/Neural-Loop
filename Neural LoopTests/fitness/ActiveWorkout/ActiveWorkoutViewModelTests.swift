@@ -110,7 +110,7 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
         // Set 1
         XCTAssertEqual(db.capturedCardioRequests[0].duration_minutes, 30)
         XCTAssertEqual(db.capturedCardioRequests[0].distance_meters, 5000)
-        XCTAssertEqual(db.capturedCardioRequests[0].calories, 400)
+        XCTAssertNil(db.capturedCardioRequests[0].calories) // Guarded for now
         
         // Set 2
         XCTAssertNil(db.capturedCardioRequests[1].duration_minutes)
@@ -120,7 +120,7 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
         // Set 3
         XCTAssertEqual(db.capturedCardioRequests[2].duration_minutes, 10)
         XCTAssertNil(db.capturedCardioRequests[2].distance_meters)
-        XCTAssertEqual(db.capturedCardioRequests[2].calories, 100)
+        XCTAssertNil(db.capturedCardioRequests[2].calories) // Guarded for now
     }
 
     func testFinishWorkoutSavesCardioLogsWithDecimalDuration() async throws {
