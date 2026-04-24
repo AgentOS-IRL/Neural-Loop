@@ -27,6 +27,11 @@ struct WorkoutExerciseCardState: Identifiable, Equatable, Codable {
     var targetReps: Int?
     var restSeconds: Int?
     var targetDuration: Decimal?
+    var supersetGroupID: Int?
+
+    var supersetLabel: String? {
+        supersetGroupID?.supersetLabel
+    }
 
     var columnHeaders: [String] {
         if exercise.isRepBased {
@@ -127,6 +132,11 @@ struct WorkoutTemplateExerciseDraft: Identifiable, Equatable {
     var targetRepsText: String
     var durationText: String
     var restSecondsText: String
+    var supersetGroupID: Int?
+
+    var supersetLabel: String? {
+        supersetGroupID?.supersetLabel
+    }
 
     init(
         id: UUID = UUID(),
@@ -136,7 +146,8 @@ struct WorkoutTemplateExerciseDraft: Identifiable, Equatable {
         targetSetsText: String,
         targetRepsText: String,
         durationText: String,
-        restSecondsText: String
+        restSecondsText: String,
+        supersetGroupID: Int? = nil
     ) {
         self.id = id
         self.routineExerciseID = routineExerciseID
@@ -146,6 +157,17 @@ struct WorkoutTemplateExerciseDraft: Identifiable, Equatable {
         self.targetRepsText = targetRepsText
         self.durationText = durationText
         self.restSecondsText = restSecondsText
+        self.supersetGroupID = supersetGroupID
+    }
+}
+
+extension Int {
+    var supersetLabel: String? {
+        guard self > 0 else { return nil }
+        let letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        let index = (self - 1) % letters.count
+        let letter = letters[letters.index(letters.startIndex, offsetBy: index)]
+        return "Superset \(letter)"
     }
 }
 

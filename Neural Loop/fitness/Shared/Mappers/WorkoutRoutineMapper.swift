@@ -62,7 +62,8 @@ struct WorkoutRoutineMapper {
                 targetSets: re.target_sets,
                 targetReps: re.target_reps,
                 restSeconds: re.rest_seconds,
-                targetDuration: re.duration
+                targetDuration: re.duration,
+                supersetGroupID: re.superset_group_id
             )
         }
 

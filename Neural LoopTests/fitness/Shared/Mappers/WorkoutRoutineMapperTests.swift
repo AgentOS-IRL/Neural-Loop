@@ -157,4 +157,37 @@ final class WorkoutRoutineMapperTests: XCTestCase {
             Calendar.current.startOfDay(for: decodedState.session.date)
         )
     }
+
+    func testMappingPreservesSupersetGroupID() {
+        // Given
+        let routine = Routine(id: 1, name: "Test Routine")
+        let routineExercises = [
+            RoutineExercise(id: 10, routine_id: 1, exercise_id: 100, order_index: 1, superset_group_id: 1),
+            RoutineExercise(id: 11, routine_id: 1, exercise_id: 101, order_index: 2, superset_group_id: 1),
+            RoutineExercise(id: 12, routine_id: 1, exercise_id: 102, order_index: 3, superset_group_id: nil)
+        ]
+        let allExercises = [
+            Exercise(id: 100, name: "Ex 100", type: .repBased, equipment_id: 1),
+            Exercise(id: 101, name: "Ex 101", type: .repBased, equipment_id: 1),
+            Exercise(id: 102, name: "Ex 102", type: .repBased, equipment_id: 1)
+        ]
+        let allEquipment = [Equipment(id: 1, name: "Barbell")]
+
+        // When
+        let state = WorkoutRoutineMapper.mapToSessionState(
+            routine: routine,
+            routineExercises: routineExercises,
+            allExercises: allExercises,
+            allEquipment: allEquipment
+        )
+
+        // Then
+        XCTAssertEqual(state.exercises[0].supersetGroupID, 1)
+        XCTAssertEqual(state.exercises[1].supersetGroupID, 1)
+        XCTAssertNil(state.exercises[2].supersetGroupID)
+        
+        XCTAssertEqual(state.exercises[0].supersetLabel, "Superset A")
+        XCTAssertEqual(state.exercises[1].supersetLabel, "Superset A")
+        XCTAssertNil(state.exercises[2].supersetLabel)
+    }
 }

@@ -39,11 +39,19 @@ struct WorkoutExerciseCard: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            Text(card.exercise.name)
-                .font(.system(.headline, design: .rounded, weight: .semibold))
-                .foregroundStyle(AppTheme.textPrimary)
-                .lineLimit(2)
-                .minimumScaleFactor(0.82)
+            VStack(alignment: .leading, spacing: 6) {
+                if let supersetLabel = card.supersetLabel {
+                    Text(supersetLabel)
+                        .font(.system(.caption, design: .rounded, weight: .bold))
+                        .foregroundStyle(AppTheme.accentColor)
+                }
+
+                Text(card.exercise.name)
+                    .font(.system(.headline, design: .rounded, weight: .semibold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.82)
+            }
 
             Spacer(minLength: 8)
 

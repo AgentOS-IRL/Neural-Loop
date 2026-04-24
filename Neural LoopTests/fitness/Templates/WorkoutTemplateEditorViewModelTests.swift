@@ -406,6 +406,179 @@ final class WorkoutTemplateEditorViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.exerciseDrafts.map(\.exercise.name), ["Bench Press", "Cable Row"])
     }
 
+    func testLoadRoutineWithSupersets() async {
+        let dataManager = FakeWorkoutTemplateEditorDataManager(
+            equipment: [equipment(id: 1, name: "Barbell")],
+            exercises: [
+                exercise(id: 10, name: "Ex 10", equipmentID: 1),
+                exercise(id: 20, name: "Ex 20", equipmentID: 1)
+            ],
+            routinesByID: [
+                1: Routine(id: 1, name: "Routine", notes: nil)
+            ],
+            routineExercisesByRoutineID: [
+                1: [
+                    routineExercise(id: 100, routineID: 1, exerciseID: 10, orderIndex: 1, targetSets: 3, targetReps: 10, supersetGroupID: 1),
+                    routineExercise(id: 101, routineID: 1, exerciseID: 20, orderIndex: 2, targetSets: 3, targetReps: 10, supersetGroupID: 1)
+                ]
+            ]
+        )
+        let viewModel = WorkoutTemplateEditorViewModel(
+            mode: .edit(WorkoutTemplateSummary(id: 1, title: "Routine", exerciseCount: 2, setCount: 6)),
+            dataManager: dataManager
+        )
+
+        await viewModel.loadIfNeeded()
+
+        XCTAssertEqual(viewModel.exerciseDrafts.count, 2)
+        XCTAssertEqual(viewModel.exerciseDrafts[0].supersetGroupID, 1)
+        XCTAssertEqual(viewModel.exerciseDrafts[1].supersetGroupID, 1)
+        XCTAssertEqual(viewModel.exerciseDrafts[0].supersetLabel, "Superset A")
+    }
+
+    func testSaveRoutineWithSupersets() async {
+        let dataManager = FakeWorkoutTemplateEditorDataManager(
+            equipment: [equipment(id: 1, name: "Barbell")],
+            exercises: [
+                exercise(id: 10, name: "Ex 10", equipmentID: 1),
+                exercise(id: 20, name: "Ex 20", equipmentID: 1)
+            ],
+            routinesByID: [
+                1: Routine(id: 1, name: "Routine", notes: nil)
+            ],
+            routineExercisesByRoutineID: [
+                1: [
+                    routineExercise(id: 100, routineID: 1, exerciseID: 10, orderIndex: 1, targetSets: 3, targetReps: 10, supersetGroupID: 2),
+                    routineExercise(id: 101, routineID: 1, exerciseID: 20, orderIndex: 2, targetSets: 3, targetReps: 10, supersetGroupID: 2)
+                ]
+            ]
+        )
+        let viewModel = WorkoutTemplateEditorViewModel(
+            mode: .edit(WorkoutTemplateSummary(id: 1, title: "Routine", exerciseCount: 2, setCount: 6)),
+            dataManager: dataManager
+        )
+
+        await viewModel.loadIfNeeded()
+        viewModel.syncExercises(with: [
+            libraryItem(id: 10, name: "Ex 10"),
+            libraryItem(id: 20, name: "Ex 20")
+        ])
+
+        // Update reps/sets for Ex 20 to pass validation
+        if let ex20Draft = viewModel.exerciseDrafts.first(where: { $0.exercise.id == 20 }) {
+            viewModel.updateTargetSets(id: ex20Draft.id, value: "3")
+            viewModel.updateTargetReps(id: ex20Draft.id, value: "10")
+        }
+
+        let didSave = await viewModel.save()
+
+        XCTAssertTrue(didSave)
+        let savedRows = dataManager.routineExercisesByRoutineID[1] ?? []
+        XCTAssertEqual(savedRows.first(where: { $0.exercise_id == 10 })?.superset_group_id, 2)
+        XCTAssertEqual(savedRows.first(where: { $0.exercise_id == 20 })?.superset_group_id, 2)
+    }
+    func testReorderExercisesPreservesSupersets() async {
+        let dataManager = FakeWorkoutTemplateEditorDataManager(
+            equipment: [equipment(id: 1, name: "Barbell")],
+            exercises: [
+                exercise(id: 10, name: "Ex 10", equipmentID: 1),
+                exercise(id: 20, name: "Ex 20", equipmentID: 1)
+            ],
+            routinesByID: [
+                1: Routine(id: 1, name: "Routine", notes: nil)
+            ],
+            routineExercisesByRoutineID: [
+                1: [
+                    routineExercise(id: 100, routineID: 1, exerciseID: 10, orderIndex: 1, targetSets: 3, targetReps: 10, supersetGroupID: 1),
+                    routineExercise(id: 101, routineID: 1, exerciseID: 20, orderIndex: 2, targetSets: 3, targetReps: 10, supersetGroupID: 1)
+                ]
+            ]
+        )
+        let viewModel = WorkoutTemplateEditorViewModel(
+            mode: .edit(WorkoutTemplateSummary(id: 1, title: "Routine", exerciseCount: 2, setCount: 6)),
+            dataManager: dataManager
+        )
+
+        await viewModel.loadIfNeeded()
+        XCTAssertEqual(viewModel.exerciseDrafts[0].exercise.id, 10)
+        XCTAssertEqual(viewModel.exerciseDrafts[0].supersetGroupID, 1)
+        XCTAssertEqual(viewModel.exerciseDrafts[1].supersetGroupID, 1)
+
+        viewModel.moveExercise(id: viewModel.exerciseDrafts[0].id, by: 1)
+
+        XCTAssertEqual(viewModel.exerciseDrafts[0].exercise.id, 20)
+        XCTAssertEqual(viewModel.exerciseDrafts[0].supersetGroupID, 1)
+        XCTAssertEqual(viewModel.exerciseDrafts[1].exercise.id, 10)
+        XCTAssertEqual(viewModel.exerciseDrafts[1].supersetGroupID, 1)
+    }
+
+    func testRemovingExerciseFromSupersetClearsOrphanID() async {
+        let dataManager = FakeWorkoutTemplateEditorDataManager(
+            equipment: [equipment(id: 1, name: "Barbell")],
+            exercises: [
+                exercise(id: 10, name: "Ex 10", equipmentID: 1),
+                exercise(id: 20, name: "Ex 20", equipmentID: 1)
+            ],
+            routinesByID: [
+                1: Routine(id: 1, name: "Routine", notes: nil)
+            ],
+            routineExercisesByRoutineID: [
+                1: [
+                    routineExercise(id: 100, routineID: 1, exerciseID: 10, orderIndex: 1, targetSets: 3, targetReps: 10, supersetGroupID: 1),
+                    routineExercise(id: 101, routineID: 1, exerciseID: 20, orderIndex: 2, targetSets: 3, targetReps: 10, supersetGroupID: 1)
+                ]
+            ]
+        )
+        let viewModel = WorkoutTemplateEditorViewModel(
+            mode: .edit(WorkoutTemplateSummary(id: 1, title: "Routine", exerciseCount: 2, setCount: 6)),
+            dataManager: dataManager
+        )
+
+        await viewModel.loadIfNeeded()
+        XCTAssertEqual(viewModel.exerciseDrafts[0].supersetGroupID, 1)
+        XCTAssertEqual(viewModel.exerciseDrafts[1].supersetGroupID, 1)
+
+        // Remove one exercise
+        viewModel.removeExercise(id: viewModel.exerciseDrafts[0].id)
+
+        // Remaining exercise should have nil supersetGroupID
+        XCTAssertEqual(viewModel.exerciseDrafts.count, 1)
+        XCTAssertNil(viewModel.exerciseDrafts[0].supersetGroupID)
+    }
+
+    func testSyncingExercisesNormalizesSupersets() async {
+        let dataManager = FakeWorkoutTemplateEditorDataManager(
+            equipment: [equipment(id: 1, name: "Barbell")],
+            exercises: [
+                exercise(id: 10, name: "Ex 10", equipmentID: 1),
+                exercise(id: 20, name: "Ex 20", equipmentID: 1)
+            ],
+            routinesByID: [
+                1: Routine(id: 1, name: "Routine", notes: nil)
+            ],
+            routineExercisesByRoutineID: [
+                1: [
+                    routineExercise(id: 100, routineID: 1, exerciseID: 10, orderIndex: 1, targetSets: 3, targetReps: 10, supersetGroupID: 1),
+                    routineExercise(id: 101, routineID: 1, exerciseID: 20, orderIndex: 2, targetSets: 3, targetReps: 10, supersetGroupID: 1)
+                ]
+            ]
+        )
+        let viewModel = WorkoutTemplateEditorViewModel(
+            mode: .edit(WorkoutTemplateSummary(id: 1, title: "Routine", exerciseCount: 2, setCount: 6)),
+            dataManager: dataManager
+        )
+
+        await viewModel.loadIfNeeded()
+        
+        // Deselect one exercise from the library
+        viewModel.syncExercises(with: [
+            libraryItem(id: 10, name: "Ex 10")
+        ])
+
+        XCTAssertEqual(viewModel.exerciseDrafts.count, 1)
+        XCTAssertNil(viewModel.exerciseDrafts[0].supersetGroupID)
+    }
+
     private func equipment(id: Int64, name: String) -> Equipment {
         Equipment(id: id, name: name)
     }
@@ -425,7 +598,8 @@ final class WorkoutTemplateEditorViewModelTests: XCTestCase {
         orderIndex: Int,
         targetSets: Int?,
         targetReps: Int?,
-        restSeconds: Int? = nil
+        restSeconds: Int? = nil,
+        supersetGroupID: Int? = nil
     ) -> RoutineExercise {
         RoutineExercise(
             id: id,
@@ -435,7 +609,7 @@ final class WorkoutTemplateEditorViewModelTests: XCTestCase {
             target_sets: targetSets,
             target_reps: targetReps,
             rest_seconds: restSeconds,
-            superset_group_id: nil,
+            superset_group_id: supersetGroupID,
             duration: nil
         )
     }
