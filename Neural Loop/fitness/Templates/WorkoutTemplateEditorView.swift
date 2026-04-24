@@ -148,16 +148,22 @@ struct WorkoutTemplateEditorView: View {
                 emptyState
             }
         } else {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text(viewModel.subtitleText)
                     .font(.system(.subheadline, design: .rounded, weight: .semibold))
                     .foregroundStyle(AppTheme.textSecondary)
+                    .padding(.bottom, 12)
 
                 if let errorMessage = viewModel.errorMessage {
                     errorBanner(message: errorMessage)
+                        .padding(.bottom, 12)
                 }
 
                 ForEach(Array(viewModel.exerciseDrafts.enumerated()), id: \.element.id) { index, draft in
+                    let isLastInGroup = index == viewModel.exerciseDrafts.count - 1 ||
+                                       viewModel.exerciseDrafts[index + 1].supersetGroupID != draft.supersetGroupID ||
+                                       draft.supersetGroupID == nil
+
                     WorkoutTemplateExerciseCard(
                         draft: draft,
                         canMoveUp: index > 0,
@@ -187,6 +193,7 @@ struct WorkoutTemplateEditorView: View {
                             previewGallery = gallery
                         }
                     )
+                    .padding(.bottom, isLastInGroup ? 12 : 4)
                 }
             }
         }

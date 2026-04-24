@@ -13,8 +13,12 @@ struct ActiveWorkoutView: View {
                     headerView
                     
                     ScrollView {
-                        VStack(spacing: 20) {
-                            ForEach(viewModel.exerciseStates) { state in
+                        VStack(spacing: 0) {
+                            ForEach(Array(viewModel.exerciseStates.enumerated()), id: \.element.id) { index, state in
+                                let isLastInGroup = index == viewModel.exerciseStates.count - 1 ||
+                                                   viewModel.exerciseStates[index + 1].supersetGroupID != state.supersetGroupID ||
+                                                   state.supersetGroupID == nil
+
                                 WorkoutExerciseCard(
                                     card: state,
                                     onAddSet: {
@@ -40,6 +44,7 @@ struct ActiveWorkoutView: View {
                                     }
                                 )
                                 .padding(.horizontal)
+                                .padding(.bottom, isLastInGroup ? 20 : 8)
                             }
                         }
                         .padding(.vertical)

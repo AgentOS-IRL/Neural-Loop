@@ -384,6 +384,18 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
         for index in exerciseDrafts.indices {
             exerciseDrafts[index].orderIndex = index + 1
         }
+        normalizeSupersets()
+    }
+
+    private func normalizeSupersets() {
+        let groupCounts = Dictionary(grouping: exerciseDrafts.compactMap { $0.supersetGroupID }, by: { $0 })
+            .mapValues { $0.count }
+
+        for index in exerciseDrafts.indices {
+            if let gid = exerciseDrafts[index].supersetGroupID, groupCounts[gid, default: 0] < 2 {
+                exerciseDrafts[index].supersetGroupID = nil
+            }
+        }
     }
 
     private func makeCreateRequest(
@@ -398,7 +410,7 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
             target_sets: parsedSetCount(from: draft.targetSetsText),
             target_reps: draft.exercise.isRepBased ? parsedInteger(from: draft.targetRepsText) : nil,
             rest_seconds: parsedInteger(from: draft.restSecondsText),
-            superset_group_id: nil,
+            superset_group_id: draft.supersetGroupID,
             duration: draft.exercise.isDurationBased ? parsedDecimal(from: draft.durationText) : nil
         )
     }
@@ -416,7 +428,7 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
             target_sets: parsedSetCount(from: draft.targetSetsText),
             target_reps: draft.exercise.isRepBased ? parsedInteger(from: draft.targetRepsText) : nil,
             rest_seconds: parsedInteger(from: draft.restSecondsText),
-            superset_group_id: nil,
+            superset_group_id: draft.supersetGroupID,
             duration: draft.exercise.isDurationBased ? parsedDecimal(from: draft.durationText) : nil
         )
     }
@@ -441,7 +453,8 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
                 targetSetsText: String(routineExercise.target_sets ?? 1),
                 targetRepsText: routineExercise.target_reps.map(String.init) ?? "",
                 durationText: routineExercise.duration.map { NSDecimalNumber(decimal: $0).stringValue } ?? "",
-                restSecondsText: routineExercise.rest_seconds.map(String.init) ?? ""
+                restSecondsText: routineExercise.rest_seconds.map(String.init) ?? "",
+                supersetGroupID: routineExercise.superset_group_id
             )
         }
     }
