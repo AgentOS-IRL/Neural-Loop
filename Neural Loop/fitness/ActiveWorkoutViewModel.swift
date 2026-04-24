@@ -30,8 +30,8 @@ class ActiveWorkoutViewModel: ObservableObject {
             // 1. Create session
             let sessionRequest = CreateWorkoutSessionRequest(
                 date: session.date,
-                start_time: session.start_time,
-                end_time: ISO8601DateFormatter().string(from: Date()),
+                start_time: WorkoutTimeCoding.normalize(session.start_time),
+                end_time: WorkoutTimeCoding.string(from: Date()),
                 session_type: session.session_type,
                 notes: session.notes
             )
@@ -78,7 +78,9 @@ class ActiveWorkoutViewModel: ObservableObject {
     func addSet(to exerciseID: Int64) {
         guard let index = exerciseStates.firstIndex(where: { $0.id == exerciseID }) else { return }
         let nextSetNumber = (exerciseStates[index].sets.map(\.setNumber).max() ?? 0) + 1
-        exerciseStates[index].sets.append(WorkoutSetDraft(setNumber: nextSetNumber))
+        let lastReps = exerciseStates[index].sets.last?.repsText ?? ""
+        let lastWeight = exerciseStates[index].sets.last?.weightText ?? ""
+        exerciseStates[index].sets.append(WorkoutSetDraft(setNumber: nextSetNumber, weightText: lastWeight, repsText: lastReps))
     }
     
     func updateWeight(for exerciseID: Int64, setID: UUID, weightText: String) {
