@@ -149,8 +149,13 @@ class FakeLaunchDataManager: WorkoutTemplateReadingDataManaging, WorkoutDataMana
     }
     
     func fetchAllExercises() async throws -> [Exercise] {
-        stubExercises
+        return stubExercises
     }
+
+    func fetchAllExercisesWithMuscles() async throws -> [ExerciseWithMuscles] {
+        return []
+    }
+
     
     func fetchAllEquipment() async throws -> [Equipment] {
         stubEquipment

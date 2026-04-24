@@ -118,7 +118,7 @@ final class WorkoutRoutineGenerationCodexCoordinator: ObservableObject {
 
     private func loadCatalog() async throws -> [ExerciseLibraryItem] {
         async let equipmentRows = dataManager.fetchAllEquipment()
-        async let exerciseRows = dataManager.fetchAllExercises()
+        async let exerciseRows = dataManager.fetchAllExercisesWithMuscles()
         let (equipment, exercises) = try await (equipmentRows, exerciseRows)
         return WorkoutCatalogMapper.makeLibraryItems(equipment: equipment, exercises: exercises)
     }

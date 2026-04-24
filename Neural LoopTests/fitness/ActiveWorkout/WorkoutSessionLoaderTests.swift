@@ -104,6 +104,7 @@ class MockWorkoutSessionLoaderDataManager: WorkoutDataManaging {
     // Unused by WorkoutSessionLoader
     func fetchAllEquipment() async throws -> [Equipment] { [] }
     func fetchAllExercises() async throws -> [Exercise] { [] }
+    func fetchAllExercisesWithMuscles() async throws -> [ExerciseWithMuscles] { [] }
     func createWorkoutSession(_ request: CreateWorkoutSessionRequest) async throws -> WorkoutSession {
         fatalError("Not used")
     }

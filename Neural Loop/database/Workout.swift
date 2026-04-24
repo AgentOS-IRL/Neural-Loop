@@ -48,6 +48,20 @@ struct Exercise: Codable, Identifiable, Equatable {
     var isDurationBased: Bool { type.isDurationBased }
 }
 
+struct MuscleJoinResult: Codable, Equatable {
+    let is_primary: Bool
+    let muscle: Muscle
+}
+
+struct ExerciseWithMuscles: Codable, Identifiable, Equatable {
+    let id: Int64
+    let name: String
+    let type: ExerciseType
+    let equipment_id: Int64?
+    let notes: String?
+    let exercise_muscles: [MuscleJoinResult]
+}
+
 struct ExerciseMuscle: Codable, Identifiable, Equatable {
     let id: Int64?
     var exercise_id: Int64
@@ -730,6 +744,15 @@ extension DBManager {
         try await customsupabase
             .from(exerciseTableName)
             .select()
+            .order("name", ascending: true)
+            .execute()
+            .value
+    }
+
+    func fetchAllExercisesWithMuscles() async throws -> [ExerciseWithMuscles] {
+        try await customsupabase
+            .from(exerciseTableName)
+            .select("*, \(exerciseMusclesTableName)(*, \(muscleTableName)(*))")
             .order("name", ascending: true)
             .execute()
             .value

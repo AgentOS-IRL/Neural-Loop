@@ -210,6 +210,47 @@ final class WorkoutDatabaseModelTests: XCTestCase {
         XCTAssertEqual(cardioLog.duration_minutes, Decimal(string: "24.5"))
     }
 
+    func testExerciseWithMusclesDecoding() throws {
+        let json = """
+        {
+          "id": 10,
+          "name": "Bench Press",
+          "type": "rep-based",
+          "equipment_id": 1,
+          "notes": null,
+          "exercise_muscles": [
+            {
+              "is_primary": true,
+              "muscle": {
+                "id": 1,
+                "name": "Chest"
+              }
+            },
+            {
+              "is_primary": false,
+              "muscle": {
+                "id": 2,
+                "name": "Triceps"
+              }
+            }
+          ]
+        }
+        """
+        
+        let exerciseWithMuscles = try JSONDecoder().decode(
+            ExerciseWithMuscles.self,
+            from: Data(json.utf8)
+        )
+        
+        XCTAssertEqual(exerciseWithMuscles.id, 10)
+        XCTAssertEqual(exerciseWithMuscles.name, "Bench Press")
+        XCTAssertEqual(exerciseWithMuscles.exercise_muscles.count, 2)
+        XCTAssertTrue(exerciseWithMuscles.exercise_muscles[0].is_primary)
+        XCTAssertEqual(exerciseWithMuscles.exercise_muscles[0].muscle.name, "Chest")
+        XCTAssertFalse(exerciseWithMuscles.exercise_muscles[1].is_primary)
+        XCTAssertEqual(exerciseWithMuscles.exercise_muscles[1].muscle.name, "Triceps")
+    }
+
     func testWorkoutDatabaseErrorDescriptionsAreUserFacing() {
         XCTAssertEqual(
             WorkoutDatabaseError.insertReturnedNoRows.localizedDescription,

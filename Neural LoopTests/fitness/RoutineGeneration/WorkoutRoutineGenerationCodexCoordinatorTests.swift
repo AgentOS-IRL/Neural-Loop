@@ -142,8 +142,15 @@ final class WorkoutRoutineGenerationCodexCoordinatorTests: XCTestCase {
         Equipment(id: id, name: name)
     }
 
-    private func exercise(id: Int64, name: String, equipmentID: Int64?) -> Exercise {
-        Exercise(id: id, name: name, type: .repBased, equipment_id: equipmentID, notes: nil)
+    private func exercise(id: Int64, name: String, equipmentID: Int64?) -> ExerciseWithMuscles {
+        ExerciseWithMuscles(
+            id: id,
+            name: name,
+            type: .repBased,
+            equipment_id: equipmentID,
+            notes: nil,
+            exercise_muscles: []
+        )
     }
 }
 
@@ -178,9 +185,9 @@ private final class FakeWorkoutRoutineGenerationCodexClient: WorkoutRoutineGener
 
 private final class FakeWorkoutRoutineGenerationDataManager: WorkoutTemplateReadingDataManaging {
     let equipment: [Equipment]
-    let exercises: [Exercise]
+    let exercises: [ExerciseWithMuscles]
 
-    init(equipment: [Equipment], exercises: [Exercise]) {
+    init(equipment: [Equipment], exercises: [ExerciseWithMuscles]) {
         self.equipment = equipment
         self.exercises = exercises
     }
@@ -190,8 +197,13 @@ private final class FakeWorkoutRoutineGenerationDataManager: WorkoutTemplateRead
     }
 
     func fetchAllExercises() async throws -> [Exercise] {
-        exercises
+        return []
     }
+
+    func fetchAllExercisesWithMuscles() async throws -> [ExerciseWithMuscles] {
+        return exercises
+    }
+
 
     func fetchRoutine(by id: Int64) async throws -> Routine? {
         nil

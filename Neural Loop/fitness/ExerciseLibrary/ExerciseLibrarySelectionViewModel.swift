@@ -30,6 +30,7 @@ final class ExerciseLibrarySelectionViewModel: ObservableObject {
             let matchesSearch = trimmedSearch.isEmpty
                 || item.name.localizedCaseInsensitiveContains(trimmedSearch)
                 || item.equipmentName.localizedCaseInsensitiveContains(trimmedSearch)
+                || item.muscles.contains(where: { $0.muscleName.localizedCaseInsensitiveContains(trimmedSearch) })
             let matchesEquipment = selectedEquipmentName == nil || item.equipmentName == selectedEquipmentName
             return matchesSearch && matchesEquipment
         }
