@@ -129,6 +129,13 @@ struct WorkoutTemplateExerciseDraft: Identifiable, Equatable {
     }
 }
 
+struct WorkoutSessionSummary: Identifiable, Equatable {
+    let id: Int64
+    let date: Date
+    let title: String
+    let notes: String?
+}
+
 protocol WorkoutDataManaging {
     func fetchAllEquipment() async throws -> [Equipment]
     func fetchAllExercises() async throws -> [Exercise]
@@ -137,6 +144,7 @@ protocol WorkoutDataManaging {
     func createCardioLog(_ request: CreateCardioLogRequest) async throws -> CardioLog
     func deleteWorkoutSession(id: Int64) async throws
     func fetchWorkoutSets(exerciseId: Int64) async throws -> [WorkoutSet]
+    func fetchWorkoutSessions() async throws -> [WorkoutSession]
 }
 
 protocol WorkoutTemplateReadingDataManaging {

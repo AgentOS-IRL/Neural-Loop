@@ -114,4 +114,7 @@ class MockWorkoutSessionLoaderDataManager: WorkoutDataManaging {
         fatalError("Not used")
     }
     func deleteWorkoutSession(id: Int64) async throws {}
+    func fetchWorkoutSessions() async throws -> [WorkoutSession] {
+        []
+    }
 }

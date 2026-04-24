@@ -108,7 +108,10 @@ struct FitnessView: View {
     private var sectionContent: some View {
         switch navigationModel.selectedSection {
         case .workout:
-            workoutEmptyState
+            VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
+                workoutHeader
+                workoutContent
+            }
         case .routine:
             VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
                 routineHeader
@@ -202,18 +205,60 @@ struct FitnessView: View {
         }
     }
 
-    private var workoutEmptyState: some View {
-        VStack(spacing: 10) {
+    private var workoutHeader: some View {
+        HStack(spacing: 12) {
             Text("Workout")
-                .font(.system(.headline, design: .rounded, weight: .semibold))
+                .font(.system(.title3, design: .rounded, weight: .bold))
                 .foregroundStyle(AppTheme.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
 
-            Text("This section is empty for now.")
-                .font(.system(.subheadline, design: .rounded, weight: .medium))
-                .foregroundStyle(AppTheme.textSecondary)
+            Spacer(minLength: 12)
+
+            Button(action: {}) {
+                headerIcon(systemName: "ellipsis")
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Workout options")
         }
-        .frame(maxWidth: .infinity, minHeight: 220)
-        .padding(.horizontal, 20)
+    }
+
+    @ViewBuilder
+    private var workoutContent: some View {
+        if viewModel.isLoading && viewModel.sessions.isEmpty {
+            loadingState(title: "Loading workouts")
+        } else if viewModel.sessions.isEmpty {
+            if let errorMessage = viewModel.errorMessage {
+                errorState(message: errorMessage)
+            } else {
+                emptyState(
+                    title: "No workouts yet",
+                    subtitle: "Completed sessions will appear here."
+                )
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 14) {
+                if let errorMessage = viewModel.errorMessage {
+                    errorBanner(message: errorMessage)
+                }
+
+                workoutGrid
+            }
+        }
+    }
+
+    private var workoutGrid: some View {
+        LazyVGrid(
+            columns: [
+                GridItem(.adaptive(minimum: 148, maximum: 220), spacing: 14, alignment: .top)
+            ],
+            alignment: .leading,
+            spacing: 14
+        ) {
+            ForEach(viewModel.sessions) { session in
+                WorkoutSessionCard(session: session)
+            }
+        }
     }
 
     private func loadingState(title: String) -> some View {
@@ -383,6 +428,45 @@ private struct WorkoutTemplateCard: View {
                 .foregroundStyle(AppTheme.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.82)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, minHeight: 116, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                .fill(AppTheme.cardGradient)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous))
+    }
+}
+
+private struct WorkoutSessionCard: View {
+    let session: WorkoutSessionSummary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(session.title)
+                .font(.system(.headline, design: .rounded, weight: .semibold))
+                .foregroundStyle(AppTheme.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+
+            Text(session.date.formatted(date: .abbreviated, time: .omitted))
+                .font(.system(.caption, design: .rounded, weight: .medium))
+                .foregroundStyle(AppTheme.textSecondary)
+
+            if let notes = session.notes, !notes.isEmpty {
+                Text(notes)
+                    .font(.system(.subheadline, design: .rounded, weight: .regular))
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .lineLimit(2)
+                    .padding(.top, 4)
+            }
+
+            Spacer(minLength: 0)
         }
         .padding(18)
         .frame(maxWidth: .infinity, minHeight: 116, alignment: .leading)

@@ -73,6 +73,30 @@ final class FitnessViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.errorMessage, "Unable to load routines.")
     }
 
+    func testLoadFetchesWorkoutSessions() async {
+        let date1 = Date(timeIntervalSince1970: 1000)
+        let date2 = Date(timeIntervalSince1970: 2000)
+        let dataManager = FakeFitnessTemplateDataManager(
+            routines: [],
+            exercisesByRoutineID: [:],
+            sessions: [
+                WorkoutSession(id: 1, date: date1, start_time: nil, end_time: nil, session_type: "Legs", notes: "Hard"),
+                WorkoutSession(id: 2, date: date2, start_time: nil, end_time: nil, session_type: "Push", notes: nil)
+            ]
+        )
+        let viewModel = FitnessViewModel(dataManager: dataManager)
+
+        await viewModel.loadIfNeeded()
+
+        XCTAssertEqual(
+            viewModel.sessions,
+            [
+                WorkoutSessionSummary(id: 1, date: date1, title: "Legs", notes: "Hard"),
+                WorkoutSessionSummary(id: 2, date: date2, title: "Push", notes: nil)
+            ]
+        )
+    }
+
     private func routine(id: Int64, name: String) -> Routine {
         Routine(id: id, name: name, notes: nil)
     }
@@ -100,11 +124,17 @@ final class FitnessViewModelTests: XCTestCase {
 private final class FakeFitnessTemplateDataManager: FitnessTemplateDataManaging, WorkoutDataManaging {
     var routines: [Routine]
     var exercisesByRoutineID: [Int64: [RoutineExercise]]
+    var sessions: [WorkoutSession]
     var shouldFailFetchingRoutines = false
 
-    init(routines: [Routine], exercisesByRoutineID: [Int64: [RoutineExercise]]) {
+    init(
+        routines: [Routine],
+        exercisesByRoutineID: [Int64: [RoutineExercise]],
+        sessions: [WorkoutSession] = []
+    ) {
         self.routines = routines
         self.exercisesByRoutineID = exercisesByRoutineID
+        self.sessions = sessions
     }
 
     func fetchAllRoutines() async throws -> [Routine] {
@@ -148,6 +178,9 @@ private final class FakeFitnessTemplateDataManager: FitnessTemplateDataManaging,
     }
     func deleteWorkoutSession(id: Int64) async throws {}
     func fetchWorkoutSets(exerciseId: Int64) async throws -> [WorkoutSet] { [] }
+    func fetchWorkoutSessions() async throws -> [WorkoutSession] {
+        sessions
+    }
 }
 
 private enum FakeFitnessTemplateError: LocalizedError {

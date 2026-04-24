@@ -4,6 +4,7 @@ import Foundation
 @MainActor
 final class FitnessViewModel: ObservableObject {
     @Published private(set) var templates: [WorkoutTemplateSummary] = []
+    @Published private(set) var sessions: [WorkoutSessionSummary] = []
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
     @Published var activeSession: (WorkoutSession, [WorkoutExerciseCardState])?
@@ -54,7 +55,11 @@ final class FitnessViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let routines = try await dataManager.fetchAllRoutines()
+            async let routinesTask = dataManager.fetchAllRoutines()
+            async let sessionsTask = dataManager.fetchWorkoutSessions()
+
+            let (routines, workoutSessions) = try await (routinesTask, sessionsTask)
+
             let sortedRoutines = routines.compactMap { routine -> (id: Int64, routine: Routine)? in
                 guard let id = routine.id else {
                     return nil
@@ -84,6 +89,14 @@ final class FitnessViewModel: ObservableObject {
             }
 
             templates = loadedTemplates
+            sessions = workoutSessions.map { session in
+                WorkoutSessionSummary(
+                    id: session.id ?? 0,
+                    date: session.date,
+                    title: session.session_type,
+                    notes: session.notes
+                )
+            }
             hasLoaded = true
         } catch {
             errorMessage = error.localizedDescription
