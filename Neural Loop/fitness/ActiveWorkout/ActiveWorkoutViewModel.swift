@@ -156,7 +156,9 @@ class ActiveWorkoutViewModel: ObservableObject {
                 Task { @MainActor in
                     if self.restTimerSeconds > 0 {
                         self.restTimerSeconds -= 1
-                    } else {
+                    }
+                    
+                    if self.restTimerSeconds == 0 {
                         self.stopTimer()
                     }
                 }
