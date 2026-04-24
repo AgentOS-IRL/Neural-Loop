@@ -1,11 +1,19 @@
 import Foundation
 
+struct MuscleMetadata: Identifiable, Equatable, Codable {
+    var id: Int64 { muscleID }
+    let muscleID: Int64
+    let muscleName: String
+    let isPrimary: Bool
+}
+
 struct ExerciseLibraryItem: Identifiable, Equatable, Codable {
     let id: Int64
     var name: String
     var type: ExerciseType
     var equipmentID: Int64?
     var equipmentName: String
+    var muscles: [MuscleMetadata] = []
 
     var isRepBased: Bool { type.isRepBased }
     var isDurationBased: Bool { type.isDurationBased }
@@ -181,6 +189,7 @@ struct WorkoutSessionSummary: Identifiable, Equatable {
 protocol WorkoutDataManaging {
     func fetchAllEquipment() async throws -> [Equipment]
     func fetchAllExercises() async throws -> [Exercise]
+    func fetchAllExercisesWithMuscles() async throws -> [ExerciseWithMuscles]
     func createWorkoutSession(_ request: CreateWorkoutSessionRequest) async throws -> WorkoutSession
     func createWorkoutSet(_ request: CreateWorkoutSetRequest) async throws -> WorkoutSet
     func createCardioLog(_ request: CreateCardioLogRequest) async throws -> CardioLog
@@ -193,6 +202,7 @@ protocol WorkoutDataManaging {
 protocol WorkoutTemplateReadingDataManaging {
     func fetchAllEquipment() async throws -> [Equipment]
     func fetchAllExercises() async throws -> [Exercise]
+    func fetchAllExercisesWithMuscles() async throws -> [ExerciseWithMuscles]
     func fetchRoutine(by id: Int64) async throws -> Routine?
     func fetchAllRoutines() async throws -> [Routine]
     func fetchRoutineExercises(routineId: Int64) async throws -> [RoutineExercise]

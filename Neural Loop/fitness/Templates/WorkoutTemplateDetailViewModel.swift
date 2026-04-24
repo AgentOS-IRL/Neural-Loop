@@ -70,7 +70,7 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
             )
 
             async let equipmentRows = dataManager.fetchAllEquipment()
-            async let exerciseRows = dataManager.fetchAllExercises()
+            async let exerciseRows = dataManager.fetchAllExercisesWithMuscles()
             async let routineExerciseRows = dataManager.fetchRoutineExercises(routineId: summary.id)
 
             let (equipment, exercises, routineExercises) = try await (
@@ -87,10 +87,7 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
             )
 
             let exercisesByID = Dictionary(
-                uniqueKeysWithValues: exercises.compactMap { exercise -> (Int64, Exercise)? in
-                    guard let id = exercise.id else { return nil }
-                    return (id, exercise)
-                }
+                uniqueKeysWithValues: exercises.map { ($0.id, $0) }
             )
 
             summary = Self.makeSummary(for: routine, routineExercises: routineExercises)

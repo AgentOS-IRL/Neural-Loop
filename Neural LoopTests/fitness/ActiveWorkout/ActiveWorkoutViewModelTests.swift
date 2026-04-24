@@ -192,6 +192,7 @@ class FakeWorkoutDataManager: WorkoutDataManaging {
     
     func fetchAllEquipment() async throws -> [Equipment] { [] }
     func fetchAllExercises() async throws -> [Exercise] { [] }
+    func fetchAllExercisesWithMuscles() async throws -> [ExerciseWithMuscles] { [] }
     
     func createWorkoutSession(_ request: CreateWorkoutSessionRequest) async throws -> WorkoutSession {
         if shouldFail { throw NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed"]) }

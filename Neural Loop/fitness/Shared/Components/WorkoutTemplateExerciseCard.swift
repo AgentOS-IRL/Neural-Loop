@@ -82,6 +82,16 @@ struct WorkoutTemplateExerciseCard: View {
                     pillLabel(draft.exercise.isRepBased ? "Rep-based" : "Duration", systemImage: draft.exercise.isRepBased ? "repeat" : "timer")
                     orderPill
                 }
+
+                if !draft.exercise.muscles.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(draft.exercise.muscles) { muscle in
+                                muscleChip(muscle)
+                            }
+                        }
+                    }
+                }
             }
 
             Spacer(minLength: 8)
@@ -192,6 +202,29 @@ struct WorkoutTemplateExerciseCard: View {
 
     private var targetHeaderLabel: String {
         draft.exercise.isRepBased ? "REPS" : "DURATION"
+    }
+
+    private func muscleChip(_ muscle: MuscleMetadata) -> some View {
+        Text(muscle.muscleName)
+            .font(.system(.caption2, design: .rounded, weight: .bold))
+            .foregroundStyle(muscle.isPrimary ? AppTheme.accentColor : AppTheme.textSecondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background {
+                if muscle.isPrimary {
+                    Capsule()
+                        .fill(AppTheme.accentColor.opacity(0.12))
+                } else {
+                    Capsule()
+                        .fill(AppTheme.sectionGradient)
+                }
+            }
+            .overlay {
+                if muscle.isPrimary {
+                    Capsule()
+                        .strokeBorder(AppTheme.accentColor.opacity(0.3), lineWidth: 1)
+                }
+            }
     }
 
     private func tableHeader(_ title: String) -> some View {

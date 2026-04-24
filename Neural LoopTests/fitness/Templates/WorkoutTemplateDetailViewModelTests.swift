@@ -131,8 +131,15 @@ final class WorkoutTemplateDetailViewModelTests: XCTestCase {
         Equipment(id: id, name: name)
     }
 
-    private func exercise(id: Int64, name: String, equipmentID: Int64?) -> Exercise {
-        Exercise(id: id, name: name, type: .repBased, equipment_id: equipmentID, notes: nil)
+    private func exercise(id: Int64, name: String, equipmentID: Int64?) -> ExerciseWithMuscles {
+        ExerciseWithMuscles(
+            id: id,
+            name: name,
+            type: .repBased,
+            equipment_id: equipmentID,
+            notes: nil,
+            exercise_muscles: []
+        )
     }
 
     private func routineExercise(
@@ -158,7 +165,7 @@ final class WorkoutTemplateDetailViewModelTests: XCTestCase {
 
 private final class FakeWorkoutTemplateDetailDataManager: WorkoutTemplateEditingDataManaging, WorkoutDataManaging {
     var equipment: [Equipment]
-    var exercises: [Exercise]
+    var exercises: [ExerciseWithMuscles]
     var routinesByID: [Int64: Routine] = [:]
     var routineExercisesByRoutineID: [Int64: [RoutineExercise]]
     var shouldFailFetchingExercises = false
@@ -171,7 +178,7 @@ private final class FakeWorkoutTemplateDetailDataManager: WorkoutTemplateEditing
 
     init(
         equipment: [Equipment],
-        exercises: [Exercise],
+        exercises: [ExerciseWithMuscles],
         routineExercisesByRoutineID: [Int64: [RoutineExercise]]
     ) {
         self.equipment = equipment
@@ -192,6 +199,10 @@ private final class FakeWorkoutTemplateDetailDataManager: WorkoutTemplateEditing
     }
 
     func fetchAllExercises() async throws -> [Exercise] {
+        return exercises.map { Exercise(id: $0.id, name: $0.name, type: $0.type, equipment_id: $0.equipment_id, notes: $0.notes) }
+    }
+
+    func fetchAllExercisesWithMuscles() async throws -> [ExerciseWithMuscles] {
         if shouldFailFetchingExercises {
             throw FakeWorkoutTemplateDetailError.unableToLoadWorkoutDetails
         }

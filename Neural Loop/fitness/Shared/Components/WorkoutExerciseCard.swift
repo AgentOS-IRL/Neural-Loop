@@ -51,6 +51,16 @@ struct WorkoutExerciseCard: View {
                     .foregroundStyle(AppTheme.textPrimary)
                     .lineLimit(2)
                     .minimumScaleFactor(0.82)
+
+                if !card.exercise.muscles.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(card.exercise.muscles) { muscle in
+                                muscleChip(muscle)
+                            }
+                        }
+                    }
+                }
             }
 
             Spacer(minLength: 8)
@@ -201,6 +211,29 @@ struct WorkoutExerciseCard: View {
         Text(title)
             .font(.system(.caption, design: .rounded, weight: .bold))
             .foregroundStyle(AppTheme.textSecondary)
+    }
+
+    private func muscleChip(_ muscle: MuscleMetadata) -> some View {
+        Text(muscle.muscleName)
+            .font(.system(.caption2, design: .rounded, weight: .bold))
+            .foregroundStyle(muscle.isPrimary ? AppTheme.accentColor : AppTheme.textSecondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background {
+                if muscle.isPrimary {
+                    Capsule()
+                        .fill(AppTheme.accentColor.opacity(0.12))
+                } else {
+                    Capsule()
+                        .fill(AppTheme.sectionGradient)
+                }
+            }
+            .overlay {
+                if muscle.isPrimary {
+                    Capsule()
+                        .strokeBorder(AppTheme.accentColor.opacity(0.3), lineWidth: 1)
+                }
+            }
     }
 
     private func numericField(
