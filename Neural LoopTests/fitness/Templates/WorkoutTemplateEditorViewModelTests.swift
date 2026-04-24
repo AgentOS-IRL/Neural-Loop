@@ -40,6 +40,51 @@ final class WorkoutTemplateEditorViewModelTests: XCTestCase {
         XCTAssertTrue(dataManager.deletedRoutineIDs.isEmpty)
     }
 
+    func testCreateTemplateSavesRestSeconds() async {
+        let dataManager = FakeWorkoutTemplateEditorDataManager(
+            equipment: [equipment(id: 1, name: "Barbell")],
+            exercises: [exercise(id: 10, name: "Bench Press", equipmentID: 1)]
+        )
+        let viewModel = WorkoutTemplateEditorViewModel(mode: .create, dataManager: dataManager)
+
+        await viewModel.loadIfNeeded()
+        viewModel.title = "Push Day"
+        viewModel.syncExercises(with: [libraryItem(id: 10, name: "Bench Press")])
+        viewModel.updateTargetSets(id: viewModel.exerciseDrafts[0].id, value: "3")
+        viewModel.updateTargetReps(id: viewModel.exerciseDrafts[0].id, value: "8")
+        viewModel.updateRestSeconds(id: viewModel.exerciseDrafts[0].id, value: "90")
+
+        let didSave = await viewModel.save()
+
+        XCTAssertTrue(didSave)
+        XCTAssertEqual(dataManager.createdRoutineExercises.count, 1)
+        XCTAssertEqual(dataManager.createdRoutineExercises[0].rest_seconds, 90)
+    }
+
+    func testEditTemplateLoadsRestSeconds() async {
+        let dataManager = FakeWorkoutTemplateEditorDataManager(
+            equipment: [equipment(id: 1, name: "Barbell")],
+            exercises: [exercise(id: 10, name: "Bench Press", equipmentID: 1)],
+            routinesByID: [
+                500: Routine(id: 500, name: "Push Day", notes: nil)
+            ],
+            routineExercisesByRoutineID: [
+                500: [
+                    routineExercise(id: 1, routineID: 500, exerciseID: 10, orderIndex: 1, targetSets: 3, targetReps: 10, restSeconds: 45)
+                ]
+            ]
+        )
+        let viewModel = WorkoutTemplateEditorViewModel(
+            mode: .edit(WorkoutTemplateSummary(id: 500, title: "Push Day", exerciseCount: 1, setCount: 3)),
+            dataManager: dataManager
+        )
+
+        await viewModel.loadIfNeeded()
+
+        XCTAssertEqual(viewModel.exerciseDrafts.count, 1)
+        XCTAssertEqual(viewModel.exerciseDrafts[0].restSecondsText, "45")
+    }
+
     func testCreateTemplateRollsBackRoutineWhenExerciseInsertFails() async {
         let dataManager = FakeWorkoutTemplateEditorDataManager(
             equipment: [equipment(id: 1, name: "Barbell")],
@@ -219,6 +264,29 @@ final class WorkoutTemplateEditorViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.canSave)
     }
 
+    func testValidationErrorForInvalidRestSeconds() async {
+        let dataManager = FakeWorkoutTemplateEditorDataManager(
+            equipment: [equipment(id: 1, name: "Barbell")],
+            exercises: [exercise(id: 10, name: "Bench Press", equipmentID: 1)]
+        )
+        let viewModel = WorkoutTemplateEditorViewModel(mode: .create, dataManager: dataManager)
+
+        await viewModel.loadIfNeeded()
+        viewModel.title = "Push Day"
+        viewModel.syncExercises(with: [libraryItem(id: 10, name: "Bench Press")])
+        viewModel.updateTargetSets(id: viewModel.exerciseDrafts[0].id, value: "3")
+        viewModel.updateTargetReps(id: viewModel.exerciseDrafts[0].id, value: "8")
+        
+        viewModel.updateRestSeconds(id: viewModel.exerciseDrafts[0].id, value: "abc")
+        XCTAssertFalse(viewModel.canSave)
+        
+        viewModel.updateRestSeconds(id: viewModel.exerciseDrafts[0].id, value: "-10")
+        XCTAssertFalse(viewModel.canSave)
+        
+        viewModel.updateRestSeconds(id: viewModel.exerciseDrafts[0].id, value: "60")
+        XCTAssertTrue(viewModel.canSave)
+    }
+
     func testTargetSetFallbackUsesOneForMissingTargetSets() async {
         let dataManager = FakeWorkoutTemplateEditorDataManager(
             equipment: [equipment(id: 1, name: "Bodyweight")],
@@ -356,7 +424,8 @@ final class WorkoutTemplateEditorViewModelTests: XCTestCase {
         exerciseID: Int64,
         orderIndex: Int,
         targetSets: Int?,
-        targetReps: Int?
+        targetReps: Int?,
+        restSeconds: Int? = nil
     ) -> RoutineExercise {
         RoutineExercise(
             id: id,
@@ -365,7 +434,7 @@ final class WorkoutTemplateEditorViewModelTests: XCTestCase {
             order_index: orderIndex,
             target_sets: targetSets,
             target_reps: targetReps,
-            rest_seconds: nil,
+            rest_seconds: restSeconds,
             superset_group_id: nil,
             duration: nil
         )

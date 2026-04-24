@@ -34,12 +34,19 @@ struct ActiveWorkoutView: View {
                                     },
                                     onCaloriesChange: { setID, calories in
                                         viewModel.updateCalories(for: state.id, setID: setID, caloriesText: calories)
+                                    },
+                                    onToggleComplete: { setID in
+                                        viewModel.toggleSetCompletion(exerciseID: state.id, setID: setID)
                                     }
                                 )
                                 .padding(.horizontal)
                             }
                         }
                         .padding(.vertical)
+                    }
+
+                    if viewModel.isTimerRunning {
+                        timerOverlay
                     }
                     
                     finishButton
@@ -82,6 +89,42 @@ struct ActiveWorkoutView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(Color.white.opacity(0.05))
+    }
+
+    private var timerOverlay: some View {
+        HStack {
+            Image(systemName: "timer")
+                .foregroundColor(.blue)
+            
+            Text("Rest Timer:")
+                .font(.subheadline)
+                .foregroundColor(.gray)
+            
+            Text(timeString(from: viewModel.restTimerSeconds))
+                .font(.system(.body, design: .monospaced))
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+            
+            Spacer()
+            
+            Button(action: {
+                viewModel.stopTimer()
+            }) {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundColor(.gray)
+            }
+        }
+        .padding()
+        .background(Color.blue.opacity(0.1))
+        .cornerRadius(10)
+        .padding(.horizontal)
+        .padding(.top, 8)
+    }
+
+    private func timeString(from seconds: Int) -> String {
+        let minutes = seconds / 60
+        let remainingSeconds = seconds % 60
+        return String(format: "%02d:%02d", minutes, remainingSeconds)
     }
     
     private var finishButton: some View {

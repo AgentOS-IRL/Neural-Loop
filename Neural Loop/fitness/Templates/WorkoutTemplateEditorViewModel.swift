@@ -120,6 +120,12 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
         }
     }
 
+    func updateRestSeconds(id: UUID, value: String) {
+        updateDraft(id: id) { draft in
+            draft.restSecondsText = value
+        }
+    }
+
     func save() async -> Bool {
         let validationError = validationError()
         guard validationError == nil else {
@@ -355,6 +361,12 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
                     return .invalidDuration(exerciseName: draft.exercise.name)
                 }
             }
+
+            if !draft.restSecondsText.isEmpty {
+                guard let rest = parsedInteger(from: draft.restSecondsText), rest >= 0 else {
+                    return .invalidRestSeconds(exerciseName: draft.exercise.name)
+                }
+            }
         }
 
         return nil
@@ -385,7 +397,7 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
             order_index: orderIndex,
             target_sets: parsedSetCount(from: draft.targetSetsText),
             target_reps: draft.exercise.isRepBased ? parsedInteger(from: draft.targetRepsText) : nil,
-            rest_seconds: nil,
+            rest_seconds: parsedInteger(from: draft.restSecondsText),
             superset_group_id: nil,
             duration: draft.exercise.isDurationBased ? parsedDecimal(from: draft.durationText) : nil
         )
@@ -403,7 +415,7 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
             order_index: orderIndex,
             target_sets: parsedSetCount(from: draft.targetSetsText),
             target_reps: draft.exercise.isRepBased ? parsedInteger(from: draft.targetRepsText) : nil,
-            rest_seconds: nil,
+            rest_seconds: parsedInteger(from: draft.restSecondsText),
             superset_group_id: nil,
             duration: draft.exercise.isDurationBased ? parsedDecimal(from: draft.durationText) : nil
         )
@@ -428,7 +440,8 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
                 orderIndex: index + 1,
                 targetSetsText: String(routineExercise.target_sets ?? 1),
                 targetRepsText: routineExercise.target_reps.map(String.init) ?? "",
-                durationText: routineExercise.duration.map { NSDecimalNumber(decimal: $0).stringValue } ?? ""
+                durationText: routineExercise.duration.map { NSDecimalNumber(decimal: $0).stringValue } ?? "",
+                restSecondsText: routineExercise.rest_seconds.map(String.init) ?? ""
             )
         }
     }
@@ -439,7 +452,8 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
             orderIndex: orderIndex,
             targetSetsText: "1",
             targetRepsText: item.isRepBased ? "" : "",
-            durationText: ""
+            durationText: "",
+            restSecondsText: ""
         )
     }
 
@@ -530,6 +544,7 @@ private enum WorkoutTemplateEditorValidationError: LocalizedError {
     case invalidSetCount(exerciseName: String)
     case invalidReps(exerciseName: String)
     case invalidDuration(exerciseName: String)
+    case invalidRestSeconds(exerciseName: String)
 
     var errorDescription: String? {
         switch self {
@@ -543,6 +558,8 @@ private enum WorkoutTemplateEditorValidationError: LocalizedError {
             return "Enter valid reps for \(exerciseName)."
         case .invalidDuration(let exerciseName):
             return "Enter a valid duration for \(exerciseName)."
+        case .invalidRestSeconds(let exerciseName):
+            return "Enter valid rest seconds for \(exerciseName)."
         }
     }
 }

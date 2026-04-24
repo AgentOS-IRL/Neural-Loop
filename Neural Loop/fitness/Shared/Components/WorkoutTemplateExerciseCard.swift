@@ -10,6 +10,7 @@ struct WorkoutTemplateExerciseCard: View {
     let onTargetSetsChange: (String) -> Void
     let onTargetRepsChange: (String) -> Void
     let onDurationChange: (String) -> Void
+    let onRestSecondsChange: (String) -> Void
     let onPreviewRequested: ((ExerciseMediaGallery) -> Void)?
 
     init(
@@ -22,6 +23,7 @@ struct WorkoutTemplateExerciseCard: View {
         onTargetSetsChange: @escaping (String) -> Void,
         onTargetRepsChange: @escaping (String) -> Void,
         onDurationChange: @escaping (String) -> Void,
+        onRestSecondsChange: @escaping (String) -> Void,
         onPreviewRequested: ((ExerciseMediaGallery) -> Void)? = nil
     ) {
         self.draft = draft
@@ -33,6 +35,7 @@ struct WorkoutTemplateExerciseCard: View {
         self.onTargetSetsChange = onTargetSetsChange
         self.onTargetRepsChange = onTargetRepsChange
         self.onDurationChange = onDurationChange
+        self.onRestSecondsChange = onRestSecondsChange
         self.onPreviewRequested = onPreviewRequested
     }
 
@@ -119,6 +122,8 @@ struct WorkoutTemplateExerciseCard: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 tableHeader(targetHeaderLabel)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                tableHeader("REST (S)")
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.bottom, 6)
 
@@ -154,6 +159,16 @@ struct WorkoutTemplateExerciseCard: View {
                         accessibilityLabel: "\(draft.exercise.name) duration"
                     )
                 }
+
+                numericField(
+                    text: Binding(
+                        get: { draft.restSecondsText },
+                        set: onRestSecondsChange
+                    ),
+                    placeholder: "0",
+                    keyboardType: .numberPad,
+                    accessibilityLabel: "\(draft.exercise.name) rest seconds"
+                )
             }
         }
     }
