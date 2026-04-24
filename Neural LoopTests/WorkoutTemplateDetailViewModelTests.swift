@@ -265,6 +265,9 @@ private final class FakeWorkoutTemplateDetailDataManager: WorkoutTemplateEditing
     }
     func deleteWorkoutSession(id: Int64) async throws {}
     func fetchWorkoutSets(exerciseId: Int64) async throws -> [WorkoutSet] { [] }
+    func fetchWorkoutSessions() async throws -> [WorkoutSession] {
+        []
+    }
 }
 
 private enum FakeWorkoutTemplateDetailError: LocalizedError {
