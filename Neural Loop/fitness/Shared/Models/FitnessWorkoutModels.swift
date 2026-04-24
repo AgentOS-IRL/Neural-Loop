@@ -45,6 +45,7 @@ struct WorkoutSetDraft: Identifiable, Equatable, Codable {
     var durationText: String
     var distanceText: String
     var caloriesText: String
+    var isCompleted: Bool
 
     init(
         id: UUID = UUID(),
@@ -53,7 +54,8 @@ struct WorkoutSetDraft: Identifiable, Equatable, Codable {
         repsText: String = "",
         durationText: String = "",
         distanceText: String = "",
-        caloriesText: String = ""
+        caloriesText: String = "",
+        isCompleted: Bool = false
     ) {
         self.id = id
         self.setNumber = setNumber
@@ -62,6 +64,7 @@ struct WorkoutSetDraft: Identifiable, Equatable, Codable {
         self.durationText = durationText
         self.distanceText = distanceText
         self.caloriesText = caloriesText
+        self.isCompleted = isCompleted
     }
 
     func weightAccessibilityLabel(exerciseName: String) -> String {
@@ -123,6 +126,7 @@ struct WorkoutTemplateExerciseDraft: Identifiable, Equatable {
     var targetSetsText: String
     var targetRepsText: String
     var durationText: String
+    var restSecondsText: String
 
     init(
         id: UUID = UUID(),
@@ -131,7 +135,8 @@ struct WorkoutTemplateExerciseDraft: Identifiable, Equatable {
         orderIndex: Int,
         targetSetsText: String,
         targetRepsText: String,
-        durationText: String
+        durationText: String,
+        restSecondsText: String
     ) {
         self.id = id
         self.routineExerciseID = routineExerciseID
@@ -140,6 +145,7 @@ struct WorkoutTemplateExerciseDraft: Identifiable, Equatable {
         self.targetSetsText = targetSetsText
         self.targetRepsText = targetRepsText
         self.durationText = durationText
+        self.restSecondsText = restSecondsText
     }
 }
 

@@ -8,8 +8,11 @@ class ActiveWorkoutViewModel: ObservableObject {
     @Published var exerciseStates: [WorkoutExerciseCardState]
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var restTimerSeconds: Int = 0
+    @Published var isTimerRunning: Bool = false
     
     private let db: WorkoutDataManaging
+    private var timerCancellable: AnyCancellable?
     
     init(
         session: WorkoutSession,
@@ -126,5 +129,43 @@ class ActiveWorkoutViewModel: ObservableObject {
         guard let exerciseIndex = exerciseStates.firstIndex(where: { $0.id == exerciseID }),
               let setIndex = exerciseStates[exerciseIndex].sets.firstIndex(where: { $0.id == setID }) else { return }
         exerciseStates[exerciseIndex].sets[setIndex].caloriesText = caloriesText
+    }
+
+    func toggleSetCompletion(exerciseID: Int64, setID: UUID) {
+        guard let exerciseIndex = exerciseStates.firstIndex(where: { $0.id == exerciseID }),
+              let setIndex = exerciseStates[exerciseIndex].sets.firstIndex(where: { $0.id == setID }) else { return }
+        
+        exerciseStates[exerciseIndex].sets[setIndex].isCompleted.toggle()
+        
+        if exerciseStates[exerciseIndex].sets[setIndex].isCompleted {
+            if let restSeconds = exerciseStates[exerciseIndex].restSeconds, restSeconds > 0 {
+                startTimer(seconds: restSeconds)
+            }
+        }
+    }
+
+    private func startTimer(seconds: Int) {
+        timerCancellable?.cancel()
+        restTimerSeconds = seconds
+        isTimerRunning = true
+        
+        timerCancellable = Timer.publish(every: 1, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                guard let self = self else { return }
+                Task { @MainActor in
+                    if self.restTimerSeconds > 0 {
+                        self.restTimerSeconds -= 1
+                    } else {
+                        self.stopTimer()
+                    }
+                }
+            }
+    }
+
+    func stopTimer() {
+        timerCancellable?.cancel()
+        isTimerRunning = false
+        restTimerSeconds = 0
     }
 }

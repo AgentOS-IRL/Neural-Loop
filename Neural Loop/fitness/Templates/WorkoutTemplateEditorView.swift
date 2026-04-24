@@ -180,6 +180,9 @@ struct WorkoutTemplateEditorView: View {
                         onDurationChange: { value in
                             viewModel.updateDuration(id: draft.id, value: value)
                         },
+                        onRestSecondsChange: { value in
+                            viewModel.updateRestSeconds(id: draft.id, value: value)
+                        },
                         onPreviewRequested: { gallery in
                             previewGallery = gallery
                         }

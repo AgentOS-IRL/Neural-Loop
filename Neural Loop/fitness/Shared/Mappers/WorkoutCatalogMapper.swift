@@ -70,7 +70,8 @@ enum WorkoutCatalogMapper {
                 orderIndex: offset + 1,
                 targetSetsText: "1",
                 targetRepsText: exercise.isRepBased ? "" : "",
-                durationText: ""
+                durationText: "",
+                restSecondsText: ""
             )
         }
     }
