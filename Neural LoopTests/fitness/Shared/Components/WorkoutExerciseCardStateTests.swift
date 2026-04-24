@@ -34,7 +34,7 @@ final class WorkoutExerciseCardStateTests: XCTestCase {
             sets: []
         )
         
-        XCTAssertEqual(state.columnHeaders, ["SET", "DURATION"])
+        XCTAssertEqual(state.columnHeaders, ["SET", "MIN", "KM", "KCAL"])
     }
     
     func testAccessibilityLabels() {
@@ -44,5 +44,7 @@ final class WorkoutExerciseCardStateTests: XCTestCase {
         XCTAssertEqual(set.weightAccessibilityLabel(exerciseName: exerciseName), "Squat set 1 kilograms")
         XCTAssertEqual(set.repsAccessibilityLabel(exerciseName: exerciseName), "Squat set 1 reps")
         XCTAssertEqual(set.durationAccessibilityLabel(exerciseName: exerciseName), "Squat set 1 duration")
+        XCTAssertEqual(set.distanceAccessibilityLabel(exerciseName: exerciseName), "Squat set 1 distance")
+        XCTAssertEqual(set.caloriesAccessibilityLabel(exerciseName: exerciseName), "Squat set 1 calories")
     }
 }

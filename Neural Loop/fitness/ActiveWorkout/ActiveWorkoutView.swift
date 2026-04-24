@@ -28,6 +28,12 @@ struct ActiveWorkoutView: View {
                                     },
                                     onDurationChange: { setID, duration in
                                         viewModel.updateDuration(for: state.id, setID: setID, durationText: duration)
+                                    },
+                                    onDistanceChange: { setID, distance in
+                                        viewModel.updateDistance(for: state.id, setID: setID, distanceText: distance)
+                                    },
+                                    onCaloriesChange: { setID, calories in
+                                        viewModel.updateCalories(for: state.id, setID: setID, caloriesText: calories)
                                     }
                                 )
                                 .padding(.horizontal)

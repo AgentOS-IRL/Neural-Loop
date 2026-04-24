@@ -6,6 +6,8 @@ struct WorkoutExerciseCard: View {
     let onWeightChange: (WorkoutSetDraft.ID, String) -> Void
     let onRepsChange: (WorkoutSetDraft.ID, String) -> Void
     let onDurationChange: (WorkoutSetDraft.ID, String) -> Void
+    let onDistanceChange: (WorkoutSetDraft.ID, String) -> Void
+    let onCaloriesChange: (WorkoutSetDraft.ID, String) -> Void
 
     private let setColumnWidth: CGFloat = 48
 
@@ -114,6 +116,26 @@ struct WorkoutExerciseCard: View {
                             placeholder: "0",
                             keyboardType: .decimalPad,
                             accessibilityLabel: set.durationAccessibilityLabel(exerciseName: card.exercise.name)
+                        )
+
+                        numericField(
+                            text: Binding(
+                                get: { set.distanceText },
+                                set: { onDistanceChange(set.id, $0) }
+                            ),
+                            placeholder: "KM",
+                            keyboardType: .decimalPad,
+                            accessibilityLabel: set.distanceAccessibilityLabel(exerciseName: card.exercise.name)
+                        )
+
+                        numericField(
+                            text: Binding(
+                                get: { set.caloriesText },
+                                set: { onCaloriesChange(set.id, $0) }
+                            ),
+                            placeholder: "KCAL",
+                            keyboardType: .decimalPad,
+                            accessibilityLabel: set.caloriesAccessibilityLabel(exerciseName: card.exercise.name)
                         )
                     }
                 }
