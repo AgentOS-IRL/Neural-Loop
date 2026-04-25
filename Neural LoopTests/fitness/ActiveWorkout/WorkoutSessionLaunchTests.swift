@@ -26,7 +26,10 @@ final class WorkoutSessionLaunchTests: XCTestCase {
         db.stubEquipment = equipment
         db.stubRoutineExercises = routineExercises
         
-        let coordinator = WorkoutSessionLaunchCoordinator(db: db)
+        let coordinator = WorkoutSessionLaunchCoordinator(
+            db: db,
+            persistenceManager: makePersistenceManager("TestLaunchSessionPreparesWorkoutSession")
+        )
         
         let draft = try await coordinator.launchSession(for: routineID)
         
@@ -51,17 +54,86 @@ final class WorkoutSessionLaunchTests: XCTestCase {
         let db = FakeLaunchDataManager()
         db.stubRoutine = routine
         
-        let userDefaults = UserDefaults(suiteName: "TestLaunchSavesDraftImmediately")!
-        userDefaults.removePersistentDomain(forName: "TestLaunchSavesDraftImmediately")
-        let persistenceManager = WorkoutDraftPersistenceManager(userDefaults: userDefaults)
+        let persistenceManager = makePersistenceManager("TestLaunchSavesDraftImmediately")
         
         let coordinator = WorkoutSessionLaunchCoordinator(db: db, persistenceManager: persistenceManager)
         
         _ = try await coordinator.launchSession(for: routineID)
         
-        let savedDraft = persistenceManager.load()
+        let savedDraft = persistenceManager.load(routineID: routineID)
         XCTAssertNotNil(savedDraft)
+        XCTAssertEqual(savedDraft?.routineID, routineID)
         XCTAssertEqual(savedDraft?.session.session_type, "Test Routine")
+    }
+
+    func testLaunchReturnsExistingValidDraftWithoutFetchingRoutine() async throws {
+        let routineID: Int64 = 7
+        let persistenceManager = makePersistenceManager("TestLaunchReturnsExistingValidDraft")
+        let session = WorkoutSession(id: nil, date: Date(), start_time: "10:00", end_time: nil, session_type: "Saved Draft", notes: nil)
+        let existingDraft = ActiveWorkoutDraft(
+            routineID: routineID,
+            session: session,
+            exercises: [],
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+        persistenceManager.save(draft: existingDraft)
+        let db = FakeLaunchDataManager()
+        db.stubRoutine = Routine(id: routineID, name: "Fresh Routine", notes: nil)
+        let coordinator = WorkoutSessionLaunchCoordinator(db: db, persistenceManager: persistenceManager)
+
+        let draft = try await coordinator.launchSession(for: routineID)
+
+        XCTAssertEqual(draft.session.session_type, "Saved Draft")
+        XCTAssertEqual(db.fetchRoutineCallCount, 0)
+    }
+
+    func testLaunchMigratesLegacyDraftWithoutFetchingRoutine() async throws {
+        let routineID: Int64 = 9
+        let suiteName = "TestLaunchMigratesLegacyDraft"
+        let userDefaults = UserDefaults(suiteName: suiteName)!
+        userDefaults.removePersistentDomain(forName: suiteName)
+        let persistenceManager = WorkoutDraftPersistenceManager(userDefaults: userDefaults)
+        let session = WorkoutSession(id: nil, date: Date(), start_time: "10:00", end_time: nil, session_type: "Legacy Draft", notes: nil)
+        let legacyDraft = LegacyWorkoutDraftPayload(session: session, exercises: [])
+        let legacyData = try JSONEncoder().encode(legacyDraft)
+        userDefaults.set(legacyData, forKey: "active_workout_draft")
+        let db = FakeLaunchDataManager()
+        db.stubRoutine = Routine(id: routineID, name: "Fresh Routine", notes: nil)
+        let coordinator = WorkoutSessionLaunchCoordinator(db: db, persistenceManager: persistenceManager)
+
+        let draft = try await coordinator.launchSession(for: routineID)
+
+        XCTAssertEqual(draft.routineID, routineID)
+        XCTAssertEqual(draft.session.session_type, "Legacy Draft")
+        XCTAssertEqual(draft.createdAt, draft.updatedAt)
+        XCTAssertNil(userDefaults.data(forKey: "active_workout_draft"))
+        XCTAssertEqual(persistenceManager.load(routineID: routineID)?.session.session_type, "Legacy Draft")
+        XCTAssertEqual(db.fetchRoutineCallCount, 0)
+    }
+
+    func testLaunchReplacesExpiredDraft() async throws {
+        let routineID: Int64 = 8
+        let persistenceManager = makePersistenceManager("TestLaunchReplacesExpiredDraft")
+        let expiredSession = WorkoutSession(id: nil, date: Date(), start_time: "10:00", end_time: nil, session_type: "Expired Draft", notes: nil)
+        let expiredDraft = ActiveWorkoutDraft(
+            routineID: routineID,
+            session: expiredSession,
+            exercises: [],
+            createdAt: Date(timeIntervalSinceNow: -90_000),
+            updatedAt: Date(timeIntervalSinceNow: -90_000)
+        )
+        persistenceManager.save(draft: expiredDraft)
+        let db = FakeLaunchDataManager()
+        db.stubRoutine = Routine(id: routineID, name: "Fresh Routine", notes: nil)
+        let coordinator = WorkoutSessionLaunchCoordinator(db: db, persistenceManager: persistenceManager)
+
+        let draft = try await coordinator.launchSession(for: routineID)
+
+        XCTAssertEqual(draft.session.session_type, "Fresh Routine")
+        XCTAssertEqual(draft.routineID, routineID)
+        XCTAssertEqual(persistenceManager.load(routineID: routineID)?.session.session_type, "Fresh Routine")
+        XCTAssertEqual(db.fetchRoutineCallCount, 1)
     }
 
     func testLaunchSessionClampsNonPositiveTargetSets() async throws {
@@ -80,7 +152,10 @@ final class WorkoutSessionLaunchTests: XCTestCase {
         ]
         db.stubRoutineExercises = routineExercises
         
-        let coordinator = WorkoutSessionLaunchCoordinator(db: db)
+        let coordinator = WorkoutSessionLaunchCoordinator(
+            db: db,
+            persistenceManager: makePersistenceManager("TestLaunchSessionClampsNonPositiveTargetSets")
+        )
         
         let draft = try await coordinator.launchSession(for: routineID)
         
@@ -92,7 +167,10 @@ final class WorkoutSessionLaunchTests: XCTestCase {
         let db = FakeLaunchDataManager()
         db.stubRoutine = nil
         
-        let coordinator = WorkoutSessionLaunchCoordinator(db: db)
+        let coordinator = WorkoutSessionLaunchCoordinator(
+            db: db,
+            persistenceManager: makePersistenceManager("TestLaunchSessionThrowsRoutineNotFound")
+        )
         
         do {
             _ = try await coordinator.launchSession(for: 1)
@@ -111,7 +189,10 @@ final class WorkoutSessionLaunchTests: XCTestCase {
         // Make fetchRoutineExercises slow to trigger re-entrancy
         db.fetchRoutineExercisesDelay = 0.1
         
-        let coordinator = WorkoutSessionLaunchCoordinator(db: db)
+        let coordinator = WorkoutSessionLaunchCoordinator(
+            db: db,
+            persistenceManager: makePersistenceManager("TestLaunchSessionPreventsDoubleLaunch")
+        )
         
         let expectation1 = expectation(description: "First launch finishes")
         let expectation2 = expectation(description: "Second launch throws")
@@ -142,6 +223,17 @@ final class WorkoutSessionLaunchTests: XCTestCase {
         
         await fulfillment(of: [expectation1, expectation2], timeout: 1.0)
     }
+
+    private func makePersistenceManager(_ suiteName: String) -> WorkoutDraftPersistenceManager {
+        let userDefaults = UserDefaults(suiteName: suiteName)!
+        userDefaults.removePersistentDomain(forName: suiteName)
+        return WorkoutDraftPersistenceManager(userDefaults: userDefaults)
+    }
+}
+
+private struct LegacyWorkoutDraftPayload: Codable {
+    var session: WorkoutSession
+    var exercises: [WorkoutExerciseCardState]
 }
 
 class FakeLaunchDataManager: WorkoutTemplateReadingDataManaging, WorkoutDataManaging {
@@ -151,10 +243,12 @@ class FakeLaunchDataManager: WorkoutTemplateReadingDataManaging, WorkoutDataMana
     var stubEquipment: [Equipment] = []
     var stubRoutineExercises: [RoutineExercise] = []
     var fetchRoutineExercisesDelay: TimeInterval = 0
+    var fetchRoutineCallCount = 0
     
     var capturedCreateSessionRequest: CreateWorkoutSessionRequest?
     
     func fetchRoutine(by id: Int64) async throws -> Routine? {
+        fetchRoutineCallCount += 1
         stubRoutine
     }
     

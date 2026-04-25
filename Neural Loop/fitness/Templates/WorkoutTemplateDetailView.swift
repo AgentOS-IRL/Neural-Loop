@@ -50,6 +50,7 @@ struct WorkoutTemplateDetailView: View {
                     ActiveWorkoutView(viewModel: ActiveWorkoutViewModel(
                         draft: draft,
                         db: db,
+                        persistenceManager: viewModel.persistenceManager,
                         onDraftChange: { updatedDraft in
                             viewModel.activeDraft = updatedDraft
                         },

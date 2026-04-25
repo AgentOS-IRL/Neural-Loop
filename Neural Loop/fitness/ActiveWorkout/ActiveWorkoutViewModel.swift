@@ -13,33 +13,31 @@ class ActiveWorkoutViewModel: ObservableObject {
     let db: WorkoutDataManaging
     var onDraftChange: ((ActiveWorkoutDraft) -> Void)?
     var onFinish: (() -> Void)?
+    private let persistenceManager: WorkoutDraftPersistenceManager
     private var timerCancellable: AnyCancellable?
-    private var saveCancellable: AnyCancellable?
     
     init(
         draft: ActiveWorkoutDraft,
         db: WorkoutDataManaging,
+        persistenceManager: WorkoutDraftPersistenceManager = WorkoutDraftPersistenceManager(),
         onDraftChange: ((ActiveWorkoutDraft) -> Void)? = nil,
         onFinish: (() -> Void)? = nil
     ) {
         self.draft = draft
         self.db = db
+        self.persistenceManager = persistenceManager
         self.onDraftChange = onDraftChange
         self.onFinish = onFinish
-        setupDraftPersistence()
     }
     
-    private func setupDraftPersistence() {
-        saveCancellable = $draft
-            .dropFirst()
-            .sink { [weak self] draft in
-                self?.onDraftChange?(draft)
-            }
+    func clearDraft() {
+        persistenceManager.clear(routineID: draft.routineID)
     }
 
-    func clearDraft() {
-        // No-op here as persistence is handled by the parent ViewModel
-        saveCancellable?.cancel()
+    private func persistDraft() {
+        draft.updatedAt = Date()
+        persistenceManager.save(draft: draft)
+        onDraftChange?(draft)
     }
 
     func finishWorkout() async {
@@ -93,8 +91,8 @@ class ActiveWorkoutViewModel: ObservableObject {
                     }
                 }
             }
-            onFinish?()
             clearDraft()
+            onFinish?()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -119,36 +117,42 @@ class ActiveWorkoutViewModel: ObservableObject {
             distanceText: lastDistance,
             caloriesText: lastCalories
         ))
+        persistDraft()
     }
     
     func updateWeight(for exerciseID: Int64, setID: UUID, weightText: String) {
         guard let exerciseIndex = draft.exercises.firstIndex(where: { $0.id == exerciseID }),
               let setIndex = draft.exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setID }) else { return }
         draft.exercises[exerciseIndex].sets[setIndex].weightText = weightText
+        persistDraft()
     }
     
     func updateReps(for exerciseID: Int64, setID: UUID, repsText: String) {
         guard let exerciseIndex = draft.exercises.firstIndex(where: { $0.id == exerciseID }),
               let setIndex = draft.exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setID }) else { return }
         draft.exercises[exerciseIndex].sets[setIndex].repsText = repsText
+        persistDraft()
     }
 
     func updateDuration(for exerciseID: Int64, setID: UUID, durationText: String) {
         guard let exerciseIndex = draft.exercises.firstIndex(where: { $0.id == exerciseID }),
               let setIndex = draft.exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setID }) else { return }
         draft.exercises[exerciseIndex].sets[setIndex].durationText = durationText
+        persistDraft()
     }
 
     func updateDistance(for exerciseID: Int64, setID: UUID, distanceText: String) {
         guard let exerciseIndex = draft.exercises.firstIndex(where: { $0.id == exerciseID }),
               let setIndex = draft.exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setID }) else { return }
         draft.exercises[exerciseIndex].sets[setIndex].distanceText = distanceText
+        persistDraft()
     }
 
     func updateCalories(for exerciseID: Int64, setID: UUID, caloriesText: String) {
         guard let exerciseIndex = draft.exercises.firstIndex(where: { $0.id == exerciseID }),
               let setIndex = draft.exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setID }) else { return }
         draft.exercises[exerciseIndex].sets[setIndex].caloriesText = caloriesText
+        persistDraft()
     }
 
     func toggleSetCompletion(exerciseID: Int64, setID: UUID) {
@@ -156,6 +160,7 @@ class ActiveWorkoutViewModel: ObservableObject {
               let setIndex = draft.exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setID }) else { return }
         
         draft.exercises[exerciseIndex].sets[setIndex].isCompleted.toggle()
+        persistDraft()
         
         if draft.exercises[exerciseIndex].sets[setIndex].isCompleted {
             if let restSeconds = draft.exercises[exerciseIndex].restSeconds, restSeconds > 0 {
