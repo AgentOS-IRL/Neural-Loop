@@ -3,75 +3,142 @@ import Foundation
 // Transport models shared by iPhone and watch targets.
 // Keep these free of persistence, database, SwiftUI, and app-only fitness model dependencies.
 
-nonisolated struct WorkoutSessionPointer: Codable, Hashable, Identifiable {
-    let id: String
-    var routineID: Int64?
-    var workoutSessionID: Int64?
+public struct WorkoutSessionPointer: Codable, Hashable, Identifiable {
+    public let id: String
+    public var routineID: Int64?
+    public var workoutSessionID: Int64?
+    
+    public init(id: String, routineID: Int64? = nil, workoutSessionID: Int64? = nil) {
+        self.id = id
+        self.routineID = routineID
+        self.workoutSessionID = workoutSessionID
+    }
 }
 
-nonisolated struct ActiveWorkoutSnapshot: Codable, Hashable, Identifiable {
-    var id: String { session.id }
-    var session: WorkoutSessionPointer
-    var title: String
-    var startedAt: Date?
-    var elapsedSeconds: Int?
-    var exercises: [ExerciseSnapshot]
+public struct ActiveWorkoutSnapshot: Codable, Hashable, Identifiable {
+    public var id: String { session.id }
+    public var session: WorkoutSessionPointer
+    public var title: String
+    public var startedAt: Date?
+    public var elapsedSeconds: Int?
+    public var exercises: [ExerciseSnapshot]
+    
+    public init(session: WorkoutSessionPointer, title: String, startedAt: Date? = nil, elapsedSeconds: Int? = nil, exercises: [ExerciseSnapshot] = []) {
+        self.session = session
+        self.title = title
+        self.startedAt = startedAt
+        self.elapsedSeconds = elapsedSeconds
+        self.exercises = exercises
+    }
 }
 
-nonisolated struct ExerciseSnapshot: Codable, Hashable, Identifiable {
-    let id: String
-    var sourceExerciseID: Int64?
-    var name: String
-    var orderIndex: Int
-    var restDurationSeconds: Int?
-    var isCompleted: Bool
-    var sets: [SetSnapshot]
+public struct ExerciseSnapshot: Codable, Hashable, Identifiable {
+    public let id: String
+    public var sourceExerciseID: Int64?
+    public var name: String
+    public var orderIndex: Int
+    public var restDurationSeconds: Int?
+    public var isCompleted: Bool
+    public var sets: [SetSnapshot]
+    
+    public init(id: String, sourceExerciseID: Int64? = nil, name: String, orderIndex: Int, restDurationSeconds: Int? = nil, isCompleted: Bool = false, sets: [SetSnapshot] = []) {
+        self.id = id
+        self.sourceExerciseID = sourceExerciseID
+        self.name = name
+        self.orderIndex = orderIndex
+        self.restDurationSeconds = restDurationSeconds
+        self.isCompleted = isCompleted
+        self.sets = sets
+    }
 }
 
-nonisolated struct SetSnapshot: Codable, Hashable, Identifiable {
-    let id: String
-    var sourceSetID: String?
-    var setNumber: Int
-    var values: WorkoutSetValuesSnapshot
-    var isCompleted: Bool
+public struct SetSnapshot: Codable, Hashable, Identifiable {
+    public let id: String
+    public var sourceSetID: String?
+    public var setNumber: Int
+    public var values: WorkoutSetValuesSnapshot
+    public var isCompleted: Bool
+    
+    public init(id: String, sourceSetID: String? = nil, setNumber: Int, values: WorkoutSetValuesSnapshot, isCompleted: Bool = false) {
+        self.id = id
+        self.sourceSetID = sourceSetID
+        self.setNumber = setNumber
+        self.values = values
+        self.isCompleted = isCompleted
+    }
 }
 
-nonisolated struct WorkoutSetValuesSnapshot: Codable, Hashable {
-    var kg: Decimal?
-    var reps: Int?
+public struct WorkoutSetValuesSnapshot: Codable, Hashable {
+    public var kg: Decimal?
+    public var reps: Int?
+    
+    public init(kg: Decimal? = nil, reps: Int? = nil) {
+        self.kg = kg
+        self.reps = reps
+    }
 }
 
-nonisolated struct WorkoutWatchSessionAction: Codable, Hashable {
-    var session: WorkoutSessionPointer
+public struct WorkoutWatchSessionAction: Codable, Hashable {
+    public var session: WorkoutSessionPointer
+    
+    public init(session: WorkoutSessionPointer) {
+        self.session = session
+    }
 }
 
-nonisolated struct WorkoutWatchSetReference: Codable, Hashable {
-    var session: WorkoutSessionPointer
-    var exerciseID: String
-    var setID: String
+public struct WorkoutWatchSetReference: Codable, Hashable {
+    public var session: WorkoutSessionPointer
+    public var exerciseID: String
+    public var setID: String
+    
+    public init(session: WorkoutSessionPointer, exerciseID: String, setID: String) {
+        self.session = session
+        self.exerciseID = exerciseID
+        self.setID = setID
+    }
 }
 
-nonisolated struct WorkoutWatchExerciseReference: Codable, Hashable {
-    var session: WorkoutSessionPointer
-    var exerciseID: String
+public struct WorkoutWatchExerciseReference: Codable, Hashable {
+    public var session: WorkoutSessionPointer
+    public var exerciseID: String
+    
+    public init(session: WorkoutSessionPointer, exerciseID: String) {
+        self.session = session
+        self.exerciseID = exerciseID
+    }
 }
 
-nonisolated struct WorkoutWatchSetValuesAction: Codable, Hashable {
-    var reference: WorkoutWatchSetReference
-    var values: WorkoutSetValuesSnapshot
+public struct WorkoutWatchSetValuesAction: Codable, Hashable {
+    public var reference: WorkoutWatchSetReference
+    public var values: WorkoutSetValuesSnapshot
+    
+    public init(reference: WorkoutWatchSetReference, values: WorkoutSetValuesSnapshot) {
+        self.reference = reference
+        self.values = values
+    }
 }
 
-nonisolated struct WorkoutWatchSetCompletionAction: Codable, Hashable {
-    var reference: WorkoutWatchSetReference
-    var isCompleted: Bool
+public struct WorkoutWatchSetCompletionAction: Codable, Hashable {
+    public var reference: WorkoutWatchSetReference
+    public var isCompleted: Bool
+    
+    public init(reference: WorkoutWatchSetReference, isCompleted: Bool) {
+        self.reference = reference
+        self.isCompleted = isCompleted
+    }
 }
 
-nonisolated struct WorkoutWatchExerciseCompletionAction: Codable, Hashable {
-    var reference: WorkoutWatchExerciseReference
-    var isCompleted: Bool
+public struct WorkoutWatchExerciseCompletionAction: Codable, Hashable {
+    public var reference: WorkoutWatchExerciseReference
+    public var isCompleted: Bool
+    
+    public init(reference: WorkoutWatchExerciseReference, isCompleted: Bool) {
+        self.reference = reference
+        self.isCompleted = isCompleted
+    }
 }
 
-enum WorkoutWatchActionPayload: Codable, Hashable {
+public enum WorkoutWatchActionPayload: Codable, Hashable {
     case requestSnapshot(WorkoutWatchSessionAction)
     case updateSetValues(WorkoutWatchSetValuesAction)
     case toggleSetCompletion(WorkoutWatchSetCompletionAction)
@@ -96,7 +163,7 @@ enum WorkoutWatchActionPayload: Codable, Hashable {
         case isCompleted
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let typeString = try container.decode(String.self, forKey: .type)
 
@@ -133,7 +200,7 @@ enum WorkoutWatchActionPayload: Codable, Hashable {
         }
     }
 
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
         switch self {
@@ -162,7 +229,7 @@ enum WorkoutWatchActionPayload: Codable, Hashable {
     }
 }
 
-extension WorkoutWatchActionPayload {
+public extension WorkoutWatchActionPayload {
     var session: WorkoutSessionPointer {
         switch self {
         case .requestSnapshot(let action): return action.session
