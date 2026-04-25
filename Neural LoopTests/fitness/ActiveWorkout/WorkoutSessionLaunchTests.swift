@@ -241,6 +241,74 @@ final class WorkoutSessionLaunchTests: XCTestCase {
         XCTAssertEqual(pointer?.routineID, routineID)
     }
 
+    func testLaunchSendsSnapshotOnNewWorkout() async throws {
+        let routineID: Int64 = 1
+        let routine = Routine(id: routineID, name: "Test Routine", notes: nil)
+        let db = FakeLaunchDataManager()
+        db.stubRoutine = routine
+        
+        let mockConnectivity = MockConnectivityProvider()
+        let coordinator = WorkoutSessionLaunchCoordinator(
+            db: db,
+            persistenceManager: makePersistenceManager("testLaunchSendsSnapshotOnNewWorkout"),
+            connectivityProvider: mockConnectivity
+        )
+        
+        _ = try await coordinator.launchSession(for: routineID)
+        
+        XCTAssertEqual(mockConnectivity.sendCount, 1)
+        XCTAssertEqual(mockConnectivity.capturedSnapshot?.session.routineID, routineID)
+    }
+
+    func testLaunchSendsSnapshotOnResumedWorkout() async throws {
+        let routineID: Int64 = 7
+        let persistenceManager = makePersistenceManager("testLaunchSendsSnapshotOnResumedWorkout")
+        let session = WorkoutSession(id: nil, date: Date(), start_time: "10:00", end_time: nil, session_type: "Saved Draft", notes: nil)
+        let existingDraft = ActiveWorkoutDraft(
+            routineID: routineID,
+            session: session,
+            exercises: [],
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+        persistenceManager.save(draft: existingDraft)
+        let db = FakeLaunchDataManager()
+        
+        let mockConnectivity = MockConnectivityProvider()
+        let coordinator = WorkoutSessionLaunchCoordinator(
+            db: db,
+            persistenceManager: persistenceManager,
+            connectivityProvider: mockConnectivity
+        )
+
+        _ = try await coordinator.launchSession(for: routineID)
+
+        XCTAssertEqual(mockConnectivity.sendCount, 1)
+        XCTAssertEqual(mockConnectivity.capturedSnapshot?.title, "Saved Draft")
+    }
+
+    func testConnectivityFailureDoesNotPreventLaunch() async throws {
+        let routineID: Int64 = 1
+        let routine = Routine(id: routineID, name: "Test Routine", notes: nil)
+        let db = FakeLaunchDataManager()
+        db.stubRoutine = routine
+        
+        let mockConnectivity = MockConnectivityProvider()
+        mockConnectivity.shouldFail = true
+        
+        let coordinator = WorkoutSessionLaunchCoordinator(
+            db: db,
+            persistenceManager: makePersistenceManager("testConnectivityFailureDoesNotPreventLaunch"),
+            connectivityProvider: mockConnectivity
+        )
+        
+        // Should not throw even if connectivity fails
+        let draft = try await coordinator.launchSession(for: routineID)
+        
+        XCTAssertNotNil(draft)
+        XCTAssertEqual(mockConnectivity.sendCount, 1)
+    }
+
     private func makePersistenceManager(_ suiteName: String) -> WorkoutDraftPersistenceManager {
         let userDefaults = UserDefaults(suiteName: suiteName)!
         userDefaults.removePersistentDomain(forName: suiteName)
@@ -334,4 +402,20 @@ class FakeLaunchDataManager: WorkoutTemplateReadingDataManaging, WorkoutDataMana
     func deleteWorkoutSet(id: Int64) async throws {}
     func updateCardioLog(_ log: CardioLog) async throws -> CardioLog { log }
     func deleteCardioLog(id: Int64) async throws {}
+}
+
+class MockConnectivityProvider: WorkoutConnectivityProviding {
+    var capturedSnapshot: ActiveWorkoutSnapshot?
+    var sendCount = 0
+    var shouldFail = false
+
+    func sendWorkoutSnapshot(_ snapshot: ActiveWorkoutSnapshot, completion: ((Result<Void, Error>) -> Void)?) {
+        sendCount += 1
+        capturedSnapshot = snapshot
+        if shouldFail {
+            completion?(.failure(NSError(domain: "test", code: -1)))
+        } else {
+            completion?(.success(()))
+        }
+    }
 }
