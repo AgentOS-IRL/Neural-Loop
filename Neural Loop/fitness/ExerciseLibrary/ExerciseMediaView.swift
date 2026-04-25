@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import ImageIO
 
 struct ExerciseMediaView: View {
     let exerciseName: String
@@ -261,7 +262,7 @@ struct ExerciseMediaPreviewSheet: View {
 
         return Group {
             if let asset {
-                ExerciseMediaPreviewAssetView(asset: asset)
+                ExerciseMediaPreviewAssetView(asset: asset, allowsMotion: allowsMotion)
                     .frame(height: 260)
             } else {
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -306,7 +307,7 @@ struct ExerciseMediaPreviewSheet: View {
                 Button {
                     selectedAssetID = asset.id
                 } label: {
-                    ExerciseMediaPreviewAssetView(asset: asset)
+                    ExerciseMediaPreviewAssetView(asset: asset, allowsMotion: allowsMotion)
                         .frame(height: 132)
                         .overlay {
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -324,6 +325,7 @@ struct ExerciseMediaPreviewSheet: View {
 
 private struct ExerciseMediaPreviewAssetView: View {
     let asset: ExerciseMediaAsset
+    let allowsMotion: Bool
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -332,7 +334,7 @@ private struct ExerciseMediaPreviewAssetView: View {
 
             RemoteMediaImageView(
                 url: asset.url,
-                animateGIF: asset.isAnimated
+                animateGIF: asset.isAnimated && allowsMotion
             )
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
 
@@ -397,21 +399,22 @@ private struct RemoteMediaImageView: UIViewRepresentable {
             do {
                 let (data, _) = try await URLSession.shared.data(from: url)
                 guard !Task.isCancelled else { return }
-                guard let image = UIImage(data: data) else { return }
+                guard let image = RemoteMediaDecodedImage(data: data, animateGIF: animateGIF) else { return }
 
                 await MainActor.run {
                     guard context.coordinator.currentURL == url else { return }
 
-                    if animateGIF, let frames = image.images, !frames.isEmpty {
+                    if animateGIF, let frames = image.frames, !frames.isEmpty {
                         uiView.animationImages = frames
-                        uiView.animationDuration = image.duration > 0 ? image.duration : Double(frames.count) * 0.1
+                        uiView.animationDuration = image.duration
+                        uiView.animationRepeatCount = 0
                         uiView.image = frames.first
                         uiView.startAnimating()
-                    } else if let frames = image.images, !frames.isEmpty {
+                    } else if let frames = image.frames, !frames.isEmpty {
                         uiView.image = frames.first
                         uiView.stopAnimating()
                     } else {
-                        uiView.image = image
+                        uiView.image = image.staticImage
                         uiView.stopAnimating()
                     }
                 }
@@ -429,5 +432,92 @@ private struct RemoteMediaImageView: UIViewRepresentable {
         var currentURL: URL?
         var isAnimating: Bool = false
         var loadTask: Task<Void, Never>?
+    }
+}
+
+private struct RemoteMediaDecodedImage {
+    private static let gifPlaybackSpeedMultiplier: TimeInterval = 1.75
+
+    let staticImage: UIImage
+    let frames: [UIImage]?
+    let duration: TimeInterval
+
+    init?(data: Data, animateGIF: Bool) {
+        if animateGIF, let animatedImage = Self.decodeAnimatedGIF(data: data) {
+            staticImage = animatedImage.frames[0]
+            frames = animatedImage.frames
+            duration = animatedImage.duration
+            return
+        }
+
+        guard let image = UIImage(data: data) else {
+            return nil
+        }
+
+        staticImage = image
+        frames = image.images
+        duration = image.duration > 0 ? image.duration : Double(image.images?.count ?? 1) * 0.1
+    }
+
+    private static func decodeAnimatedGIF(data: Data) -> (frames: [UIImage], duration: TimeInterval)? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+            return nil
+        }
+
+        let frameCount = CGImageSourceGetCount(source)
+        guard frameCount > 1 else {
+            return nil
+        }
+
+        guard let firstFrame = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+            return nil
+        }
+
+        let frameSize = CGSize(width: firstFrame.width, height: firstFrame.height)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: frameSize, format: format)
+
+        var frames: [UIImage] = []
+        frames.reserveCapacity(frameCount)
+        var duration: TimeInterval = 0
+
+        for index in 0..<frameCount {
+            guard let cgImage = CGImageSourceCreateImageAtIndex(source, index, nil) else {
+                continue
+            }
+
+            let frameImage = UIImage(cgImage: cgImage)
+            let renderedFrame = renderer.image { context in
+                UIColor.white.setFill()
+                context.fill(CGRect(origin: .zero, size: frameSize))
+                frameImage.draw(in: CGRect(origin: .zero, size: frameSize))
+            }
+
+            frames.append(renderedFrame)
+            duration += frameDuration(at: index, in: source)
+        }
+
+        guard !frames.isEmpty else {
+            return nil
+        }
+
+        let resolvedDuration = duration > 0 ? duration : Double(frames.count) * 0.1
+        return (frames, resolvedDuration * gifPlaybackSpeedMultiplier)
+    }
+
+    private static func frameDuration(at index: Int, in source: CGImageSource) -> TimeInterval {
+        guard
+            let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any],
+            let gifProperties = properties[kCGImagePropertyGIFDictionary] as? [CFString: Any]
+        else {
+            return 0.1
+        }
+
+        let unclampedDelay = gifProperties[kCGImagePropertyGIFUnclampedDelayTime] as? TimeInterval
+        let clampedDelay = gifProperties[kCGImagePropertyGIFDelayTime] as? TimeInterval
+        let delay = unclampedDelay ?? clampedDelay ?? 0.1
+        return delay < 0.02 ? 0.1 : delay
     }
 }
