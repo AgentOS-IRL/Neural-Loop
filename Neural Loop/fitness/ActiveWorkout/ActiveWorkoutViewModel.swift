@@ -11,7 +11,7 @@ class ActiveWorkoutViewModel: ObservableObject {
     @Published var restTimerSeconds: Int = 0
     @Published var isTimerRunning: Bool = false
     
-    private let db: WorkoutDataManaging
+    let db: WorkoutDataManaging
     private var timerCancellable: AnyCancellable?
     
     init(

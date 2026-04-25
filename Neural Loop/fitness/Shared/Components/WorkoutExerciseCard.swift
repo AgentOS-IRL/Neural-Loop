@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WorkoutExerciseCard: View {
     let card: WorkoutExerciseCardState
+    let dataManager: WorkoutDataManaging
     let onAddSet: () -> Void
     let onWeightChange: (WorkoutSetDraft.ID, String) -> Void
     let onRepsChange: (WorkoutSetDraft.ID, String) -> Void
@@ -10,6 +11,7 @@ struct WorkoutExerciseCard: View {
     let onCaloriesChange: (WorkoutSetDraft.ID, String) -> Void
     let onToggleComplete: (WorkoutSetDraft.ID) -> Void
 
+    @State private var showingProgression = false
     private let setColumnWidth: CGFloat = 48
 
     var body: some View {
@@ -198,12 +200,20 @@ struct WorkoutExerciseCard: View {
 
     private var footer: some View {
         HStack(spacing: 12) {
-            Button(action: {}) {
+            Button(action: { showingProgression = true }) {
                 Label("Progression", systemImage: "chart.xyaxis.line")
                     .font(.system(.subheadline, design: .rounded, weight: .semibold))
             }
             .buttonStyle(.plain)
             .foregroundStyle(AppTheme.accentColor)
+            .sheet(isPresented: $showingProgression) {
+                ExerciseProgressionView(viewModel: ExerciseProgressionViewModel(
+                    exerciseId: card.exercise.id,
+                    exerciseName: card.exercise.name,
+                    exerciseType: card.exercise.type,
+                    dataManager: dataManager
+                ))
+            }
 
             Spacer(minLength: 8)
 

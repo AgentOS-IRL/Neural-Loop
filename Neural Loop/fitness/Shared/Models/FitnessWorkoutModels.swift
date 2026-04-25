@@ -198,6 +198,7 @@ protocol WorkoutDataManaging {
     func fetchWorkoutSets(exerciseId: Int64) async throws -> [WorkoutSet]
     func fetchWorkoutSessions() async throws -> [WorkoutSession]
     func fetchWorkoutSessionDetail(sessionId: Int64) async throws -> WorkoutSessionDetail
+    func fetchExerciseProgression(exerciseId: Int64) async throws -> [ExerciseProgressionResult]
 }
 
 protocol WorkoutTemplateReadingDataManaging {
