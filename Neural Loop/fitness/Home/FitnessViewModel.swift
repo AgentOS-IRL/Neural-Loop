@@ -41,7 +41,15 @@ final class FitnessViewModel: ObservableObject {
             return
         }
 
+        checkPersistedDraft()
         await load()
+    }
+
+    private func checkPersistedDraft() {
+        if let data = UserDefaults.standard.data(forKey: "active_workout_draft"),
+           let draft = try? JSONDecoder().decode(ActiveWorkoutDraft.self, from: data) {
+            self.activeSession = (draft.session, draft.exercises)
+        }
     }
 
     func reload() async {
