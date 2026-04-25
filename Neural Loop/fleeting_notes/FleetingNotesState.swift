@@ -33,6 +33,7 @@ struct FleetingNoteCardState: Identifiable, Equatable {
     let source: FleetingNoteSource
     let rawPersonalID: Int64?
     let rawWorkID: String?
+    let workNotes: String?
     let note: String
     let timestamp: String
     let relativeTimestamp: String
@@ -125,6 +126,7 @@ enum FleetingNotesStateMapper {
                 source: $0.source,
                 rawPersonalID: $0.personalNote?.id,
                 rawWorkID: $0.workReminder?.id,
+                workNotes: $0.workReminder?.notes,
                 note: $0.text,
                 timestamp: absoluteTimestamp(
                     for: $0.createdAt,

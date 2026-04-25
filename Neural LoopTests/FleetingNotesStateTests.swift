@@ -52,7 +52,7 @@ final class FleetingNotesStateTests: XCTestCase {
         let work = WorkReminder(
             id: "abc",
             title: "Follow up with customer",
-            notes: nil,
+            notes: "Bring renewal details",
             createdAt: now.addingTimeInterval(-1_800),
             dueDate: nil,
             calendarTitle: "Reminders",
@@ -77,6 +77,7 @@ final class FleetingNotesStateTests: XCTestCase {
         XCTAssertEqual(content.cards.map(\.source), [.work, .personal])
         XCTAssertEqual(content.cards.first?.badgeText, "Work")
         XCTAssertEqual(content.cards.first?.sourceSubtitle, "Reminders")
+        XCTAssertEqual(content.cards.first?.workNotes, "Bring renewal details")
     }
 
     func testWorkFilterOnlyIncludesWorkNotes() {

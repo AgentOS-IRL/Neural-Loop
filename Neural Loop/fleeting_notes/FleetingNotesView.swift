@@ -482,7 +482,7 @@ struct FleetingNotesView: View {
             let updatedReminder = try await workReminderService.updateGenesysReminder(
                 id: id,
                 title: trimmedText,
-                notes: nil
+                notes: card.workNotes
             )
 
             if let index = workReminders.firstIndex(where: { $0.id == id }) {

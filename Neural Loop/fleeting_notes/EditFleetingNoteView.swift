@@ -137,6 +137,7 @@ struct EditFleetingNoteView: View {
             source: .personal,
             rawPersonalID: 1,
             rawWorkID: nil,
+            workNotes: nil,
             note: "Remember to review the notes flow.",
             timestamp: "16 Apr 2026, 10:30",
             relativeTimestamp: "Today at 10:30",
