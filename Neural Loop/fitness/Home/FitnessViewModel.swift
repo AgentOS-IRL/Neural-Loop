@@ -13,6 +13,7 @@ final class FitnessViewModel: ObservableObject {
     let launchCoordinator: WorkoutSessionLaunching
     private let persistenceManager: WorkoutDraftPersistenceManager
     private var hasLoaded = false
+    private var stateRevision: UInt64 = 0
     private var cancellables = Set<AnyCancellable>()
 
     init(
@@ -62,6 +63,8 @@ final class FitnessViewModel: ObservableObject {
     }
 
     func deleteSession(id: Int64) async -> Bool {
+        stateRevision &+= 1
+        defer { stateRevision &+= 1 }
         errorMessage = nil
 
         do {
@@ -98,6 +101,7 @@ final class FitnessViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
+        let revision = stateRevision
 
         do {
             async let routinesTask = dataManager.fetchAllRoutines()
@@ -131,6 +135,10 @@ final class FitnessViewModel: ObservableObject {
             for entry in sortedRoutines {
                 let routineExercises = try await dataManager.fetchRoutineExercises(routineId: entry.id)
                 loadedTemplates.append(Self.makeSummary(for: entry.routine, routineExercises: routineExercises))
+            }
+
+            guard revision == stateRevision else {
+                return
             }
 
             templates = loadedTemplates

@@ -219,6 +219,54 @@ final class FitnessViewModelTests: XCTestCase {
         )
     }
 
+    func testReloadDoesNotRestoreDeletedSessionAfterInFlightFetch() async {
+        let date1 = Date(timeIntervalSince1970: 1000)
+        let date2 = Date(timeIntervalSince1970: 2000)
+        let dataManager = FakeFitnessTemplateDataManager(
+            routines: [],
+            exercisesByRoutineID: [:],
+            sessions: [
+                WorkoutSession(id: 1, date: date1, start_time: nil, end_time: nil, session_type: "Legs", notes: "Hard"),
+                WorkoutSession(id: 2, date: date2, start_time: nil, end_time: nil, session_type: "Push", notes: nil)
+            ]
+        )
+        let viewModel = FitnessViewModel(dataManager: dataManager)
+
+        await viewModel.loadIfNeeded()
+        XCTAssertEqual(
+            viewModel.sessions,
+            [
+                WorkoutSessionSummary(id: 1, date: date1, title: "Legs", notes: "Hard"),
+                WorkoutSessionSummary(id: 2, date: date2, title: "Push", notes: nil)
+            ]
+        )
+
+        dataManager.shouldSuspendWorkoutSessionsFetch = true
+        let fetchStarted = expectation(description: "Workout sessions fetch started")
+        dataManager.onWorkoutSessionsFetchStarted = {
+            fetchStarted.fulfill()
+        }
+
+        let reloadTask = Task {
+            await viewModel.reload()
+        }
+
+        await fulfillment(of: [fetchStarted], timeout: 1.0)
+
+        let deleted = await viewModel.deleteSession(id: 1)
+        dataManager.resumeWorkoutSessionsFetch()
+        await reloadTask.value
+
+        XCTAssertTrue(deleted)
+        XCTAssertEqual(dataManager.deletedSessionIDs, [1])
+        XCTAssertEqual(
+            viewModel.sessions,
+            [
+                WorkoutSessionSummary(id: 2, date: date2, title: "Push", notes: nil)
+            ]
+        )
+    }
+
     private func routine(id: Int64, name: String) -> Routine {
         Routine(id: id, name: name, notes: nil)
     }
@@ -249,7 +297,11 @@ private final class FakeFitnessTemplateDataManager: FitnessTemplateDataManaging,
     var sessions: [WorkoutSession]
     var shouldFailFetchingRoutines = false
     var shouldFailDeletingSession = false
+    var shouldSuspendWorkoutSessionsFetch = false
     var deletedSessionIDs: [Int64] = []
+    var onWorkoutSessionsFetchStarted: (() -> Void)?
+    private var workoutSessionsFetchContinuation: CheckedContinuation<[WorkoutSession], Error>?
+    private var workoutSessionsFetchResponse: [WorkoutSession] = []
 
     init(
         routines: [Routine],
@@ -311,7 +363,24 @@ private final class FakeFitnessTemplateDataManager: FitnessTemplateDataManaging,
     }
     func fetchWorkoutSets(exerciseId: Int64) async throws -> [WorkoutSet] { [] }
     func fetchWorkoutSessions() async throws -> [WorkoutSession] {
-        sessions
+        guard shouldSuspendWorkoutSessionsFetch else {
+            return sessions
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            workoutSessionsFetchResponse = sessions
+            workoutSessionsFetchContinuation = continuation
+            onWorkoutSessionsFetchStarted?()
+        }
+    }
+
+    func resumeWorkoutSessionsFetch() {
+        guard let continuation = workoutSessionsFetchContinuation else {
+            return
+        }
+
+        workoutSessionsFetchContinuation = nil
+        continuation.resume(returning: workoutSessionsFetchResponse)
     }
 
     func fetchWorkoutSessionDetail(sessionId: Int64) async throws -> WorkoutSessionDetail {
