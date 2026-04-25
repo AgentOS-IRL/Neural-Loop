@@ -119,8 +119,21 @@ class WorkoutSessionDetailViewModel: ObservableObject {
     }
 
     func saveChanges() async {
-        guard let session = draftSession else { return }
+        guard var session = draftSession else { return }
         
+        // Sanitize times: convert empty/whitespace strings to nil
+        if let start = session.start_time, start.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            session.start_time = nil
+        } else {
+            session.start_time = WorkoutTimeCoding.normalize(session.start_time)
+        }
+
+        if let end = session.end_time, end.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            session.end_time = nil
+        } else {
+            session.end_time = WorkoutTimeCoding.normalize(session.end_time)
+        }
+
         do {
             _ = try await dataManager.updateWorkoutSession(session)
             

@@ -110,6 +110,50 @@ final class WorkoutSessionDetailViewModelTests: XCTestCase {
         XCTAssertEqual(dataManager.lastUpdatedSet?.weight, 110)
     }
 
+    func testSaveChangesSanitizesTimes() async {
+        let sessionId: Int64 = 123
+        let detail = WorkoutSessionDetail(
+            session: WorkoutSession(id: sessionId, date: Date(), start_time: "10:00", end_time: "11:00", session_type: "Test", notes: nil),
+            exercises: []
+        )
+        
+        let dataManager = FakeWorkoutSessionDetailDataManager(detail: detail)
+        let viewModel = WorkoutSessionDetailViewModel(sessionId: sessionId, dataManager: dataManager)
+        
+        await viewModel.load()
+        viewModel.startEditing()
+        
+        viewModel.draftSession?.start_time = ""
+        viewModel.draftSession?.end_time = "   "
+        
+        await viewModel.saveChanges()
+        
+        XCTAssertNil(dataManager.lastUpdatedSession?.start_time)
+        XCTAssertNil(dataManager.lastUpdatedSession?.end_time)
+    }
+
+    func testSaveChangesNormalizesTimes() async {
+        let sessionId: Int64 = 123
+        let detail = WorkoutSessionDetail(
+            session: WorkoutSession(id: sessionId, date: Date(), start_time: nil, end_time: nil, session_type: "Test", notes: nil),
+            exercises: []
+        )
+        
+        let dataManager = FakeWorkoutSessionDetailDataManager(detail: detail)
+        let viewModel = WorkoutSessionDetailViewModel(sessionId: sessionId, dataManager: dataManager)
+        
+        await viewModel.load()
+        viewModel.startEditing()
+        
+        // WorkoutTimeCoding.normalize converts ISO8601 to HH:mm:ss
+        viewModel.draftSession?.start_time = "2026-04-25T10:00:00Z"
+        
+        await viewModel.saveChanges()
+        
+        XCTAssertNotNil(dataManager.lastUpdatedSession?.start_time)
+        XCTAssertTrue(dataManager.lastUpdatedSession!.start_time!.contains(":"))
+    }
+
     func testCancelEditing() async {
         let sessionId: Int64 = 123
         let detail = WorkoutSessionDetail(
