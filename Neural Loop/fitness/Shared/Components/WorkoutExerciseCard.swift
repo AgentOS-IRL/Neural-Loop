@@ -16,10 +16,20 @@ struct WorkoutExerciseCard: View {
         VStack(alignment: .leading, spacing: 14) {
             header
 
-            Text(card.exercise.equipmentName)
-                .font(.system(.subheadline, design: .rounded, weight: .medium))
-                .foregroundStyle(AppTheme.textSecondary)
-                .lineLimit(1)
+            HStack {
+                Text(card.exercise.equipmentName)
+                    .font(.system(.subheadline, design: .rounded, weight: .medium))
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .lineLimit(1)
+                
+                if let hint = card.historicalHint {
+                    Spacer()
+                    Text(hint)
+                        .font(.system(.caption, design: .rounded, weight: .semibold))
+                        .foregroundStyle(AppTheme.accentColor)
+                        .lineLimit(1)
+                }
+            }
 
             setTable
             footer

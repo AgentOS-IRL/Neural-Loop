@@ -60,6 +60,9 @@ struct ExerciseWithMuscles: Codable, Identifiable, Equatable {
     let equipment_id: Int64?
     let notes: String?
     let exercise_muscles: [MuscleJoinResult]
+
+    var isRepBased: Bool { type.isRepBased }
+    var isDurationBased: Bool { type.isDurationBased }
 }
 
 struct ExerciseMuscle: Codable, Identifiable, Equatable {
