@@ -12,18 +12,18 @@ protocol WorkoutConnectivityProviding: AnyObject {
     func sendWorkoutSnapshot(_ snapshot: ActiveWorkoutSnapshot, completion: ((Result<Void, Error>) -> Void)?)
 }
 
-final class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, WorkoutConnectivityProviding {
-    static let shared = ConnectivityManager()
+open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, WorkoutConnectivityProviding {
+    public static let shared = ConnectivityManager()
 
-    @Published var receivedMessage: String = "No message yet"
-    @Published var lastSnapshot: ActiveWorkoutSnapshot?
-    @Published var lastAction: WorkoutWatchActionPayload?
+    @Published public var receivedMessage: String = "No message yet"
+    @Published public var lastSnapshot: ActiveWorkoutSnapshot?
+    @Published public var lastAction: WorkoutWatchActionPayload?
 
     // Closure hooks for non-UI components
-    var snapshotHandler: ((ActiveWorkoutSnapshot) -> Void)?
-    var actionHandler: ((WorkoutWatchActionPayload) -> Void)?
-    var errorHandler: ((Error) -> Void)?
-    var notReachableHandler: (() -> Void)?
+    public var snapshotHandler: ((ActiveWorkoutSnapshot) -> Void)?
+    public var actionHandler: ((WorkoutWatchActionPayload) -> Void)?
+    public var errorHandler: ((Error) -> Void)?
+    public var notReachableHandler: (() -> Void)?
 
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
@@ -39,7 +39,7 @@ final class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, 
         static let payload = "payload"
     }
 
-    internal override init() {
+    public override init() {
         super.init()
         activate()
     }
@@ -52,7 +52,7 @@ final class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, 
     }
 
     // MARK: - Activation
-    func session(_ session: WCSession,
+    public func session(_ session: WCSession,
                  activationDidCompleteWith activationState: WCSessionActivationState,
                  error: Error?) {
         if let error {
@@ -63,19 +63,19 @@ final class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, 
     }
 
     #if os(iOS)
-    func sessionDidBecomeInactive(_ session: WCSession) { }
-    func sessionDidDeactivate(_ session: WCSession) {
+    public func sessionDidBecomeInactive(_ session: WCSession) { }
+    public func sessionDidDeactivate(_ session: WCSession) {
         WCSession.default.activate()
     }
     #endif
 
     // MARK: - Receiving Messages
-    func session(_ session: WCSession,
+    public func session(_ session: WCSession,
                  didReceiveMessage message: [String : Any]) {
         handleIncomingMessage(message)
     }
 
-    func session(_ session: WCSession,
+    public func session(_ session: WCSession,
                  didReceiveMessage message: [String : Any],
                  replyHandler: @escaping ([String : Any]) -> Void) {
         handleIncomingMessage(message)
@@ -133,15 +133,15 @@ final class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, 
     }
 
     // MARK: - Sending Messages
-    func sendMessage(_ text: String) {
+    open func sendMessage(_ text: String) {
         sendEncodable(type: .text, payload: text)
     }
 
-    func sendWorkoutSnapshot(_ snapshot: ActiveWorkoutSnapshot, completion: ((Result<Void, Error>) -> Void)? = nil) {
+    open func sendWorkoutSnapshot(_ snapshot: ActiveWorkoutSnapshot, completion: ((Result<Void, Error>) -> Void)? = nil) {
         sendEncodable(type: .workoutSnapshot, payload: snapshot, completion: completion)
     }
 
-    func sendWorkoutAction(_ action: WorkoutWatchActionPayload, completion: ((Result<Void, Error>) -> Void)? = nil) {
+    open func sendWorkoutAction(_ action: WorkoutWatchActionPayload, completion: ((Result<Void, Error>) -> Void)? = nil) {
         sendEncodable(type: .workoutAction, payload: action, completion: completion)
     }
 
