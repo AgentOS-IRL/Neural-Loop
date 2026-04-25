@@ -88,6 +88,30 @@ final class WorkoutSessionLaunchTests: XCTestCase {
         XCTAssertEqual(db.fetchRoutineCallCount, 0)
     }
 
+    func testLaunchMigratesLegacyDraftWithoutFetchingRoutine() async throws {
+        let routineID: Int64 = 9
+        let suiteName = "TestLaunchMigratesLegacyDraft"
+        let userDefaults = UserDefaults(suiteName: suiteName)!
+        userDefaults.removePersistentDomain(forName: suiteName)
+        let persistenceManager = WorkoutDraftPersistenceManager(userDefaults: userDefaults)
+        let session = WorkoutSession(id: nil, date: Date(), start_time: "10:00", end_time: nil, session_type: "Legacy Draft", notes: nil)
+        let legacyDraft = LegacyWorkoutDraftPayload(session: session, exercises: [])
+        let legacyData = try JSONEncoder().encode(legacyDraft)
+        userDefaults.set(legacyData, forKey: "active_workout_draft")
+        let db = FakeLaunchDataManager()
+        db.stubRoutine = Routine(id: routineID, name: "Fresh Routine", notes: nil)
+        let coordinator = WorkoutSessionLaunchCoordinator(db: db, persistenceManager: persistenceManager)
+
+        let draft = try await coordinator.launchSession(for: routineID)
+
+        XCTAssertEqual(draft.routineID, routineID)
+        XCTAssertEqual(draft.session.session_type, "Legacy Draft")
+        XCTAssertEqual(draft.createdAt, draft.updatedAt)
+        XCTAssertNil(userDefaults.data(forKey: "active_workout_draft"))
+        XCTAssertEqual(persistenceManager.load(routineID: routineID)?.session.session_type, "Legacy Draft")
+        XCTAssertEqual(db.fetchRoutineCallCount, 0)
+    }
+
     func testLaunchReplacesExpiredDraft() async throws {
         let routineID: Int64 = 8
         let persistenceManager = makePersistenceManager("TestLaunchReplacesExpiredDraft")
@@ -205,6 +229,11 @@ final class WorkoutSessionLaunchTests: XCTestCase {
         userDefaults.removePersistentDomain(forName: suiteName)
         return WorkoutDraftPersistenceManager(userDefaults: userDefaults)
     }
+}
+
+private struct LegacyWorkoutDraftPayload: Codable {
+    var session: WorkoutSession
+    var exercises: [WorkoutExerciseCardState]
 }
 
 class FakeLaunchDataManager: WorkoutTemplateReadingDataManaging, WorkoutDataManaging {
