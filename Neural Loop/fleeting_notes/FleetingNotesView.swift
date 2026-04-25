@@ -9,19 +9,28 @@ import SwiftUI
 
 struct FleetingNotesView: View {
     private let manager: DBManager
+    private let workReminderService: GenesysReminderService
     let embeddedInTaskHub: Bool
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @State private var notes: [FleetingNote] = []
+    @State private var personalNotes: [FleetingNote] = []
+    @State private var workReminders: [WorkReminder] = []
+    @State private var selectedFilter: FleetingNotesFilter = .all
     @State private var screenState: FleetingNotesScreenState = .loading
+    @State private var workNotesWarningMessage: String?
     @State private var selectedNoteForEdit: FleetingNoteCardState?
     @State private var selectedNoteForDelete: FleetingNoteCardState?
     @State private var showDeleteConfirmation = false
     @State private var mutationErrorMessage: String?
     @State private var isMutatingNote = false
 
-    init(manager: DBManager = .newInstance(), embeddedInTaskHub: Bool = false) {
+    init(
+        manager: DBManager = .newInstance(),
+        workReminderService: GenesysReminderService = .init(),
+        embeddedInTaskHub: Bool = false
+    ) {
         self.manager = manager
+        self.workReminderService = workReminderService
         self.embeddedInTaskHub = embeddedInTaskHub
     }
 
@@ -41,11 +50,11 @@ struct FleetingNotesView: View {
             await loadNotes()
         }
         .confirmationDialog(
-            "Delete this note?",
+            deleteConfirmationTitle,
             isPresented: $showDeleteConfirmation,
             titleVisibility: .visible
         ) {
-            Button("Delete Note", role: .destructive) {
+            Button(deleteConfirmationButtonTitle, role: .destructive) {
                 Task {
                     await deleteSelectedNote()
                 }
@@ -60,7 +69,7 @@ struct FleetingNotesView: View {
         }
         .sheet(item: $selectedNoteForEdit) { card in
             EditFleetingNoteView(note: card) { text in
-                try await updateNote(id: card.id, text: text)
+                try await updateNote(card: card, text: text)
             }
         }
         .alert(
@@ -107,50 +116,71 @@ struct FleetingNotesView: View {
 
     @ViewBuilder
     private var content: some View {
-        switch screenState {
-        case .loading:
-            loadingSection
-        case .empty(let summary):
-            messageCard(summary: summary.title, detail: summary.subtitle, systemImage: "tray")
-        case .content(let content):
-            VStack(alignment: .leading, spacing: AppTheme.Metrics.cardSpacing) {
-                ForEach(content.cards) { card in
-                    FleetingNotesRow(card: card)
-                        .contentShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous))
-                        .contextMenu {
-                            Button {
-                                selectedNoteForEdit = card
-                            } label: {
-                                Label("Edit Note", systemImage: "pencil")
-                            }
-
-                            Button(role: .destructive) {
-                                selectedNoteForDelete = card
-                                showDeleteConfirmation = true
-                            } label: {
-                                Label("Delete Note", systemImage: "trash")
-                            }
-                        }
-                }
+        VStack(alignment: .leading, spacing: AppTheme.Metrics.cardSpacing) {
+            if let workNotesWarningMessage {
+                messageCard(summary: "Work notes unavailable", detail: workNotesWarningMessage, systemImage: "exclamationmark.triangle")
             }
-        case .error(let errorState):
-            VStack(alignment: .leading, spacing: 16) {
-                messageCard(summary: errorState.title, detail: errorState.message, systemImage: "exclamationmark.triangle")
 
-                Button("Retry") {
-                    Task {
-                        await loadNotes()
+            switch screenState {
+            case .loading:
+                loadingSection
+            case .empty(let summary):
+                filterControl
+                messageCard(summary: summary.title, detail: summary.subtitle, systemImage: "tray")
+            case .content(let content):
+                VStack(alignment: .leading, spacing: AppTheme.Metrics.cardSpacing) {
+                    filterControl
+
+                    ForEach(content.cards) { card in
+                        FleetingNotesRow(card: card)
+                            .contentShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous))
+                            .contextMenu {
+                                Button {
+                                    selectedNoteForEdit = card
+                                } label: {
+                                    Label(card.source == .work ? "Edit Work Note" : "Edit Personal Note", systemImage: "pencil")
+                                }
+
+                                Button(role: .destructive) {
+                                    selectedNoteForDelete = card
+                                    showDeleteConfirmation = true
+                                } label: {
+                                    Label(card.source == .work ? "Delete Work Note" : "Delete Personal Note", systemImage: "trash")
+                                }
+                            }
                     }
                 }
-                .font(.system(.body, design: .rounded, weight: .semibold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 12)
-                .background(
-                    Capsule()
-                        .fill(AppTheme.errorTint)
-                )
+            case .error(let errorState):
+                VStack(alignment: .leading, spacing: 16) {
+                    messageCard(summary: errorState.title, detail: errorState.message, systemImage: "exclamationmark.triangle")
+
+                    Button("Retry") {
+                        Task {
+                            await loadNotes()
+                        }
+                    }
+                    .font(.system(.body, design: .rounded, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 12)
+                    .background(
+                        Capsule()
+                            .fill(AppTheme.errorTint)
+                    )
+                }
             }
+        }
+    }
+
+    private var filterControl: some View {
+        Picker("Note filter", selection: $selectedFilter) {
+            ForEach(FleetingNotesFilter.allCases) { filter in
+                Text(filter.label).tag(filter)
+            }
+        }
+        .pickerStyle(.segmented)
+        .onChange(of: selectedFilter) {
+            rebuildScreenState()
         }
     }
 
@@ -323,18 +353,71 @@ struct FleetingNotesView: View {
         embeddedInTaskHub ? SAFE_AREA_INSET + 104 : 120
     }
 
+    private var deleteConfirmationTitle: String {
+        switch selectedNoteForDelete?.source {
+        case .work:
+            return "Delete this work note?"
+        case .personal:
+            return "Delete this personal note?"
+        case nil:
+            return "Delete this note?"
+        }
+    }
+
+    private var deleteConfirmationButtonTitle: String {
+        switch selectedNoteForDelete?.source {
+        case .work:
+            return "Delete Work Note"
+        case .personal:
+            return "Delete Personal Note"
+        case nil:
+            return "Delete Note"
+        }
+    }
+
     @MainActor
     private func loadNotes() async {
         screenState = .loading
+        workNotesWarningMessage = nil
 
-        do {
-            let fetchedNotes = try await manager.fetchFleetingNotes()
-            notes = fetchedNotes
-            screenState = FleetingNotesStateMapper.makeLoadedState(notes: fetchedNotes)
-            selectedNoteForEdit = nil
-            selectedNoteForDelete = nil
-        } catch {
+        async let fetchedPersonalNotes = fetchPersonalNotesResult()
+        async let fetchedWorkReminders = fetchWorkRemindersResult()
+        let (personalResult, workResult) = await (fetchedPersonalNotes, fetchedWorkReminders)
+
+        switch personalResult {
+        case .success(let fetchedNotes):
+            personalNotes = fetchedNotes
+        case .failure(let error):
             screenState = FleetingNotesStateMapper.makeErrorState(error)
+            return
+        }
+
+        switch workResult {
+        case .success(let fetchedReminders):
+            workReminders = fetchedReminders
+        case .failure(let error):
+            workReminders = []
+            workNotesWarningMessage = error.localizedDescription
+        }
+
+        rebuildScreenState()
+        selectedNoteForEdit = nil
+        selectedNoteForDelete = nil
+    }
+
+    private func fetchPersonalNotesResult() async -> Result<[FleetingNote], Error> {
+        do {
+            return .success(try await manager.fetchFleetingNotes())
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    private func fetchWorkRemindersResult() async -> Result<[WorkReminder], Error> {
+        do {
+            return .success(try await workReminderService.fetchIncompleteGenesysReminders())
+        } catch {
+            return .failure(error)
         }
     }
 
@@ -346,9 +429,23 @@ struct FleetingNotesView: View {
         defer { isMutatingNote = false }
 
         do {
-            try await manager.deleteFleetingNote(id: selectedNoteForDelete.id)
-            notes.removeAll { $0.id == selectedNoteForDelete.id }
+            switch selectedNoteForDelete.source {
+            case .personal:
+                guard let id = selectedNoteForDelete.rawPersonalID else {
+                    throw FleetingNoteMutationError.missingPersonalID
+                }
+                try await manager.deleteFleetingNote(id: id)
+                personalNotes.removeAll { $0.id == id }
+            case .work:
+                guard let id = selectedNoteForDelete.rawWorkID else {
+                    throw FleetingNoteMutationError.missingWorkID
+                }
+                try await workReminderService.deleteGenesysReminder(id: id)
+                workReminders.removeAll { $0.id == id }
+            }
+
             rebuildScreenState()
+            selectedNoteForEdit = nil
             self.selectedNoteForDelete = nil
         } catch {
             mutationErrorMessage = error.localizedDescription
@@ -356,22 +453,43 @@ struct FleetingNotesView: View {
     }
 
     @MainActor
-    private func updateNote(id: Int64, text: String) async throws {
+    private func updateNote(card: FleetingNoteCardState, text: String) async throws {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !trimmedText.isEmpty else {
             throw FleetingNoteMutationError.emptyNote
         }
 
-        let updatedNote = try await manager.updateFleetingNote(
-            id: id,
-            request: UpdateFleetingNoteRequest(note: trimmedText)
-        )
+        switch card.source {
+        case .personal:
+            guard let id = card.rawPersonalID else {
+                throw FleetingNoteMutationError.missingPersonalID
+            }
+            let updatedNote = try await manager.updateFleetingNote(
+                id: id,
+                request: UpdateFleetingNoteRequest(note: trimmedText)
+            )
 
-        if let index = notes.firstIndex(where: { $0.id == id }) {
-            notes[index] = updatedNote
-        } else {
-            notes.append(updatedNote)
+            if let index = personalNotes.firstIndex(where: { $0.id == id }) {
+                personalNotes[index] = updatedNote
+            } else {
+                personalNotes.append(updatedNote)
+            }
+        case .work:
+            guard let id = card.rawWorkID else {
+                throw FleetingNoteMutationError.missingWorkID
+            }
+            let updatedReminder = try await workReminderService.updateGenesysReminder(
+                id: id,
+                title: trimmedText,
+                notes: nil
+            )
+
+            if let index = workReminders.firstIndex(where: { $0.id == id }) {
+                workReminders[index] = updatedReminder
+            } else {
+                workReminders.append(updatedReminder)
+            }
         }
 
         rebuildScreenState()
@@ -379,17 +497,28 @@ struct FleetingNotesView: View {
 
     @MainActor
     private func rebuildScreenState() {
-        screenState = FleetingNotesStateMapper.makeLoadedState(notes: notes)
+        screenState = FleetingNotesStateMapper.makeLoadedState(
+            personalNotes: personalNotes,
+            workReminders: workReminders,
+            filter: selectedFilter,
+            workWarning: workNotesWarningMessage
+        )
     }
 }
 
 private enum FleetingNoteMutationError: LocalizedError {
     case emptyNote
+    case missingPersonalID
+    case missingWorkID
 
     var errorDescription: String? {
         switch self {
         case .emptyNote:
             return "Note content cannot be empty."
+        case .missingPersonalID:
+            return "Personal note id is missing."
+        case .missingWorkID:
+            return "Work note id is missing."
         }
     }
 }

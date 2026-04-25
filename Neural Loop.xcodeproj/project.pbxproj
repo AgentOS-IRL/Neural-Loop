@@ -489,6 +489,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Neural-Loop-Info.plist";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = NSCalendarsUsageDescription;
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Neural Loop uses Reminders access to create and show Genesys work notes.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -522,6 +523,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Neural-Loop-Info.plist";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = NSCalendarsUsageDescription;
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Neural Loop uses Reminders access to create and show Genesys work notes.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

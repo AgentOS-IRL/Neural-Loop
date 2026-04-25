@@ -22,14 +22,64 @@ struct FleetingNotesSummary: Equatable {
 
 struct FleetingNotesContent: Equatable {
     let summary: FleetingNotesSummary
+    let selectedFilter: FleetingNotesFilter
+    let availableFilters: [FleetingNotesFilter]
     let cards: [FleetingNoteCardState]
+    let workWarning: String?
 }
 
 struct FleetingNoteCardState: Identifiable, Equatable {
-    let id: Int64
+    let id: String
+    let source: FleetingNoteSource
+    let rawPersonalID: Int64?
+    let rawWorkID: String?
     let note: String
     let timestamp: String
     let relativeTimestamp: String
+    let badgeText: String
+    let sourceSubtitle: String
+}
+
+enum FleetingNoteSource: String, Equatable, CaseIterable {
+    case personal
+    case work
+
+    var displayName: String {
+        switch self {
+        case .personal:
+            return "Personal"
+        case .work:
+            return "Work"
+        }
+    }
+}
+
+enum FleetingNotesFilter: String, Equatable, CaseIterable, Identifiable {
+    case all
+    case work
+    case personal
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .all:
+            return "All"
+        case .work:
+            return "Work"
+        case .personal:
+            return "Personal"
+        }
+    }
+}
+
+struct UnifiedFleetingNote: Equatable {
+    let source: FleetingNoteSource
+    let stableID: String
+    let text: String
+    let createdAt: Date
+    let personalNote: FleetingNote?
+    let workReminder: WorkReminder?
 }
 
 struct FleetingNotesErrorState: Equatable {
@@ -39,52 +89,86 @@ struct FleetingNotesErrorState: Equatable {
 
 enum FleetingNotesStateMapper {
     static func makeLoadedState(
+        personalNotes: [FleetingNote],
+        workReminders: [WorkReminder] = [],
+        filter: FleetingNotesFilter = .all,
+        workWarning: String? = nil,
+        now: Date = Date(),
+        calendar: Calendar = .current,
+        locale: Locale = .autoupdatingCurrent,
+        timeZone: TimeZone = .autoupdatingCurrent
+    ) -> FleetingNotesScreenState {
+        let unifiedNotes = makeUnifiedNotes(
+            personalNotes: personalNotes,
+            workReminders: workReminders
+        )
+        let filteredNotes = unifiedNotes.filter { note in
+            switch filter {
+            case .all:
+                return true
+            case .work:
+                return note.source == .work
+            case .personal:
+                return note.source == .personal
+            }
+        }
+
+        guard !filteredNotes.isEmpty else {
+            return .empty(
+                emptySummary(filter: filter, hasAnyNotes: !unifiedNotes.isEmpty)
+            )
+        }
+
+        let cards = filteredNotes.map {
+            FleetingNoteCardState(
+                id: $0.stableID,
+                source: $0.source,
+                rawPersonalID: $0.personalNote?.id,
+                rawWorkID: $0.workReminder?.id,
+                note: $0.text,
+                timestamp: absoluteTimestamp(
+                    for: $0.createdAt,
+                    locale: locale,
+                    timeZone: timeZone
+                ),
+                relativeTimestamp: relativeTimestamp(
+                    for: $0.createdAt,
+                    now: now,
+                    calendar: calendar,
+                    locale: locale,
+                    timeZone: timeZone
+                ),
+                badgeText: $0.source.displayName,
+                sourceSubtitle: sourceSubtitle(for: $0)
+            )
+        }
+
+        return .content(
+            FleetingNotesContent(
+                summary: contentSummary(cards: cards, filter: filter),
+                selectedFilter: filter,
+                availableFilters: FleetingNotesFilter.allCases,
+                cards: cards,
+                workWarning: workWarning
+            )
+        )
+    }
+
+    static func makeLoadedState(
         notes: [FleetingNote],
         now: Date = Date(),
         calendar: Calendar = .current,
         locale: Locale = .autoupdatingCurrent,
         timeZone: TimeZone = .autoupdatingCurrent
     ) -> FleetingNotesScreenState {
-        let sortedNotes = FleetingNote.sortedNewestFirst(notes)
-
-        guard !sortedNotes.isEmpty else {
-            return .empty(
-                FleetingNotesSummary(
-                    eyebrow: "Fresh capture",
-                    title: "No fleeting notes yet",
-                    subtitle: "Once Supabase has note snippets, they will appear here in reverse chronological order."
-                )
-            )
-        }
-
-        let cards = sortedNotes.map {
-            FleetingNoteCardState(
-                id: $0.id,
-                note: $0.note,
-                timestamp: absoluteTimestamp(
-                    for: $0.created_at,
-                    locale: locale,
-                    timeZone: timeZone
-                ),
-                relativeTimestamp: relativeTimestamp(
-                    for: $0.created_at,
-                    now: now,
-                    calendar: calendar,
-                    locale: locale,
-                    timeZone: timeZone
-                )
-            )
-        }
-
-        return .content(
-            FleetingNotesContent(
-                summary: FleetingNotesSummary(
-                    eyebrow: "Captured moments",
-                    title: "\(cards.count) fleeting \(cards.count == 1 ? "note" : "notes")",
-                    subtitle: "Latest thought: \(cards.first?.relativeTimestamp ?? "just now")"
-                ),
-                cards: cards
-            )
+        makeLoadedState(
+            personalNotes: notes,
+            workReminders: [],
+            filter: .all,
+            now: now,
+            calendar: calendar,
+            locale: locale,
+            timeZone: timeZone
         )
     }
 
@@ -139,5 +223,96 @@ enum FleetingNotesStateMapper {
         ? "d MMM"
         : "d MMM yyyy"
         return formatter.string(from: date)
+    }
+
+    private static func makeUnifiedNotes(
+        personalNotes: [FleetingNote],
+        workReminders: [WorkReminder]
+    ) -> [UnifiedFleetingNote] {
+        let personal = personalNotes.map { note in
+            UnifiedFleetingNote(
+                source: .personal,
+                stableID: "personal-\(note.id)",
+                text: note.note,
+                createdAt: note.created_at,
+                personalNote: note,
+                workReminder: nil
+            )
+        }
+
+        let work = workReminders.map { reminder in
+            UnifiedFleetingNote(
+                source: .work,
+                stableID: "work-\(reminder.id)",
+                text: reminder.title,
+                createdAt: reminder.createdAt,
+                personalNote: nil,
+                workReminder: reminder
+            )
+        }
+
+        return (personal + work).sorted {
+            if $0.createdAt == $1.createdAt {
+                return $0.stableID > $1.stableID
+            }
+
+            return $0.createdAt > $1.createdAt
+        }
+    }
+
+    private static func sourceSubtitle(for note: UnifiedFleetingNote) -> String {
+        switch note.source {
+        case .personal:
+            return "Supabase"
+        case .work:
+            return note.workReminder?.calendarTitle ?? "Genesys"
+        }
+    }
+
+    private static func emptySummary(filter: FleetingNotesFilter, hasAnyNotes: Bool) -> FleetingNotesSummary {
+        switch filter {
+        case .all:
+            return FleetingNotesSummary(
+                eyebrow: "Fresh capture",
+                title: "No notes yet",
+                subtitle: "Personal notes and Genesys work notes will appear here in reverse chronological order."
+            )
+        case .work:
+            return FleetingNotesSummary(
+                eyebrow: "Work notes",
+                title: "No Genesys work notes",
+                subtitle: hasAnyNotes ? "Switch to All or Personal to see other notes." : "Incomplete Genesys reminders will appear here as work notes."
+            )
+        case .personal:
+            return FleetingNotesSummary(
+                eyebrow: "Personal notes",
+                title: "No personal notes",
+                subtitle: hasAnyNotes ? "Switch to All or Work to see other notes." : "Personal Supabase note snippets will appear here."
+            )
+        }
+    }
+
+    private static func contentSummary(cards: [FleetingNoteCardState], filter: FleetingNotesFilter) -> FleetingNotesSummary {
+        let count = cards.count
+        let label: String
+        let eyebrow: String
+
+        switch filter {
+        case .all:
+            label = count == 1 ? "note" : "notes"
+            eyebrow = "Captured moments"
+        case .work:
+            label = count == 1 ? "work note" : "work notes"
+            eyebrow = "Work notes"
+        case .personal:
+            label = count == 1 ? "personal note" : "personal notes"
+            eyebrow = "Personal notes"
+        }
+
+        return FleetingNotesSummary(
+            eyebrow: eyebrow,
+            title: "\(count) \(label)",
+            subtitle: "Latest thought: \(cards.first?.relativeTimestamp ?? "just now")"
+        )
     }
 }

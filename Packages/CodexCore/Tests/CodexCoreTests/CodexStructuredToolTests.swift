@@ -95,11 +95,26 @@ private enum CodexStructuredToolTestFixtures {
 
     static let notesTool = CodexTool(
         name: "Notes",
-        description: "Create a fleeting note.",
+        description: "Create a personal app note or a Genesys work note when the user wants to save information.",
         parameters: .object([
             "type": .string("object"),
             "properties": .object([
-                "content": .object(["type": .string("string")])
+                "content": .object([
+                    "type": .string("string"),
+                    "description": .string("The note text to save.")
+                ]),
+                "note": .object([
+                    "type": .string("string"),
+                    "description": .string("Fallback note text for compatibility.")
+                ]),
+                "source": .object([
+                    "type": .string("string"),
+                    "description": .string("Where to save the note. Use personal for app/Supabase notes and work for Genesys reminders."),
+                    "enum": .array([
+                        .string("personal"),
+                        .string("work")
+                    ])
+                ])
             ]),
             "required": .array([.string("content")])
         ])
@@ -183,6 +198,16 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertTrue(instructions.localizedCaseInsensitiveContains("sub_tasks"))
         XCTAssertTrue(instructions.localizedCaseInsensitiveContains("trim each child title"))
         XCTAssertFalse(instructions.contains("create_sub_task"))
+    }
+
+    func testDefaultIntentInstructionsDescribeNoteSources() {
+        let instructions = CodexStructuredToolTestFixtures.defaultIntentInstructions
+
+        XCTAssertTrue(instructions.contains("`source`"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("personal"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("work"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("Genesys"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("Supabase"))
     }
 
     func testWorkoutInstructionsDescribeRequiredToolUsageAndFilteringBehavior() {
@@ -283,6 +308,21 @@ final class CodexStructuredToolTests: XCTestCase {
 
         let required = try XCTUnwrap(items["required"] as? [String])
         XCTAssertEqual(required, ["title"])
+    }
+
+    func testDefaultNotesToolIncludesSourceProperty() throws {
+        let notesTool = try XCTUnwrap(NeuralLoopCodexIntents.defaultIntentTools.first { $0.name == "Notes" })
+        let encoded = try JSONEncoder().encode(notesTool)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        let parameters = try XCTUnwrap(json["parameters"] as? [String: Any])
+        let properties = try XCTUnwrap(parameters["properties"] as? [String: Any])
+        let source = try XCTUnwrap(properties["source"] as? [String: Any])
+
+        XCTAssertEqual(source["type"] as? String, "string")
+        XCTAssertEqual(source["enum"] as? [String], ["personal", "work"])
+        XCTAssertNotNil(properties["content"])
+        XCTAssertNotNil(properties["note"])
+        XCTAssertEqual(parameters["required"] as? [String], ["content"])
     }
 
     func testCodexToolEncodesSubTaskPayload() throws {

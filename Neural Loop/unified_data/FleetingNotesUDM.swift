@@ -35,4 +35,16 @@ extension UnifiedDataModel {
             return false
         }
     }
+
+    func createWorkReminder(title: String, notes: String?) async throws -> WorkReminder {
+        try await createWorkReminder(title: title, notes: notes, dueDate: nil)
+    }
+
+    func createWorkReminder(title: String, notes: String? = nil, dueDate: Date? = nil) async throws -> WorkReminder {
+        try await workReminderService.createGenesysReminder(
+            title: title,
+            notes: notes,
+            dueDate: dueDate
+        )
+    }
 }

@@ -11,6 +11,7 @@ protocol AudioModeCodexExecuting {
     ) async throws -> CodexIntentResult
 }
 
+@MainActor
 protocol AudioModeCodexModel: AnyObject {
     var llm_enabled: Bool { get }
     var codexAccessToken: String? { get }
@@ -19,6 +20,7 @@ protocol AudioModeCodexModel: AnyObject {
     func saveTask(_ task: Tasks) async -> Tasks?
     func addSubTask(_ title: String, taskId: Int64) async -> SubTasks?
     func saveFleetingNote(_ request: CreateFleetingNoteRequest) async -> FleetingNote?
+    func createWorkReminder(title: String, notes: String?) async throws -> WorkReminder
 }
 
 @MainActor
@@ -28,6 +30,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
     @Published private(set) var isSending = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var statusMessage: String?
+    @Published private(set) var lastNoteResultSource: FleetingNoteSource?
 
     private let model: any AudioModeCodexModel
     private let codexClient: (any AudioModeCodexExecuting)?
@@ -68,7 +71,8 @@ final class AudioModeCodexCoordinator: ObservableObject {
             bannerText: bannerText,
             bannerTone: bannerTone,
             isSending: isSending,
-            isLLMDisabled: isLLMDisabled
+            isLLMDisabled: isLLMDisabled,
+            noteTargetStatusText: lastNoteResultSource.map { "Notes: \($0.displayName)" }
         )
     }
 
@@ -91,6 +95,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
         isSending = false
         errorMessage = nil
         statusMessage = nil
+        lastNoteResultSource = nil
     }
 
     func handleCommittedTranscript(_ transcript: String) {
@@ -246,7 +251,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
                 title: savedTask.title,
                 createdSubTaskTitles: createdSubTaskTitles,
                 failedSubTaskTitles: subTaskTitles
-            ))
+            ), kind: .taskCreated)
             return
         }
 
@@ -264,7 +269,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
             title: savedTask.title,
             createdSubTaskTitles: createdSubTaskTitles,
             failedSubTaskTitles: failedSubTaskTitles
-        ))
+        ), kind: .taskCreated)
     }
 
     private func handleCreateSubTask(arguments: [String: Any]) async throws {
@@ -289,7 +294,10 @@ final class AudioModeCodexCoordinator: ObservableObject {
             return
         }
 
-        appendToolResult("Subtask created under task \(parentTaskID) (id: \(savedSubTask.id.uuidString)): \(savedSubTask.title)")
+        appendToolResult(
+            "Subtask created under task \(parentTaskID) (id: \(savedSubTask.id.uuidString)): \(savedSubTask.title)",
+            kind: .subtaskCreated
+        )
     }
 
     private func parseTaskSchedule(arguments: [String: Any]) throws -> (startDate: Date?, duration: Double?) {
@@ -419,13 +427,34 @@ final class AudioModeCodexCoordinator: ObservableObject {
             return
         }
 
-        let request = CreateFleetingNoteRequest(note: trimmedNote)
-        guard let savedNote = await model.saveFleetingNote(request) else {
-            appendError("Fleeting note could not be saved.")
-            return
-        }
+        switch noteSource(in: arguments) {
+        case .personal:
+            let request = CreateFleetingNoteRequest(note: trimmedNote)
+            guard let savedNote = await model.saveFleetingNote(request) else {
+                appendError("Personal note could not be saved.")
+                return
+            }
 
-        appendToolResult("Fleeting note created (id: \(savedNote.id)): \(savedNote.note)")
+            lastNoteResultSource = .personal
+            appendToolResult(
+                "Personal note created (id: \(savedNote.id)): \(savedNote.note)",
+                kind: .personalNoteCreated
+            )
+        case .work:
+            do {
+                let savedReminder = try await model.createWorkReminder(title: trimmedNote, notes: nil)
+                lastNoteResultSource = .work
+                appendToolResult(
+                    "Work note created: \(savedReminder.title)",
+                    kind: .workNoteCreated
+                )
+            } catch {
+                lastNoteResultSource = .work
+                appendError(error.localizedDescription)
+            }
+        case .invalid:
+            appendError("Codex provided an unknown note source.")
+        }
     }
 
     private func resolvedCodexClient() -> (any AudioModeCodexExecuting)? {
@@ -455,13 +484,13 @@ final class AudioModeCodexCoordinator: ObservableObject {
         codexMessages.append(contentsOf: makeCodexMessages(role: .assistant, content: trimmed))
     }
 
-    private func appendToolResult(_ text: String) {
+    private func appendToolResult(_ text: String, kind: AudioToolResultKind? = nil) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             return
         }
 
-        conversationFeed.append(.init(role: .toolResult, content: trimmed))
+        conversationFeed.append(.init(role: .toolResult, content: trimmed, toolResultKind: kind))
         codexMessages.append(contentsOf: makeCodexMessages(role: .toolResult, content: trimmed))
     }
 
@@ -516,6 +545,27 @@ final class AudioModeCodexCoordinator: ObservableObject {
         }
 
         return nil
+    }
+
+    private enum NoteToolSource {
+        case personal
+        case work
+        case invalid
+    }
+
+    private func noteSource(in arguments: [String: Any]) -> NoteToolSource {
+        guard let rawSource = firstNonEmptyTrimmedStringValue(for: ["source", "scope"], in: arguments) else {
+            return .personal
+        }
+
+        switch rawSource.lowercased() {
+        case "personal":
+            return .personal
+        case "work":
+            return .work
+        default:
+            return .invalid
+        }
     }
 
     private func int64Value(for keys: [String], in arguments: [String: Any]) -> Int64? {
