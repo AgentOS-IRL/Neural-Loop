@@ -3,7 +3,7 @@ import Foundation
 // Transport models shared by iPhone and watch targets.
 // Keep these free of persistence, database, SwiftUI, and app-only fitness model dependencies.
 
-public struct WorkoutSessionPointer: Codable, Hashable, Identifiable {
+public nonisolated struct WorkoutSessionPointer: Codable, Hashable, Identifiable {
     public let id: String
     public var routineID: Int64?
     public var workoutSessionID: Int64?
@@ -15,7 +15,7 @@ public struct WorkoutSessionPointer: Codable, Hashable, Identifiable {
     }
 }
 
-public struct ActiveWorkoutSnapshot: Codable, Hashable, Identifiable {
+public nonisolated struct ActiveWorkoutSnapshot: Codable, Hashable, Identifiable {
     public var id: String { session.id }
     public var session: WorkoutSessionPointer
     public var title: String
@@ -32,7 +32,7 @@ public struct ActiveWorkoutSnapshot: Codable, Hashable, Identifiable {
     }
 }
 
-public struct ExerciseSnapshot: Codable, Hashable, Identifiable {
+public nonisolated struct ExerciseSnapshot: Codable, Hashable, Identifiable {
     public let id: String
     public var sourceExerciseID: Int64?
     public var name: String
@@ -52,7 +52,7 @@ public struct ExerciseSnapshot: Codable, Hashable, Identifiable {
     }
 }
 
-public struct SetSnapshot: Codable, Hashable, Identifiable {
+public nonisolated struct SetSnapshot: Codable, Hashable, Identifiable {
     public let id: String
     public var sourceSetID: String?
     public var setNumber: Int
@@ -68,7 +68,7 @@ public struct SetSnapshot: Codable, Hashable, Identifiable {
     }
 }
 
-public struct WorkoutSetValuesSnapshot: Codable, Hashable {
+public nonisolated struct WorkoutSetValuesSnapshot: Codable, Hashable {
     public var kg: Decimal?
     public var reps: Int?
     
@@ -78,7 +78,7 @@ public struct WorkoutSetValuesSnapshot: Codable, Hashable {
     }
 }
 
-public struct WorkoutWatchSessionAction: Codable, Hashable {
+public nonisolated struct WorkoutWatchSessionAction: Codable, Hashable {
     public var session: WorkoutSessionPointer
     
     public init(session: WorkoutSessionPointer) {
@@ -86,7 +86,7 @@ public struct WorkoutWatchSessionAction: Codable, Hashable {
     }
 }
 
-public struct WorkoutWatchSetReference: Codable, Hashable {
+public nonisolated struct WorkoutWatchSetReference: Codable, Hashable {
     public var session: WorkoutSessionPointer
     public var exerciseID: String
     public var setID: String
@@ -98,7 +98,7 @@ public struct WorkoutWatchSetReference: Codable, Hashable {
     }
 }
 
-public struct WorkoutWatchExerciseReference: Codable, Hashable {
+public nonisolated struct WorkoutWatchExerciseReference: Codable, Hashable {
     public var session: WorkoutSessionPointer
     public var exerciseID: String
     
@@ -108,7 +108,7 @@ public struct WorkoutWatchExerciseReference: Codable, Hashable {
     }
 }
 
-public struct WorkoutWatchSetValuesAction: Codable, Hashable {
+public nonisolated struct WorkoutWatchSetValuesAction: Codable, Hashable {
     public var reference: WorkoutWatchSetReference
     public var values: WorkoutSetValuesSnapshot
     
@@ -118,7 +118,7 @@ public struct WorkoutWatchSetValuesAction: Codable, Hashable {
     }
 }
 
-public struct WorkoutWatchSetCompletionAction: Codable, Hashable {
+public nonisolated struct WorkoutWatchSetCompletionAction: Codable, Hashable {
     public var reference: WorkoutWatchSetReference
     public var isCompleted: Bool
     
@@ -128,7 +128,7 @@ public struct WorkoutWatchSetCompletionAction: Codable, Hashable {
     }
 }
 
-public struct WorkoutWatchExerciseCompletionAction: Codable, Hashable {
+public nonisolated struct WorkoutWatchExerciseCompletionAction: Codable, Hashable {
     public var reference: WorkoutWatchExerciseReference
     public var isCompleted: Bool
     
@@ -138,7 +138,7 @@ public struct WorkoutWatchExerciseCompletionAction: Codable, Hashable {
     }
 }
 
-public enum WorkoutWatchActionPayload: Codable, Hashable {
+public nonisolated enum WorkoutWatchActionPayload: Codable, Hashable {
     case requestSnapshot(WorkoutWatchSessionAction)
     case updateSetValues(WorkoutWatchSetValuesAction)
     case toggleSetCompletion(WorkoutWatchSetCompletionAction)

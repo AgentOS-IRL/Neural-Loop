@@ -58,8 +58,11 @@ final class WatchWorkoutStore: ObservableObject {
     func finishWorkout() {
         guard let session = currentSnapshot?.session else { return }
         let action = WorkoutWatchActionPayload.finishWorkout(WorkoutWatchSessionAction(session: session))
-        connectivityManager.sendWorkoutAction(action)
-        clearStore()
+        connectivityManager.sendWorkoutAction(action) { [weak self] result in
+            if case .success = result {
+                self?.clearStore()
+            }
+        }
     }
     
     // MARK: - Persistence

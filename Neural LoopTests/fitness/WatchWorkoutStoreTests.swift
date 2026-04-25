@@ -60,8 +60,11 @@ final class WatchWorkoutStore: ObservableObject {
     func finishWorkout() {
         guard let session = currentSnapshot?.session else { return }
         let action = WorkoutWatchActionPayload.finishWorkout(WorkoutWatchSessionAction(session: session))
-        connectivityManager.sendWorkoutAction(action)
-        clearStore()
+        connectivityManager.sendWorkoutAction(action) { [weak self] result in
+            if case .success = result {
+                self?.clearStore()
+            }
+        }
     }
     
     private func saveToPersistence() {
@@ -214,6 +217,19 @@ final class WatchWorkoutStoreTests: XCTestCase {
         XCTAssertNil(UserDefaults.standard.data(forKey: storageKey))
     }
     
+    func testFinishWorkoutDoesNotClearStateOnFailure() {
+        // Given
+        store.currentSnapshot = createSampleSnapshot()
+        mockConnectivity.shouldFail = true
+        
+        // When
+        store.finishWorkout()
+        
+        // Then
+        XCTAssertNotNil(store.currentSnapshot)
+        XCTAssertNotNil(UserDefaults.standard.data(forKey: storageKey))
+    }
+    
     private func createSampleSnapshot() -> ActiveWorkoutSnapshot {
         let session = WorkoutSessionPointer(id: "test-session", routineID: 1, workoutSessionID: 1)
         return ActiveWorkoutSnapshot(
@@ -228,6 +244,7 @@ final class WatchWorkoutStoreTests: XCTestCase {
 
 class MockConnectivityManager: ConnectivityManager {
     var sentAction: WorkoutWatchActionPayload?
+    var shouldFail = false
     
     override init() {
         super.init()
@@ -235,6 +252,10 @@ class MockConnectivityManager: ConnectivityManager {
     
     override func sendWorkoutAction(_ action: WorkoutWatchActionPayload, completion: ((Result<Void, Error>) -> Void)? = nil) {
         self.sentAction = action
-        completion?(.success(()))
+        if shouldFail {
+            completion?(.failure(NSError(domain: "test", code: -1)))
+        } else {
+            completion?(.success(()))
+        }
     }
 }
