@@ -11,9 +11,8 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
 
     let dataManager: any WorkoutTemplateEditingDataManaging & WorkoutDataManaging
     let launchCoordinator: WorkoutSessionLaunching
-    private let persistenceManager: WorkoutDraftPersistenceManager
+    let persistenceManager: WorkoutDraftPersistenceManager
     private var hasLoaded = false
-    private var cancellables = Set<AnyCancellable>()
 
     init(
         summary: WorkoutTemplateSummary,
@@ -27,21 +26,6 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
         self.dataManager = dm
         self.persistenceManager = pm
         self.launchCoordinator = launchCoordinator ?? WorkoutSessionLaunchCoordinator(db: dm, persistenceManager: pm)
-        setupDraftPersistence()
-    }
-
-    private func setupDraftPersistence() {
-        $activeDraft
-            .dropFirst()
-            .debounce(for: .seconds(0.5), scheduler: RunLoop.main)
-            .sink { [weak self] draft in
-                if let draft = draft {
-                    self?.persistenceManager.save(draft: draft)
-                } else {
-                    self?.persistenceManager.clear()
-                }
-            }
-            .store(in: &cancellables)
     }
 
     func loadIfNeeded() async {
@@ -67,7 +51,6 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
     }
 
     func clearActiveDraft() {
-        persistenceManager.clear()
         activeDraft = nil
     }
 

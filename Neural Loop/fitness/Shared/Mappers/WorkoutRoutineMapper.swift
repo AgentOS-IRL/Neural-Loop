@@ -7,11 +7,13 @@ struct WorkoutRoutineMapper {
         allExercises: [ExerciseWithMuscles],
         allEquipment: [Equipment]
     ) -> ActiveWorkoutDraft {
+        let now = Date()
+
         // 1. Prepare WorkoutSession Draft
         let session = WorkoutSession(
             id: nil,
-            date: Date(),
-            start_time: WorkoutTimeCoding.string(from: Date()),
+            date: now,
+            start_time: WorkoutTimeCoding.string(from: now),
             end_time: nil,
             session_type: routine.name,
             notes: routine.notes
@@ -77,6 +79,12 @@ struct WorkoutRoutineMapper {
             )
         }
 
-        return ActiveWorkoutDraft(session: session, exercises: exerciseStates)
+        return ActiveWorkoutDraft(
+            routineID: routine.id ?? 0,
+            session: session,
+            exercises: exerciseStates,
+            createdAt: now,
+            updatedAt: now
+        )
     }
 }

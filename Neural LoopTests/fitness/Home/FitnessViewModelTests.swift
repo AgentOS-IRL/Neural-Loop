@@ -54,10 +54,10 @@ final class FitnessViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.templates.map(\.title), ["Full Body", "Leg Day", "Push Day"])
     }
 
-    func testRestoreDraftOnLoad() async {
-        let draft = ActiveWorkoutDraft(
-            session: WorkoutSession(id: nil, date: Date(), start_time: "10:00", end_time: nil, session_type: "Test", notes: nil),
-            exercises: []
+    func testLoadDoesNotRestorePersistedDraft() async {
+        let draft = makeDraft(
+            routineID: 1,
+            session: WorkoutSession(id: nil, date: Date(), start_time: "10:00", end_time: nil, session_type: "Test", notes: nil)
         )
         let userDefaults = UserDefaults(suiteName: "TestRestoreDraftOnLoad")!
         userDefaults.removePersistentDomain(forName: "TestRestoreDraftOnLoad")
@@ -71,14 +71,14 @@ final class FitnessViewModelTests: XCTestCase {
 
         await viewModel.loadIfNeeded()
 
-        XCTAssertNotNil(viewModel.activeDraft)
-        XCTAssertEqual(viewModel.activeDraft?.session.session_type, "Test")
+        XCTAssertNil(viewModel.activeDraft)
+        XCTAssertNotNil(persistenceManager.load(routineID: 1))
     }
 
-    func testClearActiveDraftSynchronouslyClearsPersistence() {
-        let draft = ActiveWorkoutDraft(
-            session: WorkoutSession(id: 1, date: Date(), start_time: "10:00", end_time: nil, session_type: "Test", notes: nil),
-            exercises: []
+    func testClearActiveDraftOnlyDismissesPresentation() {
+        let draft = makeDraft(
+            routineID: 1,
+            session: WorkoutSession(id: 1, date: Date(), start_time: "10:00", end_time: nil, session_type: "Test", notes: nil)
         )
         let userDefaults = UserDefaults(suiteName: "TestClearActiveDraft")!
         userDefaults.removePersistentDomain(forName: "TestClearActiveDraft")
@@ -93,10 +93,10 @@ final class FitnessViewModelTests: XCTestCase {
         viewModel.clearActiveDraft()
 
         XCTAssertNil(viewModel.activeDraft)
-        XCTAssertNil(persistenceManager.load(), "Persistence should be cleared immediately")
+        XCTAssertNotNil(persistenceManager.load(routineID: 1), "Parent dismissal should not clear routine draft persistence")
     }
 
-    func testSaveDraftOnUpdate() async {
+    func testActiveDraftUpdateDoesNotPersistFromParentViewModel() async {
         let userDefaults = UserDefaults(suiteName: "TestSaveDraftOnUpdate")!
         userDefaults.removePersistentDomain(forName: "TestSaveDraftOnUpdate")
         let persistenceManager = WorkoutDraftPersistenceManager(userDefaults: userDefaults)
@@ -106,9 +106,9 @@ final class FitnessViewModelTests: XCTestCase {
             persistenceManager: persistenceManager
         )
         
-        let draft = ActiveWorkoutDraft(
-            session: WorkoutSession(id: 1, date: Date(), start_time: "10:00", end_time: nil, session_type: "Test", notes: nil),
-            exercises: []
+        let draft = makeDraft(
+            routineID: 1,
+            session: WorkoutSession(id: 1, date: Date(), start_time: "10:00", end_time: nil, session_type: "Test", notes: nil)
         )
         
         viewModel.activeDraft = draft
@@ -116,9 +116,7 @@ final class FitnessViewModelTests: XCTestCase {
         // Wait for debounce
         try? await Task.sleep(nanoseconds: 600_000_000) // 0.6s
         
-        let savedDraft = persistenceManager.load()
-        XCTAssertNotNil(savedDraft)
-        XCTAssertEqual(savedDraft?.session.session_type, "Test")
+        XCTAssertNil(persistenceManager.load(routineID: 1))
     }
 
     func testReloadKeepsPreviousTemplatesWhenFetchingFails() async {
@@ -287,6 +285,22 @@ final class FitnessViewModelTests: XCTestCase {
             rest_seconds: nil,
             superset_group_id: nil,
             duration: nil
+        )
+    }
+
+    private func makeDraft(
+        routineID: Int64,
+        session: WorkoutSession,
+        exercises: [WorkoutExerciseCardState] = [],
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) -> ActiveWorkoutDraft {
+        ActiveWorkoutDraft(
+            routineID: routineID,
+            session: session,
+            exercises: exercises,
+            createdAt: createdAt,
+            updatedAt: updatedAt
         )
     }
 }

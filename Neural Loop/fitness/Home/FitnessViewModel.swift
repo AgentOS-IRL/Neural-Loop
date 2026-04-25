@@ -11,10 +11,9 @@ final class FitnessViewModel: ObservableObject {
 
     private let dataManager: FitnessTemplateDataManaging & WorkoutDataManaging
     let launchCoordinator: WorkoutSessionLaunching
-    private let persistenceManager: WorkoutDraftPersistenceManager
+    let persistenceManager: WorkoutDraftPersistenceManager
     private var hasLoaded = false
     private var stateRevision: UInt64 = 0
-    private var cancellables = Set<AnyCancellable>()
 
     init(
         dataManager: (any FitnessTemplateDataManaging & WorkoutDataManaging)? = nil,
@@ -26,21 +25,6 @@ final class FitnessViewModel: ObservableObject {
         self.dataManager = dm
         self.persistenceManager = pm
         self.launchCoordinator = launchCoordinator ?? WorkoutSessionLaunchCoordinator(db: dm, persistenceManager: pm)
-        setupDraftPersistence()
-    }
-
-    private func setupDraftPersistence() {
-        $activeDraft
-            .dropFirst()
-            .debounce(for: .seconds(0.5), scheduler: RunLoop.main)
-            .sink { [weak self] draft in
-                if let draft = draft {
-                    self?.persistenceManager.save(draft: draft)
-                } else {
-                    self?.persistenceManager.clear()
-                }
-            }
-            .store(in: &cancellables)
     }
 
     func startWorkout(routineID: Int64) async {
@@ -58,7 +42,6 @@ final class FitnessViewModel: ObservableObject {
     }
 
     func clearActiveDraft() {
-        persistenceManager.clear()
         activeDraft = nil
     }
 
@@ -82,14 +65,7 @@ final class FitnessViewModel: ObservableObject {
             return
         }
 
-        checkPersistedDraft()
         await load()
-    }
-
-    private func checkPersistedDraft() {
-        if let draft = persistenceManager.load() {
-            self.activeDraft = draft
-        }
     }
 
     func reload() async {
