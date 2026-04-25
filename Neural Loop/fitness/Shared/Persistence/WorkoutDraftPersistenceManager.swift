@@ -3,6 +3,7 @@ import Foundation
 nonisolated final class WorkoutDraftPersistenceManager: @unchecked Sendable {
     private let userDefaults: UserDefaults
     private let legacyDraftKey = "active_workout_draft"
+    private let sessionPointerKey = "active_workout_session_pointer"
     private let draftTTL: TimeInterval = 24 * 60 * 60
 
     init(userDefaults: UserDefaults = .standard) {
@@ -73,12 +74,56 @@ nonisolated final class WorkoutDraftPersistenceManager: @unchecked Sendable {
         }
     }
 
+    func saveActiveSessionPointer(_ pointer: WorkoutSessionPointer) {
+        do {
+            let data = try JSONEncoder().encode(pointer)
+            userDefaults.set(data, forKey: sessionPointerKey)
+        } catch {
+            print("Failed to encode workout session pointer: \(error)")
+        }
+    }
+
+    func loadActiveSessionPointer() -> WorkoutSessionPointer? {
+        guard let data = userDefaults.data(forKey: sessionPointerKey) else { return nil }
+
+        do {
+            let pointer = try JSONDecoder().decode(WorkoutSessionPointer.self, from: data)
+
+            // Verify the draft still exists and is not stale
+            guard let routineID = pointer.routineID else {
+                clearActiveSessionPointer()
+                return nil
+            }
+
+            if load(routineID: routineID) != nil {
+                return pointer
+            } else {
+                clearActiveSessionPointer()
+                return nil
+            }
+        } catch {
+            print("Failed to decode workout session pointer: \(error)")
+            clearActiveSessionPointer()
+            return nil
+        }
+    }
+
+    func clearActiveSessionPointer() {
+        userDefaults.removeObject(forKey: sessionPointerKey)
+    }
+
     func clear(routineID: Int64) {
         userDefaults.removeObject(forKey: draftKey(for: routineID))
+
+        if let data = userDefaults.data(forKey: sessionPointerKey),
+           let pointer = try? JSONDecoder().decode(WorkoutSessionPointer.self, from: data),
+           pointer.routineID == routineID {
+            clearActiveSessionPointer()
+        }
     }
 }
 
-private struct LegacyActiveWorkoutDraft: Codable {
+nonisolated private struct LegacyActiveWorkoutDraft: Codable {
     var session: WorkoutSession
     var exercises: [WorkoutExerciseCardState]
 }
