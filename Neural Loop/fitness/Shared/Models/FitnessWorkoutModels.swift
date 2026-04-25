@@ -61,6 +61,7 @@ struct WorkoutSetDraft: Identifiable, Equatable, Codable {
     var distanceText: String
     var caloriesText: String
     var isCompleted: Bool
+    var superset_group_id: Int?
 
     init(
         id: UUID = UUID(),
@@ -71,7 +72,8 @@ struct WorkoutSetDraft: Identifiable, Equatable, Codable {
         durationText: String = "",
         distanceText: String = "",
         caloriesText: String = "",
-        isCompleted: Bool = false
+        isCompleted: Bool = false,
+        superset_group_id: Int? = nil
     ) {
         self.id = id
         self.dbId = dbId
@@ -82,6 +84,7 @@ struct WorkoutSetDraft: Identifiable, Equatable, Codable {
         self.distanceText = distanceText
         self.caloriesText = caloriesText
         self.isCompleted = isCompleted
+        self.superset_group_id = superset_group_id
     }
 
     func weightAccessibilityLabel(exerciseName: String) -> String {
