@@ -41,10 +41,24 @@ extension UnifiedDataModel {
     }
 
     func createWorkReminder(title: String, notes: String? = nil, dueDate: Date? = nil) async throws -> WorkReminder {
+        let dateResolver: (any GenesysReminderDateResolving)?
+        if dueDate == nil,
+           llm_enabled,
+           let codexAccessToken,
+           let codexAccountID {
+            dateResolver = CodexGenesysReminderDateResolver(
+                accessToken: codexAccessToken,
+                accountID: codexAccountID
+            )
+        } else {
+            dateResolver = nil
+        }
+
         try await workReminderService.createGenesysReminder(
             title: title,
             notes: notes,
-            dueDate: dueDate
+            dueDate: dueDate,
+            dateResolver: dateResolver
         )
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import EventKit
+import CodexCore
 
 struct WorkReminder: Identifiable, Equatable {
     let id: String
@@ -93,22 +94,44 @@ protocol EventKitReminderStore {
     func deleteReminder(id: String) async throws
 }
 
+protocol GenesysReminderDateResolving {
+    func inferDueDate(title: String, notes: String?, currentDate: Date, timeZone: TimeZone) async throws -> Date?
+}
+
+protocol GenesysReminderCodexExecuting {
+    func converse(
+        messages: [CodexInputMessage],
+        state: CodexConversationState,
+        tools: [CodexTool],
+        instructions: String
+    ) async throws -> CodexIntentResult
+}
+
 final class GenesysReminderService {
     private let store: any EventKitReminderStore
     private let sourceTitle: String
     private let sourceType: EKSourceType
     private let preferredCalendarTitle: String?
+    private let dateResolver: (any GenesysReminderDateResolving)?
+    private let now: () -> Date
+    private let timeZone: () -> TimeZone
 
     init(
         store: any EventKitReminderStore = EKEventStoreReminderStore(),
         sourceTitle: String = "Genesys",
         sourceType: EKSourceType = .exchange,
-        preferredCalendarTitle: String? = nil
+        preferredCalendarTitle: String? = nil,
+        dateResolver: (any GenesysReminderDateResolving)? = nil,
+        now: @escaping () -> Date = Date.init,
+        timeZone: @escaping () -> TimeZone = { .current }
     ) {
         self.store = store
         self.sourceTitle = sourceTitle
         self.sourceType = sourceType
         self.preferredCalendarTitle = preferredCalendarTitle
+        self.dateResolver = dateResolver
+        self.now = now
+        self.timeZone = timeZone
     }
 
     func requestReminderAccess() async throws -> Bool {
@@ -142,7 +165,8 @@ final class GenesysReminderService {
     func createGenesysReminder(
         title: String,
         notes: String? = nil,
-        dueDate: Date? = nil
+        dueDate: Date? = nil,
+        dateResolver: (any GenesysReminderDateResolving)? = nil
     ) async throws -> WorkReminder {
         _ = try await requestReminderAccess()
 
@@ -152,13 +176,25 @@ final class GenesysReminderService {
         }
 
         let trimmedNotes = notes?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedNotes = trimmedNotes?.isEmpty == true ? nil : trimmedNotes
         let calendar = try writableGenesysCalendar()
+
+        let resolvedDueDate: Date?
+        if let dueDate {
+            resolvedDueDate = dueDate
+        } else {
+            resolvedDueDate = await inferDueDateIfPossible(
+                title: trimmedTitle,
+                notes: normalizedNotes,
+                resolver: dateResolver ?? self.dateResolver
+            )
+        }
 
         do {
             let snapshot = try await store.createReminder(
                 title: trimmedTitle,
-                notes: trimmedNotes?.isEmpty == true ? nil : trimmedNotes,
-                dueDate: dueDate,
+                notes: normalizedNotes,
+                dueDate: resolvedDueDate,
                 calendarID: calendar.id
             )
             return Self.makeWorkReminder(snapshot)
@@ -166,6 +202,27 @@ final class GenesysReminderService {
             throw error
         } catch {
             throw GenesysReminderServiceError.saveFailed(error.localizedDescription)
+        }
+    }
+
+    private func inferDueDateIfPossible(
+        title: String,
+        notes: String?,
+        resolver: (any GenesysReminderDateResolving)?
+    ) async -> Date? {
+        guard let resolver else {
+            return nil
+        }
+
+        do {
+            return try await resolver.inferDueDate(
+                title: title,
+                notes: notes,
+                currentDate: now(),
+                timeZone: timeZone()
+            )
+        } catch {
+            return nil
         }
     }
 
@@ -263,6 +320,242 @@ final class GenesysReminderService {
         }
 
         return lhs.createdAt > rhs.createdAt
+    }
+}
+
+final class CodexStructuredToolGenesysReminderDateAdapter: GenesysReminderCodexExecuting {
+    private let tool: CodexStructuredTool
+
+    init(tool: CodexStructuredTool) {
+        self.tool = tool
+    }
+
+    func converse(
+        messages: [CodexInputMessage],
+        state: CodexConversationState,
+        tools: [CodexTool],
+        instructions: String
+    ) async throws -> CodexIntentResult {
+        try await tool.converse(
+            messages: messages,
+            state: state,
+            tools: tools,
+            instructions: instructions
+        )
+    }
+}
+
+final class CodexGenesysReminderDateResolver: GenesysReminderDateResolving {
+    private let codexClient: any GenesysReminderCodexExecuting
+
+    init(codexClient: any GenesysReminderCodexExecuting) {
+        self.codexClient = codexClient
+    }
+
+    convenience init(accessToken: String, accountID: String) {
+        self.init(
+            codexClient: CodexStructuredToolGenesysReminderDateAdapter(
+                tool: CodexStructuredTool(access_token: accessToken, account_id: accountID)
+            )
+        )
+    }
+
+    func inferDueDate(title: String, notes: String?, currentDate: Date, timeZone: TimeZone) async throws -> Date? {
+        let result = try await codexClient.converse(
+            messages: [
+                CodexInputMessage(
+                    role: "user",
+                    content: [
+                        CodexInputContent(
+                            type: "input_text",
+                            text: Self.prompt(title: title, notes: notes, currentDate: currentDate, timeZone: timeZone)
+                        )
+                    ]
+                )
+            ],
+            state: CodexConversationState(),
+            tools: [Self.dueDateTool],
+            instructions: Self.instructions(currentDate: currentDate, timeZone: timeZone)
+        )
+
+        switch result.action {
+        case .callTool(let name, let arguments):
+            guard Self.normalizedToolName(name) == Self.dueDateToolName else {
+                throw CodexGenesysReminderDateResolverError.unexpectedTool(name)
+            }
+            return try Self.parseDueDate(from: arguments, timeZone: timeZone)
+
+        case .clarify:
+            throw CodexGenesysReminderDateResolverError.missingToolCall
+        }
+    }
+
+    private static let dueDateToolName = "resolve_genesys_reminder_due_date"
+
+    private static let dueDateTool = CodexTool(
+        name: dueDateToolName,
+        description: "Return the inferred Genesys work reminder due date, or null when the title and notes do not contain an explicit or strongly implied date.",
+        parameters: .object([
+            "type": .string("object"),
+            "properties": .object([
+                "due_date": .object([
+                    "type": .array([.string("string"), .string("null")]),
+                    "description": .string("Optional ISO-8601 due date. Use null if no date can be inferred.")
+                ])
+            ]),
+            "required": .array([.string("due_date")])
+        ])
+    )
+
+    private static func instructions(currentDate: Date, timeZone: TimeZone) -> String {
+        """
+        Infer a due date for a Genesys work reminder.
+        CURRENT DATE AND TIME: \(isoString(from: currentDate, timeZone: timeZone)).
+        LOCAL TIME ZONE: \(timeZone.identifier).
+        Rules:
+        - Infer a due date only from explicit or strongly implied date language in the reminder title or notes.
+        - Use CURRENT DATE AND TIME as the anchor for relative phrases like tomorrow, next Monday, or Friday afternoon.
+        - If the text contains a date but no time, default to 15:00:00 in the provided time zone.
+        - If the text contains no date clue, call \(dueDateToolName) with due_date: null.
+        - Do not rewrite the reminder title or notes.
+        - Return exactly one due date or null.
+        """
+    }
+
+    private static func prompt(title: String, notes: String?, currentDate: Date, timeZone: TimeZone) -> String {
+        var lines = [
+            "CURRENT DATE AND TIME: \(isoString(from: currentDate, timeZone: timeZone))",
+            "LOCAL TIME ZONE: \(timeZone.identifier)",
+            "REMINDER TITLE: \(title)"
+        ]
+
+        if let notes, !notes.isEmpty {
+            lines.append("REMINDER NOTES: \(notes)")
+        } else {
+            lines.append("REMINDER NOTES: null")
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    private static func parseDueDate(from arguments: [String: Any], timeZone: TimeZone) throws -> Date? {
+        guard let rawValue = arguments["due_date"] ?? arguments["dueDate"] else {
+            return nil
+        }
+
+        if rawValue is NSNull {
+            return nil
+        }
+
+        guard let dueDateString = rawValue as? String else {
+            throw CodexGenesysReminderDateResolverError.malformedDueDate(String(describing: rawValue))
+        }
+
+        let trimmedDueDate = dueDateString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedDueDate.isEmpty else {
+            return nil
+        }
+
+        if let date = parseISODate(trimmedDueDate, timeZone: timeZone) {
+            return date
+        }
+
+        if let date = parseDateOnly(trimmedDueDate, timeZone: timeZone) {
+            return date
+        }
+
+        throw CodexGenesysReminderDateResolverError.malformedDueDate(trimmedDueDate)
+    }
+
+    private static func parseISODate(_ value: String, timeZone: TimeZone) -> Date? {
+        for formatter in iso8601DateFormatters {
+            if let date = formatter.date(from: value) {
+                return date
+            }
+        }
+
+        for format in localISODateTimeFormats {
+            let formatter = DateFormatter()
+            formatter.calendar = Calendar(identifier: .gregorian)
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.timeZone = timeZone
+            formatter.dateFormat = format
+
+            if let date = formatter.date(from: value) {
+                return date
+            }
+        }
+
+        return nil
+    }
+
+    private static func parseDateOnly(_ value: String, timeZone: TimeZone) -> Date? {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+
+        guard let date = formatter.date(from: value) else {
+            return nil
+        }
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        return calendar.date(from: DateComponents(
+            timeZone: timeZone,
+            year: components.year,
+            month: components.month,
+            day: components.day,
+            hour: 15,
+            minute: 0,
+            second: 0
+        ))
+    }
+
+    private static func isoString(from date: Date, timeZone: TimeZone) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        formatter.timeZone = timeZone
+        return formatter.string(from: date)
+    }
+
+    private static func normalizedToolName(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private static let iso8601DateFormatters: [ISO8601DateFormatter] = {
+        let withFractionalSeconds = ISO8601DateFormatter()
+        withFractionalSeconds.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        let withoutFractionalSeconds = ISO8601DateFormatter()
+        withoutFractionalSeconds.formatOptions = [.withInternetDateTime]
+
+        return [withFractionalSeconds, withoutFractionalSeconds]
+    }()
+
+    private static let localISODateTimeFormats = [
+        "yyyy-MM-dd'T'HH:mm:ss.SSS",
+        "yyyy-MM-dd'T'HH:mm:ss",
+        "yyyy-MM-dd'T'HH:mm"
+    ]
+}
+
+private enum CodexGenesysReminderDateResolverError: LocalizedError, Equatable {
+    case unexpectedTool(String)
+    case missingToolCall
+    case malformedDueDate(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .unexpectedTool(let name):
+            return "Codex returned an unexpected Genesys reminder date tool: \(name)"
+        case .missingToolCall:
+            return "Codex did not return a Genesys reminder date tool call."
+        case .malformedDueDate(let value):
+            return "Codex returned an invalid Genesys reminder due date: \(value)"
+        }
     }
 }
 
