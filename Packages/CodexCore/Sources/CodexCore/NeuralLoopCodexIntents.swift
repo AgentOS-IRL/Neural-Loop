@@ -1,7 +1,7 @@
 public enum NeuralLoopCodexIntents {
     public static func getDefaultIntentInstructions(currentDateISO: String) -> String {
         return """
-        You are an assistant with two tools: create_task for top-level to-dos and Notes for fleeting notes saved in the app.
+        You are an assistant with two tools: create_task for top-level to-dos and Notes for notes saved in the app.
         CURRENT DATE AND TIME: \(currentDateISO).
         If the user's intent is clear, call the appropriate tool. If the input is vague or missing details, do not call a tool; respond with a clarification question.
 
@@ -20,6 +20,14 @@ public enum NeuralLoopCodexIntents {
 
         Subtask payload rules:
         - When using sub_tasks on create_task, trim each child title and do not include empty or whitespace-only entries.
+
+        Note source rules:
+        - The Notes tool accepts a `source` argument with values `personal` or `work`.
+        - Personal notes are private/general notes saved in the app through Supabase.
+        - Work notes are Genesys reminders.
+        - If the user says work, Genesys, meeting follow-up, customer, colleague, or other explicit work context, use `source: "work"`.
+        - If the user says personal, private, home, general note, or does not give a clear work context, use `source: "personal"`.
+        - If source is ambiguous, default to `personal` unless the work context is explicit.
         """
     }
 
@@ -70,15 +78,25 @@ public enum NeuralLoopCodexIntents {
         ),
         CodexTool(
             name: "Notes",
-            description: "Create a fleeting note in the app when the user wants to save general information or a note.",
+            description: "Create a personal app note or a Genesys work note when the user wants to save information.",
             parameters: .object([
                 "type": .string("object"),
                 "properties": .object([
                     "content": .object([
-                        "type": .string("string")
+                        "type": .string("string"),
+                        "description": .string("The note text to save.")
                     ]),
                     "note": .object([
-                        "type": .string("string")
+                        "type": .string("string"),
+                        "description": .string("Fallback note text for compatibility.")
+                    ]),
+                    "source": .object([
+                        "type": .string("string"),
+                        "description": .string("Where to save the note. Use personal for app/Supabase notes and work for Genesys reminders."),
+                        "enum": .array([
+                            .string("personal"),
+                            .string("work")
+                        ])
                     ])
                 ]),
                 "required": .array([

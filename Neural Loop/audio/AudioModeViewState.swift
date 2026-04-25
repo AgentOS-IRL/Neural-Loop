@@ -28,6 +28,23 @@ struct AudioModeConversationViewData: Equatable {
     let bannerTone: AudioModeBannerTone?
     let isSending: Bool
     let isLLMDisabled: Bool
+    let noteTargetStatusText: String?
+
+    init(
+        messages: [AudioTranscriptMessage],
+        bannerText: String?,
+        bannerTone: AudioModeBannerTone?,
+        isSending: Bool,
+        isLLMDisabled: Bool,
+        noteTargetStatusText: String? = nil
+    ) {
+        self.messages = messages
+        self.bannerText = bannerText
+        self.bannerTone = bannerTone
+        self.isSending = isSending
+        self.isLLMDisabled = isLLMDisabled
+        self.noteTargetStatusText = noteTargetStatusText
+    }
 
     var scrollTargetMessageID: AudioTranscriptMessage.ID? {
         messages.last?.id
@@ -121,7 +138,7 @@ struct AudioModeViewState: Equatable {
             emptyDetail = "Committed voice segments are sent automatically, and replies or tool results stay pinned in this feed."
         }
 
-        let chips = [heroBadge, conversationHeaderBadge].compactMap { $0 }
+        let chips = [heroBadge, conversationHeaderBadge, conversation.noteTargetStatusText].compactMap { $0 }
 
         self.hero = Hero(
             title: transcription.title,

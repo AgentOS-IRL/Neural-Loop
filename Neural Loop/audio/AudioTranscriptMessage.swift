@@ -42,24 +42,57 @@ enum AudioTranscriptMessageRole: String, Equatable {
     }
 }
 
+enum AudioToolResultKind: Equatable {
+    case personalNoteCreated
+    case workNoteCreated
+    case taskCreated
+    case subtaskCreated
+
+    var badgeText: String? {
+        switch self {
+        case .personalNoteCreated:
+            return "Personal"
+        case .workNoteCreated:
+            return "Work"
+        case .taskCreated, .subtaskCreated:
+            return nil
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .personalNoteCreated:
+            return "note.text"
+        case .workNoteCreated:
+            return "briefcase.fill"
+        case .taskCreated, .subtaskCreated:
+            return "checkmark.seal.fill"
+        }
+    }
+}
+
 struct AudioTranscriptMessage: Identifiable, Equatable {
     let id: UUID
     let role: AudioTranscriptMessageRole
     let content: String
+    let toolResultKind: AudioToolResultKind?
 
     init(
         id: UUID = UUID(),
         role: AudioTranscriptMessageRole = .user,
-        content: String
+        content: String,
+        toolResultKind: AudioToolResultKind? = nil
     ) {
         self.id = id
         self.role = role
         self.content = content
+        self.toolResultKind = toolResultKind
     }
 
     static func == (lhs: AudioTranscriptMessage, rhs: AudioTranscriptMessage) -> Bool {
         lhs.id == rhs.id &&
         lhs.role == rhs.role &&
-        lhs.content == rhs.content
+        lhs.content == rhs.content &&
+        lhs.toolResultKind == rhs.toolResultKind
     }
 }

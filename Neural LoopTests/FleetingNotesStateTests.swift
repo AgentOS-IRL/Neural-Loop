@@ -21,10 +21,12 @@ final class FleetingNotesStateTests: XCTestCase {
         }
 
         XCTAssertEqual(content.summary.eyebrow, "Captured moments")
-        XCTAssertEqual(content.summary.title, "2 fleeting notes")
+        XCTAssertEqual(content.summary.title, "2 notes")
         XCTAssertEqual(content.summary.subtitle, "Latest thought: Today at 20:30")
-        XCTAssertEqual(content.cards.map(\.id), [2, 1])
+        XCTAssertEqual(content.cards.map(\.id), ["personal-2", "personal-1"])
         XCTAssertEqual(content.cards.first?.note, "Newer thought")
+        XCTAssertEqual(content.cards.first?.source, .personal)
+        XCTAssertEqual(content.cards.first?.badgeText, "Personal")
     }
 
     func testLoadedStateReturnsEmptyWhenNoNotesExist() {
@@ -41,7 +43,129 @@ final class FleetingNotesStateTests: XCTestCase {
         }
 
         XCTAssertEqual(summary.eyebrow, "Fresh capture")
-        XCTAssertEqual(summary.title, "No fleeting notes yet")
+        XCTAssertEqual(summary.title, "No notes yet")
+    }
+
+    func testLoadedStateMergesPersonalAndWorkNotesNewestFirst() {
+        let now = date("2026-04-15T21:00:00Z")
+        let personal = FleetingNote(id: 1, created_at: now.addingTimeInterval(-7_200), note: "Personal thought")
+        let work = WorkReminder(
+            id: "abc",
+            title: "Follow up with customer",
+            notes: "Bring renewal details",
+            createdAt: now.addingTimeInterval(-1_800),
+            dueDate: nil,
+            calendarTitle: "Reminders",
+            sourceTitle: "Genesys"
+        )
+
+        let state = FleetingNotesStateMapper.makeLoadedState(
+            personalNotes: [personal],
+            workReminders: [work],
+            filter: .all,
+            now: now,
+            calendar: calendarUTC,
+            locale: locale,
+            timeZone: timeZoneUTC
+        )
+
+        guard case .content(let content) = state else {
+            return XCTFail("Expected content state")
+        }
+
+        XCTAssertEqual(content.cards.map(\.id), ["work-abc", "personal-1"])
+        XCTAssertEqual(content.cards.map(\.source), [.work, .personal])
+        XCTAssertEqual(content.cards.first?.badgeText, "Work")
+        XCTAssertEqual(content.cards.first?.sourceSubtitle, "Reminders")
+        XCTAssertEqual(content.cards.first?.workNotes, "Bring renewal details")
+    }
+
+    func testWorkFilterOnlyIncludesWorkNotes() {
+        let now = date("2026-04-15T21:00:00Z")
+        let personal = FleetingNote(id: 1, created_at: now, note: "Personal thought")
+        let work = WorkReminder(
+            id: "abc",
+            title: "Follow up with customer",
+            notes: nil,
+            createdAt: now.addingTimeInterval(-1_800),
+            dueDate: nil,
+            calendarTitle: "Reminders",
+            sourceTitle: "Genesys"
+        )
+
+        let state = FleetingNotesStateMapper.makeLoadedState(
+            personalNotes: [personal],
+            workReminders: [work],
+            filter: .work,
+            now: now,
+            calendar: calendarUTC,
+            locale: locale,
+            timeZone: timeZoneUTC
+        )
+
+        guard case .content(let content) = state else {
+            return XCTFail("Expected content state")
+        }
+
+        XCTAssertEqual(content.summary.title, "1 work note")
+        XCTAssertEqual(content.cards.map(\.source), [.work])
+    }
+
+    func testPersonalFilterOnlyIncludesPersonalNotes() {
+        let now = date("2026-04-15T21:00:00Z")
+        let personal = FleetingNote(id: 1, created_at: now, note: "Personal thought")
+        let work = WorkReminder(
+            id: "abc",
+            title: "Follow up with customer",
+            notes: nil,
+            createdAt: now.addingTimeInterval(-1_800),
+            dueDate: nil,
+            calendarTitle: "Reminders",
+            sourceTitle: "Genesys"
+        )
+
+        let state = FleetingNotesStateMapper.makeLoadedState(
+            personalNotes: [personal],
+            workReminders: [work],
+            filter: .personal,
+            now: now,
+            calendar: calendarUTC,
+            locale: locale,
+            timeZone: timeZoneUTC
+        )
+
+        guard case .content(let content) = state else {
+            return XCTFail("Expected content state")
+        }
+
+        XCTAssertEqual(content.summary.title, "1 personal note")
+        XCTAssertEqual(content.cards.map(\.source), [.personal])
+    }
+
+    func testWorkFilterEmptyStateIsSourceAware() {
+        let state = FleetingNotesStateMapper.makeLoadedState(
+            personalNotes: [
+                FleetingNote(
+                    id: 1,
+                    created_at: date("2026-04-15T21:00:00Z"),
+                    note: "Personal thought"
+                )
+            ],
+            workReminders: [],
+            filter: .work,
+            now: date("2026-04-15T21:00:00Z"),
+            calendar: calendarUTC,
+            locale: locale,
+            timeZone: timeZoneUTC
+        )
+
+        guard case .empty(let summary) = state else {
+            return XCTFail("Expected empty state")
+        }
+
+        XCTAssertEqual(summary.eyebrow, "Work notes")
+        XCTAssertEqual(summary.title, "No Genesys work notes")
+        XCTAssertEqual(summary.subtitle, "Switch to All or Personal to see other notes.")
     }
 
     func testRelativeTimestampFormatsTodayYesterdayAndOlderDates() {
