@@ -44,8 +44,12 @@ struct WorkoutSessionLoader {
                     let v2 = ($1.weight ?? 0) * Decimal($1.reps)
                     return v1 < v2
                 }) {
-                    let weightStr = bestSet.weight.map { NumericFormatter.format($0) } ?? "0"
-                    updatedExercises[i].historicalHint = "Last: \(weightStr)kg x \(bestSet.reps)"
+                    if let weight = bestSet.weight {
+                        let weightStr = NumericFormatter.format(weight)
+                        updatedExercises[i].historicalHint = "Last: \(weightStr)kg x \(bestSet.reps)"
+                    } else {
+                        updatedExercises[i].historicalHint = "Last: \(bestSet.reps) reps"
+                    }
                 }
                 
             } catch {

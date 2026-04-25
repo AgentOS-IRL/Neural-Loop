@@ -105,6 +105,20 @@ final class WorkoutSessionLoaderTests: XCTestCase {
         // 100 * 10 = 1000 volume, so 100kg x 10 is better than 200kg x 2
         XCTAssertEqual(results[0].historicalHint, "Last: \(NumericFormatter.format(100))kg x 10")
     }
+
+    func testHistoricalHintForBodyweightExercise() async {
+        let exerciseId: Int64 = 101
+        let exercise = ExerciseLibraryItem(id: exerciseId, name: "Pushup", type: .repBased, equipmentID: nil, equipmentName: "None")
+        let exerciseState = WorkoutExerciseCardState(id: 1, exercise: exercise, sets: [])
+        
+        db.stubHistory[exerciseId] = [
+            WorkoutSet(id: 1, workout_session_id: 1, exercise_id: exerciseId, set_number: 1, reps: 20, weight: nil, superset_group_id: nil)
+        ]
+        
+        let results = await loader.prefillHistoricalWeights(for: [exerciseState])
+        
+        XCTAssertEqual(results[0].historicalHint, "Last: 20 reps")
+    }
     
     func testMixedNilNonNilWeights() async {
         let exerciseId: Int64 = 101
