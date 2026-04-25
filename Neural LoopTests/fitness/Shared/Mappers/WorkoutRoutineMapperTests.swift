@@ -27,6 +27,8 @@ final class WorkoutRoutineMapperTests: XCTestCase {
         )
         
         // Then
+        XCTAssertEqual(state.routineID, 1)
+        XCTAssertEqual(state.createdAt, state.updatedAt)
         XCTAssertEqual(state.exercises.count, 3)
         XCTAssertEqual(state.exercises[0].exercise.id, 101)
         XCTAssertEqual(state.exercises[1].exercise.id, 100)
@@ -139,7 +141,7 @@ final class WorkoutRoutineMapperTests: XCTestCase {
                 targetDuration: nil
             )
         ]
-        let originalState = ActiveWorkoutDraft(session: session, exercises: exercises)
+        let originalState = makeDraft(routineID: 42, session: session, exercises: exercises)
         
         // When
         let data = try JSONEncoder().encode(originalState)
@@ -147,6 +149,9 @@ final class WorkoutRoutineMapperTests: XCTestCase {
         
         // Then
         XCTAssertEqual(originalState.exercises.count, decodedState.exercises.count)
+        XCTAssertEqual(originalState.routineID, decodedState.routineID)
+        XCTAssertEqual(originalState.createdAt, decodedState.createdAt)
+        XCTAssertEqual(originalState.updatedAt, decodedState.updatedAt)
         XCTAssertEqual(originalState.exercises[0].exercise.name, decodedState.exercises[0].exercise.name)
         XCTAssertEqual(originalState.session.id, decodedState.session.id)
         XCTAssertEqual(originalState.session.session_type, decodedState.session.session_type)
@@ -189,5 +194,21 @@ final class WorkoutRoutineMapperTests: XCTestCase {
         XCTAssertEqual(state.exercises[0].supersetLabel, "Superset A")
         XCTAssertEqual(state.exercises[1].supersetLabel, "Superset A")
         XCTAssertNil(state.exercises[2].supersetLabel)
+    }
+
+    private func makeDraft(
+        routineID: Int64,
+        session: WorkoutSession,
+        exercises: [WorkoutExerciseCardState],
+        createdAt: Date = Date(timeIntervalSince1970: 1_000),
+        updatedAt: Date = Date(timeIntervalSince1970: 1_000)
+    ) -> ActiveWorkoutDraft {
+        ActiveWorkoutDraft(
+            routineID: routineID,
+            session: session,
+            exercises: exercises,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
     }
 }

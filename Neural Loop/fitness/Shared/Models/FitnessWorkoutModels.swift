@@ -108,10 +108,27 @@ struct WorkoutSetDraft: Identifiable, Equatable, Codable {
     }
 }
 
-struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
-    var id: Int64 { session.id ?? 0 }
+nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
+    let routineID: Int64
+    var id: Int64 { routineID }
     var session: WorkoutSession
     var exercises: [WorkoutExerciseCardState]
+    var createdAt: Date
+    var updatedAt: Date
+
+    init(
+        routineID: Int64,
+        session: WorkoutSession,
+        exercises: [WorkoutExerciseCardState],
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.routineID = routineID
+        self.session = session
+        self.exercises = exercises
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
 }
 
 struct WorkoutTemplateSummary: Identifiable, Equatable {

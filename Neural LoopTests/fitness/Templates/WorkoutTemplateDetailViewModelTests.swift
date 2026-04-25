@@ -127,10 +127,10 @@ final class WorkoutTemplateDetailViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.rows.isEmpty)
     }
 
-    func testClearActiveDraftSynchronouslyClearsPersistence() {
-        let draft = ActiveWorkoutDraft(
-            session: WorkoutSession(id: 1, date: Date(), start_time: "10:00", end_time: nil, session_type: "Test", notes: nil),
-            exercises: []
+    func testClearActiveDraftOnlyDismissesPresentation() {
+        let draft = makeDraft(
+            routineID: 1,
+            session: WorkoutSession(id: 1, date: Date(), start_time: "10:00", end_time: nil, session_type: "Test", notes: nil)
         )
         let userDefaults = UserDefaults(suiteName: "TestClearActiveDraftDetail")!
         userDefaults.removePersistentDomain(forName: "TestClearActiveDraftDetail")
@@ -146,7 +146,7 @@ final class WorkoutTemplateDetailViewModelTests: XCTestCase {
         viewModel.clearActiveDraft()
 
         XCTAssertNil(viewModel.activeDraft)
-        XCTAssertNil(persistenceManager.load(), "Persistence should be cleared immediately")
+        XCTAssertNotNil(persistenceManager.load(routineID: 1), "Parent dismissal should not clear routine draft persistence")
     }
 
     private func equipment(id: Int64, name: String) -> Equipment {
@@ -181,6 +181,22 @@ final class WorkoutTemplateDetailViewModelTests: XCTestCase {
             rest_seconds: nil,
             superset_group_id: nil,
             duration: nil
+        )
+    }
+
+    private func makeDraft(
+        routineID: Int64,
+        session: WorkoutSession,
+        exercises: [WorkoutExerciseCardState] = [],
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) -> ActiveWorkoutDraft {
+        ActiveWorkoutDraft(
+            routineID: routineID,
+            session: session,
+            exercises: exercises,
+            createdAt: createdAt,
+            updatedAt: updatedAt
         )
     }
 }

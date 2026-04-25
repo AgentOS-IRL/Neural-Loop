@@ -93,6 +93,7 @@ struct FitnessView: View {
                 ActiveWorkoutView(viewModel: ActiveWorkoutViewModel(
                     draft: draft,
                     db: model.manager,
+                    persistenceManager: viewModel.persistenceManager,
                     onDraftChange: { updatedDraft in
                         viewModel.activeDraft = updatedDraft
                     },

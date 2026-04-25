@@ -39,6 +39,10 @@ actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
         isLaunching = true
         defer { isLaunching = false }
 
+        if let draft = persistenceManager.load(routineID: routineID) {
+            return draft
+        }
+
         // 1. Fetch routine and exercises
         guard let routine = try await db.fetchRoutine(by: routineID) else {
             throw WorkoutLaunchError.routineNotFound
