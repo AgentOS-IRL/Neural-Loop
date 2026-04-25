@@ -12,8 +12,30 @@ final class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     static let shared = ConnectivityManager()
 
     @Published var receivedMessage: String = "No message yet"
+    @Published var lastSnapshot: ActiveWorkoutSnapshot?
+    @Published var lastAction: WorkoutWatchActionPayload?
 
-    private override init() {
+    // Closure hooks for non-UI components
+    var snapshotHandler: ((ActiveWorkoutSnapshot) -> Void)?
+    var actionHandler: ((WorkoutWatchActionPayload) -> Void)?
+    var errorHandler: ((Error) -> Void)?
+    var notReachableHandler: (() -> Void)?
+
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
+
+    private enum MessageType: String {
+        case text = "text"
+        case workoutSnapshot = "workoutSnapshot"
+        case workoutAction = "workoutAction"
+    }
+
+    private struct MessageKey {
+        static let type = "msgType"
+        static let payload = "payload"
+    }
+
+    internal override init() {
         super.init()
         activate()
     }
@@ -46,18 +68,100 @@ final class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     // MARK: - Receiving Messages
     func session(_ session: WCSession,
                  didReceiveMessage message: [String : Any]) {
-        DispatchQueue.main.async {
-            self.receivedMessage = message["text"] as? String ?? "Unknown"
+        let typeString = message[MessageKey.type] as? String
+        let type = typeString.flatMap { MessageType(rawValue: $0) }
+
+        if let type {
+            handleTypedMessage(type: type, payload: message[MessageKey.payload])
+        } else if let text = message["text"] as? String {
+            // Legacy/Generic text message
+            DispatchQueue.main.async {
+                self.receivedMessage = text
+            }
+        } else {
+            print("ConnectivityManager: Received unknown or malformed message")
+        }
+    }
+
+    private func handleTypedMessage(type: MessageType, payload: Any?) {
+        guard let data = payload as? Data else {
+            print("ConnectivityManager: Missing data payload for type \(type.rawValue)")
+            return
+        }
+
+        do {
+            switch type {
+            case .text:
+                let text = try decoder.decode(String.self, from: data)
+                DispatchQueue.main.async {
+                    self.receivedMessage = text
+                }
+            case .workoutSnapshot:
+                let snapshot = try decoder.decode(ActiveWorkoutSnapshot.self, from: data)
+                DispatchQueue.main.async {
+                    self.lastSnapshot = snapshot
+                    self.snapshotHandler?(snapshot)
+                }
+            case .workoutAction:
+                let action = try decoder.decode(WorkoutWatchActionPayload.self, from: data)
+                DispatchQueue.main.async {
+                    self.lastAction = action
+                    self.actionHandler?(action)
+                }
+            }
+        } catch {
+            print("ConnectivityManager: Decoding error for type \(type.rawValue): \(error)")
+            DispatchQueue.main.async {
+                self.errorHandler?(error)
+            }
         }
     }
 
     // MARK: - Sending Messages
     func sendMessage(_ text: String) {
+        sendEncodable(type: .text, payload: text)
+    }
+
+    func sendWorkoutSnapshot(_ snapshot: ActiveWorkoutSnapshot, completion: ((Result<Void, Error>) -> Void)? = nil) {
+        sendEncodable(type: .workoutSnapshot, payload: snapshot, completion: completion)
+    }
+
+    func sendWorkoutAction(_ action: WorkoutWatchActionPayload, completion: ((Result<Void, Error>) -> Void)? = nil) {
+        sendEncodable(type: .workoutAction, payload: action, completion: completion)
+    }
+
+    private func sendEncodable<T: Encodable>(type: MessageType, payload: T, completion: ((Result<Void, Error>) -> Void)? = nil) {
         guard WCSession.default.isReachable else {
             print("Device not reachable")
+            DispatchQueue.main.async {
+                self.notReachableHandler?()
+                completion?(.failure(NSError(domain: "ConnectivityManager", code: -1, userInfo: [NSLocalizedDescriptionKey: "Device not reachable"])))
+            }
             return
         }
 
-        WCSession.default.sendMessage(["text": text], replyHandler: nil)
+        do {
+            let data = try encoder.encode(payload)
+            let message: [String: Any] = [
+                MessageKey.type: type.rawValue,
+                MessageKey.payload: data
+            ]
+
+            WCSession.default.sendMessage(message, replyHandler: { _ in
+                DispatchQueue.main.async {
+                    completion?(.success(()))
+                }
+            }, errorHandler: { error in
+                print("ConnectivityManager: Send error: \(error)")
+                DispatchQueue.main.async {
+                    completion?(.failure(error))
+                }
+            })
+        } catch {
+            print("ConnectivityManager: Encoding error: \(error)")
+            DispatchQueue.main.async {
+                completion?(.failure(error))
+            }
+        }
     }
 }
