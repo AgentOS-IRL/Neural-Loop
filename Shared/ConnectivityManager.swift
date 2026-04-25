@@ -68,6 +68,17 @@ final class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
     // MARK: - Receiving Messages
     func session(_ session: WCSession,
                  didReceiveMessage message: [String : Any]) {
+        handleIncomingMessage(message)
+    }
+
+    func session(_ session: WCSession,
+                 didReceiveMessage message: [String : Any],
+                 replyHandler: @escaping ([String : Any]) -> Void) {
+        handleIncomingMessage(message)
+        replyHandler([:]) // Acknowledge with empty reply
+    }
+
+    private func handleIncomingMessage(_ message: [String: Any]) {
         let typeString = message[MessageKey.type] as? String
         let type = typeString.flatMap { MessageType(rawValue: $0) }
 
@@ -147,16 +158,16 @@ final class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
                 MessageKey.payload: data
             ]
 
-            WCSession.default.sendMessage(message, replyHandler: { _ in
-                DispatchQueue.main.async {
-                    completion?(.success(()))
-                }
-            }, errorHandler: { error in
+            WCSession.default.sendMessage(message, replyHandler: nil, errorHandler: { error in
                 print("ConnectivityManager: Send error: \(error)")
                 DispatchQueue.main.async {
                     completion?(.failure(error))
                 }
             })
+            
+            // Call success immediately as we are not expecting a reply.
+            // If it fails later, the errorHandler will call completion with .failure.
+            completion?(.success(()))
         } catch {
             print("ConnectivityManager: Encoding error: \(error)")
             DispatchQueue.main.async {

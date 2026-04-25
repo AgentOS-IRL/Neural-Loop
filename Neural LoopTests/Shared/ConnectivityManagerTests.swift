@@ -85,6 +85,26 @@ final class ConnectivityManagerTests: XCTestCase {
         waitForExpectations(timeout: 2.0)
     }
 
+    func testReceiveMessageWithReplyHandler() {
+        let expectation = self.expectation(description: "Reply received")
+        let message = ["text": "hello with reply"]
+        
+        sut.session(WCSession.default, didReceiveMessage: message) { reply in
+            XCTAssertNotNil(reply)
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 2.0)
+        
+        // Using a small delay to allow for DispatchQueue.main.async in SUT
+        let textExpectation = self.expectation(description: "Text updated")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            XCTAssertEqual(self.sut.receivedMessage, "hello with reply")
+            textExpectation.fulfill()
+        }
+        waitForExpectations(timeout: 1.0)
+    }
+
     func testUnknownMessageTypeHandling() {
         let message: [String: Any] = [
             "msgType": "unknownType",
