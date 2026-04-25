@@ -16,6 +16,7 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
     var onFinish: (() -> Void)?
     private let persistenceManager: WorkoutDraftPersistenceManager
     private let connectivityProvider: WorkoutConnectivityProviding?
+    private let finalizer: WorkoutSessionFinalizing
     private var timerCancellable: AnyCancellable?
     
     init(
@@ -23,6 +24,7 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         db: WorkoutDataManaging,
         persistenceManager: WorkoutDraftPersistenceManager = WorkoutDraftPersistenceManager(),
         connectivityProvider: WorkoutConnectivityProviding? = nil,
+        finalizer: WorkoutSessionFinalizing? = nil,
         onDraftChange: ((ActiveWorkoutDraft) -> Void)? = nil,
         onFinish: (() -> Void)? = nil
     ) {
@@ -30,6 +32,7 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         self.db = db
         self.persistenceManager = persistenceManager
         self.connectivityProvider = connectivityProvider
+        self.finalizer = finalizer ?? WorkoutSessionFinalizer(db: db, persistenceManager: persistenceManager)
         self.onDraftChange = onDraftChange
         self.onFinish = onFinish
     }
@@ -51,6 +54,9 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
     }
 
     func apply(watchAction: WorkoutWatchActionPayload) async {
+        // Validate session ID
+        guard actionSessionMatchesDraft(action: watchAction) else { return }
+
         switch watchAction {
         case .requestSnapshot:
             sendSnapshotToWatch()
@@ -101,58 +107,17 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         }
     }
 
+    private func actionSessionMatchesDraft(action: WorkoutWatchActionPayload) -> Bool {
+        return action.session.id == draft.watchSessionPointer.id
+    }
+
     func finishWorkout() async {
         guard !isLoading else { return }
         isLoading = true
         errorMessage = nil
         
         do {
-            // 1. Create session
-            let sessionRequest = CreateWorkoutSessionRequest(
-                date: draft.session.date,
-                start_time: WorkoutTimeCoding.normalize(draft.session.start_time),
-                end_time: WorkoutTimeCoding.string(from: Date()),
-                session_type: draft.session.session_type,
-                notes: draft.session.notes
-            )
-            let savedSession = try await db.createWorkoutSession(sessionRequest)
-            
-            // 2. Create sets or cardio logs
-            for exerciseState in draft.exercises {
-                for setDraft in exerciseState.sets {
-                    if exerciseState.exercise.isRepBased {
-                        // Only save sets that have reps
-                        guard let reps = Int(setDraft.repsText), reps > 0 else { continue }
-                        
-                        let setRequest = CreateWorkoutSetRequest(
-                            workout_session_id: savedSession.id ?? 0,
-                            exercise_id: exerciseState.exercise.id,
-                            set_number: setDraft.setNumber,
-                            reps: reps,
-                            weight: NumericFormatter.parse(setDraft.weightText),
-                            superset_group_id: exerciseState.supersetGroupID
-                        )
-                        _ = try await db.createWorkoutSet(setRequest)
-                    } else if exerciseState.exercise.isDurationBased {
-                        // Only save logs that have duration, distance or calories
-                        let duration = NumericFormatter.parse(setDraft.durationText) ?? 0
-                        let distanceKM = NumericFormatter.parse(setDraft.distanceText)
-                        let calories = NumericFormatter.parse(setDraft.caloriesText)
-
-                        guard duration > 0 || (distanceKM ?? 0) > 0 || (calories ?? 0) > 0 else { continue }
-
-                        let cardioRequest = CreateCardioLogRequest(
-                            workout_session_id: savedSession.id ?? 0,
-                            exercise_id: exerciseState.exercise.id,
-                            distance_meters: distanceKM.map { $0 * 1000 },
-                            duration_minutes: duration > 0 ? duration : nil,
-                            calories: nil // Guarded: calories // FIXME: Restore once cardio_log.calories column is verified in production
-                        )
-                        _ = try await db.createCardioLog(cardioRequest)
-                    }
-                }
-            }
-            clearDraft()
+            try await finalizer.finalize(draft: draft)
             onFinish?()
         } catch {
             errorMessage = error.localizedDescription

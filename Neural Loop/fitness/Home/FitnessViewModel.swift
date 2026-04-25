@@ -12,6 +12,8 @@ final class FitnessViewModel: ObservableObject {
     private let dataManager: FitnessTemplateDataManaging & WorkoutDataManaging
     let launchCoordinator: WorkoutSessionLaunching
     let persistenceManager: WorkoutDraftPersistenceManager
+    private let connectivityProvider: WorkoutConnectivityProviding
+    private let finalizer: WorkoutSessionFinalizing
     private var hasLoaded = false
     private var stateRevision: UInt64 = 0
 
@@ -26,7 +28,9 @@ final class FitnessViewModel: ObservableObject {
         let cm = connectivityManager ?? ConnectivityManager.shared
         self.dataManager = dm
         self.persistenceManager = pm
+        self.connectivityProvider = cm
         self.launchCoordinator = launchCoordinator ?? WorkoutSessionLaunchCoordinator(db: dm, persistenceManager: pm, connectivityProvider: cm)
+        self.finalizer = WorkoutSessionFinalizer(db: dm, persistenceManager: pm)
         
         if let connectivityManager = cm as? ConnectivityManager {
             connectivityManager.actionHandler = { [weak self] action in
@@ -38,11 +42,28 @@ final class FitnessViewModel: ObservableObject {
     func handleWatchAction(_ action: WorkoutWatchActionPayload) {
         Task { @MainActor in
             if let activeVM = activeViewModel,
-               activeVM.draft.routineID == action.session.routineID {
+               activeVM.draft.watchSessionPointer.id == action.session.id {
                 await activeVM.apply(watchAction: action)
             } else {
-                // Fallback: apply to persistence directly
-                _ = persistenceManager.apply(action: action)
+                // Fallback: handle actions when no active view model is mounted
+                switch action {
+                case .requestSnapshot:
+                    if let routineID = action.session.routineID,
+                       let draft = persistenceManager.load(routineID: routineID),
+                       draft.watchSessionPointer.id == action.session.id {
+                        let snapshot = draft.watchSnapshot()
+                        connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
+                    }
+                case .finishWorkout:
+                    if let routineID = action.session.routineID,
+                       let draft = persistenceManager.load(routineID: routineID),
+                       draft.watchSessionPointer.id == action.session.id {
+                        try? await finalizer.finalize(draft: draft)
+                        await reload()
+                    }
+                default:
+                    _ = persistenceManager.apply(action: action)
+                }
             }
         }
     }
@@ -58,7 +79,7 @@ final class FitnessViewModel: ObservableObject {
                 draft: draft,
                 db: dataManager,
                 persistenceManager: persistenceManager,
-                connectivityProvider: ConnectivityManager.shared,
+                connectivityProvider: connectivityProvider,
                 onFinish: { [weak self] in
                     self?.activeViewModel = nil
                     Task { [weak self] in

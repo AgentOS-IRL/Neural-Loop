@@ -220,6 +220,26 @@ final class ActiveWorkoutViewModelWatchActionTests: XCTestCase {
         XCTAssertEqual(connectivityProvider.sendCount, 0)
     }
     
+    func testStaleSessionIDIsIgnored() async {
+        let draft = makeDraft(exercises: [
+            makeExerciseState(id: 10, sets: [WorkoutSetDraft(setNumber: 1)])
+        ])
+        let viewModel = ActiveWorkoutViewModel(draft: draft, db: db, connectivityProvider: connectivityProvider)
+        
+        // Create an action with a different session ID (simulating a previous run)
+        let staleSession = WorkoutSessionPointer(id: "stale-id", routineID: draft.routineID)
+        let action = WorkoutWatchActionPayload.addSet(WorkoutWatchExerciseReference(
+            session: staleSession,
+            exerciseID: "10"
+        ))
+        
+        await viewModel.apply(watchAction: action)
+        
+        // Should NOT add a set
+        XCTAssertEqual(viewModel.draft.exercises[0].sets.count, 1)
+        XCTAssertEqual(connectivityProvider.sendCount, 0)
+    }
+    
     // MARK: - Helpers
     
     private func makeDraft(

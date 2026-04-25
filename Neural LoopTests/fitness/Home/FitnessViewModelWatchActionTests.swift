@@ -105,6 +105,65 @@ final class FitnessViewModelWatchActionTests: XCTestCase {
         let updatedDraft = persistenceManager.load(routineID: routineID)
         XCTAssertEqual(updatedDraft?.exercises[0].sets[0].weightText, "100")
     }
+    
+    func testFallbackSnapshotRequest() async {
+        let routineID: Int64 = 42
+        let draft = ActiveWorkoutDraft(
+            routineID: routineID,
+            session: WorkoutSession(id: nil, date: Date(), start_time: nil, end_time: nil, session_type: "Test", notes: nil),
+            exercises: []
+        )
+        persistenceManager.save(draft: draft)
+        
+        let viewModel = FitnessViewModel(
+            dataManager: db,
+            persistenceManager: persistenceManager,
+            connectivityManager: connectivityProvider
+        )
+        
+        let action = WorkoutWatchActionPayload.requestSnapshot(WorkoutWatchSessionAction(
+            session: draft.watchSessionPointer
+        ))
+        
+        viewModel.handleWatchAction(action)
+        
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        
+        XCTAssertEqual(connectivityProvider.sendCount, 1)
+        XCTAssertEqual(connectivityProvider.capturedSnapshot?.session.id, draft.watchSessionPointer.id)
+    }
+    
+    func testFallbackFinishWorkout() async {
+        let routineID: Int64 = 42
+        let draft = ActiveWorkoutDraft(
+            routineID: routineID,
+            session: WorkoutSession(id: nil, date: Date(), start_time: nil, end_time: nil, session_type: "Test", notes: nil),
+            exercises: [
+                WorkoutExerciseCardState(
+                    id: 10,
+                    exercise: ExerciseLibraryItem(id: 10, name: "E1", type: .repBased, equipmentID: nil, equipmentName: "None"),
+                    sets: [WorkoutSetDraft(setNumber: 1, repsText: "10")]
+                )
+            ]
+        )
+        persistenceManager.save(draft: draft)
+        
+        let viewModel = FitnessViewModel(
+            dataManager: db,
+            persistenceManager: persistenceManager,
+            connectivityManager: connectivityProvider
+        )
+        
+        let action = WorkoutWatchActionPayload.finishWorkout(WorkoutWatchSessionAction(
+            session: draft.watchSessionPointer
+        ))
+        
+        viewModel.handleWatchAction(action)
+        
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        
+        XCTAssertNil(persistenceManager.load(routineID: routineID))
+    }
 }
 
 class FakeFitnessViewModelDataManager: FitnessTemplateDataManaging, WorkoutDataManaging {
