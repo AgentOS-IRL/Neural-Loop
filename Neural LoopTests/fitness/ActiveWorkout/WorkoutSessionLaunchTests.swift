@@ -193,4 +193,8 @@ class FakeLaunchDataManager: WorkoutTemplateReadingDataManaging, WorkoutDataMana
     func fetchWorkoutSessionDetail(sessionId: Int64) async throws -> WorkoutSessionDetail {
         throw WorkoutDatabaseError.missingIdentifier
     }
+
+    func fetchExerciseProgression(exerciseId: Int64) async throws -> [ExerciseProgressionResult] {
+        return []
+    }
 }

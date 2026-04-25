@@ -170,6 +170,64 @@ struct WorkoutSessionExerciseDetail: Equatable {
     let cardioLogs: [CardioLog]
 }
 
+struct ExerciseProgressionResult: Codable {
+    let date: Date
+    let weight: Decimal?
+    let reps: Int?
+    let distance_meters: Decimal?
+    let duration_minutes: Decimal?
+    let calories: Decimal?
+
+    enum CodingKeys: String, CodingKey {
+        case weight, reps, calories
+        case distance_meters = "distance_meters"
+        case duration_minutes = "duration_minutes"
+        case workout_session
+    }
+
+    private struct SessionWrapper: Codable {
+        let date: String
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        weight = try container.decodeIfPresent(Decimal.self, forKey: .weight)
+        reps = try container.decodeIfPresent(Int.self, forKey: .reps)
+        distance_meters = try container.decodeIfPresent(Decimal.self, forKey: .distance_meters)
+        duration_minutes = try container.decodeIfPresent(Decimal.self, forKey: .duration_minutes)
+        calories = try container.decodeIfPresent(Decimal.self, forKey: .calories)
+        
+        let session = try container.decode(SessionWrapper.self, forKey: .workout_session)
+        if let decodedDate = WorkoutDateCoding.date(from: session.date) {
+            self.date = decodedDate
+        } else {
+            throw DecodingError.dataCorruptedError(forKey: .workout_session, in: container, debugDescription: "Invalid date format: \(session.date)")
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(weight, forKey: .weight)
+        try container.encodeIfPresent(reps, forKey: .reps)
+        try container.encodeIfPresent(distance_meters, forKey: .distance_meters)
+        try container.encodeIfPresent(duration_minutes, forKey: .duration_minutes)
+        try container.encodeIfPresent(calories, forKey: .calories)
+        
+        let session = SessionWrapper(date: WorkoutDateCoding.string(from: date))
+        try container.encode(session, forKey: .workout_session)
+    }
+    
+    // Internal init for testing or manual creation
+    init(date: Date, weight: Decimal? = nil, reps: Int? = nil, distance: Decimal? = nil, duration: Decimal? = nil, calories: Decimal? = nil) {
+        self.date = date
+        self.weight = weight
+        self.reps = reps
+        self.distance_meters = distance
+        self.duration_minutes = duration
+        self.calories = calories
+    }
+}
+
 struct CreateEquipmentRequest: Codable, Equatable {
     var name: String
 }
@@ -472,7 +530,7 @@ enum WorkoutDatabaseError: LocalizedError, Equatable {
     }
 }
 
-private enum WorkoutDateCoding {
+enum WorkoutDateCoding {
     private static func makeDateOnlyFormatter() -> DateFormatter {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
@@ -480,6 +538,13 @@ private enum WorkoutDateCoding {
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
+    }
+
+    static func date(from value: String) -> Date? {
+        if let date = makeDateOnlyFormatter().date(from: value) {
+            return date
+        }
+        return ISO8601DateFormatter().date(from: value)
     }
 
     static func string(from date: Date) -> String {
@@ -1186,5 +1251,25 @@ extension DBManager {
         }
 
         return WorkoutSessionDetail(session: session, exercises: exerciseDetails)
+    }
+
+    func fetchExerciseProgression(exerciseId: Int64) async throws -> [ExerciseProgressionResult] {
+        // Fetch sets (rep-based)
+        let sets: [ExerciseProgressionResult] = try await customsupabase
+            .from(workoutSetTableName)
+            .select("weight, reps, workout_session(date)")
+            .eq("exercise_id", value: Int(exerciseId))
+            .execute()
+            .value
+
+        // Fetch cardio logs
+        let logs: [ExerciseProgressionResult] = try await customsupabase
+            .from(cardioLogTableName)
+            .select("distance_meters, duration_minutes, calories, workout_session(date)")
+            .eq("exercise_id", value: Int(exerciseId))
+            .execute()
+            .value
+
+        return (sets + logs).sorted { $0.date < $1.date }
     }
 }
