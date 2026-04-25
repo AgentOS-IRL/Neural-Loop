@@ -91,6 +91,34 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
         XCTAssertEqual(callbackDraft?.session.notes, "Updated notes")
     }
 
+    func testInitialDraftDoesNotTriggerCallback() async {
+        let db = FakeWorkoutDataManager()
+        let session = WorkoutSession(id: nil, date: Date(), start_time: nil, end_time: nil, session_type: "Test", notes: nil)
+        let draft = ActiveWorkoutDraft(session: session, exercises: [])
+        
+        var callbackCount = 0
+        _ = ActiveWorkoutViewModel(draft: draft, db: db) { _ in
+            callbackCount += 1
+        }
+        
+        XCTAssertEqual(callbackCount, 0, "Initial draft emission should be dropped")
+    }
+
+    func testOnFinishCallbackIsInvoked() async {
+        let db = FakeWorkoutDataManager()
+        let session = WorkoutSession(id: nil, date: Date(), start_time: "2026-04-23T10:00:00Z", end_time: nil, session_type: "Test", notes: "Notes")
+        let draft = ActiveWorkoutDraft(session: session, exercises: [])
+        
+        var finishCalled = false
+        let viewModel = ActiveWorkoutViewModel(draft: draft, db: db, onFinish: {
+            finishCalled = true
+        })
+        
+        await viewModel.finishWorkout()
+        
+        XCTAssertTrue(finishCalled)
+    }
+
     func testFinishWorkoutSavesCardioLogs() async throws {
         let db = FakeWorkoutDataManager()
         let session = WorkoutSession(id: nil, date: Date(), start_time: "2026-04-23T10:00:00Z", end_time: nil, session_type: "Test", notes: "Notes")

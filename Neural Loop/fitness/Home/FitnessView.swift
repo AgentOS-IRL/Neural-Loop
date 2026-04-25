@@ -76,6 +76,9 @@ struct FitnessView: View {
                     db: model.manager,
                     onDraftChange: { updatedDraft in
                         viewModel.activeDraft = updatedDraft
+                    },
+                    onFinish: {
+                        viewModel.clearActiveDraft()
                     }
                 ))
             }

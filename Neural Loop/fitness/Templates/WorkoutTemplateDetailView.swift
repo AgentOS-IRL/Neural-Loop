@@ -52,6 +52,9 @@ struct WorkoutTemplateDetailView: View {
                         db: db,
                         onDraftChange: { updatedDraft in
                             viewModel.activeDraft = updatedDraft
+                        },
+                        onFinish: {
+                            viewModel.clearActiveDraft()
                         }
                     ))
                 }

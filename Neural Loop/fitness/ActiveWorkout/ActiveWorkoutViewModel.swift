@@ -12,22 +12,26 @@ class ActiveWorkoutViewModel: ObservableObject {
     
     let db: WorkoutDataManaging
     var onDraftChange: ((ActiveWorkoutDraft) -> Void)?
+    var onFinish: (() -> Void)?
     private var timerCancellable: AnyCancellable?
     private var saveCancellable: AnyCancellable?
     
     init(
         draft: ActiveWorkoutDraft,
         db: WorkoutDataManaging,
-        onDraftChange: ((ActiveWorkoutDraft) -> Void)? = nil
+        onDraftChange: ((ActiveWorkoutDraft) -> Void)? = nil,
+        onFinish: (() -> Void)? = nil
     ) {
         self.draft = draft
         self.db = db
         self.onDraftChange = onDraftChange
+        self.onFinish = onFinish
         setupDraftPersistence()
     }
     
     private func setupDraftPersistence() {
         saveCancellable = $draft
+            .dropFirst()
             .sink { [weak self] draft in
                 self?.onDraftChange?(draft)
             }
@@ -89,6 +93,7 @@ class ActiveWorkoutViewModel: ObservableObject {
                     }
                 }
             }
+            onFinish?()
             clearDraft()
         } catch {
             errorMessage = error.localizedDescription

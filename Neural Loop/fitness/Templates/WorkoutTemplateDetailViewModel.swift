@@ -66,6 +66,11 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
         isLoading = false
     }
 
+    func clearActiveDraft() {
+        persistenceManager.clear()
+        activeDraft = nil
+    }
+
     func reload() async {
         hasLoaded = false
         await load()

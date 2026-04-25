@@ -56,6 +56,11 @@ final class FitnessViewModel: ObservableObject {
         isLoading = false
     }
 
+    func clearActiveDraft() {
+        persistenceManager.clear()
+        activeDraft = nil
+    }
+
     func loadIfNeeded() async {
         guard !hasLoaded, !isLoading else {
             return
