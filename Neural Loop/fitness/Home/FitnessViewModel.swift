@@ -61,6 +61,19 @@ final class FitnessViewModel: ObservableObject {
         activeDraft = nil
     }
 
+    func deleteSession(id: Int64) async -> Bool {
+        errorMessage = nil
+
+        do {
+            try await dataManager.deleteWorkoutSession(id: id)
+            sessions.removeAll { $0.id == id }
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
     func loadIfNeeded() async {
         guard !hasLoaded, !isLoading else {
             return
