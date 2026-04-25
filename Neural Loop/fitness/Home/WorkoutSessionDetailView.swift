@@ -44,14 +44,38 @@ struct WorkoutSessionDetailView: View {
                     }
                 }
             }
-            .navigationTitle("Workout Summary")
+            .navigationTitle(viewModel.isEditing ? "Edit Workout" : "Workout Summary")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
+                if viewModel.isEditing {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Cancel") {
+                            viewModel.cancelEditing()
+                        }
+                        .foregroundColor(AppTheme.errorTint)
                     }
-                    .foregroundColor(AppTheme.accentColor)
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Save") {
+                            Task {
+                                await viewModel.saveChanges()
+                            }
+                        }
+                        .foregroundColor(AppTheme.accentColor)
+                        .bold()
+                    }
+                } else {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Edit") {
+                            viewModel.startEditing()
+                        }
+                        .foregroundColor(AppTheme.accentColor)
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            dismiss()
+                        }
+                        .foregroundColor(AppTheme.accentColor)
+                    }
                 }
             }
             .task {
@@ -63,14 +87,22 @@ struct WorkoutSessionDetailView: View {
     private func content(_ detail: WorkoutSessionDetail) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
-                headerSection(detail.session)
+                if viewModel.isEditing {
+                    editableHeaderSection()
+                    editableNotesSection()
+                    ForEach($viewModel.draftExercises) { $exercise in
+                        editableExerciseSection(exercise: $exercise)
+                    }
+                } else {
+                    headerSection(detail.session)
 
-                if let notes = detail.session.notes, !notes.isEmpty {
-                    notesSection(notes)
-                }
+                    if let notes = detail.session.notes, !notes.isEmpty {
+                        notesSection(notes)
+                    }
 
-                ForEach(detail.exercises, id: \.exerciseId) { exercise in
-                    exerciseSection(exercise)
+                    ForEach(detail.exercises, id: \.exerciseId) { exercise in
+                        exerciseSection(exercise)
+                    }
                 }
             }
             .padding(AppTheme.Metrics.screenPadding)
@@ -92,12 +124,67 @@ struct WorkoutSessionDetailView: View {
                     Image(systemName: "clock")
                     Text(startTime)
                 }
+                
+                if let endTime = session.end_time {
+                    Text("-")
+                    Text(endTime)
+                }
             }
             .font(.subheadline)
             .foregroundColor(AppTheme.textSecondary)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius)
+                .fill(AppTheme.cardGradient)
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius)
+                        .stroke(AppTheme.borderGradient, lineWidth: 1)
+                )
+        )
+    }
+
+    private func editableHeaderSection() -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            TextField("Session Title", text: Binding(
+                get: { viewModel.draftSession?.session_type ?? "" },
+                set: { viewModel.draftSession?.session_type = $0 }
+            ))
+            .font(.headline)
+            .textFieldStyle(.roundedBorder)
+
+            DatePicker("Date", selection: Binding(
+                get: { viewModel.draftSession?.date ?? Date() },
+                set: { viewModel.draftSession?.date = $0 }
+            ), displayedComponents: .date)
+            .font(.subheadline)
+
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Start Time")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
+                    TextField("09:00", text: Binding(
+                        get: { viewModel.draftSession?.start_time ?? "" },
+                        set: { viewModel.draftSession?.start_time = $0 }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("End Time")
+                        .font(.caption)
+                        .foregroundColor(AppTheme.textSecondary)
+                    TextField("10:00", text: Binding(
+                        get: { viewModel.draftSession?.end_time ?? "" },
+                        set: { viewModel.draftSession?.end_time = $0 }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                }
+            }
+        }
+        .padding()
         .background(
             RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius)
                 .fill(AppTheme.cardGradient)
@@ -120,6 +207,30 @@ struct WorkoutSessionDetailView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius)
+                .fill(AppTheme.cardGradient)
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius)
+                        .stroke(AppTheme.borderGradient, lineWidth: 1)
+                )
+        )
+    }
+
+    private func editableNotesSection() -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Notes")
+                .font(.headline)
+                .foregroundColor(AppTheme.textPrimary)
+            
+            TextField("Notes", text: Binding(
+                get: { viewModel.draftSession?.notes ?? "" },
+                set: { viewModel.draftSession?.notes = $0 }
+            ), axis: .vertical)
+            .textFieldStyle(.roundedBorder)
+            .lineLimit(3...10)
+        }
+        .padding()
         .background(
             RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius)
                 .fill(AppTheme.cardGradient)
@@ -198,6 +309,82 @@ struct WorkoutSessionDetailView: View {
         )
     }
 
+    private func editableExerciseSection(exercise: Binding<WorkoutSessionExerciseDraft>) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(exercise.wrappedValue.exerciseName)
+                .font(.headline)
+                .foregroundColor(AppTheme.textPrimary)
+
+            ForEach(Array(exercise.sets.wrappedValue.enumerated()), id: \.element.id) { index, set in
+                HStack(spacing: 8) {
+                    Button(action: {
+                        viewModel.removeSet(at: index, from: exercise.wrappedValue.exerciseId)
+                    }) {
+                        Image(systemName: "minus.circle.fill")
+                            .foregroundColor(AppTheme.errorTint)
+                    }
+
+                    Text("\(set.setNumber)")
+                        .font(.subheadline.bold())
+                        .frame(width: 24)
+
+                    if exercise.wrappedValue.exerciseType.isRepBased {
+                        numericField(
+                            text: exercise.sets[index].weightText,
+                            placeholder: "kg",
+                            keyboardType: .decimalPad
+                        )
+                        
+                        Text("×")
+                            .foregroundColor(AppTheme.textSecondary)
+                        
+                        numericField(
+                            text: exercise.sets[index].repsText,
+                            placeholder: "reps",
+                            keyboardType: .numberPad
+                        )
+                    } else {
+                        numericField(
+                            text: exercise.sets[index].durationText,
+                            placeholder: "min",
+                            keyboardType: .decimalPad
+                        )
+                        
+                        numericField(
+                            text: exercise.sets[index].distanceText,
+                            placeholder: "m",
+                            keyboardType: .decimalPad
+                        )
+                        
+                        numericField(
+                            text: exercise.sets[index].caloriesText,
+                            placeholder: "kcal",
+                            keyboardType: .decimalPad
+                        )
+                    }
+                }
+            }
+
+            Button(action: {
+                viewModel.addSet(to: exercise.wrappedValue.exerciseId)
+            }) {
+                Label("Add Set", systemImage: "plus")
+                    .font(.subheadline.bold())
+                    .foregroundColor(AppTheme.accentColor)
+            }
+            .padding(.top, 4)
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius)
+                .fill(AppTheme.cardGradient)
+                .overlay(
+                    RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius)
+                        .stroke(AppTheme.borderGradient, lineWidth: 1)
+                )
+        )
+    }
+
     private func labelValueRow(label: String, value: String) -> some View {
         HStack {
             Text(label)
@@ -208,5 +395,16 @@ struct WorkoutSessionDetailView: View {
                 .font(.body.monospacedDigit())
                 .foregroundColor(AppTheme.textPrimary)
         }
+    }
+
+    private func numericField(text: Binding<String>, placeholder: String, keyboardType: UIKeyboardType) -> some View {
+        TextField(placeholder, text: text)
+            .keyboardType(keyboardType)
+            .textFieldStyle(.plain)
+            .padding(8)
+            .background(Color(.secondarySystemBackground))
+            .cornerRadius(8)
+            .font(.body.monospacedDigit())
+            .multilineTextAlignment(.center)
     }
 }

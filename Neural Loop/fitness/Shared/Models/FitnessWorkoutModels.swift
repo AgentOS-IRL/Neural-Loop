@@ -53,6 +53,7 @@ struct WorkoutExerciseCardState: Identifiable, Equatable, Codable {
 
 struct WorkoutSetDraft: Identifiable, Equatable, Codable {
     let id: UUID
+    var dbId: Int64?
     var setNumber: Int
     var weightText: String
     var repsText: String
@@ -63,6 +64,7 @@ struct WorkoutSetDraft: Identifiable, Equatable, Codable {
 
     init(
         id: UUID = UUID(),
+        dbId: Int64? = nil,
         setNumber: Int,
         weightText: String = "",
         repsText: String = "",
@@ -72,6 +74,7 @@ struct WorkoutSetDraft: Identifiable, Equatable, Codable {
         isCompleted: Bool = false
     ) {
         self.id = id
+        self.dbId = dbId
         self.setNumber = setNumber
         self.weightText = weightText
         self.repsText = repsText
