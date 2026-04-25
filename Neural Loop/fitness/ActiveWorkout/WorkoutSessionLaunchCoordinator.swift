@@ -40,6 +40,7 @@ actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
         defer { isLaunching = false }
 
         if let draft = persistenceManager.load(routineID: routineID) {
+            persistenceManager.saveActiveSessionPointer(draft.watchSessionPointer)
             return draft
         }
 
@@ -67,6 +68,7 @@ actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
 
         // 4. Immediate Save
         persistenceManager.save(draft: draft)
+        persistenceManager.saveActiveSessionPointer(draft.watchSessionPointer)
 
         return draft
     }
