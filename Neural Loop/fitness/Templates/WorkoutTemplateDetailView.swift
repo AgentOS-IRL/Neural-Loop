@@ -45,19 +45,22 @@ struct WorkoutTemplateDetailView: View {
             .safeAreaInset(edge: .bottom) {
                 bottomActionBar
             }
-            .fullScreenCover(item: Binding(
-                get: { viewModel.activeSession.map { ActiveWorkoutSessionWrapper(session: $0.0, exercises: $0.1) } },
-                set: { if $0 == nil { viewModel.activeSession = nil } }
-            )) { wrapper in
+            .fullScreenCover(item: $viewModel.activeDraft) { draft in
                 if let db = viewModel.dataManager as? WorkoutDataManaging {
                     ActiveWorkoutView(viewModel: ActiveWorkoutViewModel(
-                        session: wrapper.session,
-                        exerciseStates: wrapper.exercises,
-                        db: db
+                        draft: draft,
+                        db: db,
+                        onDraftChange: { updatedDraft in
+                            viewModel.activeDraft = updatedDraft
+                        },
+                        onFinish: {
+                            viewModel.clearActiveDraft()
+                        }
                     ))
                 }
             }
             .sheet(item: $previewGallery) { gallery in
+
                 ExerciseMediaPreviewSheet(gallery: gallery, allowsMotion: !reduceMotion)
             }
             .presentationDetents([.fraction(0.5), .large])
@@ -233,7 +236,7 @@ struct WorkoutTemplateDetailView: View {
                     await viewModel.startWorkout()
                 }
             } label: {
-                if viewModel.isLoading && viewModel.activeSession == nil {
+                if viewModel.isLoading && viewModel.activeDraft == nil {
                     ProgressView()
                         .tint(.white)
                         .frame(maxWidth: .infinity, minHeight: 48)

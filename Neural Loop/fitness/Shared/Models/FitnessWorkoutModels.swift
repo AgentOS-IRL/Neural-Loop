@@ -108,7 +108,8 @@ struct WorkoutSetDraft: Identifiable, Equatable, Codable {
     }
 }
 
-struct ActiveWorkoutDraft: Codable, Equatable {
+struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
+    var id: Int64 { session.id ?? 0 }
     var session: WorkoutSession
     var exercises: [WorkoutExerciseCardState]
 }
@@ -231,18 +232,6 @@ protocol WorkoutTemplateEditingDataManaging: FitnessTemplateDataManaging {
     func addRoutineExercise(_ request: CreateRoutineExerciseRequest) async throws -> RoutineExercise
     func updateRoutineExercise(_ routineExercise: RoutineExercise) async throws -> RoutineExercise
     func deleteRoutineExercise(id: Int64) async throws
-}
-
-struct ActiveWorkoutSessionWrapper: Identifiable {
-    let id: Int64
-    let session: WorkoutSession
-    let exercises: [WorkoutExerciseCardState]
-    
-    init(session: WorkoutSession, exercises: [WorkoutExerciseCardState]) {
-        self.id = session.id ?? 0
-        self.session = session
-        self.exercises = exercises
-    }
 }
 
 extension DBManager: WorkoutDataManaging {}

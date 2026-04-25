@@ -127,6 +127,28 @@ final class WorkoutTemplateDetailViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.rows.isEmpty)
     }
 
+    func testClearActiveDraftSynchronouslyClearsPersistence() {
+        let draft = ActiveWorkoutDraft(
+            session: WorkoutSession(id: 1, date: Date(), start_time: "10:00", end_time: nil, session_type: "Test", notes: nil),
+            exercises: []
+        )
+        let userDefaults = UserDefaults(suiteName: "TestClearActiveDraftDetail")!
+        userDefaults.removePersistentDomain(forName: "TestClearActiveDraftDetail")
+        let persistenceManager = WorkoutDraftPersistenceManager(userDefaults: userDefaults)
+        persistenceManager.save(draft: draft)
+
+        let viewModel = WorkoutTemplateDetailViewModel(
+            summary: WorkoutTemplateSummary(id: 1, title: "Test", exerciseCount: 0, setCount: 0),
+            dataManager: FakeWorkoutTemplateDetailDataManager(equipment: [], exercises: [], routineExercisesByRoutineID: [:]),
+            persistenceManager: persistenceManager
+        )
+
+        viewModel.clearActiveDraft()
+
+        XCTAssertNil(viewModel.activeDraft)
+        XCTAssertNil(persistenceManager.load(), "Persistence should be cleared immediately")
+    }
+
     private func equipment(id: Int64, name: String) -> Equipment {
         Equipment(id: id, name: name)
     }
