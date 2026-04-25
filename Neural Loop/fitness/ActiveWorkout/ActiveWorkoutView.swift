@@ -21,6 +21,7 @@ struct ActiveWorkoutView: View {
 
                                 WorkoutExerciseCard(
                                     card: state,
+                                    dataManager: viewModel.db,
                                     onAddSet: {
                                         viewModel.addSet(to: state.id)
                                     },
