@@ -121,6 +121,17 @@ nonisolated final class WorkoutDraftPersistenceManager: @unchecked Sendable {
             clearActiveSessionPointer()
         }
     }
+
+    func apply(action: WorkoutWatchActionPayload) -> ActiveWorkoutDraft? {
+        guard let routineID = action.session.routineID else { return nil }
+        
+        guard var draft = load(routineID: routineID) else { return nil }
+        
+        draft.apply(watchAction: action)
+        save(draft: draft)
+        
+        return draft
+    }
 }
 
 nonisolated private struct LegacyActiveWorkoutDraft: Codable {

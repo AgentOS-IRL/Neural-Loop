@@ -6,7 +6,7 @@ final class FitnessViewModel: ObservableObject {
     @Published private(set) var templates: [WorkoutTemplateSummary] = []
     @Published private(set) var sessions: [WorkoutSessionSummary] = []
     @Published private(set) var isLoading = false
-    @Published var activeDraft: ActiveWorkoutDraft?
+    @Published var activeViewModel: ActiveWorkoutViewModel?
     @Published var errorMessage: String?
 
     private let dataManager: FitnessTemplateDataManaging & WorkoutDataManaging
@@ -27,6 +27,24 @@ final class FitnessViewModel: ObservableObject {
         self.dataManager = dm
         self.persistenceManager = pm
         self.launchCoordinator = launchCoordinator ?? WorkoutSessionLaunchCoordinator(db: dm, persistenceManager: pm, connectivityProvider: cm)
+        
+        if let connectivityManager = cm as? ConnectivityManager {
+            connectivityManager.actionHandler = { [weak self] action in
+                self?.handleWatchAction(action)
+            }
+        }
+    }
+
+    func handleWatchAction(_ action: WorkoutWatchActionPayload) {
+        Task { @MainActor in
+            if let activeVM = activeViewModel,
+               activeVM.draft.routineID == action.session.routineID {
+                await activeVM.apply(watchAction: action)
+            } else {
+                // Fallback: apply to persistence directly
+                _ = persistenceManager.apply(action: action)
+            }
+        }
     }
 
     func startWorkout(routineID: Int64) async {
@@ -35,7 +53,19 @@ final class FitnessViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            activeDraft = try await launchCoordinator.launchSession(for: routineID)
+            let draft = try await launchCoordinator.launchSession(for: routineID)
+            activeViewModel = ActiveWorkoutViewModel(
+                draft: draft,
+                db: dataManager,
+                persistenceManager: persistenceManager,
+                connectivityProvider: ConnectivityManager.shared,
+                onFinish: { [weak self] in
+                    self?.activeViewModel = nil
+                    Task { [weak self] in
+                        await self?.reload()
+                    }
+                }
+            )
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -44,7 +74,7 @@ final class FitnessViewModel: ObservableObject {
     }
 
     func clearActiveDraft() {
-        activeDraft = nil
+        activeViewModel = nil
     }
 
     func deleteSession(id: Int64) async -> Bool {
