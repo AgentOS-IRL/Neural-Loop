@@ -15,18 +15,23 @@ enum WorkoutLaunchError: LocalizedError {
 }
 
 protocol WorkoutSessionLaunching {
-    func launchSession(for routineID: Int64) async throws -> (WorkoutSession, [WorkoutExerciseCardState])
+    func launchSession(for routineID: Int64) async throws -> ActiveWorkoutDraft
 }
 
 actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
     private let db: WorkoutTemplateReadingDataManaging & WorkoutDataManaging
+    private let persistenceManager: WorkoutDraftPersistenceManager
     private var isLaunching = false
 
-    init(db: WorkoutTemplateReadingDataManaging & WorkoutDataManaging) {
+    init(
+        db: WorkoutTemplateReadingDataManaging & WorkoutDataManaging,
+        persistenceManager: WorkoutDraftPersistenceManager = WorkoutDraftPersistenceManager()
+    ) {
         self.db = db
+        self.persistenceManager = persistenceManager
     }
 
-    func launchSession(for routineID: Int64) async throws -> (WorkoutSession, [WorkoutExerciseCardState]) {
+    func launchSession(for routineID: Int64) async throws -> ActiveWorkoutDraft {
         guard !isLaunching else {
             throw WorkoutLaunchError.launchInProgress
         }
@@ -44,7 +49,7 @@ actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
         let allEquipment = try await db.fetchAllEquipment()
 
         // 2. Map to ActiveWorkoutDraft using the mapper
-        let sessionState = WorkoutRoutineMapper.mapToSessionState(
+        var draft = WorkoutRoutineMapper.mapToSessionState(
             routine: routine,
             routineExercises: routineExercises,
             allExercises: allExercises,
@@ -53,8 +58,12 @@ actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
 
         // 3. Prefill historical weights
         let loader = WorkoutSessionLoader(db: db)
-        let prefilledExercises = await loader.prefillHistoricalWeights(for: sessionState.exercises)
+        let prefilledExercises = await loader.prefillHistoricalWeights(for: draft.exercises)
+        draft.exercises = prefilledExercises
 
-        return (sessionState.session, prefilledExercises)
+        // 4. Immediate Save
+        persistenceManager.save(draft: draft)
+
+        return draft
     }
 }
