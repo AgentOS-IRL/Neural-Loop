@@ -14,9 +14,9 @@ struct ActiveWorkoutView: View {
                     
                     ScrollView {
                         VStack(spacing: 0) {
-                            ForEach(Array(viewModel.exerciseStates.enumerated()), id: \.element.id) { index, state in
-                                let isLastInGroup = index == viewModel.exerciseStates.count - 1 ||
-                                                   viewModel.exerciseStates[index + 1].supersetGroupID != state.supersetGroupID ||
+                            ForEach(Array(viewModel.draft.exercises.enumerated()), id: \.element.id) { index, state in
+                                let isLastInGroup = index == viewModel.draft.exercises.count - 1 ||
+                                                   viewModel.draft.exercises[index + 1].supersetGroupID != state.supersetGroupID ||
                                                    state.supersetGroupID == nil
 
                                 WorkoutExerciseCard(
@@ -58,7 +58,7 @@ struct ActiveWorkoutView: View {
                     finishButton
                 }
             }
-            .navigationTitle(viewModel.session.session_type)
+            .navigationTitle(viewModel.draft.session.session_type)
             .navigationBarTitleDisplayMode(.inline)
             .alert("Error", isPresented: Binding(
                 get: { viewModel.errorMessage != nil },
@@ -88,7 +88,7 @@ struct ActiveWorkoutView: View {
                 .font(.caption)
                 .foregroundColor(.gray)
             
-            Text(viewModel.session.session_type)
+            Text(viewModel.draft.session.session_type)
                 .font(.headline)
                 .foregroundColor(.white)
         }

@@ -108,7 +108,7 @@ struct WorkoutSetDraft: Identifiable, Equatable, Codable {
     }
 }
 
-struct WorkoutSessionState: Codable, Equatable {
+struct ActiveWorkoutDraft: Codable, Equatable {
     var session: WorkoutSession
     var exercises: [WorkoutExerciseCardState]
 }

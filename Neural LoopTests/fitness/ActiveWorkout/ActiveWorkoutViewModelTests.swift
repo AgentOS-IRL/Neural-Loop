@@ -42,7 +42,7 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
 
         viewModel.updateDuration(for: 1, setID: set.id, durationText: "15.5")
 
-        XCTAssertEqual(viewModel.exerciseStates[0].sets[0].durationText, "15.5")
+        XCTAssertEqual(viewModel.draft.exercises[0].sets[0].durationText, "15.5")
     }
 
     func testUpdateDistanceUpdatesState() async {
@@ -55,7 +55,7 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
 
         viewModel.updateDistance(for: 1, setID: set.id, distanceText: "5.2")
 
-        XCTAssertEqual(viewModel.exerciseStates[0].sets[0].distanceText, "5.2")
+        XCTAssertEqual(viewModel.draft.exercises[0].sets[0].distanceText, "5.2")
     }
 
     func testUpdateCaloriesUpdatesState() async {
@@ -68,7 +68,7 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
 
         viewModel.updateCalories(for: 1, setID: set.id, caloriesText: "500")
 
-        XCTAssertEqual(viewModel.exerciseStates[0].sets[0].caloriesText, "500")
+        XCTAssertEqual(viewModel.draft.exercises[0].sets[0].caloriesText, "500")
     }
 
     func testFinishWorkoutSavesCardioLogs() async throws {
@@ -164,7 +164,7 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
 
         viewModel.toggleSetCompletion(exerciseID: 1, setID: set.id)
 
-        XCTAssertTrue(viewModel.exerciseStates[0].sets[0].isCompleted)
+        XCTAssertTrue(viewModel.draft.exercises[0].sets[0].isCompleted)
         XCTAssertTrue(viewModel.isTimerRunning)
         XCTAssertEqual(viewModel.restTimerSeconds, 60)
     }

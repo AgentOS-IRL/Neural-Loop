@@ -43,7 +43,7 @@ actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
         let allExercises = try await db.fetchAllExercisesWithMuscles()
         let allEquipment = try await db.fetchAllEquipment()
 
-        // 2. Map to WorkoutSessionState using the mapper
+        // 2. Map to ActiveWorkoutDraft using the mapper
         let sessionState = WorkoutRoutineMapper.mapToSessionState(
             routine: routine,
             routineExercises: routineExercises,
