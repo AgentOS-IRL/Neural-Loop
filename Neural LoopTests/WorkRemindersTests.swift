@@ -228,6 +228,24 @@ final class WorkRemindersTests: XCTestCase {
         }
     }
 
+    func testCreateValidatesWritableCalendarBeforeCallingResolver() async {
+        let resolver = FakeGenesysReminderDateResolver(result: Self.date("2026-04-17T14:00:00Z"))
+        let store = FakeReminderStore(
+            authorizationStatus: .fullAccess,
+            sources: [.init(title: "Genesys", sourceType: .exchange, calendars: [Self.readOnlyGenesysCalendar])]
+        )
+        let service = GenesysReminderService(store: store, dateResolver: resolver)
+
+        do {
+            _ = try await service.createGenesysReminder(title: "Follow up Friday")
+            XCTFail("Expected calendar not found error")
+        } catch {
+            XCTAssertEqual(error as? GenesysReminderServiceError, .calendarNotFound)
+            XCTAssertTrue(resolver.requests.isEmpty)
+            XCTAssertTrue(store.createdRequests.isEmpty)
+        }
+    }
+
     func testCodexResolverParsesISODueDateFromToolCall() async throws {
         let dueDate = Self.date("2026-04-20T15:00:00Z")
         let client = FakeGenesysReminderCodexClient(
@@ -249,6 +267,29 @@ final class WorkRemindersTests: XCTestCase {
         XCTAssertEqual(client.converseCallCount, 1)
         XCTAssertTrue(client.capturedInstructions?.contains("CURRENT DATE AND TIME") == true)
         XCTAssertTrue(client.capturedInstructions?.contains("Europe/Dublin") == true)
+    }
+
+    func testCodexResolverParsesLocalISODueDateFromToolCall() async throws {
+        let timeZone = TimeZone(identifier: "Europe/Dublin")!
+        let client = FakeGenesysReminderCodexClient(
+            action: .callTool(
+                name: "resolve_genesys_reminder_due_date",
+                arguments: ["due_date": "2026-04-20T15:00:00"]
+            )
+        )
+        let resolver = CodexGenesysReminderDateResolver(codexClient: client)
+
+        let resolvedDate = try await resolver.inferDueDate(
+            title: "Follow up next Monday",
+            notes: nil,
+            currentDate: Self.date("2026-04-15T09:00:00Z"),
+            timeZone: timeZone
+        )
+
+        XCTAssertEqual(
+            resolvedDate,
+            Self.localDate(year: 2026, month: 4, day: 20, hour: 15, timeZone: timeZone)
+        )
     }
 
     func testCodexResolverReturnsNilForNullDueDate() async throws {
@@ -300,6 +341,14 @@ final class WorkRemindersTests: XCTestCase {
         allowsContentModifications: true
     )
 
+    private static let readOnlyGenesysCalendar = ReminderCalendarSnapshot(
+        id: "read-only-genesys-reminders",
+        title: "Reminders",
+        sourceTitle: "Genesys",
+        sourceType: .exchange,
+        allowsContentModifications: false
+    )
+
     private static let personalCalendar = ReminderCalendarSnapshot(
         id: "personal-reminders",
         title: "Personal",
@@ -310,6 +359,20 @@ final class WorkRemindersTests: XCTestCase {
 
     fileprivate static func date(_ isoString: String) -> Date {
         ISO8601DateFormatter().date(from: isoString)!
+    }
+
+    private static func localDate(year: Int, month: Int, day: Int, hour: Int, timeZone: TimeZone) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        return calendar.date(from: DateComponents(
+            timeZone: timeZone,
+            year: year,
+            month: month,
+            day: day,
+            hour: hour,
+            minute: 0,
+            second: 0
+        ))!
     }
 }
 

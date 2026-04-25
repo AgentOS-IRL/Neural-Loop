@@ -177,6 +177,8 @@ final class GenesysReminderService {
 
         let trimmedNotes = notes?.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedNotes = trimmedNotes?.isEmpty == true ? nil : trimmedNotes
+        let calendar = try writableGenesysCalendar()
+
         let resolvedDueDate: Date?
         if let dueDate {
             resolvedDueDate = dueDate
@@ -187,7 +189,6 @@ final class GenesysReminderService {
                 resolver: dateResolver ?? self.dateResolver
             )
         }
-        let calendar = try writableGenesysCalendar()
 
         do {
             let snapshot = try await store.createReminder(
@@ -455,7 +456,7 @@ final class CodexGenesysReminderDateResolver: GenesysReminderDateResolving {
             return nil
         }
 
-        if let date = parseISODate(trimmedDueDate) {
+        if let date = parseISODate(trimmedDueDate, timeZone: timeZone) {
             return date
         }
 
@@ -466,12 +467,25 @@ final class CodexGenesysReminderDateResolver: GenesysReminderDateResolving {
         throw CodexGenesysReminderDateResolverError.malformedDueDate(trimmedDueDate)
     }
 
-    private static func parseISODate(_ value: String) -> Date? {
+    private static func parseISODate(_ value: String, timeZone: TimeZone) -> Date? {
         for formatter in iso8601DateFormatters {
             if let date = formatter.date(from: value) {
                 return date
             }
         }
+
+        for format in localISODateTimeFormats {
+            let formatter = DateFormatter()
+            formatter.calendar = Calendar(identifier: .gregorian)
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.timeZone = timeZone
+            formatter.dateFormat = format
+
+            if let date = formatter.date(from: value) {
+                return date
+            }
+        }
+
         return nil
     }
 
@@ -520,6 +534,12 @@ final class CodexGenesysReminderDateResolver: GenesysReminderDateResolving {
 
         return [withFractionalSeconds, withoutFractionalSeconds]
     }()
+
+    private static let localISODateTimeFormats = [
+        "yyyy-MM-dd'T'HH:mm:ss.SSS",
+        "yyyy-MM-dd'T'HH:mm:ss",
+        "yyyy-MM-dd'T'HH:mm"
+    ]
 }
 
 private enum CodexGenesysReminderDateResolverError: LocalizedError, Equatable {
