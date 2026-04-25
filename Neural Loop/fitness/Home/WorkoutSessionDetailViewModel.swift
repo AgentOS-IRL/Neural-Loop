@@ -57,7 +57,8 @@ class WorkoutSessionDetailViewModel: ObservableObject {
                         setNumber: set.set_number,
                         weightText: set.weight != nil ? NumericFormatter.format(set.weight!) : "",
                         repsText: "\(set.reps)",
-                        isCompleted: true
+                        isCompleted: true,
+                        superset_group_id: set.superset_group_id
                     )
                 }
             } else {
@@ -151,7 +152,7 @@ class WorkoutSessionDetailViewModel: ObservableObject {
                                 set_number: draftSet.setNumber,
                                 reps: reps,
                                 weight: weight,
-                                superset_group_id: nil
+                                superset_group_id: draftSet.superset_group_id
                             )
                             _ = try await dataManager.updateWorkoutSet(updatedSet)
                         } else {
@@ -161,7 +162,7 @@ class WorkoutSessionDetailViewModel: ObservableObject {
                                 set_number: draftSet.setNumber,
                                 reps: reps,
                                 weight: weight,
-                                superset_group_id: nil
+                                superset_group_id: draftSet.superset_group_id
                             )
                             _ = try await dataManager.createWorkoutSet(request)
                         }
