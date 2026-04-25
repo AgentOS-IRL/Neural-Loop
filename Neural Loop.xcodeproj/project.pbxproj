@@ -11,6 +11,8 @@
 		349D25E22F24020A0001589F /* Neural Loop Watch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 349D25D82F2402090001589F /* Neural Loop Watch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		349D25EA2F24039E0001589F /* ConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349D25E92F2403890001589F /* ConnectivityManager.swift */; };
 		349D25EB2F24039E0001589F /* ConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349D25E92F2403890001589F /* ConnectivityManager.swift */; };
+		349D25EC2F24039F0001589F /* WorkoutWatchSyncModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349D25EE2F24039F0001589F /* WorkoutWatchSyncModels.swift */; };
+		349D25ED2F24039F0001589F /* WorkoutWatchSyncModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349D25EE2F24039F0001589F /* WorkoutWatchSyncModels.swift */; };
 		34B5B1792F1E7A8D00D44FEF /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 34B5B1782F1E7A8D00D44FEF /* GRDB */; };
 		34EB1E5F2F0FFD5400F5B247 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 34EB1E5E2F0FFD5400F5B247 /* Auth */; };
 		34EB1E612F0FFD5400F5B247 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 34EB1E602F0FFD5400F5B247 /* Functions */; };
@@ -67,6 +69,7 @@
 		34237FBE2F0AF4CA002E0D02 /* Neural Loop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Neural Loop.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		349D25D82F2402090001589F /* Neural Loop Watch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Neural Loop Watch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		349D25E92F2403890001589F /* ConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityManager.swift; sourceTree = "<group>"; };
+		349D25EE2F24039F0001589F /* WorkoutWatchSyncModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutWatchSyncModels.swift; sourceTree = "<group>"; };
 		34B495962F138D78000FAD6D /* Neural LoopTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Neural LoopTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -149,6 +152,7 @@
 			isa = PBXGroup;
 			children = (
 				349D25E92F2403890001589F /* ConnectivityManager.swift */,
+				349D25EE2F24039F0001589F /* WorkoutWatchSyncModels.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -322,6 +326,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				349D25EA2F24039E0001589F /* ConnectivityManager.swift in Sources */,
+				349D25EC2F24039F0001589F /* WorkoutWatchSyncModels.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -330,6 +335,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				349D25EB2F24039E0001589F /* ConnectivityManager.swift in Sources */,
+				349D25ED2F24039F0001589F /* WorkoutWatchSyncModels.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

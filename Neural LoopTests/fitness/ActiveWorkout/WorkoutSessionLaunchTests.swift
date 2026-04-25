@@ -249,7 +249,7 @@ class FakeLaunchDataManager: WorkoutTemplateReadingDataManaging, WorkoutDataMana
     
     func fetchRoutine(by id: Int64) async throws -> Routine? {
         fetchRoutineCallCount += 1
-        stubRoutine
+        return stubRoutine
     }
     
     func fetchAllRoutines() async throws -> [Routine] {
