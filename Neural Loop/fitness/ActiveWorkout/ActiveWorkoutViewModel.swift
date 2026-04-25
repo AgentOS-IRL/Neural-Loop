@@ -40,6 +40,7 @@ class ActiveWorkoutViewModel: ObservableObject {
     }
 
     func clearDraft() {
+        saveCancellable?.cancel()
         UserDefaults.standard.removeObject(forKey: draftKey)
     }
 
