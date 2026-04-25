@@ -18,14 +18,16 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
         summary: WorkoutTemplateSummary,
         dataManager: (any WorkoutTemplateEditingDataManaging & WorkoutDataManaging)? = nil,
         launchCoordinator: WorkoutSessionLaunching? = nil,
-        persistenceManager: WorkoutDraftPersistenceManager? = nil
+        persistenceManager: WorkoutDraftPersistenceManager? = nil,
+        connectivityManager: (any WorkoutConnectivityProviding)? = nil
     ) {
         self.summary = summary
         let dm = dataManager ?? DBManager.newInstance()
         let pm = persistenceManager ?? WorkoutDraftPersistenceManager()
+        let cm = connectivityManager ?? ConnectivityManager.shared
         self.dataManager = dm
         self.persistenceManager = pm
-        self.launchCoordinator = launchCoordinator ?? WorkoutSessionLaunchCoordinator(db: dm, persistenceManager: pm)
+        self.launchCoordinator = launchCoordinator ?? WorkoutSessionLaunchCoordinator(db: dm, persistenceManager: pm, connectivityProvider: cm)
     }
 
     func loadIfNeeded() async {

@@ -21,14 +21,17 @@ protocol WorkoutSessionLaunching {
 actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
     private let db: WorkoutTemplateReadingDataManaging & WorkoutDataManaging
     private let persistenceManager: WorkoutDraftPersistenceManager
+    private let connectivityProvider: WorkoutConnectivityProviding
     private var isLaunching = false
 
     init(
         db: WorkoutTemplateReadingDataManaging & WorkoutDataManaging,
-        persistenceManager: WorkoutDraftPersistenceManager = WorkoutDraftPersistenceManager()
+        persistenceManager: WorkoutDraftPersistenceManager = WorkoutDraftPersistenceManager(),
+        connectivityProvider: WorkoutConnectivityProviding = ConnectivityManager.shared
     ) {
         self.db = db
         self.persistenceManager = persistenceManager
+        self.connectivityProvider = connectivityProvider
     }
 
     func launchSession(for routineID: Int64) async throws -> ActiveWorkoutDraft {
@@ -41,6 +44,7 @@ actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
 
         if let draft = persistenceManager.load(routineID: routineID) {
             persistenceManager.saveActiveSessionPointer(draft.watchSessionPointer)
+            connectivityProvider.sendWorkoutSnapshot(draft.watchSnapshot(), completion: nil)
             return draft
         }
 
@@ -69,6 +73,9 @@ actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
         // 4. Immediate Save
         persistenceManager.save(draft: draft)
         persistenceManager.saveActiveSessionPointer(draft.watchSessionPointer)
+        
+        // 5. Sync to Watch (side effect)
+        connectivityProvider.sendWorkoutSnapshot(draft.watchSnapshot(), completion: nil)
 
         return draft
     }

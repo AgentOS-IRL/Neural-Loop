@@ -8,7 +8,11 @@ import WatchConnectivity
 import SwiftUI
 import Combine
 
-final class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate {
+protocol WorkoutConnectivityProviding: AnyObject {
+    func sendWorkoutSnapshot(_ snapshot: ActiveWorkoutSnapshot, completion: ((Result<Void, Error>) -> Void)?)
+}
+
+final class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, WorkoutConnectivityProviding {
     static let shared = ConnectivityManager()
 
     @Published var receivedMessage: String = "No message yet"
