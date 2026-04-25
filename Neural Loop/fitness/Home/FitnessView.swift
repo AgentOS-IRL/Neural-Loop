@@ -89,18 +89,8 @@ struct FitnessView: View {
             } message: {
                 Text("This action cannot be undone.")
             }
-            .fullScreenCover(item: $viewModel.activeDraft) { draft in
-                ActiveWorkoutView(viewModel: ActiveWorkoutViewModel(
-                    draft: draft,
-                    db: model.manager,
-                    persistenceManager: viewModel.persistenceManager,
-                    onDraftChange: { updatedDraft in
-                        viewModel.activeDraft = updatedDraft
-                    },
-                    onFinish: {
-                        viewModel.clearActiveDraft()
-                    }
-                ))
+            .fullScreenCover(item: $viewModel.activeViewModel) { activeVM in
+                ActiveWorkoutView(viewModel: activeVM)
             }
             .fullScreenCover(isPresented: $isRoutineGeneratorPresented) {
                 WorkoutRoutineGenerationView(

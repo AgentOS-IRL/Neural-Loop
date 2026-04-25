@@ -71,7 +71,7 @@ final class FitnessViewModelTests: XCTestCase {
 
         await viewModel.loadIfNeeded()
 
-        XCTAssertNil(viewModel.activeDraft)
+        XCTAssertNil(viewModel.activeViewModel)
         XCTAssertNotNil(persistenceManager.load(routineID: 1))
     }
 
@@ -92,7 +92,7 @@ final class FitnessViewModelTests: XCTestCase {
 
         viewModel.clearActiveDraft()
 
-        XCTAssertNil(viewModel.activeDraft)
+        XCTAssertNil(viewModel.activeViewModel)
         XCTAssertNotNil(persistenceManager.load(routineID: 1), "Parent dismissal should not clear routine draft persistence")
     }
 
@@ -101,8 +101,9 @@ final class FitnessViewModelTests: XCTestCase {
         userDefaults.removePersistentDomain(forName: "TestSaveDraftOnUpdate")
         let persistenceManager = WorkoutDraftPersistenceManager(userDefaults: userDefaults)
         
+        let dataManager = FakeFitnessTemplateDataManager(routines: [], exercisesByRoutineID: [:])
         let viewModel = FitnessViewModel(
-            dataManager: FakeFitnessTemplateDataManager(routines: [], exercisesByRoutineID: [:]),
+            dataManager: dataManager,
             persistenceManager: persistenceManager
         )
         
@@ -111,7 +112,7 @@ final class FitnessViewModelTests: XCTestCase {
             session: WorkoutSession(id: 1, date: Date(), start_time: "10:00", end_time: nil, session_type: "Test", notes: nil)
         )
         
-        viewModel.activeDraft = draft
+        viewModel.activeViewModel = ActiveWorkoutViewModel(draft: draft, db: dataManager)
         
         // Wait for debounce
         try? await Task.sleep(nanoseconds: 600_000_000) // 0.6s
