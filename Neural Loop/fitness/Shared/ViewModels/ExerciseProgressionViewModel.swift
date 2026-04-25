@@ -87,12 +87,13 @@ class ExerciseProgressionViewModel: ObservableObject {
         }
     }
 
-    func calculateOneRepMax(weight: Double, reps: Int) -> Double {
+    func calculateOneRepMax(weight: Double, reps: Int) -> Double? {
         // Brzycki formula: weight * (36 / (37 - reps))
         // Only valid for reps < 37. If reps >= 37, it becomes undefined or negative.
-        guard reps > 0 else { return 0 }
+        guard reps > 0 else { return nil }
         if reps == 1 { return weight }
-        let denominator = 37.0 - Double(min(reps, 36))
+        guard reps < 37 else { return nil }
+        let denominator = 37.0 - Double(reps)
         return weight * (36.0 / denominator)
     }
 }

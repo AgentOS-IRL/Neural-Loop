@@ -164,7 +164,8 @@ struct ExerciseProgressionView: View {
     private var statsSummary: some View {
         let filteredPoints = viewModel.dataPoints.filter { $0.metric == viewModel.selectedMetric }
         let current = filteredPoints.last?.value ?? 0
-        let best = filteredPoints.map { $0.value }.max() ?? 0
+        let values = filteredPoints.map { $0.value }
+        let best = viewModel.selectedMetric == .pace ? (values.min() ?? 0) : (values.max() ?? 0)
         
         return HStack(spacing: 16) {
             statCard(title: "Current", value: current, unit: viewModel.selectedMetric.unit)

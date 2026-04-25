@@ -22,7 +22,7 @@ class ExerciseProgressionViewModelTests: XCTestCase {
         // weight * (36 / (37 - reps))
         // 100kg for 10 reps -> 100 * (36 / 27) = 100 * 1.333 = 133.33
         let orm = viewModel.calculateOneRepMax(weight: 100, reps: 10)
-        XCTAssertEqual(orm, 133.33, accuracy: 0.01)
+        XCTAssertEqual(orm ?? 0, 133.33, accuracy: 0.01)
         
         // 100kg for 1 rep -> 100
         let orm1 = viewModel.calculateOneRepMax(weight: 100, reps: 1)
@@ -30,8 +30,7 @@ class ExerciseProgressionViewModelTests: XCTestCase {
         
         // High reps edge case
         let ormHigh = viewModel.calculateOneRepMax(weight: 50, reps: 40)
-        // capped at 36 reps in implementation: 50 * (36 / (37 - 36)) = 50 * 36 = 1800
-        XCTAssertEqual(ormHigh, 1800.0)
+        XCTAssertNil(ormHigh)
     }
 
     @MainActor
