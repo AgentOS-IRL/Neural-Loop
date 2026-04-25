@@ -23,18 +23,15 @@ struct FleetingNotesRow: View {
                     Text(card.timestamp)
                         .font(.system(.caption, design: .rounded, weight: .medium))
                         .foregroundStyle(AppTheme.textSecondary)
+
+                    Text(card.sourceSubtitle)
+                        .font(.system(.caption2, design: .rounded, weight: .semibold))
+                        .foregroundStyle(AppTheme.textSecondary)
                 }
 
                 Spacer(minLength: 12)
 
-                Image(systemName: "sparkles")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(AppTheme.accentGradient)
-                    .padding(10)
-                    .background(
-                        Circle()
-                            .fill(AppTheme.sectionGradient)
-                    )
+                sourceBadge
             }
 
             Text(card.note)
@@ -60,5 +57,35 @@ struct FleetingNotesRow: View {
                 ? AnyShapeStyle(Color(.secondarySystemBackground))
                 : AnyShapeStyle(AppTheme.cardGradient)
             )
+    }
+
+    private var sourceBadge: some View {
+        HStack(spacing: 6) {
+            Image(systemName: card.source == .work ? "briefcase.fill" : "sparkles")
+                .font(.system(size: 11, weight: .semibold))
+
+            Text(card.badgeText)
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+        }
+        .foregroundStyle(sourceTint)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(
+            Capsule()
+                .fill(sourceTint.opacity(0.14))
+        )
+        .overlay {
+            Capsule()
+                .strokeBorder(sourceTint.opacity(0.24), lineWidth: 1)
+        }
+    }
+
+    private var sourceTint: Color {
+        switch card.source {
+        case .personal:
+            return AppTheme.accentColor
+        case .work:
+            return AppTheme.workEventTint
+        }
     }
 }

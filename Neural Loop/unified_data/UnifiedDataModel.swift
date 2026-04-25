@@ -31,6 +31,7 @@ final class UnifiedDataModel: ObservableObject {
     static let shared = UnifiedDataModel(autoStart: !isRunningUnderTests())
     
     let manager :DBManager
+    let workReminderService: GenesysReminderService
     private let secretsFetcher: any SecretsFetching
     let calendar: Calendar
     let notificationScheduler: NotificationAutoScheduler
@@ -137,10 +138,12 @@ final class UnifiedDataModel: ObservableObject {
         manager: DBManager? = nil,
         secretsFetcher: (any SecretsFetching)? = nil,
         autoStart: Bool = true,
-        notificationScheduler: NotificationAutoScheduler? = nil
+        notificationScheduler: NotificationAutoScheduler? = nil,
+        workReminderService: GenesysReminderService? = nil
     ) {
         let resolvedManager = manager ?? DBManager.newInstance()
         self.manager = resolvedManager
+        self.workReminderService = workReminderService ?? GenesysReminderService()
         self.secretsFetcher = secretsFetcher ?? resolvedManager
         self.calendar  = Calendar.neuralLoopDisplay
         self.notificationScheduler = notificationScheduler ?? .shared

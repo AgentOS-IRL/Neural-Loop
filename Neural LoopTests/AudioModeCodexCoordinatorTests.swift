@@ -601,7 +601,9 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertTrue(model.savedTasks.isEmpty)
         XCTAssertEqual(model.savedFleetingNotes.map(\.note), ["Remember the keys"])
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .toolResult])
-        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Fleeting note created (id: 1): Remember the keys")
+        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Personal note created (id: 1): Remember the keys")
+        XCTAssertEqual(coordinator.conversationFeed.last?.toolResultKind, .personalNoteCreated)
+        XCTAssertEqual(coordinator.viewData.noteTargetStatusText, "Notes: Personal")
     }
 
     func testNotesToolCallRejectsBlankContent() async {
@@ -648,7 +650,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertTrue(model.savedTasks.isEmpty)
         XCTAssertEqual(model.savedFleetingNotes.map(\.note), ["Remember the passport"])
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .toolResult])
-        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Fleeting note created (id: 1): Remember the passport")
+        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Personal note created (id: 1): Remember the passport")
     }
 
     func testNotesToolCallShowsFailureWhenPersistenceFails() async {
@@ -674,7 +676,123 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertTrue(model.savedTasks.isEmpty)
         XCTAssertEqual(model.savedFleetingNotes.map(\.note), ["Remember the passport"])
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .error])
-        XCTAssertEqual(coordinator.errorMessage, "Fleeting note could not be saved.")
+        XCTAssertEqual(coordinator.errorMessage, "Personal note could not be saved.")
+    }
+
+    func testNotesToolCallWithPersonalSourcePersistsPersonalNote() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "Notes",
+                arguments: [
+                    "content": "Remember the passport",
+                    "source": "personal"
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Save a personal note")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(model.savedFleetingNotes.map(\.note), ["Remember the passport"])
+        XCTAssertTrue(model.savedWorkReminders.isEmpty)
+        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Personal note created (id: 1): Remember the passport")
+    }
+
+    func testNotesToolCallWithScopePersonalPersistsPersonalNote() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "Notes",
+                arguments: [
+                    "content": "Remember the passport",
+                    "scope": "personal"
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Save a note")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(model.savedFleetingNotes.map(\.note), ["Remember the passport"])
+        XCTAssertTrue(model.savedWorkReminders.isEmpty)
+    }
+
+    func testNotesToolCallWithWorkSourceCreatesWorkReminder() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "Notes",
+                arguments: [
+                    "content": "Follow up with customer",
+                    "source": "work"
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Save a work note")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertTrue(model.savedFleetingNotes.isEmpty)
+        XCTAssertEqual(model.savedWorkReminders.map(\.title), ["Follow up with customer"])
+        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Work note created: Follow up with customer")
+        XCTAssertEqual(coordinator.conversationFeed.last?.toolResultKind, .workNoteCreated)
+        XCTAssertEqual(coordinator.viewData.noteTargetStatusText, "Notes: Work")
+    }
+
+    func testNotesToolCallWithWorkSourceSurfacesPermissionFailure() async {
+        let model = FakeAudioModeCodexModel(
+            llmEnabled: true,
+            workReminderError: GenesysReminderServiceError.accessDenied
+        )
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "Notes",
+                arguments: [
+                    "content": "Follow up with customer",
+                    "source": "work"
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Save a work note")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertTrue(model.savedFleetingNotes.isEmpty)
+        XCTAssertEqual(model.savedWorkReminders.map(\.title), ["Follow up with customer"])
+        XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .error])
+        XCTAssertEqual(coordinator.errorMessage, GenesysReminderServiceError.accessDenied.localizedDescription)
+        XCTAssertEqual(coordinator.viewData.noteTargetStatusText, "Notes: Work")
+    }
+
+    func testNotesToolCallWithUnknownSourceShowsError() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "Notes",
+                arguments: [
+                    "content": "Remember the passport",
+                    "source": "team"
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Save a note")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertTrue(model.savedFleetingNotes.isEmpty)
+        XCTAssertTrue(model.savedWorkReminders.isEmpty)
+        XCTAssertEqual(coordinator.errorMessage, "Codex provided an unknown note source.")
     }
 
     func testDisabledLLMBlocksCodexRequestAndSurfacesStatus() async {
@@ -749,8 +867,11 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
     private(set) var savedTasks: [Tasks] = []
     private(set) var savedSubTasks: [SubTasks] = []
     private(set) var savedFleetingNotes: [CreateFleetingNoteRequest] = []
+    private(set) var savedWorkReminders: [CreateWorkReminderRequest] = []
     private let seededTasks: [Tasks]
     private let fleetingNoteSaveResult: FleetingNote?
+    private let workReminderSaveResult: WorkReminder?
+    private let workReminderError: Error?
     private let taskSaveShouldFail: Bool
     private let subTaskSaveShouldFail: Bool
     private let subTaskSaveResult: SubTasks?
@@ -774,6 +895,16 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
             created_at: ISO8601DateFormatter().date(from: "2026-04-15T09:30:00Z")!,
             note: "Remember the keys"
         ),
+        workReminderSaveResult: WorkReminder? = WorkReminder(
+            id: "work-1",
+            title: "Follow up with customer",
+            notes: nil,
+            createdAt: ISO8601DateFormatter().date(from: "2026-04-15T09:30:00Z")!,
+            dueDate: nil,
+            calendarTitle: "Reminders",
+            sourceTitle: "Genesys"
+        ),
+        workReminderError: Error? = nil,
         taskSaveResultID: Int64 = 101,
         subTaskSaveResultID: UUID = UUID(uuidString: "00000000-0000-0000-0000-000000000042")!,
         codexAccessToken: String? = "token",
@@ -785,6 +916,8 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
         self.subTaskSaveShouldFail = subTaskSaveShouldFail
         self.subTaskSaveResult = subTaskSaveResult
         self.fleetingNoteSaveResult = fleetingNoteSaveResult
+        self.workReminderSaveResult = workReminderSaveResult
+        self.workReminderError = workReminderError
         self.taskSaveResultID = taskSaveResultID
         self.subTaskSaveResultID = subTaskSaveResultID
         self.codexAccessToken = codexAccessToken
@@ -862,6 +995,28 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
             id: fleetingNoteSaveResult.id,
             created_at: fleetingNoteSaveResult.created_at,
             note: request.note
+        )
+    }
+
+    func createWorkReminder(title: String, notes: String?) async throws -> WorkReminder {
+        savedWorkReminders.append(CreateWorkReminderRequest(title: title, notes: notes))
+
+        if let workReminderError {
+            throw workReminderError
+        }
+
+        guard let workReminderSaveResult else {
+            throw GenesysReminderServiceError.saveFailed("No fake work reminder result.")
+        }
+
+        return WorkReminder(
+            id: workReminderSaveResult.id,
+            title: title,
+            notes: notes,
+            createdAt: workReminderSaveResult.createdAt,
+            dueDate: workReminderSaveResult.dueDate,
+            calendarTitle: workReminderSaveResult.calendarTitle,
+            sourceTitle: workReminderSaveResult.sourceTitle
         )
     }
 }

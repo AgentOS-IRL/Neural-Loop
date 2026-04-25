@@ -186,4 +186,40 @@ final class AudioModeViewStateTests: XCTestCase {
         XCTAssertEqual(state.conversation.emptyTitle, "Codex replies are turned off")
         XCTAssertEqual(state.actionBar.primaryStatusChips, ["Ready", "Disabled"])
     }
+
+    func testMapsRecentNoteTargetIntoActionBarChip() {
+        let transcription = AudioModeTranscriptionViewData(
+            displayState: .inactive,
+            title: "AI",
+            detail: "Voice stays active across pauses until you stop the session.",
+            badgeText: "Ready",
+            transcriptTitle: "Live transcript",
+            transcriptIconName: "text.quote",
+            transcriptBadgeText: "Ready",
+            transcriptBody: "Tap the mic to start speaking.",
+            microphoneSystemImage: "mic.fill",
+            micButtonLabel: "Start Voice Detection",
+            isActionDisabled: false,
+            isRecording: false,
+            transcriptHistoryCount: 0
+        )
+        let conversation = AudioModeConversationViewData(
+            messages: [
+                .init(
+                    role: .toolResult,
+                    content: "Work note created: Follow up",
+                    toolResultKind: .workNoteCreated
+                )
+            ],
+            bannerText: nil,
+            bannerTone: nil,
+            isSending: false,
+            isLLMDisabled: false,
+            noteTargetStatusText: "Notes: Work"
+        )
+
+        let state = AudioModeViewState(transcription: transcription, conversation: conversation)
+
+        XCTAssertEqual(state.actionBar.primaryStatusChips, ["Ready", "Notes: Work"])
+    }
 }

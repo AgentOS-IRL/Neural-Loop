@@ -152,13 +152,25 @@ struct AudioModeConversationCard: View, Equatable {
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
-                    Image(systemName: message.role.systemImage)
+                    Image(systemName: message.toolResultKind?.systemImage ?? message.role.systemImage)
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(AudioModeTheme.messageIconColor(for: message.role))
 
                     Text(message.role.displayTitle)
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(AudioModeTheme.messageLabelColor(for: message.role))
+
+                    if let badgeText = message.toolResultKind?.badgeText {
+                        Text(badgeText)
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textPrimaryOpacity))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(AudioModeTheme.messageIconColor(for: message.role).opacity(0.18))
+                            )
+                    }
 
                     Spacer(minLength: 0)
                 }

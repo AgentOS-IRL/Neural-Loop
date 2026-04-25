@@ -59,7 +59,7 @@ struct EditFleetingNoteView: View {
                 }
                 .padding(AppTheme.Metrics.screenPadding)
             }
-            .navigationTitle("Edit Note")
+            .navigationTitle(note.source == .work ? "Edit Work Note" : "Edit Personal Note")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -133,10 +133,16 @@ struct EditFleetingNoteView: View {
 #Preview {
     EditFleetingNoteView(
         note: FleetingNoteCardState(
-            id: 1,
+            id: "personal-1",
+            source: .personal,
+            rawPersonalID: 1,
+            rawWorkID: nil,
+            workNotes: nil,
             note: "Remember to review the notes flow.",
             timestamp: "16 Apr 2026, 10:30",
-            relativeTimestamp: "Today at 10:30"
+            relativeTimestamp: "Today at 10:30",
+            badgeText: "Personal",
+            sourceSubtitle: "Supabase"
         ),
         onSave: { _ in }
     )
