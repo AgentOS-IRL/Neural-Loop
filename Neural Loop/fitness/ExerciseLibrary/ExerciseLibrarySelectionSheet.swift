@@ -75,9 +75,17 @@ struct ExerciseLibrarySelectionSheet: View {
 
             HStack(spacing: 10) {
                 Menu {
-                    Button("All groups", action: {})
+                    Button("All muscles") {
+                        viewModel.selectMuscle(nil)
+                    }
+
+                    ForEach(viewModel.muscleOptions) { muscle in
+                        Button(muscle.name) {
+                            viewModel.selectMuscle(muscle.id)
+                        }
+                    }
                 } label: {
-                    filterLabel("All groups", systemImage: "line.3.horizontal.decrease.circle")
+                    filterLabel(viewModel.muscleFilterTitle, systemImage: "figure.strengthtraining.traditional")
                 }
 
                 Menu {
