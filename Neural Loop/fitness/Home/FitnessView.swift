@@ -25,6 +25,7 @@ struct FitnessView: View {
     @State private var isTemplateEditorPresented = false
     @State private var isRoutineGeneratorPresented = false
     @State private var selectedTemplate: WorkoutTemplateSummary?
+    @State private var selectedSession: WorkoutSessionSummary?
     @State private var generatedRoutine: WorkoutRoutineGenerationPayload?
 
     var body: some View {
@@ -62,6 +63,12 @@ struct FitnessView: View {
                         await viewModel.reload()
                     }
                 }
+            }
+            .sheet(item: $selectedSession) { session in
+                WorkoutSessionDetailView(viewModel: WorkoutSessionDetailViewModel(
+                    sessionId: session.id,
+                    dataManager: model.manager
+                ))
             }
             .fullScreenCover(item: Binding(
                 get: { viewModel.activeSession.map { ActiveWorkoutSessionWrapper(session: $0.0, exercises: $0.1) } },
@@ -256,7 +263,14 @@ struct FitnessView: View {
             spacing: 14
         ) {
             ForEach(viewModel.sessions) { session in
-                WorkoutSessionCard(session: session)
+                Button {
+                    selectedSession = session
+                } label: {
+                    WorkoutSessionCard(session: session)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(session.title), \(session.date.formatted(date: .abbreviated, time: .omitted))")
+                .accessibilityHint("Opens workout details")
             }
         }
     }
