@@ -36,6 +36,7 @@ struct WorkoutExerciseCardState: Identifiable, Equatable, Codable {
     var restSeconds: Int?
     var targetDuration: Decimal?
     var supersetGroupID: Int?
+    var historicalHint: String?
 
     var supersetLabel: String? {
         supersetGroupID?.supersetLabel
