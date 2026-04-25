@@ -103,4 +103,9 @@ class MockWorkoutDataManager: WorkoutDataManaging {
     func fetchWorkoutSessionDetail(sessionId: Int64) async throws -> WorkoutSessionDetail {
         fatalError("Not implemented")
     }
+    func updateWorkoutSession(_ session: WorkoutSession) async throws -> WorkoutSession { session }
+    func updateWorkoutSet(_ set: WorkoutSet) async throws -> WorkoutSet { set }
+    func deleteWorkoutSet(id: Int64) async throws {}
+    func updateCardioLog(_ log: CardioLog) async throws -> CardioLog { log }
+    func deleteCardioLog(id: Int64) async throws {}
 }
