@@ -224,6 +224,23 @@ final class WorkoutSessionLaunchTests: XCTestCase {
         await fulfillment(of: [expectation1, expectation2], timeout: 1.0)
     }
 
+    func testLaunchSavesActiveSessionPointer() async throws {
+        let routineID: Int64 = 1
+        let routine = Routine(id: routineID, name: "Test Routine", notes: nil)
+        
+        let db = FakeLaunchDataManager()
+        db.stubRoutine = routine
+        
+        let persistenceManager = makePersistenceManager("testLaunchSavesActiveSessionPointer")
+        let coordinator = WorkoutSessionLaunchCoordinator(db: db, persistenceManager: persistenceManager)
+        
+        _ = try await coordinator.launchSession(for: routineID)
+        
+        let pointer = persistenceManager.loadActiveSessionPointer()
+        XCTAssertNotNil(pointer)
+        XCTAssertEqual(pointer?.routineID, routineID)
+    }
+
     private func makePersistenceManager(_ suiteName: String) -> WorkoutDraftPersistenceManager {
         let userDefaults = UserDefaults(suiteName: suiteName)!
         userDefaults.removePersistentDomain(forName: suiteName)

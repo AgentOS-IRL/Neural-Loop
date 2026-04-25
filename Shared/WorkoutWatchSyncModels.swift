@@ -3,13 +3,13 @@ import Foundation
 // Transport models shared by iPhone and watch targets.
 // Keep these free of persistence, database, SwiftUI, and app-only fitness model dependencies.
 
-struct WorkoutSessionPointer: Codable, Hashable, Identifiable {
+nonisolated struct WorkoutSessionPointer: Codable, Hashable, Identifiable {
     let id: String
     var routineID: Int64?
     var workoutSessionID: Int64?
 }
 
-struct ActiveWorkoutSnapshot: Codable, Hashable, Identifiable {
+nonisolated struct ActiveWorkoutSnapshot: Codable, Hashable, Identifiable {
     var id: String { session.id }
     var session: WorkoutSessionPointer
     var title: String
@@ -18,7 +18,7 @@ struct ActiveWorkoutSnapshot: Codable, Hashable, Identifiable {
     var exercises: [ExerciseSnapshot]
 }
 
-struct ExerciseSnapshot: Codable, Hashable, Identifiable {
+nonisolated struct ExerciseSnapshot: Codable, Hashable, Identifiable {
     let id: String
     var sourceExerciseID: Int64?
     var name: String
@@ -28,7 +28,7 @@ struct ExerciseSnapshot: Codable, Hashable, Identifiable {
     var sets: [SetSnapshot]
 }
 
-struct SetSnapshot: Codable, Hashable, Identifiable {
+nonisolated struct SetSnapshot: Codable, Hashable, Identifiable {
     let id: String
     var sourceSetID: String?
     var setNumber: Int
@@ -36,27 +36,27 @@ struct SetSnapshot: Codable, Hashable, Identifiable {
     var isCompleted: Bool
 }
 
-struct WorkoutSetValuesSnapshot: Codable, Hashable {
+nonisolated struct WorkoutSetValuesSnapshot: Codable, Hashable {
     var kg: Decimal?
     var reps: Int?
 }
 
-struct WorkoutWatchSessionAction: Codable, Hashable {
+nonisolated struct WorkoutWatchSessionAction: Codable, Hashable {
     var session: WorkoutSessionPointer
 }
 
-struct WorkoutWatchSetReference: Codable, Hashable {
+nonisolated struct WorkoutWatchSetReference: Codable, Hashable {
     var session: WorkoutSessionPointer
     var exerciseID: String
     var setID: String
 }
 
-struct WorkoutWatchSetValuesAction: Codable, Hashable {
+nonisolated struct WorkoutWatchSetValuesAction: Codable, Hashable {
     var reference: WorkoutWatchSetReference
     var values: WorkoutSetValuesSnapshot
 }
 
-struct WorkoutWatchSetCompletionAction: Codable, Hashable {
+nonisolated struct WorkoutWatchSetCompletionAction: Codable, Hashable {
     var reference: WorkoutWatchSetReference
     var isCompleted: Bool
 }

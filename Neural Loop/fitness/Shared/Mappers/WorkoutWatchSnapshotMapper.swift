@@ -1,6 +1,6 @@
 import Foundation
 
-extension ActiveWorkoutDraft {
+nonisolated extension ActiveWorkoutDraft {
     func watchSnapshot(now: Date = Date()) -> ActiveWorkoutSnapshot {
         let sessionPointer = watchSessionPointer
 
@@ -15,7 +15,7 @@ extension ActiveWorkoutDraft {
         )
     }
 
-    private var watchSessionPointer: WorkoutSessionPointer {
+    var watchSessionPointer: WorkoutSessionPointer {
         WorkoutSessionPointer(
             id: "active-workout-\(routineID)-\(createdAt.timeIntervalSince1970)",
             routineID: routineID,
