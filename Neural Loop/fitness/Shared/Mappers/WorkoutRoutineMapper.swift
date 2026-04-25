@@ -6,7 +6,7 @@ struct WorkoutRoutineMapper {
         routineExercises: [RoutineExercise],
         allExercises: [ExerciseWithMuscles],
         allEquipment: [Equipment]
-    ) -> WorkoutSessionState {
+    ) -> ActiveWorkoutDraft {
         // 1. Prepare WorkoutSession Draft
         let session = WorkoutSession(
             id: nil,
@@ -77,6 +77,6 @@ struct WorkoutRoutineMapper {
             )
         }
 
-        return WorkoutSessionState(session: session, exercises: exerciseStates)
+        return ActiveWorkoutDraft(session: session, exercises: exerciseStates)
     }
 }

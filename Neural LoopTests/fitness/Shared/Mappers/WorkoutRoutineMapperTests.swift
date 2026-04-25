@@ -139,11 +139,11 @@ final class WorkoutRoutineMapperTests: XCTestCase {
                 targetDuration: nil
             )
         ]
-        let originalState = WorkoutSessionState(session: session, exercises: exercises)
+        let originalState = ActiveWorkoutDraft(session: session, exercises: exercises)
         
         // When
         let data = try JSONEncoder().encode(originalState)
-        let decodedState = try JSONDecoder().decode(WorkoutSessionState.self, from: data)
+        let decodedState = try JSONDecoder().decode(ActiveWorkoutDraft.self, from: data)
         
         // Then
         XCTAssertEqual(originalState.exercises.count, decodedState.exercises.count)
