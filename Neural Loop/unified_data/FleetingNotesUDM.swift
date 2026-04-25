@@ -54,7 +54,7 @@ extension UnifiedDataModel {
             dateResolver = nil
         }
 
-        try await workReminderService.createGenesysReminder(
+        return try await workReminderService.createGenesysReminder(
             title: title,
             notes: notes,
             dueDate: dueDate,
