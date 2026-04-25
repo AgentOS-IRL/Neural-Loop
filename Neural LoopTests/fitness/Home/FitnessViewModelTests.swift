@@ -54,6 +54,52 @@ final class FitnessViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.templates.map(\.title), ["Full Body", "Leg Day", "Push Day"])
     }
 
+    func testRestoreDraftOnLoad() async {
+        let draft = ActiveWorkoutDraft(
+            session: WorkoutSession(id: nil, date: Date(), start_time: "10:00", end_time: nil, session_type: "Test", notes: nil),
+            exercises: []
+        )
+        let userDefaults = UserDefaults(suiteName: "TestRestoreDraftOnLoad")!
+        userDefaults.removePersistentDomain(forName: "TestRestoreDraftOnLoad")
+        let persistenceManager = WorkoutDraftPersistenceManager(userDefaults: userDefaults)
+        persistenceManager.save(draft: draft)
+
+        let viewModel = FitnessViewModel(
+            dataManager: FakeFitnessTemplateDataManager(routines: [], exercisesByRoutineID: [:]),
+            persistenceManager: persistenceManager
+        )
+
+        await viewModel.loadIfNeeded()
+
+        XCTAssertNotNil(viewModel.activeDraft)
+        XCTAssertEqual(viewModel.activeDraft?.session.session_type, "Test")
+    }
+
+    func testSaveDraftOnUpdate() async {
+        let userDefaults = UserDefaults(suiteName: "TestSaveDraftOnUpdate")!
+        userDefaults.removePersistentDomain(forName: "TestSaveDraftOnUpdate")
+        let persistenceManager = WorkoutDraftPersistenceManager(userDefaults: userDefaults)
+        
+        let viewModel = FitnessViewModel(
+            dataManager: FakeFitnessTemplateDataManager(routines: [], exercisesByRoutineID: [:]),
+            persistenceManager: persistenceManager
+        )
+        
+        let draft = ActiveWorkoutDraft(
+            session: WorkoutSession(id: 1, date: Date(), start_time: "10:00", end_time: nil, session_type: "Test", notes: nil),
+            exercises: []
+        )
+        
+        viewModel.activeDraft = draft
+        
+        // Wait for debounce
+        try? await Task.sleep(nanoseconds: 600_000_000) // 0.6s
+        
+        let savedDraft = persistenceManager.load()
+        XCTAssertNotNil(savedDraft)
+        XCTAssertEqual(savedDraft?.session.session_type, "Test")
+    }
+
     func testReloadKeepsPreviousTemplatesWhenFetchingFails() async {
         let dataManager = FakeFitnessTemplateDataManager(
             routines: [routine(id: 1, name: "Push Day")],

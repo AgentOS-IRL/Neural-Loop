@@ -28,20 +28,40 @@ final class WorkoutSessionLaunchTests: XCTestCase {
         
         let coordinator = WorkoutSessionLaunchCoordinator(db: db)
         
-        let (session, states) = try await coordinator.launchSession(for: routineID)
+        let draft = try await coordinator.launchSession(for: routineID)
         
-        XCTAssertNil(session.id)
-        XCTAssertEqual(session.session_type, "Test Routine")
-        XCTAssertEqual(session.notes, "Some notes")
-        XCTAssertEqual(states.count, 2)
+        XCTAssertNil(draft.session.id)
+        XCTAssertEqual(draft.session.session_type, "Test Routine")
+        XCTAssertEqual(draft.session.notes, "Some notes")
+        XCTAssertEqual(draft.exercises.count, 2)
         
-        XCTAssertEqual(states[0].exercise.name, "Exercise 1")
-        XCTAssertEqual(states[0].sets.count, 3)
+        XCTAssertEqual(draft.exercises[0].exercise.name, "Exercise 1")
+        XCTAssertEqual(draft.exercises[0].sets.count, 3)
         
-        XCTAssertEqual(states[1].exercise.name, "Exercise 2")
-        XCTAssertEqual(states[1].sets.count, 4)
+        XCTAssertEqual(draft.exercises[1].exercise.name, "Exercise 2")
+        XCTAssertEqual(draft.exercises[1].sets.count, 4)
         
         XCTAssertNil(db.capturedCreateSessionRequest, "Should not create session in DB during launch")
+    }
+
+    func testLaunchSavesDraftImmediately() async throws {
+        let routineID: Int64 = 1
+        let routine = Routine(id: routineID, name: "Test Routine", notes: "Some notes")
+        
+        let db = FakeLaunchDataManager()
+        db.stubRoutine = routine
+        
+        let userDefaults = UserDefaults(suiteName: "TestLaunchSavesDraftImmediately")!
+        userDefaults.removePersistentDomain(forName: "TestLaunchSavesDraftImmediately")
+        let persistenceManager = WorkoutDraftPersistenceManager(userDefaults: userDefaults)
+        
+        let coordinator = WorkoutSessionLaunchCoordinator(db: db, persistenceManager: persistenceManager)
+        
+        _ = try await coordinator.launchSession(for: routineID)
+        
+        let savedDraft = persistenceManager.load()
+        XCTAssertNotNil(savedDraft)
+        XCTAssertEqual(savedDraft?.session.session_type, "Test Routine")
     }
 
     func testLaunchSessionClampsNonPositiveTargetSets() async throws {
@@ -62,10 +82,10 @@ final class WorkoutSessionLaunchTests: XCTestCase {
         
         let coordinator = WorkoutSessionLaunchCoordinator(db: db)
         
-        let (_, states) = try await coordinator.launchSession(for: routineID)
+        let draft = try await coordinator.launchSession(for: routineID)
         
-        XCTAssertEqual(states[0].sets.count, 1, "Should clamp 0 to 1")
-        XCTAssertEqual(states[1].sets.count, 1, "Should clamp negative to 1")
+        XCTAssertEqual(draft.exercises[0].sets.count, 1, "Should clamp 0 to 1")
+        XCTAssertEqual(draft.exercises[1].sets.count, 1, "Should clamp negative to 1")
     }
     
     func testLaunchSessionThrowsRoutineNotFoundIfRoutineMissing() async {

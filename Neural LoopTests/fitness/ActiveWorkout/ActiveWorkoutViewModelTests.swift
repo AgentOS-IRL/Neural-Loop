@@ -14,7 +14,8 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
             WorkoutSetDraft(setNumber: 3, weightText: "110", repsText: "8")
         ])
         
-        let viewModel = ActiveWorkoutViewModel(session: session, exerciseStates: [state], db: db)
+        let draft = ActiveWorkoutDraft(session: session, exercises: [state])
+        let viewModel = ActiveWorkoutViewModel(draft: draft, db: db)
         
         await viewModel.finishWorkout()
         
@@ -38,7 +39,8 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
         let exercise = ExerciseLibraryItem(id: 1, name: "E1", type: .duration, equipmentID: nil, equipmentName: "None")
         let set = WorkoutSetDraft(setNumber: 1)
         let state = WorkoutExerciseCardState(id: 1, exercise: exercise, sets: [set])
-        let viewModel = ActiveWorkoutViewModel(session: session, exerciseStates: [state], db: db)
+        let draft = ActiveWorkoutDraft(session: session, exercises: [state])
+        let viewModel = ActiveWorkoutViewModel(draft: draft, db: db)
 
         viewModel.updateDuration(for: 1, setID: set.id, durationText: "15.5")
 
@@ -51,7 +53,8 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
         let exercise = ExerciseLibraryItem(id: 1, name: "E1", type: .duration, equipmentID: nil, equipmentName: "None")
         let set = WorkoutSetDraft(setNumber: 1)
         let state = WorkoutExerciseCardState(id: 1, exercise: exercise, sets: [set])
-        let viewModel = ActiveWorkoutViewModel(session: session, exerciseStates: [state], db: db)
+        let draft = ActiveWorkoutDraft(session: session, exercises: [state])
+        let viewModel = ActiveWorkoutViewModel(draft: draft, db: db)
 
         viewModel.updateDistance(for: 1, setID: set.id, distanceText: "5.2")
 
@@ -64,11 +67,28 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
         let exercise = ExerciseLibraryItem(id: 1, name: "E1", type: .duration, equipmentID: nil, equipmentName: "None")
         let set = WorkoutSetDraft(setNumber: 1)
         let state = WorkoutExerciseCardState(id: 1, exercise: exercise, sets: [set])
-        let viewModel = ActiveWorkoutViewModel(session: session, exerciseStates: [state], db: db)
+        let draft = ActiveWorkoutDraft(session: session, exercises: [state])
+        let viewModel = ActiveWorkoutViewModel(draft: draft, db: db)
 
         viewModel.updateCalories(for: 1, setID: set.id, caloriesText: "500")
 
         XCTAssertEqual(viewModel.draft.exercises[0].sets[0].caloriesText, "500")
+    }
+
+    func testDraftChangesTriggerCallback() async {
+        let db = FakeWorkoutDataManager()
+        let session = WorkoutSession(id: nil, date: Date(), start_time: nil, end_time: nil, session_type: "Test", notes: nil)
+        let draft = ActiveWorkoutDraft(session: session, exercises: [])
+        
+        var callbackDraft: ActiveWorkoutDraft?
+        let viewModel = ActiveWorkoutViewModel(draft: draft, db: db) { updated in
+            callbackDraft = updated
+        }
+        
+        viewModel.draft.session.notes = "Updated notes"
+        
+        XCTAssertNotNil(callbackDraft)
+        XCTAssertEqual(callbackDraft?.session.notes, "Updated notes")
     }
 
     func testFinishWorkoutSavesCardioLogs() async throws {
@@ -81,7 +101,8 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
             WorkoutSetDraft(setNumber: 3, durationText: "45")
         ])
         
-        let viewModel = ActiveWorkoutViewModel(session: session, exerciseStates: [state], db: db)
+        let draft = ActiveWorkoutDraft(session: session, exercises: [state])
+        let viewModel = ActiveWorkoutViewModel(draft: draft, db: db)
         
         await viewModel.finishWorkout()
         
@@ -101,7 +122,8 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
             WorkoutSetDraft(setNumber: 3, durationText: "10", distanceText: "", caloriesText: "100")
         ])
         
-        let viewModel = ActiveWorkoutViewModel(session: session, exerciseStates: [state], db: db)
+        let draft = ActiveWorkoutDraft(session: session, exercises: [state])
+        let viewModel = ActiveWorkoutViewModel(draft: draft, db: db)
         
         await viewModel.finishWorkout()
         
@@ -133,7 +155,8 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
             WorkoutSetDraft(setNumber: 1, durationText: "15.5")
         ])
         
-        let viewModel = ActiveWorkoutViewModel(session: session, exerciseStates: [state], db: db)
+        let draft = ActiveWorkoutDraft(session: session, exercises: [state])
+        let viewModel = ActiveWorkoutViewModel(draft: draft, db: db)
         
         await viewModel.finishWorkout()
         
@@ -146,7 +169,8 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
         db.shouldFail = true
         let session = WorkoutSession(id: nil, date: Date(), start_time: nil, end_time: nil, session_type: "Test", notes: nil)
         
-        let viewModel = ActiveWorkoutViewModel(session: session, exerciseStates: [], db: db)
+        let draft = ActiveWorkoutDraft(session: session, exercises: [])
+        let viewModel = ActiveWorkoutViewModel(draft: draft, db: db)
         
         await viewModel.finishWorkout()
         
@@ -160,7 +184,8 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
         let set = WorkoutSetDraft(setNumber: 1)
         var state = WorkoutExerciseCardState(id: 1, exercise: exercise, sets: [set])
         state.restSeconds = 60
-        let viewModel = ActiveWorkoutViewModel(session: session, exerciseStates: [state], db: db)
+        let draft = ActiveWorkoutDraft(session: session, exercises: [state])
+        let viewModel = ActiveWorkoutViewModel(draft: draft, db: db)
 
         viewModel.toggleSetCompletion(exerciseID: 1, setID: set.id)
 
@@ -172,7 +197,8 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
     func testStopTimerResetsState() async {
         let db = FakeWorkoutDataManager()
         let session = WorkoutSession(id: nil, date: Date(), start_time: nil, end_time: nil, session_type: "Test", notes: nil)
-        let viewModel = ActiveWorkoutViewModel(session: session, exerciseStates: [], db: db)
+        let draft = ActiveWorkoutDraft(session: session, exercises: [])
+        let viewModel = ActiveWorkoutViewModel(draft: draft, db: db)
 
         viewModel.restTimerSeconds = 30
         viewModel.isTimerRunning = true

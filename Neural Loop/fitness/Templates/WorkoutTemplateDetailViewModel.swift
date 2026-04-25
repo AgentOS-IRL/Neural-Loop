@@ -7,21 +7,41 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
     @Published private(set) var rows: [WorkoutTemplateExerciseRow] = []
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
-    @Published var activeSession: (WorkoutSession, [WorkoutExerciseCardState])?
+    @Published var activeDraft: ActiveWorkoutDraft?
 
     let dataManager: any WorkoutTemplateEditingDataManaging & WorkoutDataManaging
     let launchCoordinator: WorkoutSessionLaunching
+    private let persistenceManager: WorkoutDraftPersistenceManager
     private var hasLoaded = false
+    private var cancellables = Set<AnyCancellable>()
 
     init(
         summary: WorkoutTemplateSummary,
         dataManager: (any WorkoutTemplateEditingDataManaging & WorkoutDataManaging)? = nil,
-        launchCoordinator: WorkoutSessionLaunching? = nil
+        launchCoordinator: WorkoutSessionLaunching? = nil,
+        persistenceManager: WorkoutDraftPersistenceManager? = nil
     ) {
         self.summary = summary
         let dm = dataManager ?? DBManager.newInstance()
+        let pm = persistenceManager ?? WorkoutDraftPersistenceManager()
         self.dataManager = dm
-        self.launchCoordinator = launchCoordinator ?? WorkoutSessionLaunchCoordinator(db: dm)
+        self.persistenceManager = pm
+        self.launchCoordinator = launchCoordinator ?? WorkoutSessionLaunchCoordinator(db: dm, persistenceManager: pm)
+        setupDraftPersistence()
+    }
+
+    private func setupDraftPersistence() {
+        $activeDraft
+            .dropFirst()
+            .debounce(for: .seconds(0.5), scheduler: RunLoop.main)
+            .sink { [weak self] draft in
+                if let draft = draft {
+                    self?.persistenceManager.save(draft: draft)
+                } else {
+                    self?.persistenceManager.clear()
+                }
+            }
+            .store(in: &cancellables)
     }
 
     func loadIfNeeded() async {
@@ -38,7 +58,7 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
         errorMessage = nil
         
         do {
-            activeSession = try await launchCoordinator.launchSession(for: summary.id)
+            activeDraft = try await launchCoordinator.launchSession(for: summary.id)
         } catch {
             errorMessage = error.localizedDescription
         }

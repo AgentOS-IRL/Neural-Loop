@@ -10,38 +10,32 @@ class ActiveWorkoutViewModel: ObservableObject {
     @Published var restTimerSeconds: Int = 0
     @Published var isTimerRunning: Bool = false
     
-    private let draftKey = "active_workout_draft"
     let db: WorkoutDataManaging
+    var onDraftChange: ((ActiveWorkoutDraft) -> Void)?
     private var timerCancellable: AnyCancellable?
     private var saveCancellable: AnyCancellable?
     
     init(
-        session: WorkoutSession,
-        exerciseStates: [WorkoutExerciseCardState],
-        db: WorkoutDataManaging
+        draft: ActiveWorkoutDraft,
+        db: WorkoutDataManaging,
+        onDraftChange: ((ActiveWorkoutDraft) -> Void)? = nil
     ) {
-        self.draft = ActiveWorkoutDraft(session: session, exercises: exerciseStates)
+        self.draft = draft
         self.db = db
+        self.onDraftChange = onDraftChange
         setupDraftPersistence()
     }
     
     private func setupDraftPersistence() {
         saveCancellable = $draft
-            .debounce(for: .seconds(2), scheduler: RunLoop.main)
             .sink { [weak self] draft in
-                self?.persistDraft(draft)
+                self?.onDraftChange?(draft)
             }
     }
 
-    private func persistDraft(_ draft: ActiveWorkoutDraft) {
-        if let encoded = try? JSONEncoder().encode(draft) {
-            UserDefaults.standard.set(encoded, forKey: draftKey)
-        }
-    }
-
     func clearDraft() {
+        // No-op here as persistence is handled by the parent ViewModel
         saveCancellable?.cancel()
-        UserDefaults.standard.removeObject(forKey: draftKey)
     }
 
     func finishWorkout() async {
