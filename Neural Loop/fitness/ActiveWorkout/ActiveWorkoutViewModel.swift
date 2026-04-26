@@ -66,7 +66,7 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
             sendSnapshotToWatch()
             
         case .updateSetValues(let action):
-            guard let exerciseID = Int64(action.reference.exerciseID),
+            guard let exerciseID = resolveExerciseID(action.reference.exerciseID, routineExerciseID: action.reference.routineExerciseID),
                   let setUUID = UUID(uuidString: action.reference.setID) else { return }
             
             if let exerciseIndex = draft.exercises.firstIndex(where: { $0.id == exerciseID }),
@@ -88,7 +88,7 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
             }
             
         case .toggleSetCompletion(let action):
-            guard let exerciseID = Int64(action.reference.exerciseID),
+            guard let exerciseID = resolveExerciseID(action.reference.exerciseID, routineExerciseID: action.reference.routineExerciseID),
                   let setUUID = UUID(uuidString: action.reference.setID) else { return }
             
             // Avoid redundant toggles if watch state already matches
@@ -99,11 +99,11 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
             }
             
         case .addSet(let reference):
-            guard let exerciseID = Int64(reference.exerciseID) else { return }
+            guard let exerciseID = resolveExerciseID(reference.exerciseID, routineExerciseID: reference.routineExerciseID) else { return }
             addSet(to: exerciseID, id: action.id)
             
         case .updateExerciseCompletion(let payload):
-            guard let exerciseID = Int64(payload.reference.exerciseID) else { return }
+            guard let exerciseID = resolveExerciseID(payload.reference.exerciseID, routineExerciseID: payload.reference.routineExerciseID) else { return }
             completeExercise(exerciseID: exerciseID, isCompleted: payload.isCompleted)
             
         case .finishWorkout:
@@ -115,6 +115,15 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         return action.session.id == draft.watchSessionPointer.id
     }
 
+    /// Resolves an exercise ID from a watch action reference.
+    /// Prefers the numeric routineExerciseID (RoutineExercise.id / WorkoutExerciseCardState.id)
+    /// which is what draft.exercises uses for its .id field.
+    /// Falls back to parsing the string exerciseID directly for backward compatibility.
+    private func resolveExerciseID(_ stringID: String, routineExerciseID: Int64?) -> Int64? {
+        if let routineExerciseID { return routineExerciseID }
+        return Int64(stringID)
+    }
+
     func finishWorkout() async {
         guard !isLoading else { return }
         isLoading = true
@@ -123,9 +132,15 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         do {
             try await finalizer.finalize(draft: draft)
             connectivityProvider?.clearWorkoutSnapshot()
+            // Send finalization success to watch
+            let result = WorkoutFinalizedResult(sessionID: draft.watchSessionPointer.id, success: true)
+            connectivityProvider?.sendWorkoutFinalizedResult(result, completion: nil)
             onFinish?()
         } catch {
             errorMessage = error.localizedDescription
+            // Send finalization failure to watch
+            let result = WorkoutFinalizedResult(sessionID: draft.watchSessionPointer.id, success: false, errorMessage: error.localizedDescription)
+            connectivityProvider?.sendWorkoutFinalizedResult(result, completion: nil)
         }
         
         isLoading = false

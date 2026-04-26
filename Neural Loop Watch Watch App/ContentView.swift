@@ -8,64 +8,50 @@
 import SwiftUI
 
 struct ContentView: View {
-    let columns = [
-        GridItem(.flexible()),
-        GridItem(.flexible())
-    ]
+    @EnvironmentObject var store: WatchWorkoutStore
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                LazyVGrid(columns: columns, spacing: 16) {
-                    NavigationLink(value: WatchTab.home) {
-                        VStack {
-                            Image(systemName: "house.fill")
-                                .font(.title)
-                            Text("Home")
-                                .font(.caption)
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 80)
-                        .background(Color.blue.opacity(0.2))
-                        .cornerRadius(12)
-                    }
-                    
-                    NavigationLink(value: WatchTab.fitness) {
-                        VStack {
-                            Image(systemName: "figure.run")
-                                .font(.title)
-                            Text("Fitness")
-                                .font(.caption)
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 80)
-                        .background(Color.green.opacity(0.2))
-                        .cornerRadius(12)
-                    }
-                }
-                .padding()
-            }
-            .navigationTitle("Neural Loop")
-            .navigationDestination(for: WatchTab.self) { tab in
-                switch tab {
-                case .home:
-                    VStack {
-                        Image(systemName: "house.fill")
-                            .font(.largeTitle)
-                        Text("Coming Soon")
-                            .font(.headline)
-                        Text("Your personalized neural loop dashboard.")
-                            .font(.caption)
-                            .multilineTextAlignment(.center)
-                            .padding()
-                    }
-                    .navigationTitle("Home")
-                case .fitness:
+            Group {
+                if store.currentSnapshot != nil {
+                    // Active workout: go directly to fitness
                     WatchFitnessView()
+                } else {
+                    // No workout: compact dashboard
+                    WatchDashboardView()
                 }
             }
         }
     }
 }
 
+struct WatchDashboardView: View {
+    var body: some View {
+        List {
+            NavigationLink {
+                WatchFitnessView()
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "figure.strengthtraining.traditional")
+                        .font(.title3)
+                        .foregroundColor(.green)
+                        .frame(width: 32)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Fitness")
+                            .font(.headline)
+                        Text("Start on iPhone")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.vertical, 6)
+            }
+        }
+        .navigationTitle("Neural Loop")
+    }
+}
+
 #Preview {
     ContentView()
+        .environmentObject(WatchWorkoutStore.shared)
 }

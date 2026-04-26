@@ -268,6 +268,7 @@ final class ActiveWorkoutViewModelWatchActionTests: XCTestCase {
 class FakeConnectivityProvider: WorkoutConnectivityProviding {
     var capturedSnapshot: ActiveWorkoutSnapshot?
     var capturedAction: WorkoutWatchAction?
+    var capturedFinalizedResult: WorkoutFinalizedResult?
     var sendCount = 0
     var clearCount = 0
     
@@ -279,6 +280,11 @@ class FakeConnectivityProvider: WorkoutConnectivityProviding {
     
     func sendWorkoutAction(_ action: WorkoutWatchAction, completion: ((Result<Void, Error>) -> Void)?) {
         capturedAction = action
+        completion?(.success(()))
+    }
+    
+    func sendWorkoutFinalizedResult(_ result: WorkoutFinalizedResult, completion: ((Result<Void, Error>) -> Void)?) {
+        capturedFinalizedResult = result
         completion?(.success(()))
     }
     

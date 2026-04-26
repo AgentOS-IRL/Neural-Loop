@@ -20,7 +20,6 @@ struct ActiveWorkoutView: View {
     let snapshot: ActiveWorkoutSnapshot
     let connectivity: ConnectivityManager
     @EnvironmentObject var store: WatchWorkoutStore
-    @State private var showEndConfirmation = false
 
     var body: some View {
         ZStack {
@@ -37,30 +36,8 @@ struct ActiveWorkoutView: View {
                         }
                     }
 
-                    // Status indicators (Plan 529)
-                    if !connectivity.isReachable {
-                        HStack(spacing: 6) {
-                            Image(systemName: "iphone.slash")
-                                .font(.caption2)
-                            Text("Disconnected")
-                                .font(.caption2)
-                        }
-                        .foregroundColor(.orange)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.orange.opacity(0.15))
-                        .cornerRadius(8)
-                    }
-
-                    if store.pendingActionCount > 0 {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.caption2)
-                            Text("\(store.pendingActionCount) queued")
-                                .font(.caption2)
-                        }
-                        .foregroundColor(.yellow)
-                    }
+                    // Sync status indicator (Plan 529)
+                    WatchSyncStatusView(status: store.syncStatus)
                 }
                 
                 // MARK: - Stale Draft Banner (Plan 529)
@@ -87,6 +64,28 @@ struct ActiveWorkoutView: View {
                         .frame(maxWidth: .infinity)
                     }
                 }
+                
+                // MARK: - Finish Error Banner
+                if let error = store.finishError {
+                    Section {
+                        VStack(spacing: 6) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.red)
+                                Text(error)
+                                    .font(.caption2)
+                                    .foregroundColor(.red)
+                            }
+                            Button("Retry") {
+                                store.retryFinish()
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(.red)
+                            .controlSize(.small)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
 
                 // MARK: - Exercises
                 WatchExerciseListView(snapshot: snapshot)
@@ -107,9 +106,9 @@ struct ActiveWorkoutView: View {
                 }
                 
                 // MARK: - End Workout Button (Plan 528)
-                Button(action: {
-                    showEndConfirmation = true
-                }) {
+                NavigationLink {
+                    WatchFinishReviewView()
+                } label: {
                     Label("End Workout", systemImage: "xmark.circle")
                         .frame(maxWidth: .infinity)
                 }
@@ -122,12 +121,6 @@ struct ActiveWorkoutView: View {
             }
             .navigationDestination(for: ExerciseSnapshot.self) { exercise in
                 WatchExerciseDetailView(exerciseID: exercise.id)
-            }
-            .confirmationDialog("End this workout?", isPresented: $showEndConfirmation) {
-                Button("End Workout", role: .destructive) {
-                    store.finishWorkout()
-                }
-                Button("Cancel", role: .cancel) {}
             }
             
             // MARK: - Finishing Overlay (Plan 528)

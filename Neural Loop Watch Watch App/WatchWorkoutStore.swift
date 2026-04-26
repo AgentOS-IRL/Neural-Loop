@@ -22,16 +22,17 @@ final class WatchWorkoutStore: ObservableObject {
     
     // MARK: - End Workout State (Plan 528)
     @Published var isFinishing: Bool = false
+    @Published var finishError: String?
     
     // MARK: - Queue Visibility (Plan 529)
     @Published var pendingActionCount: Int = 0
     
     private var actionQueue: [WorkoutWatchAction] = []
-    private var isFlushing = false
+    private(set) var isFlushing = false
     private var cancellables = Set<AnyCancellable>()
     private let storageKey = "com.neuralloop.watch.activeWorkoutSnapshot"
     private let queueKey = "com.neuralloop.watch.actionQueue"
-    private let connectivityManager: ConnectivityManager
+    let connectivityManager: ConnectivityManager
     
     init(connectivityManager: ConnectivityManager = .shared) {
         self.connectivityManager = connectivityManager
@@ -60,13 +61,33 @@ final class WatchWorkoutStore: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+        
+        // Subscribe to finalization results from iPhone
+        connectivityManager.finalizationHandler = { [weak self] result in
+            guard let self else { return }
+            self.handleFinalizationResult(result)
+        }
+    }
+    
+    // MARK: - Finalization Result Handling
+    
+    private func handleFinalizationResult(_ result: WorkoutFinalizedResult) {
+        guard let currentSnapshot, currentSnapshot.session.id == result.sessionID else { return }
+        
+        if result.success {
+            clearStore()
+        } else {
+            isFinishing = false
+            finishError = result.errorMessage ?? "Workout could not be saved"
+        }
     }
     
     // MARK: - Actions
     
     func updateSetValues(exerciseID: String, setID: String, kg: Decimal?, reps: Int?) {
         guard let session = currentSnapshot?.session else { return }
-        let reference = WorkoutWatchSetReference(session: session, exerciseID: exerciseID, setID: setID)
+        let routineID = currentSnapshot?.exercises.first(where: { $0.id == exerciseID })?.routineExerciseID
+        let reference = WorkoutWatchSetReference(session: session, exerciseID: exerciseID, routineExerciseID: routineID, setID: setID)
         let values = WorkoutSetValuesSnapshot(kg: kg, reps: reps)
         let payload = WorkoutWatchActionPayload.updateSetValues(WorkoutWatchSetValuesAction(reference: reference, values: values))
         enqueueAction(payload: payload)
@@ -74,40 +95,93 @@ final class WatchWorkoutStore: ObservableObject {
     
     func toggleSetCompletion(exerciseID: String, setID: String, isCompleted: Bool) {
         guard let session = currentSnapshot?.session else { return }
-        let reference = WorkoutWatchSetReference(session: session, exerciseID: exerciseID, setID: setID)
+        let routineID = currentSnapshot?.exercises.first(where: { $0.id == exerciseID })?.routineExerciseID
+        let reference = WorkoutWatchSetReference(session: session, exerciseID: exerciseID, routineExerciseID: routineID, setID: setID)
         let payload = WorkoutWatchActionPayload.toggleSetCompletion(WorkoutWatchSetCompletionAction(reference: reference, isCompleted: isCompleted))
         enqueueAction(payload: payload)
     }
     
     func addSet(exerciseID: String) {
         guard let session = currentSnapshot?.session else { return }
-        let reference = WorkoutWatchExerciseReference(session: session, exerciseID: exerciseID)
+        let routineID = currentSnapshot?.exercises.first(where: { $0.id == exerciseID })?.routineExerciseID
+        let reference = WorkoutWatchExerciseReference(session: session, exerciseID: exerciseID, routineExerciseID: routineID)
         let payload = WorkoutWatchActionPayload.addSet(reference)
         enqueueAction(payload: payload)
     }
     
     func toggleExerciseCompletion(exerciseID: String, isCompleted: Bool) {
         guard let session = currentSnapshot?.session else { return }
-        let reference = WorkoutWatchExerciseReference(session: session, exerciseID: exerciseID)
+        let routineID = currentSnapshot?.exercises.first(where: { $0.id == exerciseID })?.routineExerciseID
+        let reference = WorkoutWatchExerciseReference(session: session, exerciseID: exerciseID, routineExerciseID: routineID)
         let payload = WorkoutWatchActionPayload.updateExerciseCompletion(WorkoutWatchExerciseCompletionAction(reference: reference, isCompleted: isCompleted))
         enqueueAction(payload: payload)
     }
     
     func finishWorkout() {
         guard let session = currentSnapshot?.session else { return }
+        guard !isFinishing else { return }
         isFinishing = true
+        finishError = nil
+        
+        // Flush pending edits first, then send finish
+        flushQueueThenFinish(session: session)
+    }
+    
+    func retryFinish() {
+        guard let session = currentSnapshot?.session else { return }
+        isFinishing = true
+        finishError = nil
+        flushQueueThenFinish(session: session)
+    }
+    
+    private func flushQueueThenFinish(session: WorkoutSessionPointer) {
+        guard !actionQueue.isEmpty, connectivityManager.isReachable else {
+            sendFinishAction(session: session)
+            return
+        }
+        
+        flushQueue()
+        pollQueueDrain(session: session, startTime: Date())
+    }
+    
+    private func pollQueueDrain(session: WorkoutSessionPointer, startTime: Date) {
+        if actionQueue.isEmpty {
+            sendFinishAction(session: session)
+            return
+        }
+        
+        if Date().timeIntervalSince(startTime) > 10 {
+            // Timeout reached, queue hasn't drained. Do not finish to avoid losing data.
+            self.finishError = "Sync timeout. Try again."
+            self.isFinishing = false
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.pollQueueDrain(session: session, startTime: startTime)
+        }
+    }
+    
+    private func sendFinishAction(session: WorkoutSessionPointer) {
         let payload = WorkoutWatchActionPayload.finishWorkout(WorkoutWatchSessionAction(session: session))
         let action = WorkoutWatchAction(payload: payload)
-        
         applyOptimisticAction(action)
         
         connectivityManager.sendWorkoutAction(action) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
-                if case .success = result {
+                if case .failure = result {
+                    self.finishError = "Could not reach iPhone"
+                    self.isFinishing = false
+                } else {
+                    // it should be clearned now
                     self.clearStore()
+                    // On success: start a timeout waiting for workoutFinalized message from iPhone
+                    // DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
+                    //     guard let self, self.isFinishing else { return }
+                    //     self.finishError = "No response from iPhone. Try again."
+                    //     self.isFinishing = false
+                    // }
                 }
-                self.isFinishing = false
             }
         }
     }
@@ -283,6 +357,7 @@ final class WatchWorkoutStore: ObservableObject {
         self.pendingActionCount = 0
         self.lastCompletedSetInfo = nil
         self.isFinishing = false
+        self.finishError = nil
         UserDefaults.standard.removeObject(forKey: storageKey)
         UserDefaults.standard.removeObject(forKey: queueKey)
     }

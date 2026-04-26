@@ -136,7 +136,7 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
             break // No-op for draft mutation
             
         case .updateSetValues(let payload):
-            guard let exerciseID = Int64(payload.reference.exerciseID),
+            guard let exerciseID = Self.resolveExerciseID(payload.reference.exerciseID, routineExerciseID: payload.reference.routineExerciseID),
                   let setUUID = UUID(uuidString: payload.reference.setID) else { return }
             
             if let exerciseIndex = exercises.firstIndex(where: { $0.id == exerciseID }),
@@ -151,7 +151,7 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
             }
             
         case .toggleSetCompletion(let payload):
-            guard let exerciseID = Int64(payload.reference.exerciseID),
+            guard let exerciseID = Self.resolveExerciseID(payload.reference.exerciseID, routineExerciseID: payload.reference.routineExerciseID),
                   let setUUID = UUID(uuidString: payload.reference.setID) else { return }
             
             if let exerciseIndex = exercises.firstIndex(where: { $0.id == exerciseID }),
@@ -161,7 +161,7 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
             }
             
         case .addSet(let reference):
-            guard let exerciseID = Int64(reference.exerciseID) else { return }
+            guard let exerciseID = Self.resolveExerciseID(reference.exerciseID, routineExerciseID: reference.routineExerciseID) else { return }
             
             if let exerciseIndex = exercises.firstIndex(where: { $0.id == exerciseID }) {
                 let lastSet = exercises[exerciseIndex].sets.last
@@ -177,7 +177,7 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
             }
             
         case .updateExerciseCompletion(let payload):
-            guard let exerciseID = Int64(payload.reference.exerciseID) else { return }
+            guard let exerciseID = Self.resolveExerciseID(payload.reference.exerciseID, routineExerciseID: payload.reference.routineExerciseID) else { return }
             
             if let exerciseIndex = exercises.firstIndex(where: { $0.id == exerciseID }) {
                 for i in 0..<exercises[exerciseIndex].sets.count {
@@ -189,6 +189,13 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
         case .finishWorkout:
             break // Handled at a higher level (saving to DB and clearing draft)
         }
+    }
+
+    /// Resolves an exercise ID from a watch action reference.
+    /// Prefers routineExerciseID for reliable matching; falls back to parsing the string.
+    private static func resolveExerciseID(_ stringID: String, routineExerciseID: Int64?) -> Int64? {
+        if let routineExerciseID { return routineExerciseID }
+        return Int64(stringID)
     }
 }
 

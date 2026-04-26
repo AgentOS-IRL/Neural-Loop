@@ -8,6 +8,7 @@ struct WatchSetEntryView: View {
     
     @StateObject private var viewModel: WatchSetEntryViewModel
     @FocusState private var focusedField: FocusedField?
+    @State private var showSavedFeedback = false
     
     enum FocusedField: Hashable {
         case kg
@@ -34,8 +35,8 @@ struct WatchSetEntryView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
-                // Weight Section
+            VStack(spacing: 14) {
+                // MARK: - Weight Section
                 VStack(spacing: 4) {
                     HStack(spacing: 4) {
                         Image(systemName: "scalemass")
@@ -45,15 +46,20 @@ struct WatchSetEntryView: View {
                     }
                     .foregroundColor(.secondary)
                     
-                    HStack {
+                    HStack(spacing: 8) {
                         Button {
                             viewModel.adjustKg(by: -0.5)
                             focusedField = .kg
                         } label: {
-                            Image(systemName: "minus")
+                            VStack(spacing: 2) {
+                                Image(systemName: "minus")
+                                    .font(.body.bold())
+                                Text("0.5")
+                                    .font(.system(size: 8))
+                            }
                         }
                         .buttonStyle(.plain)
-                        .frame(width: 40, height: 40)
+                        .frame(width: 48, height: 48)
                         .background(Circle().fill(Color.white.opacity(0.15)))
                         
                         Text(String(format: "%.1f", viewModel.kg))
@@ -75,15 +81,20 @@ struct WatchSetEntryView: View {
                             viewModel.adjustKg(by: 0.5)
                             focusedField = .kg
                         } label: {
-                            Image(systemName: "plus")
+                            VStack(spacing: 2) {
+                                Image(systemName: "plus")
+                                    .font(.body.bold())
+                                Text("0.5")
+                                    .font(.system(size: 8))
+                            }
                         }
                         .buttonStyle(.plain)
-                        .frame(width: 40, height: 40)
+                        .frame(width: 48, height: 48)
                         .background(Circle().fill(Color.white.opacity(0.15)))
                     }
                 }
                 
-                // Reps Section
+                // MARK: - Reps Section
                 VStack(spacing: 4) {
                     HStack(spacing: 4) {
                         Image(systemName: "repeat")
@@ -93,15 +104,20 @@ struct WatchSetEntryView: View {
                     }
                     .foregroundColor(.secondary)
                     
-                    HStack {
+                    HStack(spacing: 8) {
                         Button {
                             viewModel.adjustReps(by: -1)
                             focusedField = .reps
                         } label: {
-                            Image(systemName: "minus")
+                            VStack(spacing: 2) {
+                                Image(systemName: "minus")
+                                    .font(.body.bold())
+                                Text("1")
+                                    .font(.system(size: 8))
+                            }
                         }
                         .buttonStyle(.plain)
-                        .frame(width: 40, height: 40)
+                        .frame(width: 48, height: 48)
                         .background(Circle().fill(Color.white.opacity(0.15)))
                         
                         Text("\(viewModel.reps)")
@@ -123,36 +139,95 @@ struct WatchSetEntryView: View {
                             viewModel.adjustReps(by: 1)
                             focusedField = .reps
                         } label: {
-                            Image(systemName: "plus")
+                            VStack(spacing: 2) {
+                                Image(systemName: "plus")
+                                    .font(.body.bold())
+                                Text("1")
+                                    .font(.system(size: 8))
+                            }
                         }
                         .buttonStyle(.plain)
-                        .frame(width: 40, height: 40)
+                        .frame(width: 48, height: 48)
                         .background(Circle().fill(Color.white.opacity(0.15)))
                     }
                 }
 
-                Toggle("Completed", isOn: $viewModel.isCompleted)
-                    .padding(.vertical, 4)
-                
-                Button("Done") {
-                    viewModel.commitChanges()
+                // MARK: - Save Feedback
+                if showSavedFeedback {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("Saved")
+                    }
+                    .font(.caption2)
+                    .foregroundColor(.green)
+                    .transition(.opacity.combined(with: .scale))
+                }
+
+                // MARK: - Action Buttons
+                VStack(spacing: 8) {
+                    // Save button — saves values without completing
+                    Button {
+                        viewModel.commitValues()
+                        withAnimation {
+                            showSavedFeedback = true
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                            withAnimation {
+                                showSavedFeedback = false
+                            }
+                        }
+                    } label: {
+                        Label("Save", systemImage: "checkmark")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.blue)
                     
-                    // Check if rest timer should be shown (Plan 527)
-                    if viewModel.isCompleted,
-                       let exercise = store.currentSnapshot?.exercises.first(where: { $0.id == exerciseID }),
-                       let restSeconds = exercise.restDurationSeconds,
-                       restSeconds > 0 {
-                        store.lastCompletedSetInfo = CompletedSetInfo(
-                            exerciseID: exerciseID,
-                            setID: setID,
-                            restDurationSeconds: restSeconds
-                        )
+                    // Complete Set button — saves + marks complete + triggers rest timer
+                    if !viewModel.isCompleted {
+                        Button {
+                            viewModel.commitAndComplete()
+                            
+                            // Check if rest timer should be shown (Plan 527)
+                            if let exercise = store.currentSnapshot?.exercises.first(where: { $0.id == exerciseID }),
+                               let restSeconds = exercise.restDurationSeconds,
+                               restSeconds > 0 {
+                                store.lastCompletedSetInfo = CompletedSetInfo(
+                                    exerciseID: exerciseID,
+                                    setID: setID,
+                                    restDurationSeconds: restSeconds
+                                )
+                            }
+                            
+                            dismiss()
+                        } label: {
+                            Label("Complete Set", systemImage: "checkmark.circle.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.green)
+                    } else {
+                        // Undo completion
+                        Button {
+                            viewModel.undoComplete()
+                        } label: {
+                            Label("Mark Incomplete", systemImage: "arrow.counterclockwise")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.orange)
                     }
                     
-                    dismiss()
+                    // Done — just dismiss
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Done")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.gray)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
             }
             .padding(.horizontal)
         }

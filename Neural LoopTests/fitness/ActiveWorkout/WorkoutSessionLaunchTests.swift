@@ -407,6 +407,7 @@ class FakeLaunchDataManager: WorkoutTemplateReadingDataManaging, WorkoutDataMana
 class MockConnectivityProvider: WorkoutConnectivityProviding {
     var capturedSnapshot: ActiveWorkoutSnapshot?
     var capturedAction: WorkoutWatchAction?
+    var capturedFinalizedResult: WorkoutFinalizedResult?
     var sendCount = 0
     var shouldFail = false
 
@@ -422,6 +423,15 @@ class MockConnectivityProvider: WorkoutConnectivityProviding {
     
     func sendWorkoutAction(_ action: WorkoutWatchAction, completion: ((Result<Void, Error>) -> Void)?) {
         capturedAction = action
+        if shouldFail {
+            completion?(.failure(NSError(domain: "test", code: -1)))
+        } else {
+            completion?(.success(()))
+        }
+    }
+    
+    func sendWorkoutFinalizedResult(_ result: WorkoutFinalizedResult, completion: ((Result<Void, Error>) -> Void)?) {
+        capturedFinalizedResult = result
         if shouldFail {
             completion?(.failure(NSError(domain: "test", code: -1)))
         } else {
