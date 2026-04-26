@@ -3,6 +3,11 @@ import Foundation
 // Transport models shared by iPhone and watch targets.
 // Keep these free of persistence, database, SwiftUI, and app-only fitness model dependencies.
 
+public enum WatchTab: Hashable {
+    case home
+    case fitness
+}
+
 public nonisolated struct WorkoutSessionPointer: Codable, Hashable, Identifiable {
     public let id: String
     public var routineID: Int64?
