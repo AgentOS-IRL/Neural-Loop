@@ -175,7 +175,12 @@ final class WatchWorkoutStore: ObservableObject {
         let action = remaining[startIndex]
         connectivityManager.sendWorkoutAction(action) { [weak self] result in
             DispatchQueue.main.async {
-                self?.sendNextPending(after: action.id)
+                guard let self = self else { return }
+                if case .success = result {
+                    self.sendNextPending(after: action.id)
+                } else {
+                    self.isFlushing = false
+                }
             }
         }
     }
@@ -340,16 +345,20 @@ final class WatchWorkoutStoreTests: XCTestCase {
         }
     }
     
-    func testFinishWorkoutClearsState() {
+    func testFinishWorkoutClearsStateAndQueue() {
         // Given
         store.currentSnapshot = createSampleSnapshot()
+        store.updateSetValues(exerciseID: "e1", setID: "s1", kg: 50, reps: 10)
+        XCTAssertEqual(store.getActionQueue().count, 1)
         
         // When
         store.finishWorkout()
         
         // Then
         XCTAssertNil(store.currentSnapshot)
+        XCTAssertEqual(store.getActionQueue().count, 0)
         XCTAssertNil(UserDefaults.standard.data(forKey: storageKey))
+        XCTAssertNil(UserDefaults.standard.data(forKey: "com.neuralloop.watch.actionQueue.test"))
     }
     
     func testFinishWorkoutDoesNotClearStateOnFailure() {

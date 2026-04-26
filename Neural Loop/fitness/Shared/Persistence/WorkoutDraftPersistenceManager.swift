@@ -130,7 +130,7 @@ nonisolated final class WorkoutDraftPersistenceManager: @unchecked Sendable {
         // Validate session ID to avoid applying stale actions from previous runs
         guard draft.watchSessionPointer.id == action.payload.session.id else { return nil }
 
-        draft.apply(watchAction: action.payload)
+        draft.apply(watchAction: action)
         save(draft: draft)
         
         return draft

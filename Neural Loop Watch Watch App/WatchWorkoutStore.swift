@@ -184,10 +184,11 @@ final class WatchWorkoutStore: ObservableObject {
         connectivityManager.sendWorkoutAction(action) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                // We continue flushing regardless of success/failure of a single message
-                // if failure was just a timeout, we might want to stop, but for now we try all.
-                // Actually, if it failed due to reachability, isReachable will likely change.
-                self.sendNextPending(after: action.id)
+                if case .success = result {
+                    self.sendNextPending(after: action.id)
+                } else {
+                    self.isFlushing = false
+                }
             }
         }
     }
@@ -237,6 +238,8 @@ final class WatchWorkoutStore: ObservableObject {
     
     func clearStore() {
         self.currentSnapshot = nil
+        self.actionQueue.removeAll()
         UserDefaults.standard.removeObject(forKey: storageKey)
+        UserDefaults.standard.removeObject(forKey: queueKey)
     }
 }

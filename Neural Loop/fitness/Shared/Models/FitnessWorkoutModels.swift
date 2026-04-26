@@ -130,33 +130,33 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
         self.updatedAt = updatedAt
     }
 
-    mutating func apply(watchAction: WorkoutWatchActionPayload) {
-        switch watchAction {
+    mutating func apply(watchAction action: WorkoutWatchAction) {
+        switch action.payload {
         case .requestSnapshot:
             break // No-op for draft mutation
             
-        case .updateSetValues(let action):
-            guard let exerciseID = Int64(action.reference.exerciseID),
-                  let setUUID = UUID(uuidString: action.reference.setID) else { return }
+        case .updateSetValues(let payload):
+            guard let exerciseID = Int64(payload.reference.exerciseID),
+                  let setUUID = UUID(uuidString: payload.reference.setID) else { return }
             
             if let exerciseIndex = exercises.firstIndex(where: { $0.id == exerciseID }),
                let setIndex = exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setUUID }) {
-                if let kg = action.values.kg {
+                if let kg = payload.values.kg {
                     exercises[exerciseIndex].sets[setIndex].weightText = "\(kg)"
                 }
-                if let reps = action.values.reps {
+                if let reps = payload.values.reps {
                     exercises[exerciseIndex].sets[setIndex].repsText = "\(reps)"
                 }
                 updatedAt = Date()
             }
             
-        case .toggleSetCompletion(let action):
-            guard let exerciseID = Int64(action.reference.exerciseID),
-                  let setUUID = UUID(uuidString: action.reference.setID) else { return }
+        case .toggleSetCompletion(let payload):
+            guard let exerciseID = Int64(payload.reference.exerciseID),
+                  let setUUID = UUID(uuidString: payload.reference.setID) else { return }
             
             if let exerciseIndex = exercises.firstIndex(where: { $0.id == exerciseID }),
                let setIndex = exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setUUID }) {
-                exercises[exerciseIndex].sets[setIndex].isCompleted = action.isCompleted
+                exercises[exerciseIndex].sets[setIndex].isCompleted = payload.isCompleted
                 updatedAt = Date()
             }
             
@@ -166,6 +166,7 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
             if let exerciseIndex = exercises.firstIndex(where: { $0.id == exerciseID }) {
                 let lastSet = exercises[exerciseIndex].sets.last
                 let newSet = WorkoutSetDraft(
+                    id: action.id, // Use action ID for the new set
                     setNumber: (lastSet?.setNumber ?? 0) + 1,
                     weightText: lastSet?.weightText ?? "",
                     repsText: lastSet?.repsText ?? "",
@@ -175,12 +176,12 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
                 updatedAt = Date()
             }
             
-        case .updateExerciseCompletion(let action):
-            guard let exerciseID = Int64(action.reference.exerciseID) else { return }
+        case .updateExerciseCompletion(let payload):
+            guard let exerciseID = Int64(payload.reference.exerciseID) else { return }
             
             if let exerciseIndex = exercises.firstIndex(where: { $0.id == exerciseID }) {
                 for i in 0..<exercises[exerciseIndex].sets.count {
-                    exercises[exerciseIndex].sets[i].isCompleted = action.isCompleted
+                    exercises[exerciseIndex].sets[i].isCompleted = payload.isCompleted
                 }
                 updatedAt = Date()
             }

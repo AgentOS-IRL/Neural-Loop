@@ -75,6 +75,29 @@ final class WatchWorkoutStoreQueuingTests: XCTestCase {
         }
         wait(for: [expectation], timeout: 1.0)
     }
+
+    func testFlushLoopStopsOnFailure() {
+        // Given: unreachable with 2 actions
+        mockConnectivity.isReachable = false
+        store.currentSnapshot = createSampleSnapshot()
+        store.updateSetValues(exerciseID: "e1", setID: "s1", kg: 10, reps: 1)
+        store.updateSetValues(exerciseID: "e1", setID: "s1", kg: 20, reps: 2)
+        
+        XCTAssertEqual(store.getActionQueue().count, 2)
+        
+        // When: Become reachable but first action fails
+        mockConnectivity.isReachable = true
+        mockConnectivity.shouldFail = true
+        
+        // Then: Verify only 1 action was attempted and queue is not advanced
+        let expectation = expectation(description: "Wait for flush attempt")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            XCTAssertEqual(self.mockConnectivity.sentActions.count, 1)
+            XCTAssertEqual(self.store.getActionQueue().count, 2)
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 1.0)
+    }
     
     func testAuthoritativeReconciliation() {
         // Given: Local state has queued change
