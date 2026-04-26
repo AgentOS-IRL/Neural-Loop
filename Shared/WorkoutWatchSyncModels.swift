@@ -22,13 +22,29 @@ public nonisolated struct ActiveWorkoutSnapshot: Codable, Hashable, Identifiable
     public var startedAt: Date?
     public var elapsedSeconds: Int?
     public var exercises: [ExerciseSnapshot]
+    public var lastProcessedActionID: UUID?
+    public var timestamp: Date
     
-    public init(session: WorkoutSessionPointer, title: String, startedAt: Date? = nil, elapsedSeconds: Int? = nil, exercises: [ExerciseSnapshot] = []) {
+    public init(session: WorkoutSessionPointer, title: String, startedAt: Date? = nil, elapsedSeconds: Int? = nil, exercises: [ExerciseSnapshot] = [], lastProcessedActionID: UUID? = nil, timestamp: Date = Date()) {
         self.session = session
         self.title = title
         self.startedAt = startedAt
         self.elapsedSeconds = elapsedSeconds
         self.exercises = exercises
+        self.lastProcessedActionID = lastProcessedActionID
+        self.timestamp = timestamp
+    }
+}
+
+public struct WorkoutWatchAction: Codable, Hashable, Identifiable {
+    public let id: UUID
+    public let timestamp: Date
+    public let payload: WorkoutWatchActionPayload
+
+    public init(id: UUID = UUID(), timestamp: Date = Date(), payload: WorkoutWatchActionPayload) {
+        self.id = id
+        self.timestamp = timestamp
+        self.payload = payload
     }
 }
 

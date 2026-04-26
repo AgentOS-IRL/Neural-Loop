@@ -10,6 +10,7 @@ import Combine
 
 protocol WorkoutConnectivityProviding: AnyObject {
     func sendWorkoutSnapshot(_ snapshot: ActiveWorkoutSnapshot, completion: ((Result<Void, Error>) -> Void)?)
+    func sendWorkoutAction(_ action: WorkoutWatchAction, completion: ((Result<Void, Error>) -> Void)?)
 }
 
 open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, WorkoutConnectivityProviding {
@@ -17,11 +18,12 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
 
     @Published public var receivedMessage: String = "No message yet"
     @Published public var lastSnapshot: ActiveWorkoutSnapshot?
-    @Published public var lastAction: WorkoutWatchActionPayload?
+    @Published public var lastAction: WorkoutWatchAction?
+    @Published public var isReachable: Bool = WCSession.isSupported() ? WCSession.default.isReachable : false
 
     // Closure hooks for non-UI components
     public var snapshotHandler: ((ActiveWorkoutSnapshot) -> Void)?
-    public var actionHandler: ((WorkoutWatchActionPayload) -> Void)?
+    public var actionHandler: ((WorkoutWatchAction) -> Void)?
     public var errorHandler: ((Error) -> Void)?
     public var notReachableHandler: (() -> Void)?
 
@@ -59,6 +61,15 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
             print("WC activate error:", error)
         } else {
             print("WC activated:", activationState.rawValue)
+            DispatchQueue.main.async {
+                self.isReachable = session.isReachable
+            }
+        }
+    }
+
+    public func sessionReachabilityDidChange(_ session: WCSession) {
+        DispatchQueue.main.async {
+            self.isReachable = session.isReachable
         }
     }
 
@@ -118,7 +129,7 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
                     self.snapshotHandler?(snapshot)
                 }
             case .workoutAction:
-                let action = try decoder.decode(WorkoutWatchActionPayload.self, from: data)
+                let action = try decoder.decode(WorkoutWatchAction.self, from: data)
                 DispatchQueue.main.async {
                     self.lastAction = action
                     self.actionHandler?(action)
@@ -141,7 +152,7 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
         sendEncodable(type: .workoutSnapshot, payload: snapshot, completion: completion)
     }
 
-    open func sendWorkoutAction(_ action: WorkoutWatchActionPayload, completion: ((Result<Void, Error>) -> Void)? = nil) {
+    open func sendWorkoutAction(_ action: WorkoutWatchAction, completion: ((Result<Void, Error>) -> Void)? = nil) {
         sendEncodable(type: .workoutAction, payload: action, completion: completion)
     }
 

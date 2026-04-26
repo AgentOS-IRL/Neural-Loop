@@ -39,30 +39,37 @@ final class FitnessViewModel: ObservableObject {
         }
     }
 
-    func handleWatchAction(_ action: WorkoutWatchActionPayload) {
+    func handleWatchAction(_ action: WorkoutWatchAction) {
         Task { @MainActor in
             if let activeVM = activeViewModel,
-               activeVM.draft.watchSessionPointer.id == action.session.id {
+               activeVM.draft.watchSessionPointer.id == action.payload.session.id {
                 await activeVM.apply(watchAction: action)
             } else {
                 // Fallback: handle actions when no active view model is mounted
-                switch action {
+                switch action.payload {
                 case .requestSnapshot:
-                    if let routineID = action.session.routineID,
+                    if let routineID = action.payload.session.routineID,
                        let draft = persistenceManager.load(routineID: routineID),
-                       draft.watchSessionPointer.id == action.session.id {
-                        let snapshot = draft.watchSnapshot()
+                       draft.watchSessionPointer.id == action.payload.session.id {
+                        let snapshot = draft.watchSnapshot(lastProcessedActionID: action.id)
                         connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
                     }
                 case .finishWorkout:
-                    if let routineID = action.session.routineID,
+                    if let routineID = action.payload.session.routineID,
                        let draft = persistenceManager.load(routineID: routineID),
-                       draft.watchSessionPointer.id == action.session.id {
+                       draft.watchSessionPointer.id == action.payload.session.id {
                         try? await finalizer.finalize(draft: draft)
                         await reload()
                     }
                 default:
                     _ = persistenceManager.apply(action: action)
+                    // If we apply an action, we should ideally send back a snapshot with lastProcessedActionID
+                    if let routineID = action.payload.session.routineID,
+                       let draft = persistenceManager.load(routineID: routineID),
+                       draft.watchSessionPointer.id == action.payload.session.id {
+                        let snapshot = draft.watchSnapshot(lastProcessedActionID: action.id)
+                        connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
+                    }
                 }
             }
         }
