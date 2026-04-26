@@ -11,6 +11,8 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
     @Published var restTimerSeconds: Int = 0
     @Published var isTimerRunning: Bool = false
     
+    private var lastProcessedActionID: UUID?
+    
     let db: WorkoutDataManaging
     var onDraftChange: ((ActiveWorkoutDraft) -> Void)?
     var onFinish: (() -> Void)?
@@ -49,15 +51,17 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
     }
 
     func sendSnapshotToWatch() {
-        let snapshot = draft.watchSnapshot()
+        let snapshot = draft.watchSnapshot(lastProcessedActionID: lastProcessedActionID)
         connectivityProvider?.sendWorkoutSnapshot(snapshot, completion: nil)
     }
 
-    func apply(watchAction: WorkoutWatchActionPayload) async {
+    func apply(watchAction action: WorkoutWatchAction) async {
         // Validate session ID
-        guard actionSessionMatchesDraft(action: watchAction) else { return }
+        guard actionSessionMatchesDraft(action: action.payload) else { return }
+        
+        self.lastProcessedActionID = action.id
 
-        switch watchAction {
+        switch action.payload {
         case .requestSnapshot:
             sendSnapshotToWatch()
             
@@ -96,11 +100,11 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
             
         case .addSet(let reference):
             guard let exerciseID = Int64(reference.exerciseID) else { return }
-            addSet(to: exerciseID)
+            addSet(to: exerciseID, id: action.id)
             
-        case .updateExerciseCompletion(let action):
-            guard let exerciseID = Int64(action.reference.exerciseID) else { return }
-            completeExercise(exerciseID: exerciseID, isCompleted: action.isCompleted)
+        case .updateExerciseCompletion(let payload):
+            guard let exerciseID = Int64(payload.reference.exerciseID) else { return }
+            completeExercise(exerciseID: exerciseID, isCompleted: payload.isCompleted)
             
         case .finishWorkout:
             await finishWorkout()
@@ -126,7 +130,7 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         isLoading = false
     }
     
-    func addSet(to exerciseID: Int64) {
+    func addSet(to exerciseID: Int64, id: UUID? = nil) {
         guard let index = draft.exercises.firstIndex(where: { $0.id == exerciseID }) else { return }
         let nextSetNumber = (draft.exercises[index].sets.map(\.setNumber).max() ?? 0) + 1
         let lastReps = draft.exercises[index].sets.last?.repsText ?? ""
@@ -135,14 +139,16 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         let lastDistance = draft.exercises[index].sets.last?.distanceText ?? ""
         let lastCalories = draft.exercises[index].sets.last?.caloriesText ?? ""
         
-        draft.exercises[index].sets.append(WorkoutSetDraft(
+        let newSet = WorkoutSetDraft(
+            id: id ?? UUID(),
             setNumber: nextSetNumber,
             weightText: lastWeight,
             repsText: lastReps,
             durationText: lastDuration,
             distanceText: lastDistance,
             caloriesText: lastCalories
-        ))
+        )
+        draft.exercises[index].sets.append(newSet)
         persistDraft()
     }
 

@@ -45,9 +45,10 @@ final class ConnectivityManagerTests: XCTestCase {
 
     func testReceiveValidAction() {
         let expectation = self.expectation(description: "Action received")
-        let action = WorkoutWatchActionPayload.requestSnapshot(
+        let payload = WorkoutWatchActionPayload.requestSnapshot(
             WorkoutWatchSessionAction(session: WorkoutSessionPointer(id: "test-session"))
         )
+        let action = WorkoutWatchAction(payload: payload)
 
         let data = try! JSONEncoder().encode(action)
         let message: [String: Any] = [
@@ -56,7 +57,7 @@ final class ConnectivityManagerTests: XCTestCase {
         ]
 
         sut.actionHandler = { receivedAction in
-            if case .requestSnapshot(let receivedActionPayload) = receivedAction {
+            if case .requestSnapshot(let receivedActionPayload) = receivedAction.payload {
                 XCTAssertEqual(receivedActionPayload.session.id, "test-session")
             } else {
                 XCTFail("Wrong action type")

@@ -122,13 +122,13 @@ nonisolated final class WorkoutDraftPersistenceManager: @unchecked Sendable {
         }
     }
 
-    func apply(action: WorkoutWatchActionPayload) -> ActiveWorkoutDraft? {
-        guard let routineID = action.session.routineID else { return nil }
+    func apply(action: WorkoutWatchAction) -> ActiveWorkoutDraft? {
+        guard let routineID = action.payload.session.routineID else { return nil }
         
         guard var draft = load(routineID: routineID) else { return nil }
         
         // Validate session ID to avoid applying stale actions from previous runs
-        guard draft.watchSessionPointer.id == action.session.id else { return nil }
+        guard draft.watchSessionPointer.id == action.payload.session.id else { return nil }
 
         draft.apply(watchAction: action)
         save(draft: draft)
