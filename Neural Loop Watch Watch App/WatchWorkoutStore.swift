@@ -2,11 +2,29 @@ import Foundation
 import Combine
 import SwiftUI
 
+/// Coordination payload set by WatchSetEntryView after a set is completed,
+/// observed by WatchExerciseDetailView to present the rest timer.
+struct CompletedSetInfo: Equatable {
+    let exerciseID: String
+    let setID: String
+    let restDurationSeconds: Int
+}
+
 @MainActor
 final class WatchWorkoutStore: ObservableObject {
     static let shared = WatchWorkoutStore()
     
     @Published var currentSnapshot: ActiveWorkoutSnapshot?
+    
+    // MARK: - Rest Timer Navigation (Plan 527)
+    /// Set by WatchSetEntryView; observed by WatchExerciseDetailView.
+    @Published var lastCompletedSetInfo: CompletedSetInfo?
+    
+    // MARK: - End Workout State (Plan 528)
+    @Published var isFinishing: Bool = false
+    
+    // MARK: - Queue Visibility (Plan 529)
+    @Published var pendingActionCount: Int = 0
     
     private var actionQueue: [WorkoutWatchAction] = []
     private var isFlushing = false
@@ -19,12 +37,18 @@ final class WatchWorkoutStore: ObservableObject {
         self.connectivityManager = connectivityManager
         loadFromPersistence()
         loadQueue()
+        pendingActionCount = actionQueue.count
         
         connectivityManager.$lastSnapshot
             .receive(on: DispatchQueue.main)
             .sink { [weak self] snapshot in
-                guard let self = self, let snapshot = snapshot else { return }
-                self.reconcile(with: snapshot)
+                guard let self else { return }
+                if let snapshot {
+                    self.reconcile(with: snapshot)
+                } else if self.currentSnapshot != nil {
+                    // iPhone cleared the active workout (Plan 528)
+                    self.clearStore()
+                }
             }
             .store(in: &cancellables)
             
@@ -71,17 +95,19 @@ final class WatchWorkoutStore: ObservableObject {
     
     func finishWorkout() {
         guard let session = currentSnapshot?.session else { return }
+        isFinishing = true
         let payload = WorkoutWatchActionPayload.finishWorkout(WorkoutWatchSessionAction(session: session))
         let action = WorkoutWatchAction(payload: payload)
         
-        // For finish workout, we might want to be more direct, but let's be consistent
         applyOptimisticAction(action)
         
         connectivityManager.sendWorkoutAction(action) { [weak self] result in
             DispatchQueue.main.async {
+                guard let self else { return }
                 if case .success = result {
-                    self?.clearStore()
+                    self.clearStore()
                 }
+                self.isFinishing = false
             }
         }
     }
@@ -90,6 +116,7 @@ final class WatchWorkoutStore: ObservableObject {
         let action = WorkoutWatchAction(payload: payload)
         applyOptimisticAction(action)
         actionQueue.append(action)
+        pendingActionCount = actionQueue.count
         saveQueue()
         flushQueue()
     }
@@ -102,10 +129,15 @@ final class WatchWorkoutStore: ObservableObject {
     }
 
     private func reconcile(with authoritativeSnapshot: ActiveWorkoutSnapshot) {
-        // If we already have a newer authoritative one, or if it's somehow stale
-        if let current = currentSnapshot, authoritativeSnapshot.timestamp < current.timestamp {
-            // Ideally we compare timestamps, but let's trust the latest from iPhone for now
-            // as it's the authoritative source.
+        // If the incoming snapshot is for a different session, replace entirely
+        if let current = currentSnapshot,
+           current.session.id != authoritativeSnapshot.session.id {
+            actionQueue.removeAll()
+            saveQueue()
+            pendingActionCount = 0
+            self.currentSnapshot = authoritativeSnapshot
+            saveToPersistence()
+            return
         }
         
         // Remove acknowledged actions from queue
@@ -115,6 +147,8 @@ final class WatchWorkoutStore: ObservableObject {
                 saveQueue()
             }
         }
+        
+        pendingActionCount = actionQueue.count
         
         var reconciledSnapshot = authoritativeSnapshot
         
@@ -246,7 +280,29 @@ final class WatchWorkoutStore: ObservableObject {
     func clearStore() {
         self.currentSnapshot = nil
         self.actionQueue.removeAll()
+        self.pendingActionCount = 0
+        self.lastCompletedSetInfo = nil
+        self.isFinishing = false
         UserDefaults.standard.removeObject(forKey: storageKey)
         UserDefaults.standard.removeObject(forKey: queueKey)
+    }
+    
+    // MARK: - Stale Draft Detection (Plan 529)
+    
+    var isSnapshotStale: Bool {
+        guard let startedAt = currentSnapshot?.startedAt else { return false }
+        return Date().timeIntervalSince(startedAt) > 24 * 3600
+    }
+    
+    var staleSnapshotAge: String? {
+        guard let startedAt = currentSnapshot?.startedAt else { return nil }
+        let hours = Int(Date().timeIntervalSince(startedAt) / 3600)
+        if hours < 24 { return nil }
+        let days = hours / 24
+        return days == 1 ? "1 day ago" : "\(days) days ago"
+    }
+    
+    func discardStaleWorkout() {
+        clearStore()
     }
 }

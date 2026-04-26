@@ -78,7 +78,8 @@ final class WatchSetEntryViewModel: ObservableObject {
         setReps(reps + amount)
     }
     
-    func handleDone(dismiss: () -> Void) {
+    /// Dispatches any changed values to the store without dismissing.
+    func commitChanges() {
         let kgChanged = kgEdited && Decimal(kg) != initialKg
         let repsChanged = repsEdited && reps != initialReps
         let completionChanged = isCompleted != initialIsCompleted
@@ -99,7 +100,10 @@ final class WatchSetEntryViewModel: ObservableObject {
                 isCompleted: isCompleted
             )
         }
-        
+    }
+    
+    func handleDone(dismiss: () -> Void) {
+        commitChanges()
         dismiss()
     }
     

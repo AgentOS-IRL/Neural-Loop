@@ -428,4 +428,6 @@ class MockConnectivityProvider: WorkoutConnectivityProviding {
             completion?(.success(()))
         }
     }
+    
+    func clearWorkoutSnapshot() {}
 }

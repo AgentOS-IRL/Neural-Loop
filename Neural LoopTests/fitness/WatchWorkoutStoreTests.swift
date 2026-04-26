@@ -9,6 +9,9 @@ import Combine
 @MainActor
 final class WatchWorkoutStore: ObservableObject {
     @Published var currentSnapshot: ActiveWorkoutSnapshot?
+    @Published var lastCompletedSetInfo: CompletedSetInfo?
+    @Published var isFinishing: Bool = false
+    @Published var pendingActionCount: Int = 0
     
     private var actionQueue: [WorkoutWatchAction] = []
     private var isFlushing = false
@@ -21,12 +24,17 @@ final class WatchWorkoutStore: ObservableObject {
         self.connectivityManager = connectivityManager
         loadFromPersistence()
         loadQueue()
+        pendingActionCount = actionQueue.count
         
         connectivityManager.$lastSnapshot
             .receive(on: DispatchQueue.main)
             .sink { [weak self] snapshot in
-                guard let self = self, let snapshot = snapshot else { return }
-                self.reconcile(with: snapshot)
+                guard let self else { return }
+                if let snapshot {
+                    self.reconcile(with: snapshot)
+                } else if self.currentSnapshot != nil {
+                    self.clearStore()
+                }
             }
             .store(in: &cancellables)
             
@@ -73,15 +81,18 @@ final class WatchWorkoutStore: ObservableObject {
     
     func finishWorkout() {
         guard let session = currentSnapshot?.session else { return }
+        isFinishing = true
         let payload = WorkoutWatchActionPayload.finishWorkout(WorkoutWatchSessionAction(session: session))
         let action = WorkoutWatchAction(payload: payload)
         applyOptimisticAction(action)
         
         connectivityManager.sendWorkoutAction(action) { [weak self] result in
             DispatchQueue.main.async {
+                guard let self else { return }
                 if case .success = result {
-                    self?.clearStore()
+                    self.clearStore()
                 }
+                self.isFinishing = false
             }
         }
     }
@@ -90,6 +101,7 @@ final class WatchWorkoutStore: ObservableObject {
         let action = WorkoutWatchAction(payload: payload)
         applyOptimisticAction(action)
         actionQueue.append(action)
+        pendingActionCount = actionQueue.count
         saveQueue()
         flushQueue()
     }
@@ -102,12 +114,24 @@ final class WatchWorkoutStore: ObservableObject {
     }
 
     private func reconcile(with authoritativeSnapshot: ActiveWorkoutSnapshot) {
+        if let current = currentSnapshot,
+           current.session.id != authoritativeSnapshot.session.id {
+            actionQueue.removeAll()
+            saveQueue()
+            pendingActionCount = 0
+            self.currentSnapshot = authoritativeSnapshot
+            saveToPersistence()
+            return
+        }
+        
         if let lastID = authoritativeSnapshot.lastProcessedActionID {
             if let index = actionQueue.firstIndex(where: { $0.id == lastID }) {
                 actionQueue.removeSubrange(0...index)
                 saveQueue()
             }
         }
+        
+        pendingActionCount = actionQueue.count
         
         var reconciledSnapshot = authoritativeSnapshot
         for action in actionQueue {
@@ -231,8 +255,28 @@ final class WatchWorkoutStore: ObservableObject {
     func clearStore() {
         self.currentSnapshot = nil
         self.actionQueue.removeAll()
+        self.pendingActionCount = 0
+        self.lastCompletedSetInfo = nil
+        self.isFinishing = false
         UserDefaults.standard.removeObject(forKey: storageKey)
         UserDefaults.standard.removeObject(forKey: queueKey)
+    }
+    
+    var isSnapshotStale: Bool {
+        guard let startedAt = currentSnapshot?.startedAt else { return false }
+        return Date().timeIntervalSince(startedAt) > 24 * 3600
+    }
+    
+    var staleSnapshotAge: String? {
+        guard let startedAt = currentSnapshot?.startedAt else { return nil }
+        let hours = Int(Date().timeIntervalSince(startedAt) / 3600)
+        if hours < 24 { return nil }
+        let days = hours / 24
+        return days == 1 ? "1 day ago" : "\(days) days ago"
+    }
+    
+    func discardStaleWorkout() {
+        clearStore()
     }
 }
 

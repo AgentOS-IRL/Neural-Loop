@@ -122,6 +122,7 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         
         do {
             try await finalizer.finalize(draft: draft)
+            connectivityProvider?.clearWorkoutSnapshot()
             onFinish?()
         } catch {
             errorMessage = error.localizedDescription

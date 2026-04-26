@@ -59,6 +59,7 @@ final class FitnessViewModel: ObservableObject {
                        let draft = persistenceManager.load(routineID: routineID),
                        draft.watchSessionPointer.id == action.payload.session.id {
                         try? await finalizer.finalize(draft: draft)
+                        connectivityProvider.clearWorkoutSnapshot()
                         await reload()
                     }
                 default:

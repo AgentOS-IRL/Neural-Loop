@@ -4,6 +4,15 @@ struct WatchExerciseDetailView: View {
     let exerciseID: String
     @EnvironmentObject var store: WatchWorkoutStore
     
+    // MARK: - Rest Timer State (Plan 527)
+    @State private var showRestTimer = false
+    @State private var restTimerSetID: String = ""
+    @State private var restTimerDuration: Int = 0
+    
+    // Auto-navigation to next set after rest timer
+    @State private var autoNavigateSetID: String?
+    @State private var showAutoNavigateSet = false
+    
     private var exercise: ExerciseSnapshot? {
         store.currentSnapshot?.exercises.first(where: { $0.id == exerciseID })
     }
@@ -20,14 +29,22 @@ struct WatchExerciseDetailView: View {
                             .disabled(exercise.isCompleted)
                         }
                     } header: {
-                        Text("Sets")
+                        HStack {
+                            Text("Sets")
+                            Spacer()
+                            // Compact progress (Plan 529)
+                            Text("\(exercise.completedSetsCount)/\(exercise.sets.count)")
+                                .font(.caption2)
+                                .monospacedDigit()
+                                .foregroundColor(.secondary)
+                        }
                     }
                     
                     if !exercise.isCompleted {
                         Button(action: {
                             store.addSet(exerciseID: exerciseID)
                         }) {
-                            Label("Add Set", systemImage: "plus")
+                            Label("Add", systemImage: "plus.circle.fill")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent)
@@ -39,8 +56,11 @@ struct WatchExerciseDetailView: View {
                     Button(action: {
                         store.toggleExerciseCompletion(exerciseID: exerciseID, isCompleted: !exercise.isCompleted)
                     }) {
-                        Text(exercise.isCompleted ? "Resume Exercise" : "Done Exercise")
-                            .frame(maxWidth: .infinity)
+                        Label(
+                            exercise.isCompleted ? "Resume" : "Done",
+                            systemImage: exercise.isCompleted ? "arrow.counterclockwise" : "checkmark.circle"
+                        )
+                        .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
                     .tint(exercise.isCompleted ? .orange : .green)
@@ -52,8 +72,41 @@ struct WatchExerciseDetailView: View {
                 .navigationDestination(for: SetSnapshot.self) { set in
                     WatchSetEntryView(exerciseID: exerciseID, setID: set.id)
                 }
+                .navigationDestination(isPresented: $showAutoNavigateSet) {
+                    if let setID = autoNavigateSetID {
+                        WatchSetEntryView(exerciseID: exerciseID, setID: setID)
+                    }
+                }
             } else {
                 Text("Exercise not found")
+            }
+        }
+        // MARK: - Rest Timer Sheet (Plan 527)
+        .sheet(isPresented: $showRestTimer) {
+            WatchRestTimerView(
+                exerciseID: exerciseID,
+                completedSetID: restTimerSetID,
+                totalSeconds: restTimerDuration,
+                onComplete: { nextSetID in
+                    if let nextSetID {
+                        autoNavigateSetID = nextSetID
+                        // Delay to let sheet dismiss animation complete
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showAutoNavigateSet = true
+                        }
+                    }
+                }
+            )
+            .environmentObject(store)
+        }
+        .onChange(of: store.lastCompletedSetInfo) { info in
+            guard let info, info.exerciseID == exerciseID else { return }
+            store.lastCompletedSetInfo = nil
+            restTimerSetID = info.setID
+            restTimerDuration = info.restDurationSeconds
+            // Delay to let set entry dismiss animation complete
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                showRestTimer = true
             }
         }
     }
@@ -69,11 +122,22 @@ struct WatchSetRow: View {
                 .foregroundColor(.secondary)
                 .frame(width: 24, alignment: .leading)
             
-            VStack(alignment: .leading) {
-                Text("\(set.values.kg?.description ?? "--") kg")
-                Text("\(set.values.reps?.description ?? "--") reps")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Image(systemName: "scalemass")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Text(set.values.kg?.description ?? "--")
+                        .font(.body)
+                }
+                HStack(spacing: 4) {
+                    Image(systemName: "repeat")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Text(set.values.reps?.description ?? "--")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
             
             Spacer()
@@ -84,5 +148,6 @@ struct WatchSetRow: View {
             }
         }
         .padding(.vertical, 4)
+        .opacity(set.isCompleted ? 0.6 : 1.0)
     }
 }

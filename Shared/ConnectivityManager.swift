@@ -11,6 +11,7 @@ import Combine
 protocol WorkoutConnectivityProviding: AnyObject {
     func sendWorkoutSnapshot(_ snapshot: ActiveWorkoutSnapshot, completion: ((Result<Void, Error>) -> Void)?)
     func sendWorkoutAction(_ action: WorkoutWatchAction, completion: ((Result<Void, Error>) -> Void)?)
+    func clearWorkoutSnapshot()
 }
 
 open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, WorkoutConnectivityProviding {
@@ -154,6 +155,14 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
 
     open func sendWorkoutAction(_ action: WorkoutWatchAction, completion: ((Result<Void, Error>) -> Void)? = nil) {
         sendEncodable(type: .workoutAction, payload: action, completion: completion)
+    }
+
+    /// Signals the watch that there is no active workout. The watch store
+    /// subscribes to $lastSnapshot and clears itself when it becomes nil.
+    open func clearWorkoutSnapshot() {
+        DispatchQueue.main.async {
+            self.lastSnapshot = nil
+        }
     }
 
     private func sendEncodable<T: Encodable>(type: MessageType, payload: T, completion: ((Result<Void, Error>) -> Void)? = nil) {
