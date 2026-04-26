@@ -79,11 +79,12 @@ final class WatchSetEntryViewModel: ObservableObject {
         setReps(reps + amount)
     }
     
-    /// Dispatches any changed values to the store without dismissing.
-    func commitChanges() {
+    // MARK: - Separated Actions
+    
+    /// Saves only weight/rep values without changing completion state.
+    func commitValues() {
         let kgChanged = kgEdited && Decimal(kg) != initialKg
         let repsChanged = repsEdited && reps != initialReps
-        let completionChanged = isCompleted != initialIsCompleted
         
         if kgChanged || repsChanged {
             store.updateSetValues(
@@ -92,8 +93,45 @@ final class WatchSetEntryViewModel: ObservableObject {
                 kg: kgChanged ? Decimal(kg) : nil,
                 reps: repsChanged ? reps : nil
             )
+            // Update initial values so subsequent saves detect correctly
+            if kgChanged { initialKg = Decimal(kg) }
+            if repsChanged { initialReps = reps }
+            kgEdited = false
+            repsEdited = false
         }
+    }
+    
+    /// Saves values and marks the set as completed.
+    func commitAndComplete() {
+        commitValues()
+        if !isCompleted {
+            isCompleted = true
+            store.toggleSetCompletion(
+                exerciseID: exerciseID,
+                setID: setID,
+                isCompleted: true
+            )
+        }
+    }
+    
+    /// Marks the set as incomplete.
+    func undoComplete() {
+        if isCompleted {
+            isCompleted = false
+            store.toggleSetCompletion(
+                exerciseID: exerciseID,
+                setID: setID,
+                isCompleted: false
+            )
+        }
+    }
+
+    /// Dispatches any changed values to the store without dismissing.
+    /// Legacy method preserved for backward compatibility.
+    func commitChanges() {
+        commitValues()
         
+        let completionChanged = isCompleted != initialIsCompleted
         if completionChanged {
             store.toggleSetCompletion(
                 exerciseID: exerciseID,

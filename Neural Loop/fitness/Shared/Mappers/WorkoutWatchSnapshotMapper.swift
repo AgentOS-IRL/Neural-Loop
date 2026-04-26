@@ -37,6 +37,7 @@ private extension WorkoutExerciseCardState {
         ExerciseSnapshot(
             id: watchExerciseID(orderIndex: orderIndex),
             sourceExerciseID: exercise.id,
+            routineExerciseID: id,  // WorkoutExerciseCardState.id — the routine exercise ID
             name: exercise.name,
             orderIndex: orderIndex,
             restDurationSeconds: watchRestDurationSeconds,

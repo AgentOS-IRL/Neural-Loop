@@ -58,9 +58,24 @@ final class FitnessViewModel: ObservableObject {
                     if let routineID = action.payload.session.routineID,
                        let draft = persistenceManager.load(routineID: routineID),
                        draft.watchSessionPointer.id == action.payload.session.id {
-                        try? await finalizer.finalize(draft: draft)
+                        do {
+                            try await finalizer.finalize(draft: draft)
+                            connectivityProvider.clearWorkoutSnapshot()
+                            let result = WorkoutFinalizedResult(sessionID: action.payload.session.id, success: true)
+                            connectivityProvider.sendWorkoutFinalizedResult(result, completion: nil)
+                            await reload()
+                        } catch {
+                            print("Workout finalization failed: \(error)")
+                            errorMessage = error.localizedDescription
+                            let result = WorkoutFinalizedResult(sessionID: action.payload.session.id, success: false, errorMessage: error.localizedDescription)
+                            connectivityProvider.sendWorkoutFinalizedResult(result, completion: nil)
+                        }
+                    } else {
+                        // Draft not found on iPhone — it was likely already finalized.
+                        // Send success to watch so it clears its stale state.
                         connectivityProvider.clearWorkoutSnapshot()
-                        await reload()
+                        let result = WorkoutFinalizedResult(sessionID: action.payload.session.id, success: true)
+                        connectivityProvider.sendWorkoutFinalizedResult(result, completion: nil)
                     }
                 default:
                     _ = persistenceManager.apply(action: action)

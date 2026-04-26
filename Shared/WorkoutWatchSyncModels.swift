@@ -56,15 +56,19 @@ public struct WorkoutWatchAction: Codable, Hashable, Identifiable {
 public nonisolated struct ExerciseSnapshot: Codable, Hashable, Identifiable {
     public let id: String
     public var sourceExerciseID: Int64?
+    /// The routine-exercise ID used by the iPhone draft for lookups
+    /// (i.e. WorkoutExerciseCardState.id / RoutineExercise.id).
+    public var routineExerciseID: Int64?
     public var name: String
     public var orderIndex: Int
     public var restDurationSeconds: Int?
     public var isCompleted: Bool
     public var sets: [SetSnapshot]
     
-    public init(id: String, sourceExerciseID: Int64? = nil, name: String, orderIndex: Int, restDurationSeconds: Int? = nil, isCompleted: Bool = false, sets: [SetSnapshot] = []) {
+    public init(id: String, sourceExerciseID: Int64? = nil, routineExerciseID: Int64? = nil, name: String, orderIndex: Int, restDurationSeconds: Int? = nil, isCompleted: Bool = false, sets: [SetSnapshot] = []) {
         self.id = id
         self.sourceExerciseID = sourceExerciseID
+        self.routineExerciseID = routineExerciseID
         self.name = name
         self.orderIndex = orderIndex
         self.restDurationSeconds = restDurationSeconds
@@ -114,11 +118,15 @@ public nonisolated struct WorkoutWatchSessionAction: Codable, Hashable {
 public nonisolated struct WorkoutWatchSetReference: Codable, Hashable {
     public var session: WorkoutSessionPointer
     public var exerciseID: String
+    /// The numeric routine-exercise ID that the iPhone draft uses for lookups
+    /// (i.e. WorkoutExerciseCardState.id / RoutineExercise.id).
+    public var routineExerciseID: Int64?
     public var setID: String
     
-    public init(session: WorkoutSessionPointer, exerciseID: String, setID: String) {
+    public init(session: WorkoutSessionPointer, exerciseID: String, routineExerciseID: Int64? = nil, setID: String) {
         self.session = session
         self.exerciseID = exerciseID
+        self.routineExerciseID = routineExerciseID
         self.setID = setID
     }
 }
@@ -126,10 +134,14 @@ public nonisolated struct WorkoutWatchSetReference: Codable, Hashable {
 public nonisolated struct WorkoutWatchExerciseReference: Codable, Hashable {
     public var session: WorkoutSessionPointer
     public var exerciseID: String
+    /// The numeric routine-exercise ID that the iPhone draft uses for lookups
+    /// (i.e. WorkoutExerciseCardState.id / RoutineExercise.id).
+    public var routineExerciseID: Int64?
     
-    public init(session: WorkoutSessionPointer, exerciseID: String) {
+    public init(session: WorkoutSessionPointer, exerciseID: String, routineExerciseID: Int64? = nil) {
         self.session = session
         self.exerciseID = exerciseID
+        self.routineExerciseID = routineExerciseID
     }
 }
 
@@ -264,5 +276,35 @@ public extension WorkoutWatchActionPayload {
         case .updateExerciseCompletion(let action): return action.reference.session
         case .finishWorkout(let action): return action.session
         }
+    }
+}
+
+// MARK: - Acknowledgement & Finalization Models
+
+public struct WorkoutActionAck: Codable {
+    public let actionID: UUID
+    public let status: AckStatus
+    
+    public enum AckStatus: String, Codable {
+        case applied
+        case failed
+        case notFound
+    }
+    
+    public init(actionID: UUID, status: AckStatus) {
+        self.actionID = actionID
+        self.status = status
+    }
+}
+
+public struct WorkoutFinalizedResult: Codable {
+    public let sessionID: String
+    public let success: Bool
+    public let errorMessage: String?
+    
+    public init(sessionID: String, success: Bool, errorMessage: String? = nil) {
+        self.sessionID = sessionID
+        self.success = success
+        self.errorMessage = errorMessage
     }
 }

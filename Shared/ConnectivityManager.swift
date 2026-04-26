@@ -11,6 +11,7 @@ import Combine
 protocol WorkoutConnectivityProviding: AnyObject {
     func sendWorkoutSnapshot(_ snapshot: ActiveWorkoutSnapshot, completion: ((Result<Void, Error>) -> Void)?)
     func sendWorkoutAction(_ action: WorkoutWatchAction, completion: ((Result<Void, Error>) -> Void)?)
+    func sendWorkoutFinalizedResult(_ result: WorkoutFinalizedResult, completion: ((Result<Void, Error>) -> Void)?)
     func clearWorkoutSnapshot()
 }
 
@@ -25,6 +26,7 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
     // Closure hooks for non-UI components
     public var snapshotHandler: ((ActiveWorkoutSnapshot) -> Void)?
     public var actionHandler: ((WorkoutWatchAction) -> Void)?
+    public var finalizationHandler: ((WorkoutFinalizedResult) -> Void)?
     public var errorHandler: ((Error) -> Void)?
     public var notReachableHandler: (() -> Void)?
 
@@ -35,6 +37,7 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
         case text = "text"
         case workoutSnapshot = "workoutSnapshot"
         case workoutAction = "workoutAction"
+        case workoutFinalized = "workoutFinalized"
     }
 
     private struct MessageKey {
@@ -135,6 +138,11 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
                     self.lastAction = action
                     self.actionHandler?(action)
                 }
+            case .workoutFinalized:
+                let result = try decoder.decode(WorkoutFinalizedResult.self, from: data)
+                DispatchQueue.main.async {
+                    self.finalizationHandler?(result)
+                }
             }
         } catch {
             print("ConnectivityManager: Decoding error for type \(type.rawValue): \(error)")
@@ -155,6 +163,10 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
 
     open func sendWorkoutAction(_ action: WorkoutWatchAction, completion: ((Result<Void, Error>) -> Void)? = nil) {
         sendEncodable(type: .workoutAction, payload: action, completion: completion)
+    }
+
+    open func sendWorkoutFinalizedResult(_ result: WorkoutFinalizedResult, completion: ((Result<Void, Error>) -> Void)? = nil) {
+        sendEncodable(type: .workoutFinalized, payload: result, completion: completion)
     }
 
     /// Signals the watch that there is no active workout. The watch store
@@ -182,16 +194,16 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
                 MessageKey.payload: data
             ]
 
-            WCSession.default.sendMessage(message, replyHandler: nil, errorHandler: { error in
+            WCSession.default.sendMessage(message, replyHandler: { _ in
+                DispatchQueue.main.async {
+                    completion?(.success(()))
+                }
+            }, errorHandler: { error in
                 print("ConnectivityManager: Send error: \(error)")
                 DispatchQueue.main.async {
                     completion?(.failure(error))
                 }
             })
-            
-            // Call success immediately as we are not expecting a reply.
-            // If it fails later, the errorHandler will call completion with .failure.
-            completion?(.success(()))
         } catch {
             print("ConnectivityManager: Encoding error: \(error)")
             DispatchQueue.main.async {
