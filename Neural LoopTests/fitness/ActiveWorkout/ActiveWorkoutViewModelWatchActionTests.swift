@@ -269,6 +269,7 @@ class FakeConnectivityProvider: WorkoutConnectivityProviding {
     var capturedSnapshot: ActiveWorkoutSnapshot?
     var capturedAction: WorkoutWatchAction?
     var sendCount = 0
+    var clearCount = 0
     
     func sendWorkoutSnapshot(_ snapshot: ActiveWorkoutSnapshot, completion: ((Result<Void, Error>) -> Void)?) {
         capturedSnapshot = snapshot
@@ -279,5 +280,9 @@ class FakeConnectivityProvider: WorkoutConnectivityProviding {
     func sendWorkoutAction(_ action: WorkoutWatchAction, completion: ((Result<Void, Error>) -> Void)?) {
         capturedAction = action
         completion?(.success(()))
+    }
+    
+    func clearWorkoutSnapshot() {
+        clearCount += 1
     }
 }

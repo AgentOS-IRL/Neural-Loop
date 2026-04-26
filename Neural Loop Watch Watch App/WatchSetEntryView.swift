@@ -37,9 +37,13 @@ struct WatchSetEntryView: View {
             VStack(spacing: 16) {
                 // Weight Section
                 VStack(spacing: 4) {
-                    Text("Weight (kg)")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                    HStack(spacing: 4) {
+                        Image(systemName: "scalemass")
+                            .font(.caption2)
+                        Text("kg")
+                            .font(.caption2)
+                    }
+                    .foregroundColor(.secondary)
                     
                     HStack {
                         Button {
@@ -49,11 +53,11 @@ struct WatchSetEntryView: View {
                             Image(systemName: "minus")
                         }
                         .buttonStyle(.plain)
-                        .frame(width: 32, height: 32)
+                        .frame(width: 40, height: 40)
                         .background(Circle().fill(Color.white.opacity(0.15)))
                         
                         Text(String(format: "%.1f", viewModel.kg))
-                            .font(.title3)
+                            .font(.title2)
                             .bold()
                             .frame(minWidth: 55)
                             .padding(.vertical, 8)
@@ -74,16 +78,20 @@ struct WatchSetEntryView: View {
                             Image(systemName: "plus")
                         }
                         .buttonStyle(.plain)
-                        .frame(width: 32, height: 32)
+                        .frame(width: 40, height: 40)
                         .background(Circle().fill(Color.white.opacity(0.15)))
                     }
                 }
                 
                 // Reps Section
                 VStack(spacing: 4) {
-                    Text("Reps")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                    HStack(spacing: 4) {
+                        Image(systemName: "repeat")
+                            .font(.caption2)
+                        Text("reps")
+                            .font(.caption2)
+                    }
+                    .foregroundColor(.secondary)
                     
                     HStack {
                         Button {
@@ -93,11 +101,11 @@ struct WatchSetEntryView: View {
                             Image(systemName: "minus")
                         }
                         .buttonStyle(.plain)
-                        .frame(width: 32, height: 32)
+                        .frame(width: 40, height: 40)
                         .background(Circle().fill(Color.white.opacity(0.15)))
                         
                         Text("\(viewModel.reps)")
-                            .font(.title3)
+                            .font(.title2)
                             .bold()
                             .frame(minWidth: 55)
                             .padding(.vertical, 8)
@@ -118,7 +126,7 @@ struct WatchSetEntryView: View {
                             Image(systemName: "plus")
                         }
                         .buttonStyle(.plain)
-                        .frame(width: 32, height: 32)
+                        .frame(width: 40, height: 40)
                         .background(Circle().fill(Color.white.opacity(0.15)))
                     }
                 }
@@ -127,7 +135,21 @@ struct WatchSetEntryView: View {
                     .padding(.vertical, 4)
                 
                 Button("Done") {
-                    viewModel.handleDone(dismiss: { dismiss() })
+                    viewModel.commitChanges()
+                    
+                    // Check if rest timer should be shown (Plan 527)
+                    if viewModel.isCompleted,
+                       let exercise = store.currentSnapshot?.exercises.first(where: { $0.id == exerciseID }),
+                       let restSeconds = exercise.restDurationSeconds,
+                       restSeconds > 0 {
+                        store.lastCompletedSetInfo = CompletedSetInfo(
+                            exerciseID: exerciseID,
+                            setID: setID,
+                            restDurationSeconds: restSeconds
+                        )
+                    }
+                    
+                    dismiss()
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)

@@ -32,12 +32,22 @@ struct ExerciseRowView: View {
                 Text(exercise.name)
                     .font(.body)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .strikethrough(exercise.isCompleted)
                     .foregroundColor(exercise.isCompleted ? .secondary : .primary)
                 
-                Text("\(exercise.completedSetsCount)/\(exercise.sets.count) sets")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+                HStack(spacing: 4) {
+                    ProgressView(
+                        value: exercise.sets.isEmpty ? 0 : Double(exercise.completedSetsCount) / Double(exercise.sets.count)
+                    )
+                    .frame(width: 40)
+                    .tint(exercise.isCompleted ? .green : .blue)
+                    
+                    Text("\(exercise.completedSetsCount)/\(exercise.sets.count)")
+                        .font(.caption2)
+                        .monospacedDigit()
+                        .foregroundColor(.secondary)
+                }
             }
             
             Spacer()
@@ -55,6 +65,7 @@ struct ExerciseRowView: View {
         .padding(.vertical, 8)
         .padding(.horizontal, 4)
         .contentShape(Rectangle())
+        .opacity(exercise.isCompleted ? 0.6 : 1.0)
     }
 }
 
