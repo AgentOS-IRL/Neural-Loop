@@ -11,6 +11,8 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
     @Published var restTimerSeconds: Int = 0
     @Published var isTimerRunning: Bool = false
     
+    private var lastProcessedActionID: UUID?
+    
     let db: WorkoutDataManaging
     var onDraftChange: ((ActiveWorkoutDraft) -> Void)?
     var onFinish: (() -> Void)?
@@ -49,15 +51,17 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
     }
 
     func sendSnapshotToWatch() {
-        let snapshot = draft.watchSnapshot()
+        let snapshot = draft.watchSnapshot(lastProcessedActionID: lastProcessedActionID)
         connectivityProvider?.sendWorkoutSnapshot(snapshot, completion: nil)
     }
 
-    func apply(watchAction: WorkoutWatchActionPayload) async {
+    func apply(watchAction action: WorkoutWatchAction) async {
         // Validate session ID
-        guard actionSessionMatchesDraft(action: watchAction) else { return }
+        guard actionSessionMatchesDraft(action: action.payload) else { return }
+        
+        self.lastProcessedActionID = action.id
 
-        switch watchAction {
+        switch action.payload {
         case .requestSnapshot:
             sendSnapshotToWatch()
             

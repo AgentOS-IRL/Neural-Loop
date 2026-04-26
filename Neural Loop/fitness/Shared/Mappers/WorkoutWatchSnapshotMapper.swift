@@ -1,7 +1,7 @@
 import Foundation
 
 nonisolated extension ActiveWorkoutDraft {
-    func watchSnapshot(now: Date = Date()) -> ActiveWorkoutSnapshot {
+    func watchSnapshot(now: Date = Date(), lastProcessedActionID: UUID? = nil) -> ActiveWorkoutSnapshot {
         let sessionPointer = watchSessionPointer
 
         return ActiveWorkoutSnapshot(
@@ -11,7 +11,9 @@ nonisolated extension ActiveWorkoutDraft {
             elapsedSeconds: max(0, Int(now.timeIntervalSince(createdAt))),
             exercises: exercises.enumerated().map { index, exercise in
                 exercise.watchSnapshot(orderIndex: index)
-            }
+            },
+            lastProcessedActionID: lastProcessedActionID,
+            timestamp: now
         )
     }
 
