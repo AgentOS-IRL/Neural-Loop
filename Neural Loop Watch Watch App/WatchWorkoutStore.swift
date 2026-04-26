@@ -132,7 +132,12 @@ final class WatchWorkoutStore: ObservableObject {
         case .updateSetValues(let action):
             if let exerciseIndex = snapshot.exercises.firstIndex(where: { $0.id == action.reference.exerciseID }),
                let setIndex = snapshot.exercises[exerciseIndex].sets.firstIndex(where: { $0.id == action.reference.setID }) {
-                snapshot.exercises[exerciseIndex].sets[setIndex].values = action.values
+                if let kg = action.values.kg {
+                    snapshot.exercises[exerciseIndex].sets[setIndex].values.kg = kg
+                }
+                if let reps = action.values.reps {
+                    snapshot.exercises[exerciseIndex].sets[setIndex].values.reps = reps
+                }
             }
         case .toggleSetCompletion(let action):
             if let exerciseIndex = snapshot.exercises.firstIndex(where: { $0.id == action.reference.exerciseID }),

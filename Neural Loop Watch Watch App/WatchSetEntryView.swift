@@ -138,7 +138,7 @@ struct WatchSetEntryView: View {
         .digitalCrownRotation(
             crownBinding,
             from: 0,
-            through: 500,
+            through: focusedField == .kg ? 500 : 100,
             by: focusedField == .kg ? 0.5 : 1,
             sensitivity: .low,
             isContinuous: false,
@@ -160,10 +160,9 @@ struct WatchSetEntryView: View {
             },
             set: { newValue in
                 if focusedField == .kg {
-                    viewModel.kg = newValue // Clamp happens in VM if we want, or here
-                    // Actually, let's keep it simple and just set it, digitalCrownRotation handles bounds
+                    viewModel.setKg(newValue)
                 } else {
-                    viewModel.reps = Int(newValue)
+                    viewModel.setReps(Int(newValue))
                 }
             }
         )

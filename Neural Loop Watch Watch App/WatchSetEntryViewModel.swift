@@ -7,9 +7,11 @@ final class WatchSetEntryViewModel: ObservableObject {
     @Published var reps: Int = 0
     @Published var isCompleted: Bool = false
     
-    @Published var initialKg: Double = 0
-    @Published var initialReps: Int = 0
-    @Published var initialIsCompleted: Bool = false
+    private var initialKg: Decimal?
+    private var initialReps: Int?
+    private var initialIsCompleted: Bool = false
+    private var kgEdited = false
+    private var repsEdited = false
     
     let exerciseID: String
     let setID: String
@@ -28,8 +30,8 @@ final class WatchSetEntryViewModel: ObservableObject {
             self.reps = currentReps
             self.isCompleted = set.isCompleted
             
-            self.initialKg = currentKg
-            self.initialReps = currentReps
+            self.initialKg = set.values.kg
+            self.initialReps = set.values.reps
             self.initialIsCompleted = set.isCompleted
         }
     }
@@ -44,31 +46,49 @@ final class WatchSetEntryViewModel: ObservableObject {
             self.reps = currentReps
             self.isCompleted = set.isCompleted
             
-            self.initialKg = currentKg
-            self.initialReps = currentReps
+            self.initialKg = set.values.kg
+            self.initialReps = set.values.reps
             self.initialIsCompleted = set.isCompleted
+            self.kgEdited = false
+            self.repsEdited = false
+        }
+    }
+
+    func setKg(_ value: Double) {
+        let clampedKg = clamp(value, in: 0...500)
+        if kg != clampedKg {
+            kg = clampedKg
+            kgEdited = true
+        }
+    }
+
+    func setReps(_ value: Int) {
+        let clampedReps = Int(clamp(Double(value), in: 0...100))
+        if reps != clampedReps {
+            reps = clampedReps
+            repsEdited = true
         }
     }
     
     func adjustKg(by amount: Double) {
-        kg = clamp(kg + amount, in: 0...500)
+        setKg(kg + amount)
     }
     
     func adjustReps(by amount: Int) {
-        reps = Int(clamp(Double(reps + amount), in: 0...100))
+        setReps(reps + amount)
     }
     
     func handleDone(dismiss: () -> Void) {
-        let kgChanged = kg != initialKg
-        let repsChanged = reps != initialReps
+        let kgChanged = kgEdited && Decimal(kg) != initialKg
+        let repsChanged = repsEdited && reps != initialReps
         let completionChanged = isCompleted != initialIsCompleted
         
         if kgChanged || repsChanged {
             store.updateSetValues(
                 exerciseID: exerciseID,
                 setID: setID,
-                kg: Decimal(kg),
-                reps: reps
+                kg: kgChanged ? Decimal(kg) : nil,
+                reps: repsChanged ? reps : nil
             )
         }
         
