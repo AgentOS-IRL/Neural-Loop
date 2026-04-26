@@ -101,13 +101,13 @@ final class WatchExerciseDetailTests: XCTestCase {
         
         // Then
         let set = store.currentSnapshot?.exercises.first?.sets.first
-        XCTAssertEqual(set?.values.kg, 100.5)
+        XCTAssertEqual(set?.values.kg, Decimal(100.5))
         XCTAssertEqual(set?.values.reps, 5)
         
         if case .updateSetValues(let action) = mockConnectivity.sentAction?.payload {
             XCTAssertEqual(action.reference.exerciseID, exerciseID)
             XCTAssertEqual(action.reference.setID, setID)
-            XCTAssertEqual(action.values.kg, 100.5)
+            XCTAssertEqual(action.values.kg, Decimal(100.5))
             XCTAssertEqual(action.values.reps, 5)
         } else {
             XCTFail("Expected updateSetValues action to be sent")

@@ -93,8 +93,8 @@ struct WatchSetEntryView: View {
     @EnvironmentObject var store: WatchWorkoutStore
     @Environment(\.dismiss) var dismiss
     
-    @State private var kg: Double = 0
-    @State private var reps: Int = 0
+    @State private var kg: Double?
+    @State private var reps: Int?
     @State private var isCompleted: Bool = false
     @State private var hasInitialized = false
     
@@ -111,8 +111,8 @@ struct WatchSetEntryView: View {
                     Text("Weight (kg)")
                         .font(.caption2)
                         .foregroundColor(.secondary)
-                    Stepper(value: $kg, in: 0...500, step: 0.5) {
-                        Text(String(format: "%.1f", kg))
+                    Stepper(value: Binding(get: { self.kg ?? 0 }, set: { self.kg = $0 }), in: 0...500, step: 0.5) {
+                        Text(kg != nil ? String(format: "%.1f", kg!) : "--")
                             .font(.title3)
                             .bold()
                     }
@@ -122,8 +122,8 @@ struct WatchSetEntryView: View {
                     Text("Reps")
                         .font(.caption2)
                         .foregroundColor(.secondary)
-                    Stepper(value: $reps, in: 0...100) {
-                        Text("\(reps)")
+                    Stepper(value: Binding(get: { self.reps ?? 0 }, set: { self.reps = $0 }), in: 0...100) {
+                        Text(reps != nil ? "\(reps!)" : "--")
                             .font(.title3)
                             .bold()
                     }
@@ -136,7 +136,7 @@ struct WatchSetEntryView: View {
                     store.updateSetValues(
                         exerciseID: exerciseID,
                         setID: setID,
-                        kg: Decimal(kg),
+                        kg: kg.map { Decimal($0) },
                         reps: reps
                     )
                     store.toggleSetCompletion(
@@ -154,8 +154,8 @@ struct WatchSetEntryView: View {
         .navigationTitle("Set \(exerciseSet?.setNumber ?? 0)")
         .onAppear {
             if !hasInitialized, let exerciseSet = exerciseSet {
-                kg = (exerciseSet.values.kg as NSDecimalNumber?)?.doubleValue ?? 0
-                reps = exerciseSet.values.reps ?? 0
+                kg = (exerciseSet.values.kg as NSDecimalNumber?)?.doubleValue
+                reps = exerciseSet.values.reps
                 isCompleted = exerciseSet.isCompleted
                 hasInitialized = true
             }
