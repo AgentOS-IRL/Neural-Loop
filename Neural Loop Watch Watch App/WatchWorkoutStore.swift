@@ -4,6 +4,8 @@ import SwiftUI
 
 @MainActor
 final class WatchWorkoutStore: ObservableObject {
+    static let shared = WatchWorkoutStore()
+    
     @Published var currentSnapshot: ActiveWorkoutSnapshot?
     
     private var actionQueue: [WorkoutWatchAction] = []
