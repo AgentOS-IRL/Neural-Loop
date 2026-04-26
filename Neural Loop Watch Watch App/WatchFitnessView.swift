@@ -42,15 +42,7 @@ struct ActiveWorkoutView: View {
             WatchExerciseListView(snapshot: snapshot)
         }
         .navigationDestination(for: ExerciseSnapshot.self) { exercise in
-            VStack {
-                Text(exercise.name)
-                    .font(.headline)
-                Text("Exercise Detail")
-                Text("Coming Soon")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .navigationTitle(exercise.name)
+            WatchExerciseDetailView(exerciseID: exercise.id)
         }
     }
 }
