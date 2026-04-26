@@ -5,7 +5,7 @@ import Combine
 @MainActor
 final class WatchWorkoutStoreQueuingTests: XCTestCase {
     var store: WatchWorkoutStore!
-    var mockConnectivity: MockConnectivityManager!
+    var mockConnectivity: QueuingMockConnectivityManager!
     let storageKey = "com.neuralloop.watch.activeWorkoutSnapshot.test"
     let queueKey = "com.neuralloop.watch.actionQueue.test"
     
@@ -13,7 +13,7 @@ final class WatchWorkoutStoreQueuingTests: XCTestCase {
         super.setUp()
         UserDefaults.standard.removeObject(forKey: storageKey)
         UserDefaults.standard.removeObject(forKey: queueKey)
-        mockConnectivity = MockConnectivityManager()
+        mockConnectivity = QueuingMockConnectivityManager()
         store = WatchWorkoutStore(connectivityManager: mockConnectivity)
     }
     
@@ -190,7 +190,7 @@ extension WatchWorkoutStore {
     }
 }
 
-class MockConnectivityManager: ConnectivityManager {
+class QueuingMockConnectivityManager: ConnectivityManager {
     var sentActions: [WorkoutWatchAction] = []
     var shouldFail = false
     

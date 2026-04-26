@@ -46,14 +46,14 @@ final class FitnessViewModelWatchActionTests: XCTestCase {
         )
         
         let setUUID = draft.exercises[0].sets[0].id
-        let action = WorkoutWatchActionPayload.updateSetValues(WorkoutWatchSetValuesAction(
+        let action = WorkoutWatchAction(payload: .updateSetValues(WorkoutWatchSetValuesAction(
             reference: WorkoutWatchSetReference(
                 session: draft.watchSessionPointer,
                 exerciseID: "10",
                 setID: setUUID.uuidString
             ),
             values: WorkoutSetValuesSnapshot(kg: 100, reps: 5)
-        ))
+        )))
         
         viewModel.handleWatchAction(action)
         
@@ -88,14 +88,14 @@ final class FitnessViewModelWatchActionTests: XCTestCase {
         XCTAssertNil(viewModel.activeViewModel)
         
         let setUUID = draft.exercises[0].sets[0].id
-        let action = WorkoutWatchActionPayload.updateSetValues(WorkoutWatchSetValuesAction(
+        let action = WorkoutWatchAction(payload: .updateSetValues(WorkoutWatchSetValuesAction(
             reference: WorkoutWatchSetReference(
                 session: draft.watchSessionPointer,
                 exerciseID: "10",
                 setID: setUUID.uuidString
             ),
             values: WorkoutSetValuesSnapshot(kg: 100, reps: 5)
-        ))
+        )))
         
         viewModel.handleWatchAction(action)
         
@@ -121,9 +121,9 @@ final class FitnessViewModelWatchActionTests: XCTestCase {
             connectivityManager: connectivityProvider
         )
         
-        let action = WorkoutWatchActionPayload.requestSnapshot(WorkoutWatchSessionAction(
+        let action = WorkoutWatchAction(payload: .requestSnapshot(WorkoutWatchSessionAction(
             session: draft.watchSessionPointer
-        ))
+        )))
         
         viewModel.handleWatchAction(action)
         
@@ -154,9 +154,9 @@ final class FitnessViewModelWatchActionTests: XCTestCase {
             connectivityManager: connectivityProvider
         )
         
-        let action = WorkoutWatchActionPayload.finishWorkout(WorkoutWatchSessionAction(
+        let action = WorkoutWatchAction(payload: .finishWorkout(WorkoutWatchSessionAction(
             session: draft.watchSessionPointer
-        ))
+        )))
         
         viewModel.handleWatchAction(action)
         
