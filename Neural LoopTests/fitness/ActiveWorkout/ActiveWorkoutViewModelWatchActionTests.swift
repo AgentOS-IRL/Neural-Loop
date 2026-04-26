@@ -32,14 +32,14 @@ final class ActiveWorkoutViewModelWatchActionTests: XCTestCase {
             connectivityProvider: connectivityProvider
         )
         
-        let action = WorkoutWatchActionPayload.updateSetValues(WorkoutWatchSetValuesAction(
+        let action = WorkoutWatchAction(payload: .updateSetValues(WorkoutWatchSetValuesAction(
             reference: WorkoutWatchSetReference(
                 session: viewModel.draft.watchSessionPointer,
                 exerciseID: "\(exerciseID)",
                 setID: setUUID.uuidString
             ),
             values: WorkoutSetValuesSnapshot(kg: 60, reps: 12)
-        ))
+        )))
         
         await viewModel.apply(watchAction: action)
         
@@ -63,10 +63,10 @@ final class ActiveWorkoutViewModelWatchActionTests: XCTestCase {
             connectivityProvider: connectivityProvider
         )
         
-        let action = WorkoutWatchActionPayload.addSet(WorkoutWatchExerciseReference(
+        let action = WorkoutWatchAction(payload: .addSet(WorkoutWatchExerciseReference(
             session: viewModel.draft.watchSessionPointer,
             exerciseID: "\(exerciseID)"
-        ))
+        )))
         
         await viewModel.apply(watchAction: action)
         
@@ -91,14 +91,14 @@ final class ActiveWorkoutViewModelWatchActionTests: XCTestCase {
             connectivityProvider: connectivityProvider
         )
         
-        let action = WorkoutWatchActionPayload.toggleSetCompletion(WorkoutWatchSetCompletionAction(
+        let action = WorkoutWatchAction(payload: .toggleSetCompletion(WorkoutWatchSetCompletionAction(
             reference: WorkoutWatchSetReference(
                 session: viewModel.draft.watchSessionPointer,
                 exerciseID: "\(exerciseID)",
                 setID: setUUID.uuidString
             ),
             isCompleted: true
-        ))
+        )))
         
         await viewModel.apply(watchAction: action)
         
@@ -122,13 +122,13 @@ final class ActiveWorkoutViewModelWatchActionTests: XCTestCase {
             connectivityProvider: connectivityProvider
         )
         
-        let action = WorkoutWatchActionPayload.updateExerciseCompletion(WorkoutWatchExerciseCompletionAction(
+        let action = WorkoutWatchAction(payload: .updateExerciseCompletion(WorkoutWatchExerciseCompletionAction(
             reference: WorkoutWatchExerciseReference(
                 session: viewModel.draft.watchSessionPointer,
                 exerciseID: "\(exerciseID)"
             ),
             isCompleted: true
-        ))
+        )))
         
         await viewModel.apply(watchAction: action)
         
@@ -147,9 +147,9 @@ final class ActiveWorkoutViewModelWatchActionTests: XCTestCase {
             connectivityProvider: connectivityProvider
         )
         
-        let action = WorkoutWatchActionPayload.finishWorkout(WorkoutWatchSessionAction(
+        let action = WorkoutWatchAction(payload: .finishWorkout(WorkoutWatchSessionAction(
             session: viewModel.draft.watchSessionPointer
-        ))
+        )))
         
         await viewModel.apply(watchAction: action)
         
@@ -164,22 +164,22 @@ final class ActiveWorkoutViewModelWatchActionTests: XCTestCase {
         let viewModel = ActiveWorkoutViewModel(draft: draft, db: db, connectivityProvider: connectivityProvider)
         
         // Invalid Exercise ID
-        let action1 = WorkoutWatchActionPayload.addSet(WorkoutWatchExerciseReference(
+        let action1 = WorkoutWatchAction(payload: .addSet(WorkoutWatchExerciseReference(
             session: viewModel.draft.watchSessionPointer,
             exerciseID: "999"
-        ))
+        )))
         await viewModel.apply(watchAction: action1)
         XCTAssertEqual(viewModel.draft.exercises[0].sets.count, 1)
         
         // Invalid Set ID
-        let action2 = WorkoutWatchActionPayload.toggleSetCompletion(WorkoutWatchSetCompletionAction(
+        let action2 = WorkoutWatchAction(payload: .toggleSetCompletion(WorkoutWatchSetCompletionAction(
             reference: WorkoutWatchSetReference(
                 session: viewModel.draft.watchSessionPointer,
                 exerciseID: "10",
                 setID: UUID().uuidString
             ),
             isCompleted: true
-        ))
+        )))
         await viewModel.apply(watchAction: action2)
         XCTAssertFalse(viewModel.draft.exercises[0].sets[0].isCompleted)
     }
@@ -194,14 +194,14 @@ final class ActiveWorkoutViewModelWatchActionTests: XCTestCase {
         ])
         let viewModel = ActiveWorkoutViewModel(draft: draft, db: db, connectivityProvider: connectivityProvider)
         
-        let action = WorkoutWatchActionPayload.toggleSetCompletion(WorkoutWatchSetCompletionAction(
+        let action = WorkoutWatchAction(payload: .toggleSetCompletion(WorkoutWatchSetCompletionAction(
             reference: WorkoutWatchSetReference(
                 session: viewModel.draft.watchSessionPointer,
                 exerciseID: "\(exerciseID)",
                 setID: setUUID.uuidString
             ),
             isCompleted: true // Already completed
-        ))
+        )))
         
         await viewModel.apply(watchAction: action)
         
@@ -228,10 +228,10 @@ final class ActiveWorkoutViewModelWatchActionTests: XCTestCase {
         
         // Create an action with a different session ID (simulating a previous run)
         let staleSession = WorkoutSessionPointer(id: "stale-id", routineID: draft.routineID)
-        let action = WorkoutWatchActionPayload.addSet(WorkoutWatchExerciseReference(
+        let action = WorkoutWatchAction(payload: .addSet(WorkoutWatchExerciseReference(
             session: staleSession,
             exerciseID: "10"
-        ))
+        )))
         
         await viewModel.apply(watchAction: action)
         
@@ -267,11 +267,17 @@ final class ActiveWorkoutViewModelWatchActionTests: XCTestCase {
 
 class FakeConnectivityProvider: WorkoutConnectivityProviding {
     var capturedSnapshot: ActiveWorkoutSnapshot?
+    var capturedAction: WorkoutWatchAction?
     var sendCount = 0
     
     func sendWorkoutSnapshot(_ snapshot: ActiveWorkoutSnapshot, completion: ((Result<Void, Error>) -> Void)?) {
         capturedSnapshot = snapshot
         sendCount += 1
+        completion?(.success(()))
+    }
+    
+    func sendWorkoutAction(_ action: WorkoutWatchAction, completion: ((Result<Void, Error>) -> Void)?) {
+        capturedAction = action
         completion?(.success(()))
     }
 }

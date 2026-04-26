@@ -39,14 +39,18 @@ struct ActiveWorkoutView: View {
                 }
             }
 
-            ForEach(snapshot.exercises) { exercise in
-                VStack(alignment: .leading) {
-                    Text(exercise.name)
-                        .font(.body)
-                    Text("\(exercise.sets.filter { $0.isCompleted }.count)/\(exercise.sets.count) sets completed")
-                        .font(.caption)
-                }
+            WatchExerciseListView(snapshot: snapshot)
+        }
+        .navigationDestination(for: ExerciseSnapshot.self) { exercise in
+            VStack {
+                Text(exercise.name)
+                    .font(.headline)
+                Text("Exercise Detail")
+                Text("Coming Soon")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
+            .navigationTitle(exercise.name)
         }
     }
 }
