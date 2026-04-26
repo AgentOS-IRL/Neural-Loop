@@ -241,14 +241,14 @@ final class WatchWorkoutStore: ObservableObject {
 @MainActor
 final class WatchWorkoutStoreTests: XCTestCase {
     var store: WatchWorkoutStore!
-    var mockConnectivity: MockConnectivityManager!
+    var mockConnectivity: StoreMockConnectivityManager!
     let storageKey = "com.neuralloop.watch.activeWorkoutSnapshot.test"
     
     override func setUp() {
         super.setUp()
         // Clear UserDefaults
         UserDefaults.standard.removeObject(forKey: storageKey)
-        mockConnectivity = MockConnectivityManager()
+        mockConnectivity = StoreMockConnectivityManager()
         store = WatchWorkoutStore(connectivityManager: mockConnectivity)
     }
     
@@ -386,7 +386,7 @@ final class WatchWorkoutStoreTests: XCTestCase {
     }
 }
 
-class MockConnectivityManager: ConnectivityManager {
+class StoreMockConnectivityManager: ConnectivityManager {
     var sentAction: WorkoutWatchAction?
     var shouldFail = false
     

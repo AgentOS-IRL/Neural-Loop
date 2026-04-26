@@ -406,12 +406,22 @@ class FakeLaunchDataManager: WorkoutTemplateReadingDataManaging, WorkoutDataMana
 
 class MockConnectivityProvider: WorkoutConnectivityProviding {
     var capturedSnapshot: ActiveWorkoutSnapshot?
+    var capturedAction: WorkoutWatchAction?
     var sendCount = 0
     var shouldFail = false
 
     func sendWorkoutSnapshot(_ snapshot: ActiveWorkoutSnapshot, completion: ((Result<Void, Error>) -> Void)?) {
         sendCount += 1
         capturedSnapshot = snapshot
+        if shouldFail {
+            completion?(.failure(NSError(domain: "test", code: -1)))
+        } else {
+            completion?(.success(()))
+        }
+    }
+    
+    func sendWorkoutAction(_ action: WorkoutWatchAction, completion: ((Result<Void, Error>) -> Void)?) {
+        capturedAction = action
         if shouldFail {
             completion?(.failure(NSError(domain: "test", code: -1)))
         } else {

@@ -71,6 +71,10 @@ public nonisolated struct ExerciseSnapshot: Codable, Hashable, Identifiable {
         self.isCompleted = isCompleted
         self.sets = sets
     }
+
+    public var completedSetsCount: Int {
+        sets.filter { $0.isCompleted }.count
+    }
 }
 
 public nonisolated struct SetSnapshot: Codable, Hashable, Identifiable {
