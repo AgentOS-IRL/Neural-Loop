@@ -11,8 +11,6 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
     @Published var restTimerSeconds: Int = 0
     @Published var isTimerRunning: Bool = false
     
-    private var lastProcessedActionID: UUID?
-    
     let db: WorkoutDataManaging
     var onDraftChange: ((ActiveWorkoutDraft) -> Void)?
     var onFinish: (() -> Void)?
@@ -45,69 +43,64 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
 
     private func persistDraft() {
         draft.updatedAt = Date()
+        draft.revision += 1
         persistenceManager.save(draft: draft)
         onDraftChange?(draft)
         sendSnapshotToWatch()
     }
 
     func sendSnapshotToWatch() {
-        let snapshot = draft.watchSnapshot(lastProcessedActionID: lastProcessedActionID)
+        let snapshot = draft.watchSnapshot(lastProcessedActionID: nil)
         connectivityProvider?.sendWorkoutSnapshot(snapshot, completion: nil)
     }
 
     func apply(watchAction action: WorkoutWatchAction) async {
         // Validate session ID
-        guard actionSessionMatchesDraft(action: action.payload) else { return }
+        guard actionSessionMatchesDraft(action: action.payload) else {
+            sendSnapshotToWatch()
+            return
+        }
         
-        self.lastProcessedActionID = action.id
-
+        guard !draft.processedWatchActionIDs.contains(action.id) else {
+            sendSnapshotToWatch()
+            return
+        }
+        
+        guard action.sequence == draft.lastProcessedWatchSequence + 1 || action.sequence == 0 else {
+            // Sequence mismatch: reject out-of-order action and resync
+            sendSnapshotToWatch()
+            return
+        }
         switch action.payload {
         case .requestSnapshot:
             sendSnapshotToWatch()
             
-        case .updateSetValues(let action):
-            guard let exerciseID = resolveExerciseID(action.reference.exerciseID, routineExerciseID: action.reference.routineExerciseID),
-                  let setUUID = UUID(uuidString: action.reference.setID) else { return }
-            
-            if let exerciseIndex = draft.exercises.firstIndex(where: { $0.id == exerciseID }),
-               let setIndex = draft.exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setUUID }) {
-                
-                var changed = false
-                if let weight = action.values.kg {
-                    draft.exercises[exerciseIndex].sets[setIndex].weightText = "\(weight)"
-                    changed = true
-                }
-                if let reps = action.values.reps {
-                    draft.exercises[exerciseIndex].sets[setIndex].repsText = "\(reps)"
-                    changed = true
-                }
-                
-                if changed {
-                    persistDraft()
-                }
-            }
-            
-        case .toggleSetCompletion(let action):
-            guard let exerciseID = resolveExerciseID(action.reference.exerciseID, routineExerciseID: action.reference.routineExerciseID),
-                  let setUUID = UUID(uuidString: action.reference.setID) else { return }
-            
-            // Avoid redundant toggles if watch state already matches
-            if let exercise = draft.exercises.first(where: { $0.id == exerciseID }),
-               let set = exercise.sets.first(where: { $0.id == setUUID }),
-               set.isCompleted != action.isCompleted {
-                toggleSetCompletion(exerciseID: exerciseID, setID: setUUID)
-            }
-            
-        case .addSet(let reference):
-            guard let exerciseID = resolveExerciseID(reference.exerciseID, routineExerciseID: reference.routineExerciseID) else { return }
-            addSet(to: exerciseID, id: action.id)
-            
-        case .updateExerciseCompletion(let payload):
-            guard let exerciseID = resolveExerciseID(payload.reference.exerciseID, routineExerciseID: payload.reference.routineExerciseID) else { return }
-            completeExercise(exerciseID: exerciseID, isCompleted: payload.isCompleted)
-            
         case .finishWorkout:
-            await finishWorkout()
+            do {
+                try await finalizer.finalize(draft: draft)
+                
+                markWatchActionProcessed(action)
+                connectivityProvider?.clearWorkoutSnapshot(sessionID: draft.watchSessionPointer.id, reason: .finalized)
+                
+                let result = WorkoutFinalizedResult(sessionID: draft.watchSessionPointer.id, success: true)
+                connectivityProvider?.sendWorkoutFinalizedResult(result, completion: nil)
+                onFinish?()
+            } catch {
+                let result = WorkoutFinalizedResult(sessionID: draft.watchSessionPointer.id, success: false, errorMessage: error.localizedDescription)
+                connectivityProvider?.sendWorkoutFinalizedResult(result, completion: nil)
+            }
+            
+        default:
+            draft.apply(watchAction: action)
+            markWatchActionProcessed(action)
+            persistDraft()
+        }
+    }
+
+    private func markWatchActionProcessed(_ action: WorkoutWatchAction) {
+        draft.processedWatchActionIDs.insert(action.id)
+        if action.sequence > 0 {
+            draft.lastProcessedWatchSequence = action.sequence
         }
     }
 
@@ -131,7 +124,7 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         
         do {
             try await finalizer.finalize(draft: draft)
-            connectivityProvider?.clearWorkoutSnapshot()
+            connectivityProvider?.clearWorkoutSnapshot(sessionID: draft.watchSessionPointer.id, reason: .finalized)
             // Send finalization success to watch
             let result = WorkoutFinalizedResult(sessionID: draft.watchSessionPointer.id, success: true)
             connectivityProvider?.sendWorkoutFinalizedResult(result, completion: nil)

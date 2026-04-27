@@ -60,7 +60,7 @@ final class FitnessViewModel: ObservableObject {
                        draft.watchSessionPointer.id == action.payload.session.id {
                         do {
                             try await finalizer.finalize(draft: draft)
-                            connectivityProvider.clearWorkoutSnapshot()
+                            connectivityProvider.clearWorkoutSnapshot(sessionID: action.payload.session.id, reason: .finalized)
                             let result = WorkoutFinalizedResult(sessionID: action.payload.session.id, success: true)
                             connectivityProvider.sendWorkoutFinalizedResult(result, completion: nil)
                             await reload()
@@ -73,7 +73,7 @@ final class FitnessViewModel: ObservableObject {
                     } else {
                         // Draft not found on iPhone — it was likely already finalized.
                         // Send success to watch so it clears its stale state.
-                        connectivityProvider.clearWorkoutSnapshot()
+                        connectivityProvider.clearWorkoutSnapshot(sessionID: action.payload.session.id, reason: .finalized)
                         let result = WorkoutFinalizedResult(sessionID: action.payload.session.id, success: true)
                         connectivityProvider.sendWorkoutFinalizedResult(result, completion: nil)
                     }

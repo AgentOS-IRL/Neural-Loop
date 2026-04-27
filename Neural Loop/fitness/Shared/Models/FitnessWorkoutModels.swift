@@ -115,19 +115,28 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
     var exercises: [WorkoutExerciseCardState]
     var createdAt: Date
     var updatedAt: Date
+    var revision: Int
+    var lastProcessedWatchSequence: Int
+    var processedWatchActionIDs: Set<UUID>
 
     init(
         routineID: Int64,
         session: WorkoutSession,
         exercises: [WorkoutExerciseCardState],
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        revision: Int = 0,
+        lastProcessedWatchSequence: Int = 0,
+        processedWatchActionIDs: Set<UUID> = []
     ) {
         self.routineID = routineID
         self.session = session
         self.exercises = exercises
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.revision = revision
+        self.lastProcessedWatchSequence = lastProcessedWatchSequence
+        self.processedWatchActionIDs = processedWatchActionIDs
     }
 
     mutating func apply(watchAction action: WorkoutWatchAction) {

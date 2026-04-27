@@ -13,7 +13,10 @@ nonisolated extension ActiveWorkoutDraft {
                 exercise.watchSnapshot(orderIndex: index)
             },
             lastProcessedActionID: lastProcessedActionID,
-            timestamp: now
+            timestamp: now,
+            revision: revision,
+            generatedAt: now,
+            lastProcessedWatchSequence: lastProcessedWatchSequence
         )
     }
 

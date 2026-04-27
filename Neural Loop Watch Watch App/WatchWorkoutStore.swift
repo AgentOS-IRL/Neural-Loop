@@ -24,6 +24,31 @@ final class WatchWorkoutStore: ObservableObject {
     @Published var isFinishing: Bool = false
     @Published var finishError: String?
     
+    enum WatchWorkoutSyncState: Equatable {
+        case live
+        case offlineQueuedEdits(count: Int)
+        case syncing
+        case finishing
+        case finishFailed(String)
+        case stale
+        case endedRemotely
+        case finishQueuedOffline
+    }
+
+    var syncState: WatchWorkoutSyncState {
+        if isSnapshotStale { return .stale }
+        if let error = finishError {
+            if error.contains("queued") {
+                return .finishQueuedOffline
+            }
+            return .finishFailed(error)
+        }
+        if isFinishing { return .finishing }
+        if isFlushing { return .syncing }
+        if pendingActionCount > 0 { return .offlineQueuedEdits(count: pendingActionCount) }
+        return .live
+    }
+    
     // MARK: - Queue Visibility (Plan 529)
     @Published var pendingActionCount: Int = 0
     
@@ -39,6 +64,7 @@ final class WatchWorkoutStore: ObservableObject {
         loadFromPersistence()
         loadQueue()
         pendingActionCount = actionQueue.count
+        connectivityManager.checkApplicationContext()
         
         connectivityManager.$lastSnapshot
             .receive(on: DispatchQueue.main)
@@ -47,11 +73,19 @@ final class WatchWorkoutStore: ObservableObject {
                 if let snapshot {
                     self.reconcile(with: snapshot)
                 } else if self.currentSnapshot != nil {
-                    // iPhone cleared the active workout (Plan 528)
+                    // This fallback handles if the iPhone cleared the active workout
                     self.clearStore()
                 }
             }
             .store(in: &cancellables)
+            
+        connectivityManager.clearedWorkoutHandler = { [weak self] cleared in
+            guard let self = self else { return }
+            if self.currentSnapshot?.session.id == cleared.sessionID {
+                self.clearStore()
+                // If it was cancelled on phone or replaced, we could potentially show an alert
+            }
+        }
             
         connectivityManager.$isReachable
             .receive(on: DispatchQueue.main)
@@ -123,71 +157,35 @@ final class WatchWorkoutStore: ObservableObject {
         isFinishing = true
         finishError = nil
         
-        // Flush pending edits first, then send finish
-        flushQueueThenFinish(session: session)
+        let payload = WorkoutWatchActionPayload.finishWorkout(WorkoutWatchSessionAction(session: session))
+        enqueueAction(payload: payload)
+        
+        if !connectivityManager.isReachable {
+            finishError = "Workout finish queued. Open iPhone to sync."
+            isFinishing = false
+        }
     }
     
     func retryFinish() {
-        guard let session = currentSnapshot?.session else { return }
+        guard !isFinishing else { return }
         isFinishing = true
         finishError = nil
-        flushQueueThenFinish(session: session)
-    }
-    
-    private func flushQueueThenFinish(session: WorkoutSessionPointer) {
-        guard !actionQueue.isEmpty, connectivityManager.isReachable else {
-            sendFinishAction(session: session)
-            return
-        }
-        
+        // A finish action is likely already in the queue, just try flushing again.
         flushQueue()
-        pollQueueDrain(session: session, startTime: Date())
-    }
-    
-    private func pollQueueDrain(session: WorkoutSessionPointer, startTime: Date) {
-        if actionQueue.isEmpty {
-            sendFinishAction(session: session)
-            return
-        }
         
-        if Date().timeIntervalSince(startTime) > 10 {
-            // Timeout reached, queue hasn't drained. Do not finish to avoid losing data.
-            self.finishError = "Sync timeout. Try again."
-            self.isFinishing = false
-            return
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.pollQueueDrain(session: session, startTime: startTime)
-        }
-    }
-    
-    private func sendFinishAction(session: WorkoutSessionPointer) {
-        let payload = WorkoutWatchActionPayload.finishWorkout(WorkoutWatchSessionAction(session: session))
-        let action = WorkoutWatchAction(payload: payload)
-        applyOptimisticAction(action)
-        
-        connectivityManager.sendWorkoutAction(action) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                if case .failure = result {
-                    self.finishError = "Could not reach iPhone"
-                    self.isFinishing = false
-                } else {
-                    // it should be clearned now
-                    self.clearStore()
-                    // On success: start a timeout waiting for workoutFinalized message from iPhone
-                    // DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
-                    //     guard let self, self.isFinishing else { return }
-                    //     self.finishError = "No response from iPhone. Try again."
-                    //     self.isFinishing = false
-                    // }
-                }
-            }
+        if !connectivityManager.isReachable {
+            finishError = "Workout finish queued. Open iPhone to sync."
+            isFinishing = false
         }
     }
 
+    private var lastGeneratedSequence: Int {
+        return actionQueue.map(\.sequence).max() ?? (currentSnapshot?.lastProcessedWatchSequence ?? 0)
+    }
+
     private func enqueueAction(payload: WorkoutWatchActionPayload) {
-        let action = WorkoutWatchAction(payload: payload)
+        let sequence = lastGeneratedSequence + 1
+        let action = WorkoutWatchAction(id: UUID(), timestamp: Date(), sequence: sequence, payload: payload)
         applyOptimisticAction(action)
         actionQueue.append(action)
         pendingActionCount = actionQueue.count
@@ -203,7 +201,7 @@ final class WatchWorkoutStore: ObservableObject {
     }
 
     private func reconcile(with authoritativeSnapshot: ActiveWorkoutSnapshot) {
-        // If the incoming snapshot is for a different session, replace entirely
+        // Session replacement check
         if let current = currentSnapshot,
            current.session.id != authoritativeSnapshot.session.id {
             actionQueue.removeAll()
@@ -214,13 +212,13 @@ final class WatchWorkoutStore: ObservableObject {
             return
         }
         
-        // Remove acknowledged actions from queue
-        if let lastID = authoritativeSnapshot.lastProcessedActionID {
-            if let index = actionQueue.firstIndex(where: { $0.id == lastID }) {
-                actionQueue.removeSubrange(0...index)
-                saveQueue()
-            }
+        // Revision check
+        if let current = currentSnapshot, authoritativeSnapshot.revision < current.revision {
+            return
         }
+        
+        // Remove acknowledged actions from queue using sequence number
+        actionQueue.removeAll { $0.sequence <= authoritativeSnapshot.lastProcessedWatchSequence }
         
         pendingActionCount = actionQueue.count
         
