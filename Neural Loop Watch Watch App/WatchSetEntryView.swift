@@ -7,18 +7,19 @@ struct WatchSetEntryView: View {
     @Environment(\.dismiss) var dismiss
     
     @StateObject private var viewModel: WatchSetEntryViewModel
-    @FocusState private var focusedField: FocusedField?
-    @State private var showSavedFeedback = false
+    @FocusState private var isCrownFocused: Bool
     
-    enum FocusedField: Hashable {
-        case kg
+    enum EntryStep {
+        case weight
         case reps
+        case summary
     }
+    
+    @State private var currentStep: EntryStep = .weight
     
     init(exerciseID: String, setID: String) {
         self.exerciseID = exerciseID
         self.setID = setID
-        // We initialize with a placeholder, then re-initialize in onAppear with store
         _viewModel = StateObject(wrappedValue: WatchSetEntryViewModel(
             exerciseID: exerciseID,
             setID: setID,
@@ -34,234 +35,251 @@ struct WatchSetEntryView: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 14) {
-                // MARK: - Weight Section
+        VStack {
+            if currentStep == .summary {
+                ScrollView {
+                    summaryScreen
+                        .padding(.bottom, 20)
+                }
+            } else {
                 VStack(spacing: 4) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "scalemass")
-                            .font(.caption2)
-                        Text("kg")
-                            .font(.caption2)
-                    }
-                    .foregroundColor(.secondary)
-                    
-                    HStack(spacing: 8) {
-                        Button {
-                            viewModel.adjustKg(by: -0.5)
-                            focusedField = .kg
-                        } label: {
-                            VStack(spacing: 2) {
-                                Image(systemName: "minus")
-                                    .font(.body.bold())
-                                Text("0.5")
-                                    .font(.system(size: 8))
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .frame(width: 48, height: 48)
-                        .background(Circle().fill(Color.white.opacity(0.15)))
-                        
-                        Text(String(format: "%.1f", viewModel.kg))
-                            .font(.title2)
-                            .bold()
-                            .frame(minWidth: 55)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(focusedField == .kg ? Color.accentColor : Color.clear, lineWidth: 2)
-                                    .background(Color.white.opacity(0.1))
-                                    .cornerRadius(8)
-                            )
-                            .onTapGesture {
-                                focusedField = .kg
-                            }
-                        
-                        Button {
-                            viewModel.adjustKg(by: 0.5)
-                            focusedField = .kg
-                        } label: {
-                            VStack(spacing: 2) {
-                                Image(systemName: "plus")
-                                    .font(.body.bold())
-                                Text("0.5")
-                                    .font(.system(size: 8))
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .frame(width: 48, height: 48)
-                        .background(Circle().fill(Color.white.opacity(0.15)))
-                    }
-                }
-                
-                // MARK: - Reps Section
-                VStack(spacing: 4) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "repeat")
-                            .font(.caption2)
-                        Text("reps")
-                            .font(.caption2)
-                    }
-                    .foregroundColor(.secondary)
-                    
-                    HStack(spacing: 8) {
-                        Button {
-                            viewModel.adjustReps(by: -1)
-                            focusedField = .reps
-                        } label: {
-                            VStack(spacing: 2) {
-                                Image(systemName: "minus")
-                                    .font(.body.bold())
-                                Text("1")
-                                    .font(.system(size: 8))
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .frame(width: 48, height: 48)
-                        .background(Circle().fill(Color.white.opacity(0.15)))
-                        
-                        Text("\(viewModel.reps)")
-                            .font(.title2)
-                            .bold()
-                            .frame(minWidth: 55)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(focusedField == .reps ? Color.accentColor : Color.clear, lineWidth: 2)
-                                    .background(Color.white.opacity(0.1))
-                                    .cornerRadius(8)
-                            )
-                            .onTapGesture {
-                                focusedField = .reps
-                            }
-                        
-                        Button {
-                            viewModel.adjustReps(by: 1)
-                            focusedField = .reps
-                        } label: {
-                            VStack(spacing: 2) {
-                                Image(systemName: "plus")
-                                    .font(.body.bold())
-                                Text("1")
-                                    .font(.system(size: 8))
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .frame(width: 48, height: 48)
-                        .background(Circle().fill(Color.white.opacity(0.15)))
-                    }
-                }
-
-                // MARK: - Save Feedback
-                if showSavedFeedback {
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle.fill")
-                        Text("Saved")
-                    }
-                    .font(.caption2)
-                    .foregroundColor(.green)
-                    .transition(.opacity.combined(with: .scale))
-                }
-
-                // MARK: - Action Buttons
-                VStack(spacing: 8) {
-                    // Save button — saves values without completing
-                    Button {
-                        viewModel.commitValues()
-                        withAnimation {
-                            showSavedFeedback = true
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                            withAnimation {
-                                showSavedFeedback = false
-                            }
-                        }
-                    } label: {
-                        Label("Save", systemImage: "checkmark")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.blue)
-                    
-                    // Complete Set button — saves + marks complete + triggers rest timer
-                    if !viewModel.isCompleted {
-                        Button {
-                            viewModel.commitAndComplete()
-                            
-                            // Check if rest timer should be shown (Plan 527)
-                            if let exercise = store.currentSnapshot?.exercises.first(where: { $0.id == exerciseID }),
-                               let restSeconds = exercise.restDurationSeconds,
-                               restSeconds > 0 {
-                                store.lastCompletedSetInfo = CompletedSetInfo(
-                                    exerciseID: exerciseID,
-                                    setID: setID,
-                                    restDurationSeconds: restSeconds
-                                )
-                            }
-                            
-                            dismiss()
-                        } label: {
-                            Label("Complete Set", systemImage: "checkmark.circle.fill")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.green)
+                    if currentStep == .weight {
+                        weightScreen
                     } else {
-                        // Undo completion
-                        Button {
-                            viewModel.undoComplete()
-                        } label: {
-                            Label("Mark Incomplete", systemImage: "arrow.counterclockwise")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(.orange)
+                        repsScreen
                     }
-                    
-                    // Done — just dismiss
-                    Button {
-                        dismiss()
-                    } label: {
-                        Text("Done")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.gray)
                 }
+                .frame(maxHeight: .infinity)
+                .focusable()
+                .focused($isCrownFocused)
+                .digitalCrownRotation(
+                    crownBinding,
+                    from: 0,
+                    through: currentStep == .weight ? 500 : 100,
+                    by: currentStep == .weight ? 0.5 : 1,
+                    sensitivity: .low,
+                    isContinuous: false,
+                    isHapticFeedbackEnabled: true
+                )
             }
-            .padding(.horizontal)
         }
         .navigationTitle("Set \(exerciseSet?.setNumber ?? 0)")
-        .digitalCrownRotation(
-            crownBinding,
-            from: 0,
-            through: focusedField == .kg ? 500 : 100,
-            by: focusedField == .kg ? 0.5 : 1,
-            sensitivity: .low,
-            isContinuous: false,
-            isHapticFeedbackEnabled: true
-        )
         .onAppear {
-            // Re-initialize with actual store and set data
             viewModel.reinitialize(with: store, set: exerciseSet)
-            if focusedField == nil {
-                focusedField = .kg
+            isCrownFocused = true
+        }
+        .onChange(of: currentStep) { _ in
+            if currentStep != .summary {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    isCrownFocused = true
+                }
             }
         }
+    }
+    
+    // MARK: - Screens
+    
+    private var weightScreen: some View {
+        VStack(spacing: 8) {
+            Spacer(minLength: 4)
+            
+            CircularDial(
+                value: viewModel.kg,
+                maxValue: 100.0,
+                label: "kg",
+                valueFormatted: String(format: "%.1f", viewModel.kg),
+                color: .blue
+            )
+            
+            Text("Rotate Crown to adjust")
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+            
+            Spacer(minLength: 8)
+            
+            Button {
+                withAnimation { currentStep = .reps }
+            } label: {
+                Label("OK", systemImage: "checkmark")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.blue)
+        }
+        .padding(.horizontal)
+    }
+    
+    private var repsScreen: some View {
+        VStack(spacing: 8) {
+            Spacer(minLength: 4)
+            
+            CircularDial(
+                value: Double(viewModel.reps),
+                maxValue: 30.0,
+                label: "reps",
+                valueFormatted: "\(viewModel.reps)",
+                color: .orange
+            )
+            
+            Text("Rotate Crown to adjust")
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+            
+            Spacer(minLength: 8)
+            
+            Button {
+                withAnimation { currentStep = .summary }
+            } label: {
+                Label("OK", systemImage: "checkmark")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.orange)
+        }
+        .padding(.horizontal)
+    }
+    
+    private var summaryScreen: some View {
+        VStack(spacing: 12) {
+            // Edit row
+            HStack(spacing: 16) {
+                Button {
+                    withAnimation { currentStep = .weight }
+                } label: {
+                    VStack(spacing: 2) {
+                        Text(String(format: "%.1f", viewModel.kg))
+                            .font(.title3.bold())
+                            .foregroundColor(.blue)
+                        Text("kg")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+                
+                Divider()
+                    .frame(height: 30)
+                
+                Button {
+                    withAnimation { currentStep = .reps }
+                } label: {
+                    VStack(spacing: 2) {
+                        Text("\(viewModel.reps)")
+                            .font(.title3.bold())
+                            .foregroundColor(.orange)
+                        Text("reps")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+            }
+            .padding(.vertical, 12)
+            .background(Color.white.opacity(0.05))
+            .cornerRadius(12)
+            
+            // Action Buttons
+            if !viewModel.isCompleted {
+                Button {
+                    viewModel.commitAndComplete()
+                    checkRestTimerAndDismiss()
+                } label: {
+                    Text("Complete Set")
+                        .font(.body.bold())
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+            } else {
+                Button {
+                    viewModel.undoComplete()
+                } label: {
+                    Text("Mark Incomplete")
+                        .font(.body.bold())
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .tint(.orange)
+            }
+            
+            Button {
+                viewModel.commitValues()
+                dismiss()
+            } label: {
+                Text("Save")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(.gray)
+        }
+        .padding(.horizontal)
+        .padding(.top, 8)
+    }
+    
+    private func checkRestTimerAndDismiss() {
+        if let exercise = store.currentSnapshot?.exercises.first(where: { $0.id == exerciseID }),
+           let restSeconds = exercise.restDurationSeconds,
+           restSeconds > 0 {
+            store.lastCompletedSetInfo = CompletedSetInfo(
+                exerciseID: exerciseID,
+                setID: setID,
+                restDurationSeconds: restSeconds
+            )
+        }
+        dismiss()
     }
     
     private var crownBinding: Binding<Double> {
         Binding(
             get: {
-                focusedField == .kg ? viewModel.kg : Double(viewModel.reps)
+                currentStep == .weight ? viewModel.kg : Double(viewModel.reps)
             },
             set: { newValue in
-                if focusedField == .kg {
+                if currentStep == .weight {
                     viewModel.setKg(newValue)
-                } else {
+                } else if currentStep == .reps {
                     viewModel.setReps(Int(newValue))
                 }
             }
         )
+    }
+}
+
+struct CircularDial: View {
+    let value: Double
+    let maxValue: Double
+    let label: String
+    let valueFormatted: String
+    let color: Color
+    
+    var body: some View {
+        ZStack {
+            // Background ring
+            Circle()
+                .stroke(Color.white.opacity(0.15), lineWidth: 6)
+            
+            // Progress ring
+            Circle()
+                .trim(from: 0, to: min(CGFloat(value / maxValue), 1.0))
+                .stroke(color, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.spring(), value: value)
+            
+            // Inner text
+            VStack(spacing: 0) {
+                Text(label)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+                
+                Text(valueFormatted)
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundColor(color)
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+            }
+        }
+        .frame(width: 85, height: 85)
     }
 }
