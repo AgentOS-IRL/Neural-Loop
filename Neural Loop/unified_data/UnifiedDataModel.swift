@@ -341,6 +341,11 @@ final class UnifiedDataModel: ObservableObject {
     }
     
     func loadCurrentHabitProgress(for habit: Habits, entries: [HabitTracking], reference: Date = .now) {
+        if !HabitWindow.isOccurring(on: reference, habit: habit) {
+            currentHabitProgressMap.removeValue(forKey: habit.id!)
+            return
+        }
+        
         let window = HabitWindow.window(for: habit, reference: reference)
         
         let filteredEntries = entries.filter {
