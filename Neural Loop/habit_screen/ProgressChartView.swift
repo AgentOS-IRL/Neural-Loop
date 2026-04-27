@@ -39,6 +39,17 @@ struct ProgressChartView: View {
     private func getValue(_ key: Int) -> CGFloat {
         min(CGFloat(values[key] ?? 0), maxValue)
     }
+    
+    private let todayIndex = (Calendar.current.component(.weekday, from: .now) + 5) % 7
+    
+    private func dateFor(_ key: Int) -> Date {
+        let diff = key - todayIndex
+        return Calendar.current.date(byAdding: .day, value: diff, to: .now)!
+    }
+
+    private func isOccurring(_ key: Int) -> Bool {
+        return HabitWindow.isOccurring(on: dateFor(key), habit: habit)
+    }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 12) {
@@ -47,7 +58,8 @@ struct ProgressChartView: View {
                     key: item.id,
                     label: item.label,
                     rawValue: getValue(item.id),
-                    maxValue: maxValue
+                    maxValue: maxValue,
+                    isOccurring: isOccurring(item.id)
                 )
                 .frame(maxWidth: .infinity)
             }
@@ -76,8 +88,10 @@ private struct DayBarColumn: View {
     let label: String
     let rawValue: CGFloat
     let maxValue: CGFloat
+    let isOccurring: Bool
 
     private var normalized: CGFloat {
+        if !isOccurring { return 0 }
         let safeMax = max(maxValue, 1)
         return min(max(rawValue / safeMax, 0), 1)
     }
@@ -92,7 +106,7 @@ private struct DayBarColumn: View {
     var body: some View {
         
         VStack(spacing: 8) {
-            ModernBar(progress: normalized,rawValue: rawValue,  highlight: isToday)
+            ModernBar(progress: normalized, rawValue: rawValue, highlight: isToday, isOccurring: isOccurring)
                 .frame(height: 44)
                 .accessibilityLabel(Text(label))
                 .accessibilityValue(Text("\(Int(rawValue))"))
@@ -114,9 +128,12 @@ private struct ModernBar: View {
     let progress: CGFloat          // 0...1
     let rawValue: CGFloat
     let highlight: Bool
+    let isOccurring: Bool
     
-
     private var gradient: LinearGradient {
+        if !isOccurring && rawValue == 0 {
+            return LinearGradient(colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.1)], startPoint: .top, endPoint: .bottom)
+        }
         let top = highlight ? Color.accentColor : Color.accentColor.opacity(0.90)
         let bottom = highlight ? Color.accentColor.opacity(0.55) : Color.accentColor.opacity(0.35)
         return LinearGradient(colors: [top, bottom], startPoint: .top, endPoint: .bottom)
@@ -130,7 +147,7 @@ private struct ModernBar: View {
             ZStack(alignment: .bottom) {
                 // Track
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(.white.opacity(0.08))
+                    .fill(isOccurring ? .white.opacity(0.08) : .white.opacity(0.02))
 
                 // Fill
                 RoundedRectangle(cornerRadius: 10, style: .continuous)

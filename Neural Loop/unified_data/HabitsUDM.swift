@@ -234,4 +234,106 @@ extension  UnifiedDataModel {
             progress: currentHabitProgressMap[habit.id ?? -1]
         )
     }
+
+    func getHabitCalendarEvents(for date: Date) async -> [SimpleEvent] {
+        var events: [SimpleEvent] = []
+        let cal = Calendar.current
+        let isToday = cal.isDateInToday(date)
+        let isPast = cal.startOfDay(for: date) < cal.startOfDay(for: .now)
+
+        for habit in habits {
+            if !HabitWindow.isOccurring(on: date, habit: habit) { continue }
+            
+            // 1. Add actual tracking entries as historical events
+            let window = HabitWindow.window(for: habit, reference: date)
+            let entries = await fetchHabitTrackingEntries(by: habit.id ?? -1, window: window)
+            
+            let todaysEntries = entries.filter {
+                $0.entry_date >= cal.startOfDay(for: date) && $0.entry_date <= cal.endOfDay(date)
+            }
+            
+            var currentProgress = 0
+            for entry in todaysEntries {
+                currentProgress += entry.value
+                // Create a 15 min block for the actual entry
+                events.append(SimpleEvent(
+                    title: "\(habit.title) (Done)",
+                    start: entry.entry_date,
+                    end: entry.entry_date.addingTimeInterval(15 * 60),
+                    acceptanceStatus: nil,
+                    event_type: .habit
+                ))
+            }
+            
+            // 2. Add future predicted reminders if not fully completed
+            if !isPast {
+                let remaining = max(Int(habit.target) - currentProgress, 0)
+                if remaining > 0 {
+                    let frequency = HabitWindow.get_frequency(for: habit)
+                    let nowAnchor = isToday ? Date() : cal.date(bySettingHour: 8, minute: 0, second: 0, of: date) ?? date
+                    
+                    if frequency == .daily {
+                        let earliest = nowAnchor.addingTimeInterval(20 * 60)
+                        let latest = cal.endOfDay(date).addingTimeInterval(-60 * 60) // 11 PM
+                        
+                        let reminders = generatePlannedTimes(count: remaining, earliest: earliest, latest: latest, minimumGap: 20 * 60, nowAnchor: nowAnchor)
+                        
+                        for reminder in reminders {
+                            events.append(SimpleEvent(
+                                title: habit.title,
+                                start: reminder,
+                                end: reminder.addingTimeInterval(15 * 60),
+                                acceptanceStatus: nil,
+                                event_type: .habit
+                            ))
+                        }
+                    } else {
+                        // Weekly/Monthly - 6 PM
+                        let sixPM = cal.date(bySettingHour: 18, minute: 0, second: 0, of: date)!
+                        let candidate = max(sixPM, nowAnchor.addingTimeInterval(20 * 60))
+                        
+                        if candidate < cal.endOfDay(date) {
+                            events.append(SimpleEvent(
+                                title: habit.title,
+                                start: candidate,
+                                end: candidate.addingTimeInterval(15 * 60),
+                                acceptanceStatus: nil,
+                                event_type: .habit
+                            ))
+                        }
+                    }
+                }
+            }
+        }
+        
+        return events
+    }
+    
+    private func generatePlannedTimes(count: Int, earliest: Date, latest: Date, minimumGap: TimeInterval, nowAnchor: Date) -> [Date] {
+        guard count > 0 else { return [] }
+        let start = max(earliest, nowAnchor.addingTimeInterval(minimumGap))
+        let end = max(latest, start.addingTimeInterval(minimumGap))
+        guard end > start else { return [start] }
+        
+        let totalDuration = end.timeIntervalSince(start)
+        if count == 1 { return [start] }
+        
+        var candidates: [Date] = []
+        for index in 0..<count {
+            let progress = Double(index + 1) / Double(count + 1)
+            candidates.append(start.addingTimeInterval(totalDuration * progress))
+        }
+        
+        var filtered: [Date] = []
+        for candidate in candidates {
+            if filtered.isEmpty {
+                filtered.append(candidate)
+                continue
+            }
+            if candidate.timeIntervalSince(filtered.last!) >= minimumGap {
+                filtered.append(candidate)
+            }
+        }
+        return filtered
+    }
 }

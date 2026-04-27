@@ -81,6 +81,9 @@ struct CalendarDayView: View {
                     
                 }
                 
+                let userHabitEvents = await model.getHabitCalendarEvents(for: date)
+                habits.append(contentsOf: userHabitEvents)
+                
                 
                 fetchTodaysGenesysEvents(for: date) { events in
                     workEvents = events

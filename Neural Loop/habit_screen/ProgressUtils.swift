@@ -25,6 +25,21 @@ struct HabitWindow {
     let label: String
     let frequency: Calendar.RecurrenceRule.Frequency
     
+    static func isOccurring(on date: Date, habit: Habits) -> Bool {
+        guard let ruleString = habit.target_recursion_rule,
+              !ruleString.isEmpty,
+              let rule = try? parse_rrule(rruleString: ruleString),
+              let anchor = habit.created_at else {
+            return true
+        }
+
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: date)
+        let end = cal.endOfDay(date)
+        
+        return hasOccurrence(of: rule, between: start, and: end, anchor: anchor)
+    }
+    
     static func get_frequency(for habit: Habits) -> Calendar.RecurrenceRule.Frequency {
         guard
             let ruleString = habit.target_recursion_rule,
