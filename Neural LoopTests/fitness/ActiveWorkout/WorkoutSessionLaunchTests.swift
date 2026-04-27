@@ -439,5 +439,5 @@ class MockConnectivityProvider: WorkoutConnectivityProviding {
         }
     }
     
-    func clearWorkoutSnapshot() {}
+    func clearWorkoutSnapshot(sessionID: String, reason: ClearReason) {}
 }

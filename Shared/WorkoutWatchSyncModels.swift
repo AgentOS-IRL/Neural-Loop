@@ -29,8 +29,11 @@ public nonisolated struct ActiveWorkoutSnapshot: Codable, Hashable, Identifiable
     public var exercises: [ExerciseSnapshot]
     public var lastProcessedActionID: UUID?
     public var timestamp: Date
+    public var revision: Int
+    public var generatedAt: Date
+    public var lastProcessedWatchSequence: Int
     
-    public init(session: WorkoutSessionPointer, title: String, startedAt: Date? = nil, elapsedSeconds: Int? = nil, exercises: [ExerciseSnapshot] = [], lastProcessedActionID: UUID? = nil, timestamp: Date = Date()) {
+    public init(session: WorkoutSessionPointer, title: String, startedAt: Date? = nil, elapsedSeconds: Int? = nil, exercises: [ExerciseSnapshot] = [], lastProcessedActionID: UUID? = nil, timestamp: Date = Date(), revision: Int = 0, generatedAt: Date = Date(), lastProcessedWatchSequence: Int = 0) {
         self.session = session
         self.title = title
         self.startedAt = startedAt
@@ -38,17 +41,22 @@ public nonisolated struct ActiveWorkoutSnapshot: Codable, Hashable, Identifiable
         self.exercises = exercises
         self.lastProcessedActionID = lastProcessedActionID
         self.timestamp = timestamp
+        self.revision = revision
+        self.generatedAt = generatedAt
+        self.lastProcessedWatchSequence = lastProcessedWatchSequence
     }
 }
 
 public struct WorkoutWatchAction: Codable, Hashable, Identifiable {
     public let id: UUID
     public let timestamp: Date
+    public let sequence: Int
     public let payload: WorkoutWatchActionPayload
 
-    public init(id: UUID = UUID(), timestamp: Date = Date(), payload: WorkoutWatchActionPayload) {
+    public init(id: UUID = UUID(), timestamp: Date = Date(), sequence: Int = 0, payload: WorkoutWatchActionPayload) {
         self.id = id
         self.timestamp = timestamp
+        self.sequence = sequence
         self.payload = payload
     }
 }
@@ -307,4 +315,28 @@ public struct WorkoutFinalizedResult: Codable {
         self.success = success
         self.errorMessage = errorMessage
     }
+}
+
+public enum WorkoutSyncPayload: Codable {
+    case active(ActiveWorkoutSnapshot)
+    case cleared(ClearedWorkoutSnapshot)
+}
+
+public struct ClearedWorkoutSnapshot: Codable {
+    public let sessionID: String
+    public let reason: ClearReason
+    public let clearedAt: Date
+    
+    public init(sessionID: String, reason: ClearReason, clearedAt: Date = Date()) {
+        self.sessionID = sessionID
+        self.reason = reason
+        self.clearedAt = clearedAt
+    }
+}
+
+public enum ClearReason: String, Codable {
+    case finalized
+    case cancelledOnPhone
+    case staleExpired
+    case replacedByNewSession
 }

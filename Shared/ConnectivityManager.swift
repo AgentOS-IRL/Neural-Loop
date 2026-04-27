@@ -12,7 +12,7 @@ protocol WorkoutConnectivityProviding: AnyObject {
     func sendWorkoutSnapshot(_ snapshot: ActiveWorkoutSnapshot, completion: ((Result<Void, Error>) -> Void)?)
     func sendWorkoutAction(_ action: WorkoutWatchAction, completion: ((Result<Void, Error>) -> Void)?)
     func sendWorkoutFinalizedResult(_ result: WorkoutFinalizedResult, completion: ((Result<Void, Error>) -> Void)?)
-    func clearWorkoutSnapshot()
+    func clearWorkoutSnapshot(sessionID: String, reason: ClearReason)
 }
 
 open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, WorkoutConnectivityProviding {
@@ -20,11 +20,13 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
 
     @Published public var receivedMessage: String = "No message yet"
     @Published public var lastSnapshot: ActiveWorkoutSnapshot?
+    @Published public private(set) var lastClearedWorkout: ClearedWorkoutSnapshot?
     @Published public var lastAction: WorkoutWatchAction?
     @Published public var isReachable: Bool = WCSession.isSupported() ? WCSession.default.isReachable : false
 
     // Closure hooks for non-UI components
     public var snapshotHandler: ((ActiveWorkoutSnapshot) -> Void)?
+    public var clearedWorkoutHandler: ((ClearedWorkoutSnapshot) -> Void)?
     public var actionHandler: ((WorkoutWatchAction) -> Void)?
     public var finalizationHandler: ((WorkoutFinalizedResult) -> Void)?
     public var errorHandler: ((Error) -> Void)?
@@ -38,6 +40,7 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
         case workoutSnapshot = "workoutSnapshot"
         case workoutAction = "workoutAction"
         case workoutFinalized = "workoutFinalized"
+        case workoutSyncPayload = "workoutSyncPayload"
     }
 
     private struct MessageKey {
@@ -56,6 +59,11 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
         session.delegate = self
         session.activate()
     }
+    
+    open func checkApplicationContext() {
+        guard WCSession.isSupported() else { return }
+        handleIncomingMessage(WCSession.default.receivedApplicationContext)
+    }
 
     // MARK: - Activation
     public func session(_ session: WCSession,
@@ -65,8 +73,9 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
             print("WC activate error:", error)
         } else {
             print("WC activated:", activationState.rawValue)
-            DispatchQueue.main.async {
-                self.isReachable = session.isReachable
+            DispatchQueue.main.async { [weak self] in
+                self?.isReachable = session.isReachable
+                self?.checkApplicationContext()
             }
         }
     }
@@ -95,6 +104,14 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
                  replyHandler: @escaping ([String : Any]) -> Void) {
         handleIncomingMessage(message)
         replyHandler([:]) // Acknowledge with empty reply
+    }
+
+    public func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String : Any]) {
+        handleIncomingMessage(applicationContext)
+    }
+
+    public func session(_ session: WCSession, didReceive userInfo: [String : Any] = [:]) {
+        handleIncomingMessage(userInfo)
     }
 
     private func handleIncomingMessage(_ message: [String: Any]) {
@@ -143,6 +160,19 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
                 DispatchQueue.main.async {
                     self.finalizationHandler?(result)
                 }
+            case .workoutSyncPayload:
+                let syncPayload = try decoder.decode(WorkoutSyncPayload.self, from: data)
+                DispatchQueue.main.async {
+                    switch syncPayload {
+                    case .active(let snapshot):
+                        self.lastSnapshot = snapshot
+                        self.snapshotHandler?(snapshot)
+                    case .cleared(let cleared):
+                        self.lastSnapshot = nil
+                        self.lastClearedWorkout = cleared
+                        self.clearedWorkoutHandler?(cleared)
+                    }
+                }
             }
         } catch {
             print("ConnectivityManager: Decoding error for type \(type.rawValue): \(error)")
@@ -158,11 +188,54 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
     }
 
     open func sendWorkoutSnapshot(_ snapshot: ActiveWorkoutSnapshot, completion: ((Result<Void, Error>) -> Void)? = nil) {
-        sendEncodable(type: .workoutSnapshot, payload: snapshot, completion: completion)
+        let payload = WorkoutSyncPayload.active(snapshot)
+
+        do {
+            let encodedPayload = try encoder.encode(payload)
+            try WCSession.default.updateApplicationContext([
+                MessageKey.type: MessageType.workoutSyncPayload.rawValue,
+                MessageKey.payload: encodedPayload
+            ])
+        } catch {
+            print("ConnectivityManager: Error updating application context with snapshot: \(error)")
+        }
+        
+        sendEncodable(type: .workoutSyncPayload, payload: payload, completion: completion)
     }
 
     open func sendWorkoutAction(_ action: WorkoutWatchAction, completion: ((Result<Void, Error>) -> Void)? = nil) {
-        sendEncodable(type: .workoutAction, payload: action, completion: completion)
+        if !WCSession.default.isReachable {
+            do {
+                let data = try encoder.encode(action)
+                WCSession.default.transferUserInfo([
+                    MessageKey.type: MessageType.workoutAction.rawValue,
+                    MessageKey.payload: data
+                ])
+                completion?(.success(()))
+            } catch {
+                completion?(.failure(error))
+            }
+            return
+        }
+        
+        sendEncodable(type: .workoutAction, payload: action, completion: { result in
+            switch result {
+            case .success:
+                completion?(.success(()))
+            case .failure:
+                do {
+                    let data = try self.encoder.encode(action)
+                    WCSession.default.transferUserInfo([
+                        MessageKey.type: MessageType.workoutAction.rawValue,
+                        MessageKey.payload: data
+                    ])
+                    completion?(.success(())) // queued successfully
+                } catch {
+                    print("Fallback transferUserInfo failed: \(error)")
+                    completion?(.failure(error))
+                }
+            }
+        })
     }
 
     open func sendWorkoutFinalizedResult(_ result: WorkoutFinalizedResult, completion: ((Result<Void, Error>) -> Void)? = nil) {
@@ -171,10 +244,24 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
 
     /// Signals the watch that there is no active workout. The watch store
     /// subscribes to $lastSnapshot and clears itself when it becomes nil.
-    open func clearWorkoutSnapshot() {
+    open func clearWorkoutSnapshot(sessionID: String, reason: ClearReason) {
         DispatchQueue.main.async {
             self.lastSnapshot = nil
         }
+        let clearedSnapshot = ClearedWorkoutSnapshot(sessionID: sessionID, reason: reason)
+        let payload = WorkoutSyncPayload.cleared(clearedSnapshot)
+        
+        do {
+            let encodedPayload = try encoder.encode(payload)
+            try WCSession.default.updateApplicationContext([
+                MessageKey.type: MessageType.workoutSyncPayload.rawValue,
+                MessageKey.payload: encodedPayload
+            ])
+        } catch {
+            print("ConnectivityManager: Error updating application context with cleared payload: \(error)")
+        }
+        
+        sendEncodable(type: .workoutSyncPayload, payload: payload)
     }
 
     private func sendEncodable<T: Encodable>(type: MessageType, payload: T, completion: ((Result<Void, Error>) -> Void)? = nil) {

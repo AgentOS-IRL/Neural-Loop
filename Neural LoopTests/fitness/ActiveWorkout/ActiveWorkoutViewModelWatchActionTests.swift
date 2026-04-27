@@ -288,7 +288,7 @@ class FakeConnectivityProvider: WorkoutConnectivityProviding {
         completion?(.success(()))
     }
     
-    func clearWorkoutSnapshot() {
+    func clearWorkoutSnapshot(sessionID: String, reason: ClearReason) {
         clearCount += 1
     }
 }
