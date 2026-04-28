@@ -2,20 +2,65 @@
   "fill-specializations" : [
     {
       "value" : {
-        "solid" : "display-p3:0.08133,0.18943,0.35113,1.00000"
+        "linear-gradient" : [
+          "display-p3:0.12338,0.29199,0.21584,1.00000",
+          "display-p3:0.22390,0.43841,0.49377,1.00000"
+        ],
+        "orientation" : {
+          "start" : {
+            "x" : 0.5,
+            "y" : 0
+          },
+          "stop" : {
+            "x" : 0.5,
+            "y" : 0.7
+          }
+        }
       }
     },
     {
       "appearance" : "dark",
-      "value" : "automatic"
+      "value" : {
+        "linear-gradient" : [
+          "display-p3:0.16372,0.25635,0.29227,1.00000",
+          "display-p3:0.20444,0.39904,0.44695,1.00000"
+        ],
+        "orientation" : {
+          "start" : {
+            "x" : 0.5,
+            "y" : 0
+          },
+          "stop" : {
+            "x" : 0.5,
+            "y" : 0.7
+          }
+        }
+      }
     }
   ],
   "groups" : [
     {
       "layers" : [
         {
+          "blend-mode" : "hard-light",
+          "fill-specializations" : [
+            {
+              "value" : "none"
+            },
+            {
+              "appearance" : "tinted",
+              "value" : "automatic"
+            }
+          ],
+          "glass" : false,
+          "image-name" : "Neural Loop-2.png",
+          "name" : "Neural Loop-2"
+        },
+        {
+          "blend-mode" : "normal",
           "fill" : "automatic",
           "glass" : false,
+          "hidden" : true,
           "image-name" : "base2 2.png",
           "name" : "base2",
           "position" : {

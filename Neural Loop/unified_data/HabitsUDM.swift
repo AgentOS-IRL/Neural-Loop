@@ -258,7 +258,7 @@ extension  UnifiedDataModel {
 
     func getHabitCalendarEvents(for date: Date) async -> [SimpleEvent] {
         var events: [SimpleEvent] = []
-        let cal = Calendar.current
+        let cal = Calendar.neuralLoopDisplay
         let isToday = cal.isDateInToday(date)
         let isPast = cal.startOfDay(for: date) < cal.startOfDay(for: .now)
         let reminderPlanner = HabitReminderPlanner(calendar: .neuralLoopDisplay)

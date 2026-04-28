@@ -33,9 +33,7 @@ extension UnifiedDataModel {
     }
 
     private func getWorkCalendarEvents(for date: Date) async -> [SimpleEvent] {
-        let events = await fetchGenesysEvents(for: date)
-        await NotificationAutoScheduler.shared.scheduleWorkEvents(events, now: date)
-        return events
+        return await fetchGenesysEvents(for: date)
     }
 }
 
