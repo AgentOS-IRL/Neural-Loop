@@ -119,14 +119,30 @@ final class NotificationAutoScheduler {
     ) async {
         guard let habitId = habit.id else { return }
 
+        if HabitSkipPersistenceManager.shared.isHabitSkippedToday(habitId: habitId) {
+            await clearHabitNotifications(habitId: habitId)
+            return
+        }
+
         guard let progress else {
             await clearHabitNotifications(habitId: habitId)
             return
         }
 
+        if habitId == WaterAutoScheduling.shared.habit_id {
+            guard progress.current < progress.target else {
+                await clearHabitNotifications(habitId: habitId)
+                return
+            }
+
+            await WaterAutoScheduling.shared.schedule_notification(
+                current: progress.current,
+                target: progress.target
+            )
+            return
+        }
+
         let prefix = habitPrefix + "\(habitId)"
-
-
 
         guard progress.current < progress.target else {
             await clearHabitNotifications(habitId: habitId)

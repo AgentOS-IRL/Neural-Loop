@@ -250,6 +250,8 @@ struct HabitCardView: View {
     let progress: HabitProgress
     let onIncrement: () -> Void
 
+    @State private var isSkippedToday = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -265,6 +267,7 @@ struct HabitCardView: View {
                     Text("\(progress.current) / \(progress.target) \(progress.targetLabel)")
                         .font(.system(.caption, design: .rounded, weight: .bold))
                         .foregroundStyle(AppTheme.textSecondary)
+                        .strikethrough(isSkippedToday, color: AppTheme.textSecondary)
                     
                     Text(progress.window.label.uppercased())
                         .font(.system(.caption, design: .rounded, weight: .black))
@@ -275,13 +278,34 @@ struct HabitCardView: View {
 
             ProgressView(value: Double(progress.current), total: Double(progress.target))
                 .progressViewStyle(.linear)
-                .tint(AppTheme.glowColor)
+                .tint(isSkippedToday ? AppTheme.textSecondary : AppTheme.glowColor)
 
-            HStack {
+            HStack(spacing: 12) {
                 if model.progressChartData[habit.id!] ?? nil != nil {
                     ProgressChartView(habit: habit, values: model.progressChartData[habit.id!]!)
                         .padding(.vertical, 8)
                 }
+
+                Spacer()
+
+                Button {
+                    Task {
+                        await model.skipHabitToday(habit)
+                        isSkippedToday = true
+                    }
+                } label: {
+                    Text(isSkippedToday ? "Skipped" : "Skip Today")
+                        .font(.system(.callout, design: .rounded, weight: .bold))
+                        .foregroundStyle(isSkippedToday ? .white : AppTheme.textSecondary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(
+                            skipButtonBackground,
+                            in: Capsule(style: .continuous)
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(isSkippedToday)
                 
                 Button(action: onIncrement) {
                     Text("+1")
@@ -296,6 +320,7 @@ struct HabitCardView: View {
                         .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
                 }
                 .buttonStyle(.plain)
+                .disabled(isSkippedToday)
 
                 
             }.frame(maxWidth: .infinity, alignment: .trailing)
@@ -308,6 +333,12 @@ struct HabitCardView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous))
         .shadow(color: .black.opacity(0.06), radius: 10, y: 6)
+        .onAppear {
+            isSkippedToday = model.isHabitSkippedToday(habit)
+        }
+        .onChange(of: habit.id) { _ in
+            isSkippedToday = model.isHabitSkippedToday(habit)
+        }
     }
 
     private var statusLabel: some View {
@@ -316,16 +347,21 @@ struct HabitCardView: View {
         let text: String
         let color: Color
 
-        switch ratio {
-        case 1.0:
-            text = "Completed"
-            color = .green
-        case 0.7...:
-            text = "On Track"
-            color = AppTheme.glowColor
-        default:
-            text = "Behind"
-            color = AppTheme.errorTint
+        if isSkippedToday {
+            text = "Skipped"
+            color = AppTheme.textSecondary
+        } else {
+            switch ratio {
+            case 1.0:
+                text = "Completed"
+                color = .green
+            case 0.7...:
+                text = "On Track"
+                color = AppTheme.glowColor
+            default:
+                text = "Behind"
+                color = AppTheme.errorTint
+            }
         }
 
         return Text(text)
@@ -334,5 +370,22 @@ struct HabitCardView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(color.opacity(0.12), in: Capsule())
+    }
+
+    private var skipButtonBackground: AnyShapeStyle {
+        if isSkippedToday {
+            return AnyShapeStyle(AppTheme.accentGradient)
+        }
+
+        return AnyShapeStyle(
+            LinearGradient(
+                colors: [
+                    Color.gray.opacity(0.15),
+                    Color.gray.opacity(0.15)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
     }
 }

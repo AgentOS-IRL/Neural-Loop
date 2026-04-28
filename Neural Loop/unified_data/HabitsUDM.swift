@@ -42,6 +42,8 @@ extension  UnifiedDataModel {
     func incrementHabit(_ habit: Habits, value: Int = 1, date: Date = Date()) async {
         guard let id = habit.id else { return }
         do {
+            HabitSkipPersistenceManager.shared.unskipHabitToday(habitId: id)
+
             let entry = try await manager.addHabitEntry(
                 habitId: id,
                 value: value,
@@ -91,10 +93,22 @@ extension  UnifiedDataModel {
             try await manager.deleteHabit(id: id)
             let index = self.habits.firstIndex(where: { $0.id == habit.id! })!
             habits.remove(at: index)
+            HabitSkipPersistenceManager.shared.clearHabit(habitId: id)
             await notificationScheduler.clearHabitNotifications(habitId: id)
         } catch {
             print("Error deleting habit", error)
         }
+    }
+
+    func isHabitSkippedToday(_ habit: Habits) -> Bool {
+        guard let id = habit.id else { return false }
+        return HabitSkipPersistenceManager.shared.isHabitSkippedToday(habitId: id)
+    }
+
+    func skipHabitToday(_ habit: Habits) async {
+        guard let id = habit.id else { return }
+        HabitSkipPersistenceManager.shared.skipHabitToday(habitId: id)
+        await notificationScheduler.clearHabitNotifications(habitId: id)
     }
     
     func deleteHabitEntry(_ entry: HabitTracking) async {
@@ -243,6 +257,10 @@ extension  UnifiedDataModel {
 
         for habit in habits {
             if !HabitWindow.isOccurring(on: date, habit: habit) { continue }
+            if let habitId = habit.id,
+               HabitSkipPersistenceManager.shared.isHabitSkippedToday(habitId: habitId, date: date) {
+                continue
+            }
             
             // 1. Add actual tracking entries as historical events
             let window = HabitWindow.window(for: habit, reference: date)
@@ -317,4 +335,57 @@ extension  UnifiedDataModel {
     }
     
 
+}
+
+final class HabitSkipPersistenceManager {
+    static let shared = HabitSkipPersistenceManager()
+
+    private let defaults: UserDefaults
+    private let storageKey = "habit.skip.dates"
+    private let calendar: Calendar
+
+    init(
+        defaults: UserDefaults = .standard,
+        calendar: Calendar = .neuralLoopDisplay
+    ) {
+        self.defaults = defaults
+        self.calendar = calendar
+    }
+
+    func skipHabitToday(habitId: Int64, date: Date = .now) {
+        var skippedHabits = storedSkippedHabits()
+        skippedHabits["\(habitId)"] = dayIdentifier(for: date)
+        defaults.set(skippedHabits, forKey: storageKey)
+    }
+
+    func unskipHabitToday(habitId: Int64, date: Date = .now) {
+        let key = "\(habitId)"
+        var skippedHabits = storedSkippedHabits()
+
+        guard skippedHabits[key] == dayIdentifier(for: date) else { return }
+        skippedHabits.removeValue(forKey: key)
+        defaults.set(skippedHabits, forKey: storageKey)
+    }
+
+    func isHabitSkippedToday(habitId: Int64, date: Date = .now) -> Bool {
+        storedSkippedHabits()["\(habitId)"] == dayIdentifier(for: date)
+    }
+
+    func clearHabit(habitId: Int64) {
+        var skippedHabits = storedSkippedHabits()
+        skippedHabits.removeValue(forKey: "\(habitId)")
+        defaults.set(skippedHabits, forKey: storageKey)
+    }
+
+    private func storedSkippedHabits() -> [String: String] {
+        defaults.dictionary(forKey: storageKey) as? [String: String] ?? [:]
+    }
+
+    private func dayIdentifier(for date: Date) -> String {
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        let year = components.year ?? 0
+        let month = components.month ?? 0
+        let day = components.day ?? 0
+        return "\(year)-\(month)-\(day)"
+    }
 }
