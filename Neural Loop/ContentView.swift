@@ -13,7 +13,7 @@ let logger = Logger(subsystem: "NeuralLoop", category: "App")
 
 struct ContentView: View {
     @EnvironmentObject private var model: UnifiedDataModel
-    @State private var selectedTab: AppTab = .calendar
+    @State private var selectedTab: AppTab = .tasks
 
     var body: some View {
         manualShell
