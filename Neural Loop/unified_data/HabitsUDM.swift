@@ -276,7 +276,14 @@ extension  UnifiedDataModel {
                         let earliest = nowAnchor.addingTimeInterval(20 * 60)
                         let latest = cal.endOfDay(date).addingTimeInterval(-60 * 60) // 11 PM
                         
-                        let reminders = generatePlannedTimes(count: remaining, earliest: earliest, latest: latest, minimumGap: 20 * 60, nowAnchor: nowAnchor)
+                        let reminders = NotificationAutoScheduler.generateDailyReminderTimes(
+                            count: remaining,
+                            now: nowAnchor,
+                            earliest: earliest,
+                            latest: latest,
+                            minimumGap: 20 * 60,
+                            useMealAnchors: habit.id == 1
+                        )
                         
                         for reminder in reminders {
                             events.append(SimpleEvent(
@@ -309,31 +316,5 @@ extension  UnifiedDataModel {
         return events
     }
     
-    private func generatePlannedTimes(count: Int, earliest: Date, latest: Date, minimumGap: TimeInterval, nowAnchor: Date) -> [Date] {
-        guard count > 0 else { return [] }
-        let start = max(earliest, nowAnchor.addingTimeInterval(minimumGap))
-        let end = max(latest, start.addingTimeInterval(minimumGap))
-        guard end > start else { return [start] }
-        
-        let totalDuration = end.timeIntervalSince(start)
-        if count == 1 { return [start] }
-        
-        var candidates: [Date] = []
-        for index in 0..<count {
-            let progress = Double(index + 1) / Double(count + 1)
-            candidates.append(start.addingTimeInterval(totalDuration * progress))
-        }
-        
-        var filtered: [Date] = []
-        for candidate in candidates {
-            if filtered.isEmpty {
-                filtered.append(candidate)
-                continue
-            }
-            if candidate.timeIntervalSince(filtered.last!) >= minimumGap {
-                filtered.append(candidate)
-            }
-        }
-        return filtered
-    }
+
 }

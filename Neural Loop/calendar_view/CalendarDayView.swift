@@ -61,25 +61,7 @@ struct CalendarDayView: View {
                         title: task.title, start: task.start_date!, end: task.start_date!.addingTimeInterval(task.duration ?? 900) , acceptanceStatus: nil, event_type: .task
                     ))
                 }
-                var _habits : [String: [Date]] = [:]
-                
-                _habits.merge(WaterAutoScheduling.shared.get_calendar_data()) { existing, new in
-                    existing + new
-                }
-                
-                
-                
-                _habits = _habits.mapValues { dates in
-                    Array(Set(dates))
-                }
-                
                 habits = []
-                for (habit, dates) in _habits {
-                    for date in dates {
-                        habits.append(SimpleEvent(title: habit, start: date, end: date.addingTimeInterval(900), acceptanceStatus: nil, event_type: .habit))
-                    }
-                    
-                }
                 
                 let userHabitEvents = await model.getHabitCalendarEvents(for: date)
                 habits.append(contentsOf: userHabitEvents)
