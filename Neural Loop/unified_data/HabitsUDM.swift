@@ -104,6 +104,13 @@ extension  UnifiedDataModel {
         guard let id = habit.id else { return false }
         return HabitSkipPersistenceManager.shared.isHabitSkippedToday(habitId: id)
     }
+    
+    func unskipHabitToday(_ habit: Habits) async{
+        guard let id = habit.id else {return}
+        HabitSkipPersistenceManager.shared.unskipHabitToday(habitId: id)
+        await refreshHabitNotifications(for: habit)
+        
+    }
 
     func skipHabitToday(_ habit: Habits) async {
         guard let id = habit.id else { return }
