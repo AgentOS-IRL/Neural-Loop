@@ -33,7 +33,7 @@ struct HabitWindow {
             return true
         }
 
-        let cal = Calendar.current
+        let cal = Calendar.neuralLoopDisplay
         let start = cal.startOfDay(for: date)
         let end = cal.endOfDay(date)
         
@@ -67,7 +67,7 @@ struct HabitWindow {
     }
 
     private static func _day(_ date: Date) -> HabitWindow {
-        let cal = Calendar.current
+        let cal = Calendar.neuralLoopDisplay
         return HabitWindow(
             start: cal.startOfDay(for: date),
             end: cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: date))!,
@@ -80,8 +80,8 @@ struct HabitWindow {
         return _week(date)
     }
 
-    private static func _week(_ date: Date) -> HabitWindow {
-        var calendar = Calendar.current
+    static func _week(_ date: Date) -> HabitWindow {
+        var calendar = Calendar.neuralLoopDisplay
         calendar.firstWeekday = 2 // Monday
 
         let startOfDay = calendar.startOfDay(for: date)
@@ -101,7 +101,7 @@ struct HabitWindow {
     }
 
     private static func _month(_ date: Date) -> HabitWindow {
-        let cal = Calendar.current
+        let cal = Calendar.neuralLoopDisplay
         let start = cal.date(from: cal.dateComponents([.year, .month], from: date))!
         let end = cal.date(byAdding: .month, value: 1, to: start)!
         return HabitWindow(start: start, end: end, label: "This Month", frequency: .monthly)

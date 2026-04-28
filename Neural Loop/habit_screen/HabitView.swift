@@ -253,81 +253,87 @@ struct HabitCardView: View {
     @State private var isSkippedToday = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text(habit.title)
-                    .font(.system(.headline, design: .rounded, weight: .bold))
-                    .foregroundStyle(AppTheme.textPrimary)
-                
-                statusLabel
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(progress.current) / \(progress.target) \(progress.targetLabel)")
-                        .font(.system(.caption, design: .rounded, weight: .bold))
-                        .foregroundStyle(AppTheme.textSecondary)
-                        .strikethrough(isSkippedToday, color: AppTheme.textSecondary)
-                    
-                    Text(progress.window.label.uppercased())
-                        .font(.system(.caption, design: .rounded, weight: .black))
-                        .foregroundStyle(AppTheme.accentGradient)
-                        .opacity(0.8)
+        VStack(alignment: .leading, spacing: 12) {
+
+            // ── Header row: title + status + count ──────────────────────────
+            HStack(alignment: .center, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(habit.title)
+                            .font(.system(.headline, design: .rounded, weight: .bold))
+                            .foregroundStyle(AppTheme.textPrimary)
+                        Spacer()
+                        statusLabel
+                    }
                 }
+                VStack{
+                    
+                            Text("\(progress.current) / \(progress.target) \(progress.targetLabel)  ·  \(progress.window.label.uppercased())")
+                                .font(.system(.caption2, design: .rounded, weight: .semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
+                                .strikethrough(isSkippedToday, color: AppTheme.textSecondary)
+                    // ── Progress bar ────────────────────────────────────────────────
+                    ProgressView(value: Double(progress.current), total: Double(progress.target))
+                        .progressViewStyle(.linear)
+                        .tint(isSkippedToday ? AppTheme.textSecondary : AppTheme.glowColor)
+                }
+                
+            }
+            
+
+
+            // ── Weekly chart — full width ────────────────────────────────────
+            if let id = habit.id, model.progressChartData[id] != nil {
+                ProgressChartView(habit: habit, values: model.progressChartData[id]!)
             }
 
-            ProgressView(value: Double(progress.current), total: Double(progress.target))
-                .progressViewStyle(.linear)
-                .tint(isSkippedToday ? AppTheme.textSecondary : AppTheme.glowColor)
-
-            HStack(spacing: 12) {
-                if model.progressChartData[habit.id!] ?? nil != nil {
-                    ProgressChartView(habit: habit, values: model.progressChartData[habit.id!]!)
-                        .padding(.vertical, 8)
-                }
-
-                Spacer()
-
+            // ── Action row: below the chart, thumb-friendly ─────────────────
+            HStack(spacing: 10) {
+                // Skip — secondary, ghost style
                 Button {
                     Task {
                         if isSkippedToday {
                             await model.unskipHabitToday(habit)
-                            isSkippedToday = false
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { isSkippedToday = false }
                         } else {
                             await model.skipHabitToday(habit)
-                            isSkippedToday = true
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { isSkippedToday = true }
                         }
                     }
                 } label: {
-                    Text(isSkippedToday ? "Skipped" : "Skip Today")
-                        .font(.system(.callout, design: .rounded, weight: .bold))
-                        .foregroundStyle(isSkippedToday ? .white : AppTheme.textSecondary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(
-                            skipButtonBackground,
-                            in: Capsule(style: .continuous)
-                        )
+                    HStack(spacing: 5) {
+                        Image(systemName: isSkippedToday ? "arrow.uturn.backward" : "forward.end.fill")
+                            .font(.system(size: 12, weight: .bold))
+                        Text(isSkippedToday ? "Unskip" : "Skip")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundStyle(isSkippedToday ? AppTheme.accentColor : AppTheme.textSecondary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(.ultraThinMaterial, in: Capsule(style: .continuous))
+                    .overlay {
+                        Capsule(style: .continuous)
+                            .strokeBorder(isSkippedToday ? AppTheme.accentColor.opacity(0.35) : .white.opacity(0.1), lineWidth: 1)
+                    }
                 }
-                .buttonStyle(.plain)
-                
-                Button(action: onIncrement) {
-                    Text("+1")
-                        .font(.system(.callout, design: .rounded, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(
-                            AppTheme.accentGradient,
-                            in: Capsule(style: .continuous)
-                        )
-                        .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
-                }
-                .buttonStyle(.plain)
-                .disabled(isSkippedToday)
+                .buttonStyle(ScaleButtonStyle())
 
-                
-            }.frame(maxWidth: .infinity, alignment: .trailing)
+                Spacer()
+
+                // +1 — primary CTA, full-width pill on the right
+                Button { onIncrement() } label: {
+                    Label("+1", systemImage: "plus")
+                        .font(.system(size: 15, weight: .black, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 22)
+                        .padding(.vertical, 10)
+                        .background(AppTheme.accentGradient, in: Capsule(style: .continuous))
+                        .shadow(color: AppTheme.accentColor.opacity(0.3), radius: 8, x: 0, y: 4)
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .disabled(isSkippedToday)
+                .opacity(isSkippedToday ? 0.4 : 1.0)
+            }
         }
         .padding(20)
         .background(AppTheme.cardGradient)
@@ -375,21 +381,59 @@ struct HabitCardView: View {
             .padding(.vertical, 4)
             .background(color.opacity(0.12), in: Capsule())
     }
+}
 
-    private var skipButtonBackground: AnyShapeStyle {
-        if isSkippedToday {
-            return AnyShapeStyle(AppTheme.accentGradient)
-        }
+struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.94 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
 
-        return AnyShapeStyle(
-            LinearGradient(
-                colors: [
-                    Color.gray.opacity(0.15),
-                    Color.gray.opacity(0.15)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+// MARK: - Xcode Previews
+
+#Preview("Behind") { _HabitCardPreview(current: 1, target: 5) }
+#Preview("On Track") { _HabitCardPreview(current: 4, target: 5) }
+#Preview("Completed") { _HabitCardPreview(current: 5, target: 5) }
+#Preview("Skipped") { _HabitCardPreview(current: 1, target: 5, skipped: true) }
+
+private struct _HabitCardPreview: View {
+    let current: Int
+    let target: Int
+    var skipped: Bool = false
+
+    private let habitID: Int64 = 1
+
+    private var habit: Habits {
+        Habits(
+            id: habitID,
+            title: "Drink Water",
+            description: "Stay hydrated",
+            priority: 1,
+            goal_id: nil,
+            lifearea_id: nil,
+            target: target,
+            target_recursion_rule: "FREQ=DAILY",
+            label: "Glasses",
+            created_at: Date(),
+            updated_at: Date()
         )
+    }
+
+    var body: some View {
+        let model = UnifiedDataModel(autoStart: false)
+        let window = HabitWindow._week(Date())
+        let progress = HabitProgress(current: current, target: target, targetLabel: "Glasses", window: window)
+        model.habits = [habit]
+        model.currentHabitProgressMap[habitID] = progress
+        model.progressChartData[habitID] = [0: 3, 1: 5, 2: 2, 3: Float(current), 4: 1, 5: 0, 6: 0]
+
+        return ZStack {
+            AppTheme.backgroundGradient.ignoresSafeArea()
+            HabitCardView(habit: habit, progress: progress, onIncrement: {})
+                .environmentObject(model)
+                .padding()
+        }
     }
 }
