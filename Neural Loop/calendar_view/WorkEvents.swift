@@ -1,6 +1,13 @@
 import Foundation
 import EventKit
 
+func fetchGenesysEvents(for date: Date = Date()) async -> [SimpleEvent] {
+    await withCheckedContinuation { continuation in
+        fetchTodaysGenesysEvents(for: date) { events in
+            continuation.resume(returning: events)
+        }
+    }
+}
 
 func fetchTodaysGenesysEvents(
     for date: Date = Date(),

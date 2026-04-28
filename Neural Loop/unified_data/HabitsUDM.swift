@@ -254,6 +254,7 @@ extension  UnifiedDataModel {
         let cal = Calendar.current
         let isToday = cal.isDateInToday(date)
         let isPast = cal.startOfDay(for: date) < cal.startOfDay(for: .now)
+        let reminderPlanner = HabitReminderPlanner(calendar: .neuralLoopDisplay)
 
         for habit in habits {
             if !HabitWindow.isOccurring(on: date, habit: habit) { continue }
@@ -285,47 +286,24 @@ extension  UnifiedDataModel {
             
             // 2. Add future predicted reminders if not fully completed
             if !isPast {
-                let remaining = max(Int(habit.target) - currentProgress, 0)
-                if remaining > 0 {
-                    let frequency = HabitWindow.get_frequency(for: habit)
-                    let nowAnchor = isToday ? Date() : cal.date(bySettingHour: 8, minute: 0, second: 0, of: date) ?? date
-                    
-                    if frequency == .daily {
-                        let earliest = nowAnchor.addingTimeInterval(20 * 60)
-                        let latest = cal.endOfDay(date).addingTimeInterval(-60 * 60) // 11 PM
-                        
-                        let reminders = NotificationAutoScheduler.generateDailyReminderTimes(
-                            count: remaining,
-                            now: nowAnchor,
-                            earliest: earliest,
-                            latest: latest,
-                            minimumGap: 20 * 60,
-                            useMealAnchors: habit.id == 1
-                        )
-                        
-                        for reminder in reminders {
-                            events.append(SimpleEvent(
-                                title: habit.title,
-                                start: reminder,
-                                end: reminder.addingTimeInterval(15 * 60),
-                                acceptanceStatus: nil,
-                                event_type: .habit
-                            ))
-                        }
-                    } else {
-                        // Weekly/Monthly - 6 PM
-                        let sixPM = cal.date(bySettingHour: 18, minute: 0, second: 0, of: date)!
-                        let candidate = max(sixPM, nowAnchor.addingTimeInterval(20 * 60))
-                        
-                        if candidate < cal.endOfDay(date) {
-                            events.append(SimpleEvent(
-                                title: habit.title,
-                                start: candidate,
-                                end: candidate.addingTimeInterval(15 * 60),
-                                acceptanceStatus: nil,
-                                event_type: .habit
-                            ))
-                        }
+                let nowAnchor = isToday ? Date() : cal.date(bySettingHour: 8, minute: 0, second: 0, of: date) ?? date
+                let plans = reminderPlanner.plans(
+                    for: habit,
+                    current: currentProgress,
+                    target: Int(habit.target),
+                    window: window,
+                    now: nowAnchor
+                )
+
+                for plan in plans {
+                    if plan.fireDate < cal.endOfDay(date) {
+                        events.append(SimpleEvent(
+                            title: plan.title,
+                            start: plan.fireDate,
+                            end: plan.fireDate.addingTimeInterval(15 * 60),
+                            acceptanceStatus: nil,
+                            event_type: .habit
+                        ))
                     }
                 }
             }

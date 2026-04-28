@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct WorkEventsOverlayView: View {
+struct CalendarEventsOverlayView: View {
     let date: Date
     let events: [SimpleEvent]
 
@@ -16,7 +16,7 @@ struct WorkEventsOverlayView: View {
                 ForEach(laidOut) { item in
                     let colWidth = columnWidth(totalWidth: availableWidth, columns: item.columnCount)
 
-                    WorkEventBlockView(event: item.event)
+                    CalendarEventBlockView(event: item.event)
                         .frame(width: colWidth)
                         .offset(
                             x: leftGutter + (CGFloat(item.column) * (colWidth + columnSpacing)),
