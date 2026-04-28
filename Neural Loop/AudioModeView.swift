@@ -76,11 +76,44 @@ struct AudioModeView: View {
                 pulse = true
             }
         }
+        .task {
+            await startListeningFromDeepLinkIfNeeded()
+        }
+        .onChange(of: model.canUseAudioMode) { _, canUseAudioMode in
+            guard canUseAudioMode else { return }
+            Task {
+                await startListeningFromDeepLinkIfNeeded()
+            }
+        }
         .onDisappear {
             transcriptionManager.stopRecording()
             transcriptionManager.onCommittedTranscript = nil
             coordinator.resetConversation()
         }
+    }
+
+    private func startListeningFromDeepLinkIfNeeded() async {
+        let deepLink = DeepLinkManager.shared
+        guard deepLink.shouldStartListening else { return }
+
+        // Give cold launches a moment to finish view setup before starting audio.
+        try? await Task.sleep(for: .milliseconds(350))
+
+        guard deepLink.shouldStartListening else { return }
+
+        guard !transcriptionManager.isRecording else {
+            deepLink.clearListeningIntent()
+            return
+        }
+
+        guard model.canUseAudioMode else { return }
+
+        coordinator.resetConversation()
+        transcriptionManager.onCommittedTranscript = { [coordinator] transcript in
+            coordinator.handleCommittedTranscript(transcript)
+        }
+        await transcriptionManager.startRecording()
+        deepLink.clearListeningIntent()
     }
 
     private func toggleMicrophone() {

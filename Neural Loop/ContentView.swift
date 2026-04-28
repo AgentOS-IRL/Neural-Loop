@@ -13,6 +13,7 @@ let logger = Logger(subsystem: "NeuralLoop", category: "App")
 
 struct ContentView: View {
     @EnvironmentObject private var model: UnifiedDataModel
+    @ObservedObject private var deepLink = DeepLinkManager.shared
     @State private var selectedTab: AppTab = .tasks
 
     var body: some View {
@@ -23,6 +24,14 @@ struct ContentView: View {
                     _ = await NotificationManager.shared.requestPermission()
                     await model.scheduleNotifications()
                 }
+            }
+        }
+        .onChange(of: deepLink.pendingDeepLink) { _, newValue in
+            guard let link = newValue else { return }
+            switch link {
+            case .aiListen:
+                selectedTab = .ai
+                deepLink.clearPendingNavigation()
             }
         }
     }

@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		262A7F642FA14F0D00C1A47F /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 262A7F632FA14F0D00C1A47F /* WidgetKit.framework */; };
+		262A7F662FA14F0D00C1A47F /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 262A7F652FA14F0D00C1A47F /* SwiftUI.framework */; };
+		262A7F712FA14F1000C1A47F /* Neural Loop WidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 262A7F622FA14F0D00C1A47F /* Neural Loop WidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		346ACF072F0C75C3008187C1 /* RRuleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 346ACF062F0C75C3008187C1 /* RRuleKit */; };
 		349D25E22F24020A0001589F /* Neural Loop Watch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 349D25D82F2402090001589F /* Neural Loop Watch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		349D25EA2F24039E0001589F /* ConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349D25E92F2403890001589F /* ConnectivityManager.swift */; };
@@ -25,6 +28,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		262A7F6F2FA14F1000C1A47F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 34237FB62F0AF4CA002E0D02 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 262A7F612FA14F0D00C1A47F;
+			remoteInfo = "Neural Loop WidgetsExtension";
+		};
 		349D25E02F24020A0001589F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 34237FB62F0AF4CA002E0D02 /* Project object */;
@@ -42,6 +52,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		262A7F762FA14F1000C1A47F /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				262A7F712FA14F1000C1A47F /* Neural Loop WidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		3423800C2F0B0777002E0D02 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -66,6 +87,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		262A7F622FA14F0D00C1A47F /* Neural Loop WidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Neural Loop WidgetsExtension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		262A7F632FA14F0D00C1A47F /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		262A7F652FA14F0D00C1A47F /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		34237FBE2F0AF4CA002E0D02 /* Neural Loop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Neural Loop.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		349D25D82F2402090001589F /* Neural Loop Watch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Neural Loop Watch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		349D25E92F2403890001589F /* ConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityManager.swift; sourceTree = "<group>"; };
@@ -73,7 +97,25 @@
 		34B495962F138D78000FAD6D /* Neural LoopTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Neural LoopTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		262A7F722FA14F1000C1A47F /* Exceptions for "Neural Loop Widgets" folder in "Neural Loop WidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 262A7F612FA14F0D00C1A47F /* Neural Loop WidgetsExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		262A7F672FA14F0D00C1A47F /* Neural Loop Widgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				262A7F722FA14F1000C1A47F /* Exceptions for "Neural Loop Widgets" folder in "Neural Loop WidgetsExtension" target */,
+			);
+			path = "Neural Loop Widgets";
+			sourceTree = "<group>";
+		};
 		34237FC02F0AF4CA002E0D02 /* Neural Loop */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "Neural Loop";
@@ -92,6 +134,15 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		262A7F5F2FA14F0D00C1A47F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				262A7F662FA14F0D00C1A47F /* SwiftUI.framework in Frameworks */,
+				262A7F642FA14F0D00C1A47F /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		34237FBB2F0AF4CA002E0D02 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -133,6 +184,7 @@
 				34237FC02F0AF4CA002E0D02 /* Neural Loop */,
 				34B495972F138D78000FAD6D /* Neural LoopTests */,
 				349D25D92F2402090001589F /* Neural Loop Watch Watch App */,
+				262A7F672FA14F0D00C1A47F /* Neural Loop Widgets */,
 				34EB1EAF2F0FFE9800F5B247 /* Frameworks */,
 				34237FBF2F0AF4CA002E0D02 /* Products */,
 			);
@@ -144,6 +196,7 @@
 				34237FBE2F0AF4CA002E0D02 /* Neural Loop.app */,
 				34B495962F138D78000FAD6D /* Neural LoopTests.xctest */,
 				349D25D82F2402090001589F /* Neural Loop Watch Watch App.app */,
+				262A7F622FA14F0D00C1A47F /* Neural Loop WidgetsExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -160,6 +213,8 @@
 		34EB1EAF2F0FFE9800F5B247 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				262A7F632FA14F0D00C1A47F /* WidgetKit.framework */,
+				262A7F652FA14F0D00C1A47F /* SwiftUI.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -167,6 +222,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		262A7F612FA14F0D00C1A47F /* Neural Loop WidgetsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 262A7F732FA14F1000C1A47F /* Build configuration list for PBXNativeTarget "Neural Loop WidgetsExtension" */;
+			buildPhases = (
+				262A7F5E2FA14F0D00C1A47F /* Sources */,
+				262A7F5F2FA14F0D00C1A47F /* Frameworks */,
+				262A7F602FA14F0D00C1A47F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				262A7F672FA14F0D00C1A47F /* Neural Loop Widgets */,
+			);
+			name = "Neural Loop WidgetsExtension";
+			packageProductDependencies = (
+			);
+			productName = "Neural Loop WidgetsExtension";
+			productReference = 262A7F622FA14F0D00C1A47F /* Neural Loop WidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		34237FBD2F0AF4CA002E0D02 /* Neural Loop */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 34237FCB2F0AF4CB002E0D02 /* Build configuration list for PBXNativeTarget "Neural Loop" */;
@@ -176,11 +253,13 @@
 				34237FBC2F0AF4CA002E0D02 /* Resources */,
 				3423800C2F0B0777002E0D02 /* Embed Frameworks */,
 				349D25E32F24020A0001589F /* Embed Watch Content */,
+				262A7F762FA14F1000C1A47F /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				349D25E12F24020A0001589F /* PBXTargetDependency */,
+				262A7F702FA14F1000C1A47F /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				34237FC02F0AF4CA002E0D02 /* Neural Loop */,
@@ -254,9 +333,12 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2600;
+				LastSwiftUpdateCheck = 2640;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
+					262A7F612FA14F0D00C1A47F = {
+						CreatedOnToolsVersion = 26.4;
+					};
 					34237FBD2F0AF4CA002E0D02 = {
 						CreatedOnToolsVersion = 26.0.1;
 					};
@@ -292,11 +374,19 @@
 				34237FBD2F0AF4CA002E0D02 /* Neural Loop */,
 				34B495952F138D78000FAD6D /* Neural LoopTests */,
 				349D25D72F2402090001589F /* Neural Loop Watch Watch App */,
+				262A7F612FA14F0D00C1A47F /* Neural Loop WidgetsExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		262A7F602FA14F0D00C1A47F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		34237FBC2F0AF4CA002E0D02 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -321,6 +411,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		262A7F5E2FA14F0D00C1A47F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		34237FBA2F0AF4CA002E0D02 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -349,6 +446,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		262A7F702FA14F1000C1A47F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 262A7F612FA14F0D00C1A47F /* Neural Loop WidgetsExtension */;
+			targetProxy = 262A7F6F2FA14F1000C1A47F /* PBXContainerItemProxy */;
+		};
 		349D25E12F24020A0001589F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 349D25D72F2402090001589F /* Neural Loop Watch Watch App */;
@@ -362,6 +464,68 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		262A7F742FA14F1000C1A47F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SSL47Z4595;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Neural Loop Widgets/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Neural Loop Widgets";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sanjeevhalyal.Neural-Loop.Neural-Loop-Widgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		262A7F752FA14F1000C1A47F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SSL47Z4595;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Neural Loop Widgets/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Neural Loop Widgets";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sanjeevhalyal.Neural-Loop.Neural-Loop-Widgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		34237FC92F0AF4CB002E0D02 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -664,6 +828,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		262A7F732FA14F1000C1A47F /* Build configuration list for PBXNativeTarget "Neural Loop WidgetsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				262A7F742FA14F1000C1A47F /* Debug */,
+				262A7F752FA14F1000C1A47F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		34237FB92F0AF4CA002E0D02 /* Build configuration list for PBXProject "Neural Loop" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
