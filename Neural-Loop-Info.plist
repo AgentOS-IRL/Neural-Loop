@@ -2,6 +2,17 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.sanjeevhalyal.Neural-Loop</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>neural-loop</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app uses the microphone to capture your speech for transcription.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>

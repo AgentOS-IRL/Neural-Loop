@@ -33,8 +33,12 @@ struct Neural_LoopApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onOpenURL { url in
+                    DeepLinkManager.shared.handle(url)
+                }
         }.modelContainer(for: [
             CompletedRecurringTask.self
         ]).environmentObject(UnifiedDataModel.shared)
+         .environmentObject(DeepLinkManager.shared)
     }
 }
