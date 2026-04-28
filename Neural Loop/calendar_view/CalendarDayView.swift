@@ -50,9 +50,15 @@ struct CalendarDayView: View {
         .environment(\.timeZone, NeuralLoopDateContext.timeZone)
     }
 
-    private func reloadEvents(for date: Date) {
-        Task {
-            events = await model.getCalendarEvents(for: date)
+    @State private var reloadTask: Task<Void, Never>?
+
+    private func reloadEvents(for targetDate: Date) {
+        reloadTask?.cancel()
+        reloadTask = Task {
+            let fetchedEvents = await model.getCalendarEvents(for: targetDate)
+            if !Task.isCancelled && date == targetDate {
+                events = fetchedEvents
+            }
         }
     }
 }

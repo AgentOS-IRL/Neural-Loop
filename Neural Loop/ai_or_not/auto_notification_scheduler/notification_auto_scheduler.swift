@@ -38,6 +38,12 @@ final class NotificationAutoScheduler {
             progress: model.currentHabitProgressMap,
             now: now
         )
+        await scheduleWork(now: now)
+    }
+
+    func scheduleWork(now: Date = .now) async {
+        let events = await fetchGenesysEvents(for: now)
+        await scheduleWorkEvents(events, now: now)
     }
 
     func scheduleTasks(_ tasks: [Tasks], now: Date = .now) async {
