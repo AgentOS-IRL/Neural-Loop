@@ -22,3 +22,4 @@ Packages/CodexCore/.env.*
 !Packages/CodexCore/.env.example
 Neural Loop/.DS_Store
 workout_docs/*
+.DS_Store

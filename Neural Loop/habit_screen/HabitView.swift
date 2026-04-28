@@ -290,8 +290,13 @@ struct HabitCardView: View {
 
                 Button {
                     Task {
-                        await model.skipHabitToday(habit)
-                        isSkippedToday = true
+                        if isSkippedToday {
+                            await model.unskipHabitToday(habit)
+                            isSkippedToday = false
+                        } else {
+                            await model.skipHabitToday(habit)
+                            isSkippedToday = true
+                        }
                     }
                 } label: {
                     Text(isSkippedToday ? "Skipped" : "Skip Today")
@@ -305,7 +310,6 @@ struct HabitCardView: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .disabled(isSkippedToday)
                 
                 Button(action: onIncrement) {
                     Text("+1")
