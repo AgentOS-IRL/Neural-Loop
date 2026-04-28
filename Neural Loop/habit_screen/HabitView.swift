@@ -322,7 +322,7 @@ struct HabitCardView: View {
 
                 // +1 — primary CTA, full-width pill on the right
                 Button { onIncrement() } label: {
-                    Label("+1", systemImage: "plus")
+                    Label( "1", systemImage: "plus")
                         .font(.system(size: 15, weight: .black, design: .rounded))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 22)
