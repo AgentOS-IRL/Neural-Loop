@@ -16,6 +16,7 @@ final class NotificationAutoScheduler {
 
     private let scheduler: any NotificationScheduling
     private let calendar: Calendar
+    private let habitReminderPlanner: HabitReminderPlanner
 
     init(
         scheduler: (any NotificationScheduling)? = nil,
@@ -23,6 +24,7 @@ final class NotificationAutoScheduler {
     ) {
         self.scheduler = scheduler ?? NotificationManager.shared
         self.calendar = calendar ?? .neuralLoopDisplay
+        self.habitReminderPlanner = HabitReminderPlanner(calendar: self.calendar)
     }
 
     func scheduleAll(model: UnifiedDataModel, now: Date = .now) async {
@@ -30,7 +32,6 @@ final class NotificationAutoScheduler {
             return
         }
 
-        await WaterAutoScheduling.shared.scheduleBaselineNotificationsIfAuthorized()
         await scheduleTasks(model.tasks, now: now)
         await scheduleHabits(
             model.habits,
@@ -129,19 +130,6 @@ final class NotificationAutoScheduler {
             return
         }
 
-        if habitId == WaterAutoScheduling.shared.habit_id {
-            guard progress.current < progress.target else {
-                await clearHabitNotifications(habitId: habitId)
-                return
-            }
-
-            await WaterAutoScheduling.shared.schedule_notification(
-                current: progress.current,
-                target: progress.target
-            )
-            return
-        }
-
         let prefix = habitPrefix + "\(habitId)"
 
         guard progress.current < progress.target else {
@@ -151,78 +139,31 @@ final class NotificationAutoScheduler {
 
         await clearHabitNotifications(habitId: habitId)
 
-        let remaining = max(progress.target - progress.current, 0)
-        guard remaining > 0 else { return }
+        let plans = habitReminderPlanner.plans(
+            for: habit,
+            current: progress.current,
+            target: progress.target,
+            window: progress.window,
+            now: now
+        )
 
-        switch progress.window.frequency {
-        case .daily:
-            let useMealAnchors = (habitId == 1) // Water habit ID is 1
-            let reminders = Self.generateDailyReminderTimes(
-                count: remaining,
-                now: now,
-                earliest: now.addingTimeInterval(20 * 60),
-                latest: progress.window.end.addingTimeInterval(-60 * 60),
-                minimumGap: 20 * 60,
-                useMealAnchors: useMealAnchors
-            )
-
-            for (index, fireDate) in reminders.enumerated() {
-                await scheduler.scheduleNotification(
-                    id: "\(prefix).\(index)",
-                    title: habit.title,
-                    body: habit.description ?? "Habit reminder",
-                    date: fireDate,
-                    sound: .default,
-                    userInfo: habitUserInfo(habitId: habitId, index: index)
+        for plan in plans {
+            await scheduler.scheduleNotification(
+                id: "\(prefix).\(plan.index)",
+                title: plan.title,
+                body: plan.body,
+                date: plan.fireDate,
+                sound: .default,
+                userInfo: habitUserInfo(
+                    habitId: plan.habitId,
+                    index: plan.index
                 )
-            }
-
-        case .weekly, .monthly:
-            let candidate = nextHabitWindowReminderDate(
-                now: now,
-                windowEnd: progress.window.end
-            )
-
-            guard candidate > now else { return }
-
-            await scheduler.scheduleNotification(
-                id: prefix + ".0",
-                title: habit.title,
-                body: habit.description ?? "Habit reminder",
-                date: candidate,
-                sound: .default,
-                userInfo: habitUserInfo(habitId: habitId, index: 0)
-            )
-
-        default:
-            let candidate = nextHabitWindowReminderDate(
-                now: now,
-                windowEnd: progress.window.end
-            )
-
-            guard candidate > now else { return }
-
-            await scheduler.scheduleNotification(
-                id: prefix + ".0",
-                title: habit.title,
-                body: habit.description ?? "Habit reminder",
-                date: candidate,
-                sound: .default,
-                userInfo: habitUserInfo(habitId: habitId, index: 0)
             )
         }
     }
 
     func clearHabitNotifications(habitId: Int64) async {
         await scheduler.clearIndexedNotificationsAsync(prefix: habitPrefix + "\(habitId)")
-        if habitId == 1 {
-            await scheduler.clearIndexedNotificationsAsync(prefix: "water_auto_")
-            await scheduler.clearIndexedNotificationsAsync(prefix: "water.auto.")
-            if let customScheduler = scheduler as? NotificationManager {
-                customScheduler.clearNotification(id: "repeat_water_auto")
-                customScheduler.clearNotification(id: "water.daily")
-            }
-        }
     }
 
     func scheduleWorkEvents(_ events: [SimpleEvent], now: Date = .now) async {
@@ -315,159 +256,4 @@ final class NotificationAutoScheduler {
         ]
     }
 
-    static func generateDailyReminderTimes(
-        count: Int,
-        now: Date,
-        earliest: Date,
-        latest: Date,
-        minimumGap: TimeInterval,
-        useMealAnchors: Bool
-    ) -> [Date] {
-        guard count > 0 else { return [] }
-
-        let start = max(earliest, now.addingTimeInterval(minimumGap))
-        let end = max(latest, start.addingTimeInterval(minimumGap))
-
-        guard end > start else { return [start] }
-
-        if !useMealAnchors {
-            let totalDuration = end.timeIntervalSince(start)
-            if count == 1 { return [start] }
-
-            var candidates: [Date] = []
-            for index in 0..<count {
-                let progress = Double(index + 1) / Double(count + 1)
-                candidates.append(start.addingTimeInterval(totalDuration * progress))
-            }
-
-            var filtered: [Date] = []
-            for candidate in candidates {
-                if filtered.isEmpty {
-                    filtered.append(candidate)
-                    continue
-                }
-                if candidate.timeIntervalSince(filtered.last!) >= minimumGap {
-                    filtered.append(candidate)
-                }
-            }
-            return filtered
-        }
-
-        // Meal anchor logic (originally from Water tracking)
-        let calendar = Calendar.current
-        func todayAt(_ hour: Int, _ minute: Int) -> Date? {
-            var comps = calendar.dateComponents([.year, .month, .day], from: now)
-            comps.hour = hour
-            comps.minute = minute
-            return calendar.date(from: comps)
-        }
-
-        var anchors: [Date] = []
-        if let lunchTime = todayAt(13, 0), let dinnerTime = todayAt(21, 0) {
-            let lunchAnchor = lunchTime.addingTimeInterval(-10 * 60)
-            let dinnerAnchor = dinnerTime.addingTimeInterval(-10 * 60)
-            
-            func isValidAnchor(_ d: Date) -> Bool {
-                return d > start && d < end
-            }
-            
-            if count >= 1, now < lunchTime, isValidAnchor(lunchAnchor) {
-                anchors.append(lunchAnchor)
-            }
-            if count >= 2, now < dinnerTime, isValidAnchor(dinnerAnchor) {
-                anchors.append(dinnerAnchor)
-            }
-            if count == 1, anchors.count > 1 {
-                anchors = [anchors[0]]
-            }
-        }
-        
-        let sortedAnchors = anchors.sorted()
-        let points: [Date] = [start] + sortedAnchors + [end]
-        
-        var fillCount = count - sortedAnchors.count
-        var segmentCounts: [Int] = []
-        var segmentDurations: [TimeInterval] = []
-        
-        for i in 0..<(points.count - 1) {
-            let a = points[i]
-            let b = points[i + 1]
-            segmentDurations.append(max(b.timeIntervalSince(a), 0))
-        }
-        
-        let totalDur = segmentDurations.reduce(0, +)
-        for dur in segmentDurations {
-            if fillCount == 0 || totalDur <= 0 {
-                segmentCounts.append(0)
-                continue
-            }
-            segmentCounts.append(Int(round(Double(fillCount) * (dur / totalDur))))
-        }
-        
-        // Fix rounding issues
-        var sum = segmentCounts.reduce(0, +)
-        while sum > fillCount {
-            if let idx = segmentCounts.indices.max(by: { segmentCounts[$0] < segmentCounts[$1] }), segmentCounts[idx] > 0 {
-                segmentCounts[idx] -= 1
-                sum -= 1
-            } else { break }
-        }
-        while sum < fillCount {
-            if let idx = segmentCounts.indices.max(by: { segmentDurations[$0] < segmentDurations[$1] }) {
-                segmentCounts[idx] += 1
-                sum += 1
-            } else { break }
-        }
-        
-        // Cap by minGap
-        for i in segmentCounts.indices {
-            let maxInSegment = Int(floor(segmentDurations[i] / minimumGap))
-            segmentCounts[i] = min(segmentCounts[i], maxInSegment)
-        }
-        fillCount = segmentCounts.reduce(0, +)
-        
-        var times: [Date] = []
-        times.append(contentsOf: sortedAnchors)
-        
-        for i in 0..<(points.count - 1) {
-            let segStart = points[i]
-            let segEnd = points[i + 1]
-            let c = segmentCounts[i]
-            guard c > 0 else { continue }
-            let dur = segEnd.timeIntervalSince(segStart)
-            guard dur > 0 else { continue }
-            
-            for k in 0..<c {
-                times.append(segStart.addingTimeInterval(dur * (Double(k + 1) / Double(c + 1))))
-            }
-        }
-        
-        times.sort()
-        
-        var finalTimes: [Date] = []
-        for t in times {
-            if finalTimes.isEmpty {
-                if t > start { finalTimes.append(t) }
-            } else {
-                if t.timeIntervalSince(finalTimes.last!) >= minimumGap {
-                    finalTimes.append(t)
-                }
-            }
-            if finalTimes.count == count { break }
-        }
-        return finalTimes
-    }
-
-    private func nextHabitWindowReminderDate(now: Date, windowEnd: Date) -> Date {
-        let postWorkTime = HabitAutoScheduler.shared.targetPostWorkTimeToday()
-        let minimumDate = now.addingTimeInterval(20 * 60)
-        let candidate = max(postWorkTime, minimumDate)
-
-        if candidate < windowEnd {
-            return candidate
-        }
-
-        let fallback = windowEnd.addingTimeInterval(-60 * 60)
-        return max(fallback, minimumDate)
-    }
 }

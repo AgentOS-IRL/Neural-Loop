@@ -1,7 +1,7 @@
 import SwiftUI
 import EventKit
 
-struct WorkEventBlockView: View {
+struct CalendarEventBlockView: View {
     let event: SimpleEvent
 
     var body: some View {

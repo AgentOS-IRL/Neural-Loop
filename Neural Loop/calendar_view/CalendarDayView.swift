@@ -9,9 +9,7 @@ import SwiftUI
 
 struct CalendarDayView: View {
     @State private var date: Date = .now
-    @State private var tasks: [SimpleEvent] = []
-    @State private var habits: [SimpleEvent] = []
-    @State private var workEvents: [SimpleEvent] = []
+    @State private var events: [SimpleEvent] = []
 
     @EnvironmentObject var model: UnifiedDataModel
 
@@ -21,20 +19,13 @@ struct CalendarDayView: View {
 
                 DateBarView(selectedDate: date) { newDate in
                     date = newDate
-                    fetchTodaysGenesysEvents(for: date) { events in
-                        workEvents = events
-                        Task {
-                            await NotificationAutoScheduler.shared.scheduleWorkEvents(events, now: date)
-                        }
-                    }
+                    reloadEvents(for: newDate)
                 }
 
                 ScrollView {
                     ZStack(alignment: .topLeading) {
                         TimeGridView()
-                        WorkEventsOverlayView(date: date, events: calendarEvents)
-//                        TaskOverlayView(date: date, tasks: tasks)
-//                        HabitOverlayView(date: date, habits: habits)
+                        CalendarEventsOverlayView(date: date, events: events)
                         CurrentTimeIndicatorView(date: date)
                     }
                     .frame(height: CGFloat(hoursInDay) * hourHeight)
@@ -53,33 +44,15 @@ struct CalendarDayView: View {
         }
         .background(AppTheme.backgroundGradient.ignoresSafeArea())
         .onAppear {
-            Task {
-                tasks = []
-                
-                for task in await model.getTasks(date: date){
-                    tasks.append(SimpleEvent(
-                        title: task.title, start: task.start_date!, end: task.start_date!.addingTimeInterval(task.duration ?? 900) , acceptanceStatus: nil, event_type: .task
-                    ))
-                }
-                habits = []
-                
-                let userHabitEvents = await model.getHabitCalendarEvents(for: date)
-                habits.append(contentsOf: userHabitEvents)
-                
-                
-                fetchTodaysGenesysEvents(for: date) { events in
-                    workEvents = events
-                    Task {
-                        await NotificationAutoScheduler.shared.scheduleWorkEvents(events, now: date)
-                    }
-                }
-            }
+            reloadEvents(for: date)
         }
         .environment(\.calendar, Calendar.neuralLoopDisplay)
         .environment(\.timeZone, NeuralLoopDateContext.timeZone)
     }
 
-    private var calendarEvents: [SimpleEvent] {
-        workEvents + tasks + habits
+    private func reloadEvents(for date: Date) {
+        Task {
+            events = await model.getCalendarEvents(for: date)
+        }
     }
 }
