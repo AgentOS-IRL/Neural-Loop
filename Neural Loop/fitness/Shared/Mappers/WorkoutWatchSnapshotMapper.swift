@@ -1,7 +1,7 @@
 import Foundation
 
 nonisolated extension ActiveWorkoutDraft {
-    func watchSnapshot(now: Date = Date(), lastProcessedActionID: UUID? = nil) -> ActiveWorkoutSnapshot {
+    func watchSnapshot(now: Date = Date(), lastProcessedActionID: UUID? = nil, restEndDate: Date? = nil, restTotalSeconds: Int? = nil) -> ActiveWorkoutSnapshot {
         let sessionPointer = watchSessionPointer
 
         return ActiveWorkoutSnapshot(
@@ -16,7 +16,9 @@ nonisolated extension ActiveWorkoutDraft {
             timestamp: now,
             revision: revision,
             generatedAt: now,
-            lastProcessedWatchSequence: lastProcessedWatchSequence
+            lastProcessedWatchSequence: lastProcessedWatchSequence,
+            restEndDate: restEndDate,
+            restTotalSeconds: restTotalSeconds
         )
     }
 
@@ -84,6 +86,7 @@ private extension WorkoutSetDraft {
     }
 }
 
+
 private extension String {
     var watchRepsValue: Int? {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
@@ -91,3 +94,4 @@ private extension String {
         return Int(trimmed)
     }
 }
+

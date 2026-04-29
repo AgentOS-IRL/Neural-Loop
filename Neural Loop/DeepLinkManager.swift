@@ -12,6 +12,7 @@ import Combine
 /// by URL schemes (e.g. widgets or Shortcuts).
 enum AppDeepLink: Equatable {
     case aiListen
+    case fitnessActiveWorkout
 }
 
 /// A lightweight singleton that holds pending deep-link actions
@@ -43,6 +44,12 @@ final class DeepLinkManager: ObservableObject {
         if url.host == "ai" && url.path == "/listen" {
             pendingDeepLink = .aiListen
             shouldStartListening = true
+            return true
+        }
+
+        // neural-loop://fitness/workout
+        if url.host == "fitness" && url.path == "/workout" {
+            pendingDeepLink = .fitnessActiveWorkout
             return true
         }
 

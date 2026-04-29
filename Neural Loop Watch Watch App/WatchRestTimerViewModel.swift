@@ -19,6 +19,7 @@ final class WatchRestTimerViewModel: ObservableObject {
     let completedSetID: String
 
     private var timerCancellable: AnyCancellable?
+    private weak var store: WatchWorkoutStore?
 
     /// Production init — resolves next set from the store's current snapshot.
     init(totalSeconds: Int, exerciseID: String, completedSetID: String, store: WatchWorkoutStore) {
@@ -26,6 +27,7 @@ final class WatchRestTimerViewModel: ObservableObject {
         self.exerciseID = exerciseID
         self.completedSetID = completedSetID
         self.remainingSeconds = max(totalSeconds, 0)
+        self.store = store
 
         if let exercise = store.currentSnapshot?.exercises.first(where: { $0.id == exerciseID }) {
             self.nextSetID = Self.resolveNextIncompleteSet(in: exercise, after: completedSetID)
@@ -39,6 +41,7 @@ final class WatchRestTimerViewModel: ObservableObject {
         self.completedSetID = completedSetID
         self.remainingSeconds = max(totalSeconds, 0)
         self.nextSetID = nextSetID
+        self.store = nil
     }
 
     func start() {
@@ -46,10 +49,14 @@ final class WatchRestTimerViewModel: ObservableObject {
             timerState = .finished
             progress = 1.0
             remainingSeconds = 0
+            store?.persistDisplayStateAndReloadWidgets()
             return
         }
 
         timerState = .running
+        // Persist the rest state so the complication shows the countdown
+        let restEnd = Date().addingTimeInterval(TimeInterval(totalSeconds))
+        store?.persistDisplayStateAndReloadWidgets(restEndDate: restEnd, restTotalSeconds: totalSeconds)
         timerCancellable = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
@@ -100,6 +107,7 @@ final class WatchRestTimerViewModel: ObservableObject {
             timerState = .finished
             timerCancellable?.cancel()
             timerCancellable = nil
+            store?.persistDisplayStateAndReloadWidgets()
         }
     }
 }

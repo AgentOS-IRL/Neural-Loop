@@ -10,6 +10,7 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
     @Published var errorMessage: String?
     @Published var restTimerSeconds: Int = 0
     @Published var isTimerRunning: Bool = false
+    @Published var restEndsAt: Date?
     
     let db: WorkoutDataManaging
     var onDraftChange: ((ActiveWorkoutDraft) -> Void)?
@@ -47,11 +48,33 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         persistenceManager.save(draft: draft)
         onDraftChange?(draft)
         sendSnapshotToWatch()
+        updateLiveActivity()
     }
 
     func sendSnapshotToWatch() {
-        let snapshot = draft.watchSnapshot(lastProcessedActionID: nil)
+        let restEnd = isTimerRunning ? restEndsAt : nil
+        let restTotal = isTimerRunning ? restTimerSeconds : nil
+        let snapshot = draft.watchSnapshot(
+            lastProcessedActionID: nil,
+            restEndDate: restEnd,
+            restTotalSeconds: restTotal
+        )
         connectivityProvider?.sendWorkoutSnapshot(snapshot, completion: nil)
+    }
+
+    private func updateLiveActivity() {
+        let restEnd = isTimerRunning ? restEndsAt : nil
+        let restTotal = isTimerRunning ? restTimerSeconds : nil
+        let snapshot = draft.watchSnapshot(
+            lastProcessedActionID: nil,
+            restEndDate: restEnd,
+            restTotalSeconds: restTotal
+        )
+        WorkoutLiveActivityManager.shared.updateActivity(
+            snapshot: snapshot,
+            restEndDate: restEnd,
+            restTotalSeconds: restTotal
+        )
     }
 
     func apply(watchAction action: WorkoutWatchAction) async {
@@ -84,6 +107,9 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
                 
                 let result = WorkoutFinalizedResult(sessionID: draft.watchSessionPointer.id, success: true)
                 connectivityProvider?.sendWorkoutFinalizedResult(result, completion: nil)
+                // End Live Activity on watch-initiated finish
+                let finalSnapshot = draft.watchSnapshot()
+                WorkoutLiveActivityManager.shared.endActivity(finalSnapshot: finalSnapshot)
                 onFinish?()
             } catch {
                 let result = WorkoutFinalizedResult(sessionID: draft.watchSessionPointer.id, success: false, errorMessage: error.localizedDescription)
@@ -128,6 +154,9 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
             // Send finalization success to watch
             let result = WorkoutFinalizedResult(sessionID: draft.watchSessionPointer.id, success: true)
             connectivityProvider?.sendWorkoutFinalizedResult(result, completion: nil)
+            // End Live Activity
+            let finalSnapshot = draft.watchSnapshot()
+            WorkoutLiveActivityManager.shared.endActivity(finalSnapshot: finalSnapshot)
             onFinish?()
         } catch {
             errorMessage = error.localizedDescription
@@ -222,6 +251,11 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         timerCancellable?.cancel()
         restTimerSeconds = seconds
         isTimerRunning = true
+        restEndsAt = Date().addingTimeInterval(TimeInterval(seconds))
+
+        // Push rest state to Live Activity and Watch immediately
+        updateLiveActivity()
+        sendSnapshotToWatch()
         
         timerCancellable = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
@@ -243,5 +277,9 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         timerCancellable?.cancel()
         isTimerRunning = false
         restTimerSeconds = 0
+        restEndsAt = nil
+        // Push updated state (rest ended) to Live Activity and Watch
+        updateLiveActivity()
+        sendSnapshotToWatch()
     }
 }
