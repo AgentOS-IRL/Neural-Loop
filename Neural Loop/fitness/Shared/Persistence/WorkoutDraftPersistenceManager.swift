@@ -10,6 +10,10 @@ nonisolated final class WorkoutDraftPersistenceManager: @unchecked Sendable {
         self.userDefaults = userDefaults
     }
 
+    convenience init() {
+        self.init(userDefaults: UserDefaults(suiteName: WorkoutDisplayState.appGroupSuite) ?? .standard)
+    }
+
     private func draftKey(for routineID: Int64) -> String {
         "active_workout_draft_\(routineID)"
     }

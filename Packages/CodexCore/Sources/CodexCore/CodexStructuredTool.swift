@@ -171,6 +171,24 @@ public final class CodexStructuredTool {
         instructions: String,
         url: URL? = nil
     ) async throws -> CodexIntentResult {
+        try await converse(
+            messages: messages,
+            state: state,
+            tools: tools,
+            instructions: instructions,
+            toolChoice: .string("auto"),
+            url: url
+        )
+    }
+
+    public func converse(
+        messages: [CodexInputMessage],
+        state: CodexConversationState? = nil,
+        tools: [CodexTool],
+        instructions: String,
+        toolChoice: JSONValue,
+        url: URL? = nil
+    ) async throws -> CodexIntentResult {
         let accumulator = CodexIntentAccumulator()
         let clarification = try await _post_and_collect_text(
             messages: messages,
@@ -178,7 +196,7 @@ public final class CodexStructuredTool {
             instructions: instructions,
             text_format: nil,
             tools: tools,
-            tool_choice: "auto",
+            tool_choice: toolChoice,
             parallel_tool_calls: false,
             store: false,
             handleEvent: { event in
@@ -279,7 +297,7 @@ public final class CodexStructuredTool {
         instructions: String? = nil,
         text_format: JSONValue? = nil,
         tools: [CodexTool]? = nil,
-        tool_choice: String? = nil,
+        tool_choice: JSONValue? = nil,
         parallel_tool_calls: Bool? = nil
     ) -> CodexRequestBody {
         _build_body(
@@ -297,7 +315,7 @@ public final class CodexStructuredTool {
         instructions: String? = nil,
         text_format: JSONValue? = nil,
         tools: [CodexTool]? = nil,
-        tool_choice: String? = nil,
+        tool_choice: JSONValue? = nil,
         parallel_tool_calls: Bool? = nil,
         previous_response_id: String? = nil,
         conversation: String? = nil,
@@ -339,7 +357,7 @@ public final class CodexStructuredTool {
         instructions: String?,
         text_format: JSONValue?,
         tools: [CodexTool]? = nil,
-        tool_choice: String? = nil,
+        tool_choice: JSONValue? = nil,
         parallel_tool_calls: Bool? = nil,
         handleEvent: ((CodexStreamEvent) throws -> Void)? = nil
     ) async throws -> String {
@@ -361,7 +379,7 @@ public final class CodexStructuredTool {
         instructions: String?,
         text_format: JSONValue?,
         tools: [CodexTool]? = nil,
-        tool_choice: String? = nil,
+        tool_choice: JSONValue? = nil,
         parallel_tool_calls: Bool? = nil,
         previous_response_id: String? = nil,
         conversation: String? = nil,
@@ -450,7 +468,7 @@ public final class CodexStructuredTool {
         instructions: String? = nil,
         text_format: JSONValue? = nil,
         tools: [CodexTool]? = nil,
-        tool_choice: String? = nil,
+        tool_choice: JSONValue? = nil,
         parallel_tool_calls: Bool? = nil
     ) throws -> URLRequest {
         try _build_request(
@@ -470,7 +488,7 @@ public final class CodexStructuredTool {
         instructions: String? = nil,
         text_format: JSONValue? = nil,
         tools: [CodexTool]? = nil,
-        tool_choice: String? = nil,
+        tool_choice: JSONValue? = nil,
         parallel_tool_calls: Bool? = nil,
         previous_response_id: String? = nil,
         conversation: String? = nil,
@@ -627,7 +645,7 @@ public struct CodexRequestBody: Codable, Equatable, Sendable {
     public let instructions: String
     public let text: CodexTextConfig
     public let tools: [CodexTool]?
-    public let tool_choice: String?
+    public let tool_choice: JSONValue?
     public let parallel_tool_calls: Bool?
     public let previous_response_id: String?
     public let conversation: String?
@@ -640,7 +658,7 @@ public struct CodexRequestBody: Codable, Equatable, Sendable {
         instructions: String,
         text: CodexTextConfig,
         tools: [CodexTool]? = nil,
-        tool_choice: String? = nil,
+        tool_choice: JSONValue? = nil,
         parallel_tool_calls: Bool? = nil,
         previous_response_id: String? = nil,
         conversation: String? = nil,
