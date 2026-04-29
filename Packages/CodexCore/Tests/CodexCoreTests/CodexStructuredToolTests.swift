@@ -30,6 +30,40 @@ private enum CodexStructuredToolTestFixtures {
         WorkoutRoutineCodexIntents.workoutGenerationIntentTools
     }
 
+    static let activeWorkoutUpdateIntentInstructions = ActiveWorkoutCodexIntents.getActiveWorkoutUpdateIntentInstructions(
+        currentDateISO: "2026-04-20T12:00:00Z"
+    )
+
+    static let activeWorkoutUpdateTool = CodexTool(
+        name: "update_set",
+        description: "Update the first incomplete set in the active workout session. Use this tool only when the user provided enough information to safely update the active session. Provide only the metrics explicitly mentioned by the user. If the user did not provide enough detail, do not call this tool; ask for clarification instead.",
+        parameters: .object([
+            "type": .string("object"),
+            "properties": .object([
+                "weight": .object([
+                    "type": .string("number"),
+                    "description": .string("Optional lifted weight value.")
+                ]),
+                "reps": .object([
+                    "type": .string("number"),
+                    "description": .string("Optional reps value.")
+                ]),
+                "distance_meters": .object([
+                    "type": .string("number"),
+                    "description": .string("Optional cardio distance in meters.")
+                ]),
+                "duration_minutes": .object([
+                    "type": .string("number"),
+                    "description": .string("Optional cardio duration in minutes.")
+                ]),
+                "calories": .object([
+                    "type": .string("number"),
+                    "description": .string("Optional cardio calories value.")
+                ])
+            ])
+        ])
+    )
+
     static let createTaskTool = CodexTool(
         name: "create_task",
         description: "Create a to-do item when the user wants to add a task. Include start_date when the user mentions a date, time, morning, afternoon, or evening. Use an ISO-8601 string when possible. If only a date is known, assume afternoon and mention that assumption in description. If the user includes subtodos in the same request, add them to sub_tasks so the app can save the parent first and then create each subtodo automatically in one call. If start_date is present and duration is omitted, the app defaults duration to 900 seconds.",
@@ -217,6 +251,40 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertTrue(instructions.localizedCaseInsensitiveContains("do not invent exercises"))
         XCTAssertTrue(instructions.localizedCaseInsensitiveContains("same top-level shape"))
         XCTAssertTrue(instructions.localizedCaseInsensitiveContains("filter invalid exercises"))
+    }
+
+    func testActiveWorkoutInstructionsDescribeOrderedSetUpdatesAndClarificationFallback() {
+        let instructions = CodexStructuredToolTestFixtures.activeWorkoutUpdateIntentInstructions
+
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("active workout session"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("first set that is not done"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("exercise order"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("set order"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("clarification"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("weight"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("reps"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("distance_meters"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("duration_minutes"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("calories"))
+    }
+
+    func testActiveWorkoutUpdateToolEncodesExpectedOptionalMetrics() throws {
+        let encoded = try JSONEncoder().encode(CodexStructuredToolTestFixtures.activeWorkoutUpdateTool)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        XCTAssertEqual(json["type"] as? String, "function")
+        XCTAssertEqual(json["name"] as? String, "update_set")
+
+        let parameters = try XCTUnwrap(json["parameters"] as? [String: Any])
+        XCTAssertEqual(parameters["type"] as? String, "object")
+        XCTAssertNil(parameters["required"])
+
+        let properties = try XCTUnwrap(parameters["properties"] as? [String: Any])
+        XCTAssertNotNil(properties["weight"])
+        XCTAssertNotNil(properties["reps"])
+        XCTAssertNotNil(properties["distance_meters"])
+        XCTAssertNotNil(properties["duration_minutes"])
+        XCTAssertNotNil(properties["calories"])
     }
 
     func testBuildHeadersIncludeCodexFieldsAndUniqueSessionId() {
@@ -458,6 +526,55 @@ final class CodexStructuredToolTests: XCTestCase {
         let tools = try XCTUnwrap(json["tools"] as? [[String: Any]])
         XCTAssertEqual(tools.count, 1)
         XCTAssertEqual(tools[0]["name"] as? String, "generate_workout_routine")
+    }
+
+    func testActiveWorkoutRequestUsesForcedSingleToolChoice() async throws {
+        var capturedRequests: [URLRequest] = []
+
+        let tool = CodexStructuredTool(
+            access_token: "token",
+            account_id: "account",
+            streamingChunksProvider: { request in
+                capturedRequests.append(request)
+                return [
+                    "data: {\"type\":\"response.completed\",\"response\":{\"output\":[{\"content\":[{\"text\":\"Could you clarify the set update?\"}]}]}}\n".data(using: .utf8)!
+                ]
+            }
+        )
+
+        let result = try await tool.converse(
+            messages: [
+                CodexInputMessage(
+                    role: "user",
+                    content: [CodexInputContent(type: "input_text", text: "set it to 100 for 5 reps")]
+                )
+            ],
+            tools: [CodexStructuredToolTestFixtures.activeWorkoutUpdateTool],
+            instructions: CodexStructuredToolTestFixtures.activeWorkoutUpdateIntentInstructions,
+            toolChoice: .object([
+                "type": .string("function"),
+                "name": .string("update_set")
+            ])
+        )
+
+        guard case .clarify(let text) = result.action else {
+            return XCTFail("Expected clarification response")
+        }
+
+        XCTAssertEqual(text, "Could you clarify the set update?")
+
+        let request = try XCTUnwrap(capturedRequests.first)
+        let body = try XCTUnwrap(request.httpBody)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        XCTAssertEqual(json["instructions"] as? String, CodexStructuredToolTestFixtures.activeWorkoutUpdateIntentInstructions)
+
+        let toolChoice = try XCTUnwrap(json["tool_choice"] as? [String: Any])
+        XCTAssertEqual(toolChoice["type"] as? String, "function")
+        XCTAssertEqual(toolChoice["name"] as? String, "update_set")
+
+        let tools = try XCTUnwrap(json["tools"] as? [[String: Any]])
+        XCTAssertEqual(tools.count, 1)
+        XCTAssertEqual(tools[0]["name"] as? String, "update_set")
     }
 
     func testStatefulConverseCapturesLatestResponseID() async throws {
