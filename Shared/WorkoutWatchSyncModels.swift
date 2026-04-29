@@ -199,6 +199,7 @@ public nonisolated enum WorkoutWatchActionPayload: Codable, Hashable {
     case addSet(WorkoutWatchExerciseReference)
     case updateExerciseCompletion(WorkoutWatchExerciseCompletionAction)
     case finishWorkout(WorkoutWatchSessionAction)
+    case cancelRestTimer(WorkoutWatchSessionAction)
 
     private enum ActionType: String {
         case requestSnapshot
@@ -207,6 +208,7 @@ public nonisolated enum WorkoutWatchActionPayload: Codable, Hashable {
         case addSet
         case updateExerciseCompletion
         case finishWorkout
+        case cancelRestTimer
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -251,6 +253,9 @@ public nonisolated enum WorkoutWatchActionPayload: Codable, Hashable {
         case .finishWorkout:
             let session = try container.decode(WorkoutSessionPointer.self, forKey: .session)
             self = .finishWorkout(WorkoutWatchSessionAction(session: session))
+        case .cancelRestTimer:
+            let session = try container.decode(WorkoutSessionPointer.self, forKey: .session)
+            self = .cancelRestTimer(WorkoutWatchSessionAction(session: session))
         }
     }
 
@@ -279,6 +284,9 @@ public nonisolated enum WorkoutWatchActionPayload: Codable, Hashable {
         case .finishWorkout(let action):
             try container.encode(ActionType.finishWorkout.rawValue, forKey: .type)
             try container.encode(action.session, forKey: .session)
+        case .cancelRestTimer(let action):
+            try container.encode(ActionType.cancelRestTimer.rawValue, forKey: .type)
+            try container.encode(action.session, forKey: .session)
         }
     }
 }
@@ -292,6 +300,7 @@ public extension WorkoutWatchActionPayload {
         case .addSet(let reference): return reference.session
         case .updateExerciseCompletion(let action): return action.reference.session
         case .finishWorkout(let action): return action.session
+        case .cancelRestTimer(let action): return action.session
         }
     }
 }
@@ -416,8 +425,10 @@ public extension WorkoutDisplayState {
 // MARK: - WorkoutDisplayState Mapper
 
 public extension ActiveWorkoutSnapshot {
-    /// Derives a lightweight display state suitable for Live Activities and Watch Complications.
     func displayState(restEndDate: Date? = nil, restTotalSeconds: Int? = nil) -> WorkoutDisplayState {
+        let actualRestEnd = restEndDate ?? self.restEndDate
+        let actualRestTotal = restTotalSeconds ?? self.restTotalSeconds
+
         let totalExercises = exercises.count
         let completedExercises = exercises.filter { $0.isCompleted }.count
         let progress: Double = totalExercises > 0 ? Double(completedExercises) / Double(totalExercises) : 0
@@ -430,7 +441,7 @@ public extension ActiveWorkoutSnapshot {
             ?? currentExercise?.sets.last
 
         let mode: WorkoutDisplayMode
-        if restEndDate != nil {
+        if actualRestEnd != nil {
             mode = .resting
         } else if exercises.allSatisfy({ $0.isCompleted }) && !exercises.isEmpty {
             mode = .finished
@@ -447,8 +458,8 @@ public extension ActiveWorkoutSnapshot {
             targetReps: currentSet?.values.reps,
             completedReps: currentSet?.values.reps,
             weightKg: currentSet?.values.kg,
-            restEndDate: restEndDate,
-            restTotalSeconds: restTotalSeconds,
+            restEndDate: actualRestEnd,
+            restTotalSeconds: actualRestTotal,
             mode: mode,
             exerciseProgress: progress,
             updatedAt: Date()

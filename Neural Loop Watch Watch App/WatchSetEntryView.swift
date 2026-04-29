@@ -219,15 +219,6 @@ struct WatchSetEntryView: View {
     }
     
     private func checkRestTimerAndDismiss() {
-        if let exercise = store.currentSnapshot?.exercises.first(where: { $0.id == exerciseID }),
-           let restSeconds = exercise.restDurationSeconds,
-           restSeconds > 0 {
-            store.lastCompletedSetInfo = CompletedSetInfo(
-                exerciseID: exerciseID,
-                setID: setID,
-                restDurationSeconds: restSeconds
-            )
-        }
         dismiss()
     }
     

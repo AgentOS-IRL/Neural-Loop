@@ -9,105 +9,89 @@ enum RestTimerState: Equatable {
 
 @MainActor
 final class WatchRestTimerViewModel: ObservableObject {
-    @Published var remainingSeconds: Int
+    @Published var remainingSeconds: Int = 0
     @Published var progress: Double = 0
     @Published var timerState: RestTimerState = .running
     @Published var nextSetID: String?
 
-    let totalSeconds: Int
-    let exerciseID: String
-    let completedSetID: String
-
     private var timerCancellable: AnyCancellable?
-    private weak var store: WatchWorkoutStore?
+    private let store: WatchWorkoutStore
+    private let exerciseID: String
+    private var cancellables = Set<AnyCancellable>()
 
-    /// Production init — resolves next set from the store's current snapshot.
-    init(totalSeconds: Int, exerciseID: String, completedSetID: String, store: WatchWorkoutStore) {
-        self.totalSeconds = max(totalSeconds, 0)
+    init(exerciseID: String, store: WatchWorkoutStore) {
         self.exerciseID = exerciseID
-        self.completedSetID = completedSetID
-        self.remainingSeconds = max(totalSeconds, 0)
         self.store = store
 
-        if let exercise = store.currentSnapshot?.exercises.first(where: { $0.id == exerciseID }) {
-            self.nextSetID = Self.resolveNextIncompleteSet(in: exercise, after: completedSetID)
-        }
+        // Observe snapshot changes to keep UI in sync with authoritative state
+        store.$currentSnapshot
+            .sink { [weak self] snapshot in
+                self?.updateFromSnapshot(snapshot)
+            }
+            .store(in: &cancellables)
     }
 
-    /// Test-friendly init — allows direct injection of nextSetID.
-    init(totalSeconds: Int, exerciseID: String, completedSetID: String, nextSetID: String?) {
-        self.totalSeconds = max(totalSeconds, 0)
-        self.exerciseID = exerciseID
-        self.completedSetID = completedSetID
-        self.remainingSeconds = max(totalSeconds, 0)
-        self.nextSetID = nextSetID
-        self.store = nil
-    }
-
-    func start() {
-        guard totalSeconds > 0 else {
-            timerState = .finished
-            progress = 1.0
-            remainingSeconds = 0
-            store?.persistDisplayStateAndReloadWidgets()
-            return
-        }
-
-        timerState = .running
-        // Persist the rest state so the complication shows the countdown
-        let restEnd = Date().addingTimeInterval(TimeInterval(totalSeconds))
-        store?.persistDisplayStateAndReloadWidgets(restEndDate: restEnd, restTotalSeconds: totalSeconds)
-        timerCancellable = Timer.publish(every: 1, on: .main, in: .common)
+    func startTicking() {
+        timerCancellable = Timer.publish(every: 0.1, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
-                guard let self else { return }
-                Task { @MainActor in
-                    self.tick()
-                }
+                self?.tick()
             }
     }
 
-    func cancel() {
-        timerState = .cancelled
+    func stopTicking() {
         timerCancellable?.cancel()
         timerCancellable = nil
     }
 
-    // MARK: - Next-Set Resolution (pure, static, testable)
-
-    static func resolveNextIncompleteSet(in exercise: ExerciseSnapshot, after setID: String) -> String? {
-        guard let currentIndex = exercise.sets.firstIndex(where: { $0.id == setID }) else {
-            return nil
-        }
-
-        let startIndex = exercise.sets.index(after: currentIndex)
-        for i in startIndex..<exercise.sets.endIndex {
-            if !exercise.sets[i].isCompleted {
-                return exercise.sets[i].id
-            }
-        }
-
-        return nil
+    func cancel() {
+        store.cancelRestTimer()
     }
 
-    // MARK: - Private
-
-    private func tick() {
-        guard timerState == .running else { return }
-
-        remainingSeconds -= 1
-        if totalSeconds > 0 {
-            progress = 1.0 - (Double(remainingSeconds) / Double(totalSeconds))
-            progress = min(max(progress, 0), 1)
+    private func updateFromSnapshot(_ snapshot: ActiveWorkoutSnapshot?) {
+        guard let snapshot = snapshot else {
+            timerState = .cancelled
+            return
         }
 
-        if remainingSeconds <= 0 {
+        if let restEndDate = snapshot.restEndDate, let total = snapshot.restTotalSeconds {
+            timerState = .running
+            let remaining = max(0, Int(restEndDate.timeIntervalSince(Date())))
+            self.remainingSeconds = remaining
+            self.progress = 1.0 - (Double(remaining) / Double(total))
+            
+            // Find next set
+            if let exercise = snapshot.exercises.first(where: { $0.id == exerciseID }) {
+                self.nextSetID = exercise.sets.first(where: { !$0.isCompleted })?.id
+            }
+        } else {
+            // Snapshot has no rest timer. 
+            // If we were running and still had time left, it was a remote cancel.
+            if timerState == .running && remainingSeconds > 0 {
+                timerState = .cancelled
+            } else if timerState == .running {
+                timerState = .finished
+            }
+        }
+    }
+
+    private func tick() {
+        guard let snapshot = store.currentSnapshot,
+              let restEndDate = snapshot.restEndDate,
+              let total = snapshot.restTotalSeconds else {
+            return
+        }
+
+        let remaining = Int(restEndDate.timeIntervalSince(Date()))
+        if remaining <= 0 {
             remainingSeconds = 0
             progress = 1.0
             timerState = .finished
-            timerCancellable?.cancel()
-            timerCancellable = nil
-            store?.persistDisplayStateAndReloadWidgets()
+            stopTicking()
+        } else {
+            remainingSeconds = remaining
+            progress = 1.0 - (Double(remaining) / Double(total))
+            progress = min(max(progress, 0), 1)
         }
     }
 }
