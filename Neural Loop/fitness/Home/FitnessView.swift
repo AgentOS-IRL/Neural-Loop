@@ -21,6 +21,7 @@ struct FitnessView: View {
     @EnvironmentObject private var model: UnifiedDataModel
     @StateObject private var viewModel = FitnessViewModel()
     @StateObject private var navigationModel = FitnessNavigationModel()
+    @ObservedObject private var deepLink = DeepLinkManager.shared
     private let bottomInsetHeight: CGFloat = 88
     @State private var isTemplateEditorPresented = false
     @State private var isRoutineGeneratorPresented = false
@@ -58,6 +59,18 @@ struct FitnessView: View {
             }
             .task {
                 await viewModel.loadIfNeeded()
+            }
+            .onChange(of: deepLink.pendingDeepLink) { _, newValue in
+                guard newValue == .fitnessActiveWorkout else { return }
+                viewModel.resumeActiveWorkout()
+                deepLink.clearPendingNavigation()
+            }
+            .onAppear {
+                // Handle deep link that arrived before the view appeared
+                if deepLink.pendingDeepLink == .fitnessActiveWorkout {
+                    viewModel.resumeActiveWorkout()
+                    deepLink.clearPendingNavigation()
+                }
             }
             .sheet(item: $selectedTemplate) { template in
                 WorkoutTemplateDetailView(template: template) {

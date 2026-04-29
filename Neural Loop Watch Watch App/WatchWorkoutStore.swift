@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import SwiftUI
+import WidgetKit
 
 /// Coordination payload set by WatchSetEntryView after a set is completed,
 /// observed by WatchExerciseDetailView to present the rest timer.
@@ -198,6 +199,7 @@ final class WatchWorkoutStore: ObservableObject {
         reconcileApply(action, to: &snapshot)
         self.currentSnapshot = snapshot
         saveToPersistence()
+        persistDisplayStateAndReloadWidgets()
     }
 
     private func reconcile(with authoritativeSnapshot: ActiveWorkoutSnapshot) {
@@ -209,6 +211,10 @@ final class WatchWorkoutStore: ObservableObject {
             pendingActionCount = 0
             self.currentSnapshot = authoritativeSnapshot
             saveToPersistence()
+            persistDisplayStateAndReloadWidgets(
+                restEndDate: authoritativeSnapshot.restEndDate,
+                restTotalSeconds: authoritativeSnapshot.restTotalSeconds
+            )
             return
         }
         
@@ -231,6 +237,10 @@ final class WatchWorkoutStore: ObservableObject {
         
         self.currentSnapshot = reconciledSnapshot
         saveToPersistence()
+        persistDisplayStateAndReloadWidgets(
+            restEndDate: reconciledSnapshot.restEndDate,
+            restTotalSeconds: reconciledSnapshot.restTotalSeconds
+        )
     }
 
     private func reconcileApply(_ action: WorkoutWatchAction, to snapshot: inout ActiveWorkoutSnapshot) {
@@ -358,6 +368,7 @@ final class WatchWorkoutStore: ObservableObject {
         self.finishError = nil
         UserDefaults.standard.removeObject(forKey: storageKey)
         UserDefaults.standard.removeObject(forKey: queueKey)
+        clearDisplayStateAndReloadWidgets()
     }
     
     // MARK: - Stale Draft Detection (Plan 529)
@@ -377,5 +388,42 @@ final class WatchWorkoutStore: ObservableObject {
     
     func discardStaleWorkout() {
         clearStore()
+    }
+
+    // MARK: - Complication Display State Persistence (Tasks 8 + 9)
+
+    private static let complicationWidgetKind = "WorkoutComplicationWidget"
+
+    /// Shared App Group suite defaults so the watch widget extension can read the same data.
+    private static let suiteDefaults = UserDefaults(suiteName: WorkoutDisplayState.appGroupSuite)
+
+    /// Persists the current snapshot as a `WorkoutDisplayState` for the complication widget
+    /// and triggers a timeline reload.
+    /// - Parameters:
+    ///   - restEndDate: The rest timer end date (if resting).
+    ///   - restTotalSeconds: Total rest duration in seconds (if resting).
+    func persistDisplayStateAndReloadWidgets(restEndDate: Date? = nil, restTotalSeconds: Int? = nil) {
+        guard let snapshot = currentSnapshot else {
+            clearDisplayStateAndReloadWidgets()
+            return
+        }
+        let displayState = snapshot.displayState(restEndDate: restEndDate, restTotalSeconds: restTotalSeconds)
+        guard let defaults = Self.suiteDefaults else {
+            print("WatchWorkoutStore: App Group suite defaults unavailable")
+            return
+        }
+        do {
+            let data = try JSONEncoder().encode(displayState)
+            defaults.set(data, forKey: WorkoutDisplayState.userDefaultsKey)
+        } catch {
+            print("WatchWorkoutStore: Failed to persist display state: \(error)")
+        }
+        WidgetCenter.shared.reloadTimelines(ofKind: Self.complicationWidgetKind)
+    }
+
+    /// Clears persisted display state and reloads widget timelines.
+    private func clearDisplayStateAndReloadWidgets() {
+        Self.suiteDefaults?.removeObject(forKey: WorkoutDisplayState.userDefaultsKey)
+        WidgetCenter.shared.reloadTimelines(ofKind: Self.complicationWidgetKind)
     }
 }

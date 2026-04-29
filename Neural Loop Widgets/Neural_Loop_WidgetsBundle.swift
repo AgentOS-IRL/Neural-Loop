@@ -12,5 +12,6 @@ import SwiftUI
 struct Neural_Loop_WidgetsBundle: WidgetBundle {
     var body: some Widget {
         StartListeningWidget()
+        WorkoutLiveActivity()
     }
 }

@@ -32,6 +32,9 @@ struct ContentView: View {
             case .aiListen:
                 selectedTab = .ai
                 deepLink.clearPendingNavigation()
+            case .fitnessActiveWorkout:
+                selectedTab = .fitness
+                // FitnessView will observe pendingDeepLink and auto-present the active workout
             }
         }
     }

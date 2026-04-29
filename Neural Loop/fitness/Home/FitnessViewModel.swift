@@ -59,10 +59,13 @@ final class FitnessViewModel: ObservableObject {
                        let draft = persistenceManager.load(routineID: routineID),
                        draft.watchSessionPointer.id == action.payload.session.id {
                         do {
+                            let finalSnapshot = draft.watchSnapshot()
                             try await finalizer.finalize(draft: draft)
                             connectivityProvider.clearWorkoutSnapshot(sessionID: action.payload.session.id, reason: .finalized)
                             let result = WorkoutFinalizedResult(sessionID: action.payload.session.id, success: true)
                             connectivityProvider.sendWorkoutFinalizedResult(result, completion: nil)
+                            // End the Live Activity that was started by the launch coordinator
+                            WorkoutLiveActivityManager.shared.endActivity(finalSnapshot: finalSnapshot)
                             await reload()
                         } catch {
                             print("Workout finalization failed: \(error)")
@@ -76,6 +79,8 @@ final class FitnessViewModel: ObservableObject {
                         connectivityProvider.clearWorkoutSnapshot(sessionID: action.payload.session.id, reason: .finalized)
                         let result = WorkoutFinalizedResult(sessionID: action.payload.session.id, success: true)
                         connectivityProvider.sendWorkoutFinalizedResult(result, completion: nil)
+                        // Clean up any lingering Live Activity
+                        WorkoutLiveActivityManager.shared.endActivity()
                     }
                 default:
                     _ = persistenceManager.apply(action: action)
@@ -119,6 +124,33 @@ final class FitnessViewModel: ObservableObject {
 
     func clearActiveDraft() {
         activeViewModel = nil
+    }
+
+    /// Attempts to resume an active workout session from the persisted draft.
+    /// Called when the user taps the Live Activity / Dynamic Island to return
+    /// to an in-progress workout.
+    func resumeActiveWorkout() {
+        // Already showing an active workout
+        guard activeViewModel == nil else { return }
+
+        guard let pointer = persistenceManager.loadActiveSessionPointer(),
+              let routineID = pointer.routineID,
+              let draft = persistenceManager.load(routineID: routineID) else {
+            return
+        }
+
+        activeViewModel = ActiveWorkoutViewModel(
+            draft: draft,
+            db: dataManager,
+            persistenceManager: persistenceManager,
+            connectivityProvider: connectivityProvider,
+            onFinish: { [weak self] in
+                self?.activeViewModel = nil
+                Task { [weak self] in
+                    await self?.reload()
+                }
+            }
+        )
     }
 
     func deleteSession(id: Int64) async -> Bool {

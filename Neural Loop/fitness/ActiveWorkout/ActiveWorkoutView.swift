@@ -105,11 +105,19 @@ struct ActiveWorkoutView: View {
             Text("Rest Timer:")
                 .font(.subheadline)
                 .foregroundColor(.gray)
-            
-            Text(timeString(from: viewModel.restTimerSeconds))
-                .font(.system(.body, design: .monospaced))
-                .fontWeight(.bold)
-                .foregroundColor(.white)
+
+            if let endDate = viewModel.restEndsAt, endDate > Date() {
+                Text(timerInterval: Date.now...endDate, countsDown: true)
+                    .font(.system(.body, design: .monospaced))
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .monospacedDigit()
+            } else {
+                Text(timeString(from: viewModel.restTimerSeconds))
+                    .font(.system(.body, design: .monospaced))
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+            }
             
             Spacer()
             

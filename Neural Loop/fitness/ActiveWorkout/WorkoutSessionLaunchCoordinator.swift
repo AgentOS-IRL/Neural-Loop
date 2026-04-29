@@ -44,7 +44,12 @@ actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
 
         if let draft = persistenceManager.load(routineID: routineID) {
             persistenceManager.saveActiveSessionPointer(draft.watchSessionPointer)
-            connectivityProvider.sendWorkoutSnapshot(draft.watchSnapshot(), completion: nil)
+            let snapshot = draft.watchSnapshot()
+            connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
+            // Start Live Activity for resumed session
+            await MainActor.run {
+                WorkoutLiveActivityManager.shared.startActivity(snapshot: snapshot)
+            }
             return draft
         }
 
@@ -75,7 +80,13 @@ actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
         persistenceManager.saveActiveSessionPointer(draft.watchSessionPointer)
         
         // 5. Sync to Watch (side effect)
-        connectivityProvider.sendWorkoutSnapshot(draft.watchSnapshot(), completion: nil)
+        let snapshot = draft.watchSnapshot()
+        connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
+
+        // 6. Start Live Activity for new session
+        await MainActor.run {
+            WorkoutLiveActivityManager.shared.startActivity(snapshot: snapshot)
+        }
 
         return draft
     }

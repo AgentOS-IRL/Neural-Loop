@@ -10,12 +10,17 @@
 		262A7F642FA14F0D00C1A47F /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 262A7F632FA14F0D00C1A47F /* WidgetKit.framework */; };
 		262A7F662FA14F0D00C1A47F /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 262A7F652FA14F0D00C1A47F /* SwiftUI.framework */; };
 		262A7F712FA14F1000C1A47F /* Neural Loop WidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 262A7F622FA14F0D00C1A47F /* Neural Loop WidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		262A90402FA1D0A700C1A47F /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 262A7F632FA14F0D00C1A47F /* WidgetKit.framework */; };
+		262A90412FA1D0A700C1A47F /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 262A7F652FA14F0D00C1A47F /* SwiftUI.framework */; };
+		262A904C2FA1D0AA00C1A47F /* Neural Loop Watch WidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 262A903F2FA1D0A700C1A47F /* Neural Loop Watch WidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		262A90522FA1D0B600C1A47F /* WorkoutWatchSyncModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349D25EE2F24039F0001589F /* WorkoutWatchSyncModels.swift */; };
 		346ACF072F0C75C3008187C1 /* RRuleKit in Frameworks */ = {isa = PBXBuildFile; productRef = 346ACF062F0C75C3008187C1 /* RRuleKit */; };
 		349D25E22F24020A0001589F /* Neural Loop Watch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 349D25D82F2402090001589F /* Neural Loop Watch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		349D25EA2F24039E0001589F /* ConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349D25E92F2403890001589F /* ConnectivityManager.swift */; };
 		349D25EB2F24039E0001589F /* ConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349D25E92F2403890001589F /* ConnectivityManager.swift */; };
 		349D25EC2F24039F0001589F /* WorkoutWatchSyncModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349D25EE2F24039F0001589F /* WorkoutWatchSyncModels.swift */; };
 		349D25ED2F24039F0001589F /* WorkoutWatchSyncModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349D25EE2F24039F0001589F /* WorkoutWatchSyncModels.swift */; };
+		349D25EF2F24039F0001589F /* WorkoutWatchSyncModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349D25EE2F24039F0001589F /* WorkoutWatchSyncModels.swift */; };
 		34B5B1792F1E7A8D00D44FEF /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 34B5B1782F1E7A8D00D44FEF /* GRDB */; };
 		34EB1E5F2F0FFD5400F5B247 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 34EB1E5E2F0FFD5400F5B247 /* Auth */; };
 		34EB1E612F0FFD5400F5B247 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 34EB1E602F0FFD5400F5B247 /* Functions */; };
@@ -34,6 +39,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 262A7F612FA14F0D00C1A47F;
 			remoteInfo = "Neural Loop WidgetsExtension";
+		};
+		262A904A2FA1D0AA00C1A47F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 34237FB62F0AF4CA002E0D02 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 262A903E2FA1D0A700C1A47F;
+			remoteInfo = "Neural Loop Watch WidgetsExtension";
 		};
 		349D25E02F24020A0001589F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -59,6 +71,17 @@
 			dstSubfolderSpec = 13;
 			files = (
 				262A7F712FA14F1000C1A47F /* Neural Loop WidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		262A8E522FA1C69100C1A47F /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				262A904C2FA1D0AA00C1A47F /* Neural Loop Watch WidgetsExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -90,6 +113,7 @@
 		262A7F622FA14F0D00C1A47F /* Neural Loop WidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Neural Loop WidgetsExtension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		262A7F632FA14F0D00C1A47F /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		262A7F652FA14F0D00C1A47F /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		262A903F2FA1D0A700C1A47F /* Neural Loop Watch WidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Neural Loop Watch WidgetsExtension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		34237FBE2F0AF4CA002E0D02 /* Neural Loop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Neural Loop.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		349D25D82F2402090001589F /* Neural Loop Watch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Neural Loop Watch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		349D25E92F2403890001589F /* ConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityManager.swift; sourceTree = "<group>"; };
@@ -105,6 +129,13 @@
 			);
 			target = 262A7F612FA14F0D00C1A47F /* Neural Loop WidgetsExtension */;
 		};
+		262A904D2FA1D0AA00C1A47F /* Exceptions for "Neural Loop Watch Widgets" folder in "Neural Loop Watch WidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 262A903E2FA1D0A700C1A47F /* Neural Loop Watch WidgetsExtension */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -114,6 +145,14 @@
 				262A7F722FA14F1000C1A47F /* Exceptions for "Neural Loop Widgets" folder in "Neural Loop WidgetsExtension" target */,
 			);
 			path = "Neural Loop Widgets";
+			sourceTree = "<group>";
+		};
+		262A90422FA1D0A700C1A47F /* Neural Loop Watch Widgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				262A904D2FA1D0AA00C1A47F /* Exceptions for "Neural Loop Watch Widgets" folder in "Neural Loop Watch WidgetsExtension" target */,
+			);
+			path = "Neural Loop Watch Widgets";
 			sourceTree = "<group>";
 		};
 		34237FC02F0AF4CA002E0D02 /* Neural Loop */ = {
@@ -140,6 +179,15 @@
 			files = (
 				262A7F662FA14F0D00C1A47F /* SwiftUI.framework in Frameworks */,
 				262A7F642FA14F0D00C1A47F /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		262A903C2FA1D0A700C1A47F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				262A90412FA1D0A700C1A47F /* SwiftUI.framework in Frameworks */,
+				262A90402FA1D0A700C1A47F /* WidgetKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -185,6 +233,7 @@
 				34B495972F138D78000FAD6D /* Neural LoopTests */,
 				349D25D92F2402090001589F /* Neural Loop Watch Watch App */,
 				262A7F672FA14F0D00C1A47F /* Neural Loop Widgets */,
+				262A90422FA1D0A700C1A47F /* Neural Loop Watch Widgets */,
 				34EB1EAF2F0FFE9800F5B247 /* Frameworks */,
 				34237FBF2F0AF4CA002E0D02 /* Products */,
 			);
@@ -197,6 +246,7 @@
 				34B495962F138D78000FAD6D /* Neural LoopTests.xctest */,
 				349D25D82F2402090001589F /* Neural Loop Watch Watch App.app */,
 				262A7F622FA14F0D00C1A47F /* Neural Loop WidgetsExtension.appex */,
+				262A903F2FA1D0A700C1A47F /* Neural Loop Watch WidgetsExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -244,6 +294,28 @@
 			productReference = 262A7F622FA14F0D00C1A47F /* Neural Loop WidgetsExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		262A903E2FA1D0A700C1A47F /* Neural Loop Watch WidgetsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 262A904E2FA1D0AA00C1A47F /* Build configuration list for PBXNativeTarget "Neural Loop Watch WidgetsExtension" */;
+			buildPhases = (
+				262A903B2FA1D0A700C1A47F /* Sources */,
+				262A903C2FA1D0A700C1A47F /* Frameworks */,
+				262A903D2FA1D0A700C1A47F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				262A90422FA1D0A700C1A47F /* Neural Loop Watch Widgets */,
+			);
+			name = "Neural Loop Watch WidgetsExtension";
+			packageProductDependencies = (
+			);
+			productName = "Neural Loop Watch WidgetsExtension";
+			productReference = 262A903F2FA1D0A700C1A47F /* Neural Loop Watch WidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		34237FBD2F0AF4CA002E0D02 /* Neural Loop */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 34237FCB2F0AF4CB002E0D02 /* Build configuration list for PBXNativeTarget "Neural Loop" */;
@@ -287,10 +359,12 @@
 				349D25D42F2402090001589F /* Sources */,
 				349D25D52F2402090001589F /* Frameworks */,
 				349D25D62F2402090001589F /* Resources */,
+				262A8E522FA1C69100C1A47F /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				262A904B2FA1D0AA00C1A47F /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				349D25D92F2402090001589F /* Neural Loop Watch Watch App */,
@@ -339,6 +413,9 @@
 					262A7F612FA14F0D00C1A47F = {
 						CreatedOnToolsVersion = 26.4;
 					};
+					262A903E2FA1D0A700C1A47F = {
+						CreatedOnToolsVersion = 26.4;
+					};
 					34237FBD2F0AF4CA002E0D02 = {
 						CreatedOnToolsVersion = 26.0.1;
 					};
@@ -375,12 +452,20 @@
 				34B495952F138D78000FAD6D /* Neural LoopTests */,
 				349D25D72F2402090001589F /* Neural Loop Watch Watch App */,
 				262A7F612FA14F0D00C1A47F /* Neural Loop WidgetsExtension */,
+				262A903E2FA1D0A700C1A47F /* Neural Loop Watch WidgetsExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		262A7F602FA14F0D00C1A47F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		262A903D2FA1D0A700C1A47F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -415,6 +500,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				349D25EF2F24039F0001589F /* WorkoutWatchSyncModels.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		262A903B2FA1D0A700C1A47F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				262A90522FA1D0B600C1A47F /* WorkoutWatchSyncModels.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -450,6 +544,11 @@
 			isa = PBXTargetDependency;
 			target = 262A7F612FA14F0D00C1A47F /* Neural Loop WidgetsExtension */;
 			targetProxy = 262A7F6F2FA14F1000C1A47F /* PBXContainerItemProxy */;
+		};
+		262A904B2FA1D0AA00C1A47F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 262A903E2FA1D0A700C1A47F /* Neural Loop Watch WidgetsExtension */;
+			targetProxy = 262A904A2FA1D0AA00C1A47F /* PBXContainerItemProxy */;
 		};
 		349D25E12F24020A0001589F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -487,11 +586,14 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Debug;
 		};
@@ -518,11 +620,82 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
+		262A904F2FA1D0AA00C1A47F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = "Neural Loop Watch Widgets/Neural Loop Watch WidgetsExtension.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SSL47Z4595;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Neural Loop Watch Widgets/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Neural Loop Watch Widgets";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sanjeevhalyal.Neural-Loop.watchkitapp.Neural-Loop-Watch-Widgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		262A90502FA1D0AA00C1A47F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = "Neural Loop Watch Widgets/Neural Loop Watch WidgetsExtension.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SSL47Z4595;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Neural Loop Watch Widgets/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Neural Loop Watch Widgets";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sanjeevhalyal.Neural-Loop.watchkitapp.Neural-Loop-Watch-Widgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
 			};
 			name = Release;
 		};
@@ -720,6 +893,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Neural Loop Watch Watch App/Neural Loop Watch Watch App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = SSL47Z4595;
@@ -754,6 +928,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Neural Loop Watch Watch App/Neural Loop Watch Watch App.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = SSL47Z4595;
@@ -833,6 +1008,15 @@
 			buildConfigurations = (
 				262A7F742FA14F1000C1A47F /* Debug */,
 				262A7F752FA14F1000C1A47F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		262A904E2FA1D0AA00C1A47F /* Build configuration list for PBXNativeTarget "Neural Loop Watch WidgetsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				262A904F2FA1D0AA00C1A47F /* Debug */,
+				262A90502FA1D0AA00C1A47F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
