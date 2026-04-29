@@ -102,7 +102,9 @@ struct FitnessView: View {
             } message: {
                 Text("This action cannot be undone.")
             }
-            .fullScreenCover(item: $viewModel.activeViewModel) { activeVM in
+            .fullScreenCover(item: $viewModel.activeViewModel, onDismiss: {
+                viewModel.clearActiveDraft()
+            }) { activeVM in
                 ActiveWorkoutView(viewModel: activeVM)
             }
             .fullScreenCover(isPresented: $isRoutineGeneratorPresented) {
@@ -252,9 +254,9 @@ struct FitnessView: View {
 
     @ViewBuilder
     private var workoutContent: some View {
-        if viewModel.isLoading && viewModel.sessions.isEmpty {
+        if viewModel.isLoading && viewModel.sessions.isEmpty && viewModel.activeDraftSummary == nil {
             loadingState(title: "Loading workouts")
-        } else if viewModel.sessions.isEmpty {
+        } else if viewModel.sessions.isEmpty && viewModel.activeDraftSummary == nil {
             if let errorMessage = viewModel.errorMessage {
                 errorState(message: errorMessage)
             } else {
@@ -269,7 +271,32 @@ struct FitnessView: View {
                     errorBanner(message: errorMessage)
                 }
 
-                workoutGrid
+                if let draftSummary = viewModel.activeDraftSummary {
+                    WorkoutDraftCard(
+                        summary: draftSummary,
+                        resumeAction: {
+                            Task {
+                                await viewModel.startWorkout(routineID: draftSummary.routineID)
+                            }
+                        },
+                        deleteAction: {
+                            Task {
+                                _ = await viewModel.deleteActiveDraft(routineID: draftSummary.routineID)
+                            }
+                        }
+                    )
+                }
+
+                if viewModel.sessions.isEmpty {
+                    if viewModel.activeDraftSummary == nil && !viewModel.isLoading {
+                        emptyState(
+                            title: "No workouts yet",
+                            subtitle: "Completed sessions will appear here."
+                        )
+                    }
+                } else {
+                    workoutGrid
+                }
             }
         }
     }
@@ -536,6 +563,122 @@ private struct WorkoutSessionCard: View {
                 .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous))
+    }
+}
+
+private struct WorkoutDraftCard: View {
+    let summary: WorkoutDraftSummary
+    let resumeAction: () -> Void
+    let deleteAction: () -> Void
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Button(action: resumeAction) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            draftBadge
+
+                            Text("Draft workout")
+                                .font(.system(.headline, design: .rounded, weight: .bold))
+                                .foregroundStyle(AppTheme.textPrimary)
+
+                            Text(summary.title)
+                                .font(.system(.title3, design: .rounded, weight: .semibold))
+                                .foregroundStyle(AppTheme.textPrimary)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.82)
+                        }
+
+                        Spacer(minLength: 0)
+
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundStyle(AppTheme.accentColor)
+                    }
+
+                    Text(summary.subtitleText)
+                        .font(.system(.subheadline, design: .rounded, weight: .medium))
+                        .foregroundStyle(AppTheme.textSecondary)
+
+                    HStack(alignment: .center, spacing: 10) {
+                        Label(summary.metadataText, systemImage: "list.bullet.rectangle")
+                            .font(.system(.caption, design: .rounded, weight: .semibold))
+                            .foregroundStyle(AppTheme.accentColor)
+                            .padding(.vertical, 7)
+                            .padding(.horizontal, 10)
+                            .background {
+                                Capsule(style: .continuous)
+                                    .fill(AppTheme.accentColor.opacity(0.14))
+                            }
+
+                        Spacer(minLength: 0)
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("Progress")
+                                .font(.system(.caption, design: .rounded, weight: .semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
+                            Spacer()
+                            Text(summary.progressText)
+                                .font(.system(.caption, design: .rounded, weight: .semibold))
+                                .foregroundStyle(AppTheme.textPrimary)
+                        }
+
+                        ProgressView(value: progressFraction)
+                            .tint(AppTheme.accentColor)
+                    }
+                }
+                .padding(18)
+                .padding(.trailing, 52)
+                .frame(maxWidth: .infinity, minHeight: 152, alignment: .leading)
+                .background {
+                    RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                        .fill(AppTheme.accentGradient)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                        .strokeBorder(AppTheme.accentColor.opacity(0.32), lineWidth: 1.2)
+                }
+                .shadow(color: AppTheme.accentColor.opacity(0.14), radius: 10, x: 0, y: 5)
+            }
+            .buttonStyle(.plain)
+            .contentShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous))
+            .accessibilityLabel("\(summary.title), draft workout, \(summary.progressText)")
+            .accessibilityHint("Opens the workout")
+
+            Button(role: .destructive, action: deleteAction) {
+                Image(systemName: "trash")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.white)
+                    .frame(width: 32, height: 32)
+                    .background {
+                        Circle()
+                            .fill(AppTheme.errorTint)
+                    }
+            }
+            .buttonStyle(.plain)
+            .padding(14)
+            .accessibilityLabel("Delete draft workout")
+        }
+    }
+
+    private var draftBadge: some View {
+        Label("Draft", systemImage: "pencil")
+            .font(.system(.caption, design: .rounded, weight: .bold))
+            .foregroundStyle(AppTheme.accentColor)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 10)
+            .background {
+                Capsule(style: .continuous)
+                    .fill(Color.white.opacity(0.78))
+            }
+    }
+
+    private var progressFraction: Double {
+        guard summary.setCount > 0 else { return 0 }
+        return Double(summary.completedSetCount) / Double(summary.setCount)
     }
 }
 

@@ -308,6 +308,63 @@ struct WorkoutSessionSummary: Identifiable, Equatable {
     let notes: String?
 }
 
+struct WorkoutDraftSummary: Identifiable, Equatable {
+    let id: Int64
+    let routineID: Int64
+    let sessionPointerID: String
+    let title: String
+    let sessionDate: Date
+    let startTime: String?
+    let notes: String?
+    let exerciseCount: Int
+    let setCount: Int
+    let completedSetCount: Int
+    let updatedAt: Date
+
+    var progressText: String {
+        "\(completedSetCount)/\(setCount) sets complete"
+    }
+
+    var metadataText: String {
+        let exerciseLabel = exerciseCount == 1 ? "exercise" : "exercises"
+        let setLabel = setCount == 1 ? "set" : "sets"
+        return "\(exerciseCount) \(exerciseLabel) • \(setCount) \(setLabel)"
+    }
+
+    var subtitleText: String {
+        if let startTime, !startTime.isEmpty {
+            return "Started \(sessionDate.formatted(date: .abbreviated, time: .omitted)) at \(startTime)"
+        }
+
+        return "Started \(sessionDate.formatted(date: .abbreviated, time: .omitted))"
+    }
+}
+
+extension ActiveWorkoutDraft {
+    var summary: WorkoutDraftSummary {
+        let totalSets = exercises.reduce(0) { partialResult, exercise in
+            partialResult + exercise.sets.count
+        }
+        let completedSets = exercises.reduce(0) { partialResult, exercise in
+            partialResult + exercise.sets.filter(\.isCompleted).count
+        }
+
+        return WorkoutDraftSummary(
+            id: routineID,
+            routineID: routineID,
+            sessionPointerID: watchSessionPointer.id,
+            title: session.session_type,
+            sessionDate: session.date,
+            startTime: session.start_time,
+            notes: session.notes,
+            exerciseCount: exercises.count,
+            setCount: totalSets,
+            completedSetCount: completedSets,
+            updatedAt: updatedAt
+        )
+    }
+}
+
 protocol WorkoutDataManaging {
     func fetchAllEquipment() async throws -> [Equipment]
     func fetchAllExercises() async throws -> [Exercise]
