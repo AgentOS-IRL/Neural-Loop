@@ -1,10 +1,12 @@
 import Combine
+import ActivityKit
 import Foundation
 
 @MainActor
 final class FitnessViewModel: ObservableObject {
     @Published private(set) var templates: [WorkoutTemplateSummary] = []
     @Published private(set) var sessions: [WorkoutSessionSummary] = []
+    @Published private(set) var activeDraftSummary: WorkoutDraftSummary?
     @Published private(set) var isLoading = false
     @Published var activeViewModel: ActiveWorkoutViewModel?
     @Published var errorMessage: String?
@@ -150,6 +152,8 @@ final class FitnessViewModel: ObservableObject {
                     }
                 }
             }
+
+            activeDraftSummary = loadActiveDraftSummary()
         }
     }
 
@@ -160,6 +164,7 @@ final class FitnessViewModel: ObservableObject {
         
         do {
             let draft = try await launchCoordinator.launchSession(for: routineID)
+            activeDraftSummary = draft.summary
             activeViewModel = ActiveWorkoutViewModel(
                 draft: draft,
                 db: dataManager,
@@ -183,6 +188,44 @@ final class FitnessViewModel: ObservableObject {
         activeViewModel = nil
     }
 
+    func deleteActiveDraft(routineID: Int64) async -> Bool {
+        let draft: ActiveWorkoutDraft?
+        if let persistedDraft = persistenceManager.load(routineID: routineID) {
+            draft = persistedDraft
+        } else if activeViewModel?.draft.routineID == routineID {
+            draft = activeViewModel?.draft
+        } else {
+            draft = nil
+        }
+
+        guard let draft else {
+            if activeDraftSummary?.routineID == routineID {
+                activeDraftSummary = nil
+            }
+            if activeViewModel?.draft.routineID == routineID {
+                activeViewModel = nil
+            }
+            return false
+        }
+
+        let sessionPointerID = draft.watchSessionPointer.id
+        let wasMounted = activeViewModel?.draft.routineID == routineID
+
+        persistenceManager.clear(routineID: routineID)
+        connectivityProvider.clearWorkoutSnapshot(sessionID: sessionPointerID, reason: .finalized)
+        WorkoutLiveActivityManager.shared.endActivity(dismissalPolicy: .immediate)
+
+        if wasMounted {
+            activeViewModel = nil
+        }
+
+        if activeDraftSummary?.routineID == routineID {
+            activeDraftSummary = nil
+        }
+
+        return true
+    }
+
     /// Attempts to resume an active workout session from the persisted draft.
     /// Called when the user taps the Live Activity / Dynamic Island to return
     /// to an in-progress workout.
@@ -193,9 +236,11 @@ final class FitnessViewModel: ObservableObject {
         guard let pointer = persistenceManager.loadActiveSessionPointer(),
               let routineID = pointer.routineID,
               let draft = persistenceManager.load(routineID: routineID) else {
+            activeDraftSummary = loadActiveDraftSummary()
             return
         }
 
+        activeDraftSummary = draft.summary
         activeViewModel = ActiveWorkoutViewModel(
             draft: draft,
             db: dataManager,
@@ -291,10 +336,21 @@ final class FitnessViewModel: ObservableObject {
                     notes: session.notes
                 )
             }
+            activeDraftSummary = loadActiveDraftSummary()
             hasLoaded = true
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func loadActiveDraftSummary() -> WorkoutDraftSummary? {
+        guard let pointer = persistenceManager.loadActiveSessionPointer(),
+              let routineID = pointer.routineID,
+              let draft = persistenceManager.load(routineID: routineID) else {
+            return nil
+        }
+
+        return draft.summary
     }
 
     private static func makeSummary(
