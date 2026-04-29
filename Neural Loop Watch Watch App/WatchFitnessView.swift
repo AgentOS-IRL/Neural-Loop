@@ -118,6 +118,18 @@ struct ActiveWorkoutView: View {
                 .disabled(store.isFinishing)
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
+
+                // MARK: - Open on iPhone (Plan 529)
+                Button {
+                    connectivity.sendDeepLinkRequest(.fitnessActiveWorkout)
+                } label: {
+                    Label("Open on iPhone", systemImage: "iphone")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
             }
             .navigationDestination(for: ExerciseSnapshot.self) { exercise in
                 WatchExerciseDetailView(exerciseID: exercise.id)
@@ -148,9 +160,18 @@ struct EmptyFitnessView: View {
             Text("No Active Workout")
                 .font(.headline)
             
+            
             Text("Start on iPhone")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            Button {
+                ConnectivityManager.shared.sendDeepLinkRequest(.fitnessActiveWorkout)
+            } label: {
+                Label("Open Fitness", systemImage: "iphone")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
         }
     }
 }

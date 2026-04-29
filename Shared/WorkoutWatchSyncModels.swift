@@ -8,6 +8,11 @@ public enum WatchTab: Hashable {
     case fitness
 }
 
+public enum NeuralLoopDeepLink: String, Codable {
+    case aiListen = "ai/listen"
+    case fitnessActiveWorkout = "fitness/workout"
+}
+
 public nonisolated struct WorkoutSessionPointer: Codable, Hashable, Identifiable {
     public let id: String
     public var routineID: Int64?
