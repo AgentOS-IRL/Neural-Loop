@@ -17,9 +17,8 @@ final class WatchWorkoutStore: ObservableObject {
     
     @Published var currentSnapshot: ActiveWorkoutSnapshot?
     
-    // MARK: - Rest Timer Navigation (Plan 527)
-    /// Set by WatchSetEntryView; observed by WatchExerciseDetailView.
-    @Published var lastCompletedSetInfo: CompletedSetInfo?
+    // MARK: - Rest Timer State
+    // No longer managed locally; driven by currentSnapshot.restEndDate
     
     // MARK: - End Workout State (Plan 528)
     @Published var isFinishing: Bool = false
@@ -179,6 +178,12 @@ final class WatchWorkoutStore: ObservableObject {
             isFinishing = false
         }
     }
+    
+    func cancelRestTimer() {
+        guard let session = currentSnapshot?.session else { return }
+        let payload = WorkoutWatchActionPayload.cancelRestTimer(WorkoutWatchSessionAction(session: session))
+        enqueueAction(payload: payload)
+    }
 
     private var lastGeneratedSequence: Int {
         return actionQueue.map(\.sequence).max() ?? (currentSnapshot?.lastProcessedWatchSequence ?? 0)
@@ -277,6 +282,9 @@ final class WatchWorkoutStore: ObservableObject {
                     snapshot.exercises[exerciseIndex].sets[i].isCompleted = action.isCompleted
                 }
             }
+        case .cancelRestTimer:
+            snapshot.restEndDate = nil
+            snapshot.restTotalSeconds = nil
         default:
             break
         }
@@ -363,7 +371,6 @@ final class WatchWorkoutStore: ObservableObject {
         self.currentSnapshot = nil
         self.actionQueue.removeAll()
         self.pendingActionCount = 0
-        self.lastCompletedSetInfo = nil
         self.isFinishing = false
         self.finishError = nil
         UserDefaults.standard.removeObject(forKey: storageKey)

@@ -81,12 +81,11 @@ struct WatchExerciseDetailView: View {
                 Text("Exercise not found")
             }
         }
-        // MARK: - Rest Timer Sheet (Plan 527)
+        // MARK: - Rest Timer Sheet (iPhone Source of Truth)
         .sheet(isPresented: $showRestTimer) {
             WatchRestTimerView(
                 exerciseID: exerciseID,
-                completedSetID: restTimerSetID,
-                totalSeconds: restTimerDuration,
+                store: store,
                 onComplete: { nextSetID in
                     if let nextSetID {
                         autoNavigateSetID = nextSetID
@@ -99,14 +98,16 @@ struct WatchExerciseDetailView: View {
             )
             .environmentObject(store)
         }
-        .onChange(of: store.lastCompletedSetInfo) { info in
-            guard let info, info.exerciseID == exerciseID else { return }
-            store.lastCompletedSetInfo = nil
-            restTimerSetID = info.setID
-            restTimerDuration = info.restDurationSeconds
-            // Delay to let set entry dismiss animation complete
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                showRestTimer = true
+        .onChange(of: store.currentSnapshot?.restEndDate) { restEndDate in
+            // Only show timer if we have an end date and we are NOT currently showing it
+            if restEndDate != nil && !showRestTimer {
+                // Short delay to allow set entry view to dismiss if it's currently open
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    showRestTimer = true
+                }
+            } else if restEndDate == nil && showRestTimer {
+                // If rest timer was cleared on iPhone, dismiss here too
+                showRestTimer = false
             }
         }
     }

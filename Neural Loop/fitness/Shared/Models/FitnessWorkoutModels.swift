@@ -118,6 +118,8 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
     var revision: Int
     var lastProcessedWatchSequence: Int
     var processedWatchActionIDs: Set<UUID>
+    var restEndDate: Date?
+    var restTotalSeconds: Int?
 
     init(
         routineID: Int64,
@@ -127,7 +129,9 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
         updatedAt: Date = Date(),
         revision: Int = 0,
         lastProcessedWatchSequence: Int = 0,
-        processedWatchActionIDs: Set<UUID> = []
+        processedWatchActionIDs: Set<UUID> = [],
+        restEndDate: Date? = nil,
+        restTotalSeconds: Int? = nil
     ) {
         self.routineID = routineID
         self.session = session
@@ -137,9 +141,13 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
         self.revision = revision
         self.lastProcessedWatchSequence = lastProcessedWatchSequence
         self.processedWatchActionIDs = processedWatchActionIDs
+        self.restEndDate = restEndDate
+        self.restTotalSeconds = restTotalSeconds
     }
 
     mutating func apply(watchAction action: WorkoutWatchAction) {
+        markProcessed(action: action)
+        
         switch action.payload {
         case .requestSnapshot:
             break // No-op for draft mutation
@@ -197,12 +205,24 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
             
         case .finishWorkout:
             break // Handled at a higher level (saving to DB and clearing draft)
+            
+        case .cancelRestTimer:
+            restEndDate = nil
+            restTotalSeconds = nil
+            updatedAt = Date()
+        }
+    }
+
+    mutating func markProcessed(action: WorkoutWatchAction) {
+        processedWatchActionIDs.insert(action.id)
+        if action.sequence > 0 {
+            lastProcessedWatchSequence = action.sequence
         }
     }
 
     /// Resolves an exercise ID from a watch action reference.
     /// Prefers routineExerciseID for reliable matching; falls back to parsing the string.
-    private static func resolveExerciseID(_ stringID: String, routineExerciseID: Int64?) -> Int64? {
+    static func resolveExerciseID(_ stringID: String, routineExerciseID: Int64?) -> Int64? {
         if let routineExerciseID { return routineExerciseID }
         return Int64(stringID)
     }

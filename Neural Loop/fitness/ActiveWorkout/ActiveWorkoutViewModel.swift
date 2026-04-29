@@ -36,6 +36,17 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         self.finalizer = finalizer ?? WorkoutSessionFinalizer(db: db, persistenceManager: persistenceManager)
         self.onDraftChange = onDraftChange
         self.onFinish = onFinish
+        
+        // Restore timer state from draft if valid
+        if let restEndDate = draft.restEndDate, let restTotal = draft.restTotalSeconds {
+            let remaining = Int(restEndDate.timeIntervalSince(Date()))
+            if remaining > 0 {
+                self.restTimerSeconds = remaining
+                self.isTimerRunning = true
+                self.restEndsAt = restEndDate
+                startTimer(seconds: remaining)
+            }
+        }
     }
     
     func clearDraft() {
@@ -98,11 +109,29 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         case .requestSnapshot:
             sendSnapshotToWatch()
             
+        case .toggleSetCompletion(let completionAction):
+            draft.apply(watchAction: action)
+            persistDraft()
+            
+            if completionAction.isCompleted {
+                if let exerciseID = resolveExerciseID(completionAction.reference.exerciseID, routineExerciseID: completionAction.reference.routineExerciseID),
+                   let exercise = draft.exercises.first(where: { $0.id == exerciseID }),
+                   let restSeconds = exercise.restSeconds, restSeconds > 0 {
+                    startTimer(seconds: restSeconds)
+                }
+            } else {
+                stopTimer()
+            }
+
+        case .cancelRestTimer:
+            draft.apply(watchAction: action) 
+            stopTimer()
+
         case .finishWorkout:
             do {
                 try await finalizer.finalize(draft: draft)
                 
-                markWatchActionProcessed(action)
+                draft.markProcessed(action: action)
                 connectivityProvider?.clearWorkoutSnapshot(sessionID: draft.watchSessionPointer.id, reason: .finalized)
                 
                 let result = WorkoutFinalizedResult(sessionID: draft.watchSessionPointer.id, success: true)
@@ -115,18 +144,10 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
                 let result = WorkoutFinalizedResult(sessionID: draft.watchSessionPointer.id, success: false, errorMessage: error.localizedDescription)
                 connectivityProvider?.sendWorkoutFinalizedResult(result, completion: nil)
             }
-            
+
         default:
             draft.apply(watchAction: action)
-            markWatchActionProcessed(action)
             persistDraft()
-        }
-    }
-
-    private func markWatchActionProcessed(_ action: WorkoutWatchAction) {
-        draft.processedWatchActionIDs.insert(action.id)
-        if action.sequence > 0 {
-            draft.lastProcessedWatchSequence = action.sequence
         }
     }
 
@@ -244,6 +265,8 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
             if let restSeconds = draft.exercises[exerciseIndex].restSeconds, restSeconds > 0 {
                 startTimer(seconds: restSeconds)
             }
+        } else {
+            stopTimer()
         }
     }
 
@@ -252,6 +275,11 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         restTimerSeconds = seconds
         isTimerRunning = true
         restEndsAt = Date().addingTimeInterval(TimeInterval(seconds))
+        
+        // Sync to draft for persistence
+        draft.restEndDate = restEndsAt
+        draft.restTotalSeconds = seconds
+        persistDraft()
 
         // Push rest state to Live Activity and Watch immediately
         updateLiveActivity()
@@ -278,6 +306,12 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         isTimerRunning = false
         restTimerSeconds = 0
         restEndsAt = nil
+        
+        // Sync to draft for persistence
+        draft.restEndDate = nil
+        draft.restTotalSeconds = nil
+        persistDraft()
+        
         // Push updated state (rest ended) to Live Activity and Watch
         updateLiveActivity()
         sendSnapshotToWatch()

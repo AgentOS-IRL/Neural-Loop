@@ -49,16 +49,19 @@ final class FitnessViewModel: ObservableObject {
                 switch action.payload {
                 case .requestSnapshot:
                     if let routineID = action.payload.session.routineID,
-                       let draft = persistenceManager.load(routineID: routineID),
+                       var draft = persistenceManager.load(routineID: routineID),
                        draft.watchSessionPointer.id == action.payload.session.id {
+                        draft.markProcessed(action: action)
+                        persistenceManager.save(draft: draft)
                         let snapshot = draft.watchSnapshot(lastProcessedActionID: action.id)
                         connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
                     }
                 case .finishWorkout:
                     if let routineID = action.payload.session.routineID,
-                       let draft = persistenceManager.load(routineID: routineID),
+                       var draft = persistenceManager.load(routineID: routineID),
                        draft.watchSessionPointer.id == action.payload.session.id {
                         do {
+                            draft.markProcessed(action: action)
                             let finalSnapshot = draft.watchSnapshot()
                             try await finalizer.finalize(draft: draft)
                             connectivityProvider.clearWorkoutSnapshot(sessionID: action.payload.session.id, reason: .finalized)
@@ -82,13 +85,67 @@ final class FitnessViewModel: ObservableObject {
                         // Clean up any lingering Live Activity
                         WorkoutLiveActivityManager.shared.endActivity()
                     }
-                default:
-                    _ = persistenceManager.apply(action: action)
-                    // If we apply an action, we should ideally send back a snapshot with lastProcessedActionID
+                case .toggleSetCompletion(let completionAction):
+                    if var draft = persistenceManager.apply(action: action) {
+                        if completionAction.isCompleted {
+                            // Extract exercise rest duration to show timer on Live Activity
+                            if let exerciseID = ActiveWorkoutDraft.resolveExerciseID(completionAction.reference.exerciseID, routineExerciseID: completionAction.reference.routineExerciseID),
+                               let exercise = draft.exercises.first(where: { $0.id == exerciseID }),
+                               let restSeconds = exercise.restSeconds, restSeconds > 0 {
+                                
+                                let restEndDate = Date().addingTimeInterval(TimeInterval(restSeconds))
+                                draft.restEndDate = restEndDate
+                                draft.restTotalSeconds = restSeconds
+                                persistenceManager.save(draft: draft)
+                                
+                                let snapshot = draft.watchSnapshot(
+                                    lastProcessedActionID: action.id,
+                                    restEndDate: restEndDate,
+                                    restTotalSeconds: restSeconds
+                                )
+                                WorkoutLiveActivityManager.shared.updateActivity(
+                                    snapshot: snapshot,
+                                    restEndDate: restEndDate,
+                                    restTotalSeconds: restSeconds
+                                )
+                                
+                                // Resync watch so it also sees the timer we just started on phone
+                                connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
+                            } else {
+                                // No rest timer, just update Live Activity with current progress
+                                let snapshot = draft.watchSnapshot(lastProcessedActionID: action.id)
+                                WorkoutLiveActivityManager.shared.updateActivity(snapshot: snapshot)
+                                connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
+                            }
+                        } else {
+                            // Set was uncompleted, clear timer
+                            draft.restEndDate = nil
+                            draft.restTotalSeconds = nil
+                            persistenceManager.save(draft: draft)
+                            
+                            let snapshot = draft.watchSnapshot(lastProcessedActionID: action.id)
+                            WorkoutLiveActivityManager.shared.updateActivity(snapshot: snapshot)
+                            connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
+                        }
+                    }
+
+                case .cancelRestTimer:
                     if let routineID = action.payload.session.routineID,
-                       let draft = persistenceManager.load(routineID: routineID),
+                       var draft = persistenceManager.load(routineID: routineID),
                        draft.watchSessionPointer.id == action.payload.session.id {
+                        draft.apply(watchAction: action) // Now handles clearing rest and marking processed
+                        persistenceManager.save(draft: draft)
+                        
                         let snapshot = draft.watchSnapshot(lastProcessedActionID: action.id)
+                        WorkoutLiveActivityManager.shared.updateActivity(snapshot: snapshot)
+                        connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
+                    }
+
+                default:
+                    if let draft = persistenceManager.apply(action: action) {
+                        // Resync state and update Live Activity for general actions
+                        let snapshot = draft.watchSnapshot(lastProcessedActionID: action.id)
+                        WorkoutLiveActivityManager.shared.updateActivity(snapshot: snapshot)
                         connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
                     }
                 }

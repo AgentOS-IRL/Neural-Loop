@@ -17,8 +17,8 @@ nonisolated extension ActiveWorkoutDraft {
             revision: revision,
             generatedAt: now,
             lastProcessedWatchSequence: lastProcessedWatchSequence,
-            restEndDate: restEndDate,
-            restTotalSeconds: restTotalSeconds
+            restEndDate: restEndDate ?? self.restEndDate,
+            restTotalSeconds: restTotalSeconds ?? self.restTotalSeconds
         )
     }
 
