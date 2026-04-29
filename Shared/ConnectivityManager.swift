@@ -29,6 +29,7 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
     public var clearedWorkoutHandler: ((ClearedWorkoutSnapshot) -> Void)?
     public var actionHandler: ((WorkoutWatchAction) -> Void)?
     public var finalizationHandler: ((WorkoutFinalizedResult) -> Void)?
+    public var deepLinkHandler: ((NeuralLoopDeepLink) -> Void)?
     public var errorHandler: ((Error) -> Void)?
     public var notReachableHandler: (() -> Void)?
 
@@ -41,6 +42,7 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
         case workoutAction = "workoutAction"
         case workoutFinalized = "workoutFinalized"
         case workoutSyncPayload = "workoutSyncPayload"
+        case deepLinkRequest = "deepLinkRequest"
     }
 
     private struct MessageKey {
@@ -173,6 +175,11 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
                         self.clearedWorkoutHandler?(cleared)
                     }
                 }
+            case .deepLinkRequest:
+                let deepLink = try decoder.decode(NeuralLoopDeepLink.self, from: data)
+                DispatchQueue.main.async {
+                    self.deepLinkHandler?(deepLink)
+                }
             }
         } catch {
             print("ConnectivityManager: Decoding error for type \(type.rawValue): \(error)")
@@ -297,5 +304,9 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
                 completion?(.failure(error))
             }
         }
+    }
+
+    open func sendDeepLinkRequest(_ destination: NeuralLoopDeepLink) {
+        sendEncodable(type: .deepLinkRequest, payload: destination)
     }
 }

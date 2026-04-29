@@ -28,6 +28,11 @@ struct Neural_LoopApp: App {
                 print("Calendar access denied: \(error)")
             }
         }
+
+        // Handle deep link requests from Apple Watch
+        ConnectivityManager.shared.deepLinkHandler = { destination in
+            DeepLinkManager.shared.pendingDeepLink = destination
+        }
     }
 
     var body: some Scene {

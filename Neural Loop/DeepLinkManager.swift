@@ -10,10 +10,7 @@ import Combine
 
 /// Recognized deep-link destinations that can be triggered
 /// by URL schemes (e.g. widgets or Shortcuts).
-enum AppDeepLink: Equatable {
-    case aiListen
-    case fitnessActiveWorkout
-}
+typealias AppDeepLink = NeuralLoopDeepLink
 
 /// A lightweight singleton that holds pending deep-link actions
 /// so the app can route them after launch or while already running.
