@@ -25,17 +25,33 @@ struct ContentView: View {
                     await model.scheduleNotifications()
                 }
             }
+            handlePendingDeepLink()
         }
         .onChange(of: deepLink.pendingDeepLink) { _, newValue in
-            guard let link = newValue else { return }
-            switch link {
-            case .aiListen:
-                selectedTab = .ai
-                deepLink.clearPendingNavigation()
-            case .fitnessActiveWorkout:
-                selectedTab = .fitness
-                // FitnessView will observe pendingDeepLink and auto-present the active workout
-            }
+            guard newValue != nil else { return }
+            handlePendingDeepLink()
+        }
+    }
+
+    @MainActor
+    private func handlePendingDeepLink() {
+        guard let link = deepLink.pendingDeepLink else { return }
+        switch link {
+        case .aiListen:
+            selectedTab = .ai
+            deepLink.clearPendingNavigation()
+        case .tasks:
+            selectedTab = .tasks
+            deepLink.clearPendingNavigation()
+        case .calendar:
+            selectedTab = .calendar
+            deepLink.clearPendingNavigation()
+        case .fitnessHome:
+            selectedTab = .fitness
+            deepLink.clearPendingNavigation()
+        case .fitnessActiveWorkout:
+            selectedTab = .fitness
+            // FitnessView will observe pendingDeepLink and auto-present the active workout
         }
     }
 

@@ -10,6 +10,9 @@ public enum WatchTab: Hashable {
 
 public enum NeuralLoopDeepLink: String, Codable {
     case aiListen = "ai/listen"
+    case tasks = "tasks"
+    case calendar = "calendar"
+    case fitnessHome = "fitness"
     case fitnessActiveWorkout = "fitness/workout"
 }
 
@@ -521,4 +524,3 @@ public struct WorkoutActivityAttributes: ActivityAttributes {
     }
 }
 #endif
-
