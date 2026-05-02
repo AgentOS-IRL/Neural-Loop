@@ -72,7 +72,7 @@ struct StartListeningWidgetEntryView: View {
 
     var entry: StartListeningEntry
 
-    private let shortcuts: [WidgetShortcut] = [
+    private let primaryShortcuts: [WidgetShortcut] = [
         WidgetShortcut(
             title: "AI",
             systemImage: "waveform",
@@ -98,6 +98,25 @@ struct StartListeningWidgetEntryView: View {
             style: .standard
         )
     ]
+
+    private let largeOnlyShortcuts: [WidgetShortcut] = [
+        WidgetShortcut(
+            title: "Add Task",
+            systemImage: "plus.circle",
+            destination: URL(string: "neural-loop://tasks/add")!,
+            style: .standard
+        ),
+        WidgetShortcut(
+            title: "Add Note",
+            systemImage: "square.and.pencil",
+            destination: URL(string: "neural-loop://notes/add")!,
+            style: .standard
+        )
+    ]
+
+    private var displayedShortcuts: [WidgetShortcut] {
+        widgetFamily == .systemLarge ? primaryShortcuts + largeOnlyShortcuts : primaryShortcuts
+    }
 
     var body: some View {
         ZStack {
@@ -175,7 +194,7 @@ struct StartListeningWidgetEntryView: View {
             ],
             spacing: gridSpacing
         ) {
-            ForEach(shortcuts) { shortcut in
+            ForEach(displayedShortcuts) { shortcut in
                 Link(destination: shortcut.destination) {
                     shortcutTile(shortcut)
                 }
@@ -186,21 +205,22 @@ struct StartListeningWidgetEntryView: View {
 
     private var mediumRow: some View {
         HStack(spacing: gridSpacing) {
-            ForEach(shortcuts) { shortcut in
+            ForEach(displayedShortcuts) { shortcut in
                 shortcutLink(shortcut)
             }
         }
     }
 
     private var explicitGrid: some View {
-        VStack(spacing: gridSpacing) {
-            HStack(spacing: gridSpacing) {
-                shortcutLink(shortcuts[0])
-                shortcutLink(shortcuts[1])
-            }
-            HStack(spacing: gridSpacing) {
-                shortcutLink(shortcuts[2])
-                shortcutLink(shortcuts[3])
+        LazyVGrid(
+            columns: [
+                GridItem(.flexible(), spacing: gridSpacing),
+                GridItem(.flexible(), spacing: gridSpacing)
+            ],
+            spacing: gridSpacing
+        ) {
+            ForEach(displayedShortcuts) { shortcut in
+                shortcutLink(shortcut)
             }
         }
     }
@@ -247,14 +267,6 @@ struct StartListeningWidgetEntryView: View {
                 .multilineTextAlignment(.center)
                 .minimumScaleFactor(0.68)
 
-            if widgetFamily == .systemLarge {
-                Text(shortcut.subtitle)
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundStyle(StartListeningWidgetTheme.secondaryText)
-                    .lineLimit(1)
-                    .multilineTextAlignment(.center)
-                    .minimumScaleFactor(0.75)
-            }
         }
         .frame(maxWidth: .infinity, minHeight: shortcut.minTileHeight(for: widgetFamily), alignment: .center)
         .padding(.horizontal, widgetFamily == .systemSmall ? 8 : (widgetFamily == .systemMedium ? 7 : 12))
@@ -345,6 +357,10 @@ private struct WidgetShortcut: Identifiable {
             return "Plan time"
         case "Workout":
             return "Move now"
+        case "Add Task":
+            return "Capture work"
+        case "Add Note":
+            return "Save thought"
         default:
             return "Open"
         }
@@ -373,6 +389,10 @@ private struct WidgetShortcut: Identifiable {
             return Color(red: 0.90, green: 0.78, blue: 0.35)
         case "Workout":
             return Color(red: 0.55, green: 0.38, blue: 0.88)
+        case "Add Task":
+            return Color(red: 0.24, green: 0.70, blue: 0.58)
+        case "Add Note":
+            return Color(red: 0.72, green: 0.40, blue: 0.75)
         default:
             return StartListeningWidgetTheme.accent
         }
@@ -385,7 +405,7 @@ private struct WidgetShortcut: Identifiable {
     func iconContainerSize(for family: WidgetFamily) -> CGFloat {
         switch family {
         case .systemLarge:
-            return 52
+            return 40
         case .systemMedium:
             return 30
         default:
@@ -396,13 +416,13 @@ private struct WidgetShortcut: Identifiable {
     func iconSize(for family: WidgetFamily) -> CGFloat {
         switch (style, family) {
         case (.ai, .systemLarge):
-            return 26
+            return 22
         case (.ai, .systemMedium):
             return 20
         case (.ai, _):
             return 18
         case (.standard, .systemLarge):
-            return 24
+            return 20
         case (.standard, .systemMedium):
             return 18
         case (.standard, _):
@@ -413,7 +433,7 @@ private struct WidgetShortcut: Identifiable {
     func labelSize(for family: WidgetFamily) -> CGFloat {
         switch family {
         case .systemLarge:
-            return 14
+            return 12
         case .systemMedium:
             return 9
         default:
@@ -424,7 +444,7 @@ private struct WidgetShortcut: Identifiable {
     func minTileHeight(for family: WidgetFamily) -> CGFloat {
         switch family {
         case .systemLarge:
-            return 96
+            return 58
         case .systemMedium:
             return 58
         default:

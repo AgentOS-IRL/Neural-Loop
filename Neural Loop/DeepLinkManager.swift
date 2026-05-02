@@ -58,6 +58,18 @@ final class DeepLinkManager: ObservableObject {
             return true
         }
 
+        // neural-loop://tasks/add
+        if url.host == "tasks" && normalizedPath == "/add" {
+            pendingDeepLink = .addTask
+            return true
+        }
+
+        // neural-loop://notes/add
+        if url.host == "notes" && normalizedPath == "/add" {
+            pendingDeepLink = .addNote
+            return true
+        }
+
         // neural-loop://calendar
         if url.host == "calendar" && normalizedPath == "/" {
             pendingDeepLink = .calendar
