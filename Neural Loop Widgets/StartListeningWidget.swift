@@ -8,6 +8,41 @@
 import WidgetKit
 import SwiftUI
 
+private enum StartListeningWidgetTheme {
+    static let background = LinearGradient(
+        colors: [
+            Color(red: 0.20, green: 0.78, blue: 0.88),
+            Color(red: 0.35, green: 0.82, blue: 0.75),
+            Color(red: 0.90, green: 0.78, blue: 0.35)
+        ],
+        startPoint: .leading,
+        endPoint: .topTrailing
+    )
+
+    static let heroFill = LinearGradient(
+        colors: [
+            Color.white.opacity(0.30),
+            Color.white.opacity(0.12)
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
+    static let border = LinearGradient(
+        colors: [
+            Color.white.opacity(0.36),
+            Color.white.opacity(0.12)
+        ],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
+    static let accent = Color(red: 0.14, green: 0.49, blue: 0.53)
+    static let tint = Color.white.opacity(0.96)
+    static let secondaryText = Color.white.opacity(0.82)
+    static let glow = Color(red: 0.97, green: 0.77, blue: 0.42)
+}
+
 // MARK: - Timeline
 
 struct StartListeningEntry: TimelineEntry {
@@ -68,7 +103,7 @@ struct StartListeningWidgetEntryView: View {
         ZStack {
             widgetBackground
 
-            VStack(spacing: widgetFamily == .systemSmall ? 0 : 12) {
+            VStack(spacing: widgetFamily == .systemSmall ? 6 : (widgetFamily == .systemMedium ? 9 : 12)) {
                 if widgetFamily != .systemSmall {
                     header
                 }
@@ -81,7 +116,7 @@ struct StartListeningWidgetEntryView: View {
                     explicitGrid
                 }
             }
-            .padding(widgetFamily == .systemSmall ? 8 : 14)
+            .padding(widgetFamily == .systemSmall ? 8 : (widgetFamily == .systemMedium ? 12 : 14))
         }
         .containerBackground(for: .widget) {
             widgetBackground
@@ -89,17 +124,36 @@ struct StartListeningWidgetEntryView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "sparkles")
-                .font(.system(size: widgetFamily == .systemLarge ? 13 : 11, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.95))
+        HStack(alignment: .center, spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(StartListeningWidgetTheme.heroFill)
+                    .overlay(Circle().strokeBorder(StartListeningWidgetTheme.border, lineWidth: 1))
+                    .shadow(color: .black.opacity(0.10), radius: 6, x: 0, y: 3)
 
-            Text("Neural Loop")
-                .font(.system(size: widgetFamily == .systemLarge ? 13 : 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.9))
+                Image(systemName: "sparkles")
+                    .font(.system(size: widgetFamily == .systemLarge ? 14 : 12, weight: .semibold))
+                    .foregroundStyle(StartListeningWidgetTheme.accent)
+            }
+            .frame(width: widgetFamily == .systemLarge ? 34 : 30, height: widgetFamily == .systemLarge ? 34 : 30)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Neural Loop")
+                    .font(.system(size: widgetFamily == .systemLarge ? 14 : 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(StartListeningWidgetTheme.tint)
+
+                Text("Quick launch")
+                    .font(.system(size: widgetFamily == .systemLarge ? 11 : 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(StartListeningWidgetTheme.secondaryText)
+            }
 
             Spacer(minLength: 0)
+
+            Image(systemName: "arrow.up.right.circle.fill")
+                .font(.system(size: widgetFamily == .systemLarge ? 15 : 13, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.94), StartListeningWidgetTheme.accent)
         }
+        .padding(.horizontal, 3)
     }
 
     private var gridSpacing: CGFloat {
@@ -107,7 +161,7 @@ struct StartListeningWidgetEntryView: View {
         case .systemLarge:
             return 12
         case .systemMedium:
-            return 10
+            return 7
         default:
             return 6
         }
@@ -160,53 +214,73 @@ struct StartListeningWidgetEntryView: View {
 
     @ViewBuilder
     private func shortcutTile(_ shortcut: WidgetShortcut) -> some View {
-        let cornerRadius: CGFloat = widgetFamily == .systemSmall ? 18 : (widgetFamily == .systemMedium ? 18 : 22)
+        let cornerRadius: CGFloat = widgetFamily == .systemSmall ? 18 : (widgetFamily == .systemMedium ? 20 : 24)
 
-        VStack(spacing: widgetFamily == .systemLarge ? 10 : (widgetFamily == .systemMedium ? 5 : 7)) {
-            Image(systemName: shortcut.systemImage)
-                .font(.system(size: shortcut.iconSize(for: widgetFamily), weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity, alignment: .center)
+        VStack(alignment: .center, spacing: widgetFamily == .systemLarge ? 9 : (widgetFamily == .systemMedium ? 5 : 6)) {
+            ZStack {
+                Circle()
+                    .fill(shortcut.accentColor.opacity(shortcut.style == .ai ? 0.34 : 0.24))
+                    .frame(
+                        width: shortcut.iconContainerSize(for: widgetFamily),
+                        height: shortcut.iconContainerSize(for: widgetFamily)
+                    )
+
+                Image(systemName: shortcut.systemImage)
+                    .font(.system(size: shortcut.iconSize(for: widgetFamily), weight: .semibold))
+                    .foregroundStyle(shortcut.iconColor)
+                    .frame(
+                        width: shortcut.iconContainerSize(for: widgetFamily),
+                        height: shortcut.iconContainerSize(for: widgetFamily),
+                        alignment: .center
+                    )
+            }
+            .frame(
+                width: shortcut.iconContainerSize(for: widgetFamily),
+                height: shortcut.iconContainerSize(for: widgetFamily),
+                alignment: .center
+            )
 
             Text(shortcut.title)
                 .font(.system(size: shortcut.labelSize(for: widgetFamily), weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.95))
+                .foregroundStyle(StartListeningWidgetTheme.tint)
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.68)
+
+            if widgetFamily == .systemLarge {
+                Text(shortcut.subtitle)
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(StartListeningWidgetTheme.secondaryText)
+                    .lineLimit(1)
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.75)
+            }
         }
         .frame(maxWidth: .infinity, minHeight: shortcut.minTileHeight(for: widgetFamily), alignment: .center)
-        .padding(.horizontal, widgetFamily == .systemSmall ? 7 : (widgetFamily == .systemMedium ? 8 : 10))
-        .padding(.vertical, widgetFamily == .systemSmall ? 7 : (widgetFamily == .systemMedium ? 8 : 10))
+        .padding(.horizontal, widgetFamily == .systemSmall ? 8 : (widgetFamily == .systemMedium ? 7 : 12))
+        .padding(.vertical, widgetFamily == .systemSmall ? 8 : (widgetFamily == .systemMedium ? 7 : 12))
         .background(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(shortcut.background(for: widgetFamily))
+                .fill(shortcut.tileFill)
         )
         .overlay(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(.white.opacity(shortcut.style == .ai ? 0.18 : 0.12), lineWidth: 1)
+                .strokeBorder(StartListeningWidgetTheme.border, lineWidth: 1)
         )
-        .shadow(color: .black.opacity(shortcut.style == .ai ? 0.18 : 0.12), radius: 6, x: 0, y: 3)
+        .shadow(color: .black.opacity(widgetFamily == .systemLarge ? 0.14 : 0.10), radius: 10, x: 0, y: 5)
     }
 
     // MARK: - Background
 
     private var widgetBackground: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.20, green: 0.78, blue: 0.88),
-                    Color(red: 0.35, green: 0.82, blue: 0.75),
-                    Color(red: 0.90, green: 0.78, blue: 0.35),
-                ],
-                startPoint: .leading,
-                endPoint: .topTrailing
-            )
+            StartListeningWidgetTheme.background
 
             LinearGradient(
                 colors: [
                     Color.clear,
-                    Color(red: 0.55, green: 0.38, blue: 0.88).opacity(0.7),
-                    Color(red: 0.72, green: 0.40, blue: 0.75).opacity(0.5),
+                    Color(red: 0.55, green: 0.38, blue: 0.88).opacity(0.58),
+                    Color(red: 0.72, green: 0.40, blue: 0.75).opacity(0.40)
                 ],
                 startPoint: .top,
                 endPoint: .bottomTrailing
@@ -214,13 +288,38 @@ struct StartListeningWidgetEntryView: View {
 
             RadialGradient(
                 colors: [
-                    Color.white.opacity(0.10),
-                    Color.clear,
+                    StartListeningWidgetTheme.glow.opacity(0.28),
+                    Color.clear
+                ],
+                center: .topLeading,
+                startRadius: 18,
+                endRadius: 170
+            )
+            .offset(x: -42, y: -42)
+            .blur(radius: 20)
+
+            RadialGradient(
+                colors: [
+                    Color.white.opacity(0.16),
+                    Color.clear
                 ],
                 center: .center,
-                startRadius: 10,
-                endRadius: 120
+                startRadius: 22,
+                endRadius: 180
             )
+            .offset(x: 30, y: -10)
+            .blur(radius: 22)
+
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.08),
+                    Color.clear,
+                    Color.black.opacity(0.10)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .blendMode(.screen)
         }
     }
 }
@@ -236,23 +335,61 @@ private struct WidgetShortcut: Identifiable {
     let systemImage: String
     let destination: URL
     let style: Style
+    var subtitle: String {
+        switch title {
+        case "AI":
+            return "Listen now"
+        case "Tasks":
+            return "Review work"
+        case "Calendar":
+            return "Plan time"
+        case "Workout":
+            return "Move now"
+        default:
+            return "Open"
+        }
+    }
 
-    func background(for family: WidgetFamily) -> some ShapeStyle {
-        switch style {
-        case .ai:
-            return AnyShapeStyle(
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.10, green: 0.58, blue: 0.72),
-                        Color(red: 0.09, green: 0.43, blue: 0.55),
-                        Color(red: 0.14, green: 0.67, blue: 0.80),
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+    var tileFill: some ShapeStyle {
+        AnyShapeStyle(
+            LinearGradient(
+                colors: [
+                    accentColor.opacity(style == .ai ? 0.52 : 0.34),
+                    Color.white.opacity(style == .ai ? 0.16 : 0.12)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
-        case .standard:
-            return AnyShapeStyle(.ultraThinMaterial)
+        )
+    }
+
+    var accentColor: Color {
+        switch title {
+        case "AI":
+            return Color(red: 0.10, green: 0.58, blue: 0.72)
+        case "Tasks":
+            return Color(red: 0.35, green: 0.82, blue: 0.75)
+        case "Calendar":
+            return Color(red: 0.90, green: 0.78, blue: 0.35)
+        case "Workout":
+            return Color(red: 0.55, green: 0.38, blue: 0.88)
+        default:
+            return StartListeningWidgetTheme.accent
+        }
+    }
+
+    var iconColor: some ShapeStyle {
+        AnyShapeStyle(Color.white.opacity(0.98))
+    }
+
+    func iconContainerSize(for family: WidgetFamily) -> CGFloat {
+        switch family {
+        case .systemLarge:
+            return 52
+        case .systemMedium:
+            return 30
+        default:
+            return 34
         }
     }
 
@@ -278,7 +415,7 @@ private struct WidgetShortcut: Identifiable {
         case .systemLarge:
             return 14
         case .systemMedium:
-            return 11
+            return 9
         default:
             return 9
         }
@@ -287,11 +424,11 @@ private struct WidgetShortcut: Identifiable {
     func minTileHeight(for family: WidgetFamily) -> CGFloat {
         switch family {
         case .systemLarge:
-            return 88
+            return 96
         case .systemMedium:
-            return 66
+            return 58
         default:
-            return 46
+            return 48
         }
     }
 }
