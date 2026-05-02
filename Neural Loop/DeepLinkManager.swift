@@ -37,16 +37,36 @@ final class DeepLinkManager: ObservableObject {
     func handle(_ url: URL) -> Bool {
         guard url.scheme == "neural-loop" else { return false }
 
+        let normalizedPath = url.path.isEmpty ? "/" : url.path
+
         // neural-loop://ai/listen
-        if url.host == "ai" && url.path == "/listen" {
+        if url.host == "ai" && normalizedPath == "/listen" {
             pendingDeepLink = .aiListen
             shouldStartListening = true
             return true
         }
 
         // neural-loop://fitness/workout
-        if url.host == "fitness" && url.path == "/workout" {
+        if url.host == "fitness" && normalizedPath == "/workout" {
             pendingDeepLink = .fitnessActiveWorkout
+            return true
+        }
+
+        // neural-loop://tasks
+        if url.host == "tasks" && normalizedPath == "/" {
+            pendingDeepLink = .tasks
+            return true
+        }
+
+        // neural-loop://calendar
+        if url.host == "calendar" && normalizedPath == "/" {
+            pendingDeepLink = .calendar
+            return true
+        }
+
+        // neural-loop://fitness
+        if url.host == "fitness" && normalizedPath == "/" {
+            pendingDeepLink = .fitnessHome
             return true
         }
 
