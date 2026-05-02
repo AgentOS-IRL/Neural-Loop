@@ -18,7 +18,7 @@ struct FleetingNotesView: View {
     @State private var selectedFilter: FleetingNotesFilter = .all
     @State private var screenState: FleetingNotesScreenState = .loading
     @State private var workNotesWarningMessage: String?
-    @State private var selectedNoteForEdit: FleetingNoteCardState?
+    @State private var activeEditorSheet: FleetingNoteEditorSheet?
     @State private var selectedNoteForDelete: FleetingNoteCardState?
     @State private var showDeleteConfirmation = false
     @State private var mutationErrorMessage: String?
@@ -49,6 +49,20 @@ struct FleetingNotesView: View {
         .task {
             await loadNotes()
         }
+        .toolbar {
+            if !embeddedInTaskHub {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        activeEditorSheet = .create
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .disabled(isMutatingNote)
+                    .accessibilityLabel("Add note")
+                    .accessibilityHint("Creates a new personal note.")
+                }
+            }
+        }
         .confirmationDialog(
             deleteConfirmationTitle,
             isPresented: $showDeleteConfirmation,
@@ -67,9 +81,26 @@ struct FleetingNotesView: View {
         } message: {
             Text("This action cannot be undone.")
         }
-        .sheet(item: $selectedNoteForEdit) { card in
-            EditFleetingNoteView(note: card) { text in
-                try await updateNote(card: card, text: text)
+        .sheet(item: $activeEditorSheet) { sheet in
+            switch sheet {
+            case .create:
+                EditFleetingNoteView(note: nil) { text in
+                    do {
+                        try await createNote(text: text)
+                    } catch {
+                        mutationErrorMessage = error.localizedDescription
+                        throw error
+                    }
+                }
+            case .edit(let card):
+                EditFleetingNoteView(note: card) { text in
+                    do {
+                        try await updateNote(card: card, text: text)
+                    } catch {
+                        mutationErrorMessage = error.localizedDescription
+                        throw error
+                    }
+                }
             }
         }
         .alert(
@@ -136,7 +167,7 @@ struct FleetingNotesView: View {
                             .contentShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous))
                             .contextMenu {
                                 Button {
-                                    selectedNoteForEdit = card
+                                    activeEditorSheet = .edit(card)
                                 } label: {
                                     Label(card.source == .work ? "Edit Work Note" : "Edit Personal Note", systemImage: "pencil")
                                 }
@@ -197,6 +228,27 @@ struct FleetingNotesView: View {
             }
 
             Spacer()
+
+            Button {
+                activeEditorSheet = .create
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .frame(width: 40, height: 40)
+                    .background(
+                        Circle()
+                            .fill(Color.white.opacity(reduceTransparency ? 0.25 : 0.16))
+                    )
+                    .overlay {
+                        Circle()
+                            .strokeBorder(AppTheme.borderGradient.opacity(0.8), lineWidth: 1)
+                    }
+            }
+            .buttonStyle(.plain)
+            .disabled(isMutatingNote)
+            .accessibilityLabel("Add note")
+            .accessibilityHint("Creates a new personal note.")
         }
         .padding(20)
         .background(AppTheme.heroGradient)
@@ -401,7 +453,7 @@ struct FleetingNotesView: View {
         }
 
         rebuildScreenState()
-        selectedNoteForEdit = nil
+        activeEditorSheet = nil
         selectedNoteForDelete = nil
     }
 
@@ -425,6 +477,7 @@ struct FleetingNotesView: View {
     private func deleteSelectedNote() async {
         guard let selectedNoteForDelete, !isMutatingNote else { return }
 
+        mutationErrorMessage = nil
         isMutatingNote = true
         defer { isMutatingNote = false }
 
@@ -445,11 +498,37 @@ struct FleetingNotesView: View {
             }
 
             rebuildScreenState()
-            selectedNoteForEdit = nil
+            activeEditorSheet = nil
             self.selectedNoteForDelete = nil
+            showDeleteConfirmation = false
         } catch {
             mutationErrorMessage = error.localizedDescription
         }
+    }
+
+    @MainActor
+    private func createNote(text: String) async throws {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedText.isEmpty else {
+            throw FleetingNoteMutationError.emptyNote
+        }
+
+        mutationErrorMessage = nil
+
+        guard !isMutatingNote else {
+            throw FleetingNoteMutationError.mutationInProgress
+        }
+
+        isMutatingNote = true
+        defer { isMutatingNote = false }
+
+        let createdNote = try await manager.createFleetingNote(
+            CreateFleetingNoteRequest(note: trimmedText)
+        )
+
+        personalNotes.insert(createdNote, at: 0)
+        rebuildScreenState()
     }
 
     @MainActor
@@ -459,6 +538,15 @@ struct FleetingNotesView: View {
         guard !trimmedText.isEmpty else {
             throw FleetingNoteMutationError.emptyNote
         }
+
+        mutationErrorMessage = nil
+
+        guard !isMutatingNote else {
+            throw FleetingNoteMutationError.mutationInProgress
+        }
+
+        isMutatingNote = true
+        defer { isMutatingNote = false }
 
         switch card.source {
         case .personal:
@@ -506,8 +594,23 @@ struct FleetingNotesView: View {
     }
 }
 
+private enum FleetingNoteEditorSheet: Identifiable {
+    case create
+    case edit(FleetingNoteCardState)
+
+    var id: String {
+        switch self {
+        case .create:
+            return "create"
+        case .edit(let card):
+            return "edit-\(card.id)"
+        }
+    }
+}
+
 private enum FleetingNoteMutationError: LocalizedError {
     case emptyNote
+    case mutationInProgress
     case missingPersonalID
     case missingWorkID
 
@@ -515,6 +618,8 @@ private enum FleetingNoteMutationError: LocalizedError {
         switch self {
         case .emptyNote:
             return "Note content cannot be empty."
+        case .mutationInProgress:
+            return "Another note action is already in progress."
         case .missingPersonalID:
             return "Personal note id is missing."
         case .missingWorkID:

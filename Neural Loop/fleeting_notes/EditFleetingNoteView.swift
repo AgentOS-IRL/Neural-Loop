@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct EditFleetingNoteView: View {
-    let note: FleetingNoteCardState
+    let note: FleetingNoteCardState?
     let onSave: (String) async throws -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -16,11 +16,13 @@ struct EditFleetingNoteView: View {
     @State private var text: String
     @State private var errorMessage: String?
     @State private var isSaving = false
+    private let initialText: String
 
-    init(note: FleetingNoteCardState, onSave: @escaping (String) async throws -> Void) {
+    init(note: FleetingNoteCardState? = nil, onSave: @escaping (String) async throws -> Void) {
         self.note = note
         self.onSave = onSave
-        _text = State(initialValue: note.note)
+        self.initialText = note?.note ?? ""
+        _text = State(initialValue: note?.note ?? "")
     }
 
     var body: some View {
@@ -59,7 +61,7 @@ struct EditFleetingNoteView: View {
                 }
                 .padding(AppTheme.Metrics.screenPadding)
             }
-            .navigationTitle(note.source == .work ? "Edit Work Note" : "Edit Personal Note")
+            .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -78,7 +80,7 @@ struct EditFleetingNoteView: View {
                         if isSaving {
                             ProgressView()
                         } else {
-                            Text("Save")
+                            Text(saveButtonTitle)
                                 .fontWeight(.semibold)
                         }
                     }
@@ -93,7 +95,7 @@ struct EditFleetingNoteView: View {
     }
 
     private var canSave: Bool {
-        !trimmedText.isEmpty && trimmedText != note.note && !isSaving
+        !trimmedText.isEmpty && trimmedText != initialText && !isSaving
     }
 
     private var validationMessage: String? {
@@ -108,6 +110,21 @@ struct EditFleetingNoteView: View {
                 ? AnyShapeStyle(Color(.secondarySystemBackground))
                 : AnyShapeStyle(AppTheme.sectionGradient)
             )
+    }
+
+    private var navigationTitle: String {
+        switch note?.source {
+        case .work:
+            return "Edit Work Note"
+        case .personal:
+            return "Edit Personal Note"
+        case nil:
+            return "New Personal Note"
+        }
+    }
+
+    private var saveButtonTitle: String {
+        note == nil ? "Create" : "Save"
     }
 
     @MainActor
