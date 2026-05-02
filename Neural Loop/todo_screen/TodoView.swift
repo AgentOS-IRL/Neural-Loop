@@ -103,6 +103,7 @@ struct TodoView: View {
     let embeddedInTaskHub: Bool
 
     @StateObject private var vm = TodoViewModel()
+    @ObservedObject private var deepLink = DeepLinkManager.shared
     @Environment(\.modelContext) private var context
     @EnvironmentObject var model: UnifiedDataModel
 
@@ -658,6 +659,10 @@ struct TodoView: View {
         }
         .onAppear {
             refreshBucketsFromModel()
+            presentAddTaskIfNeeded(deepLink.pendingDeepLink)
+        }
+        .onChange(of: deepLink.pendingDeepLink) { _, newValue in
+            presentAddTaskIfNeeded(newValue)
         }
         .onChange(of: vm.viewMode) { _ in
             refreshBucketsFromModel()
@@ -685,5 +690,12 @@ struct TodoView: View {
         .sheet(item: $vm.selectedTaskForViewer) { task in
             IndividualTodoView(task: task)
         }
+    }
+
+    private func presentAddTaskIfNeeded(_ link: AppDeepLink?) {
+        guard link == .addTask else { return }
+
+        vm.showAddTask = true
+        deepLink.clearPendingNavigation()
     }
 }

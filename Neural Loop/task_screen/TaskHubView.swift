@@ -57,6 +57,7 @@ final class TaskHubNavigationModel: ObservableObject {
 
 struct TaskHubView: View {
     @StateObject private var navigationModel = TaskHubNavigationModel()
+    @ObservedObject private var deepLink = DeepLinkManager.shared
 
     private let taskHubEdgeSwipeStartThreshold: CGFloat = 32
     private let taskHubSwipeMinimumDistance: CGFloat = 72
@@ -81,6 +82,12 @@ struct TaskHubView: View {
             }
             .navigationTitle("Loop")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                handlePendingDeepLink(deepLink.pendingDeepLink)
+            }
+            .onChange(of: deepLink.pendingDeepLink) { _, newValue in
+                handlePendingDeepLink(newValue)
+            }
             .safeAreaInset(edge: .top, spacing: 0) {
                 TaskHubSectionBar(
                     selectedSection: $navigationModel.selectedSection,
@@ -90,6 +97,17 @@ struct TaskHubView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 8)
             }
+        }
+    }
+
+    private func handlePendingDeepLink(_ link: AppDeepLink?) {
+        switch link {
+        case .addTask:
+            navigationModel.select(.todo)
+        case .addNote:
+            navigationModel.select(.notes)
+        default:
+            break
         }
     }
 

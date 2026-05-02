@@ -13,6 +13,7 @@ struct FleetingNotesView: View {
     let embeddedInTaskHub: Bool
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @ObservedObject private var deepLink = DeepLinkManager.shared
     @State private var personalNotes: [FleetingNote] = []
     @State private var workReminders: [WorkReminder] = []
     @State private var selectedFilter: FleetingNotesFilter = .all
@@ -48,6 +49,10 @@ struct FleetingNotesView: View {
         }
         .task {
             await loadNotes()
+            presentAddNoteIfNeeded(deepLink.pendingDeepLink)
+        }
+        .onChange(of: deepLink.pendingDeepLink) { _, newValue in
+            presentAddNoteIfNeeded(newValue)
         }
         .toolbar {
             if !embeddedInTaskHub {
@@ -120,6 +125,13 @@ struct FleetingNotesView: View {
         } message: {
             Text(mutationErrorMessage ?? "Please try again.")
         }
+    }
+
+    private func presentAddNoteIfNeeded(_ link: AppDeepLink?) {
+        guard link == .addNote else { return }
+
+        activeEditorSheet = .create
+        deepLink.clearPendingNavigation()
     }
 
     @ViewBuilder
