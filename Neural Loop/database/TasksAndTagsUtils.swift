@@ -22,23 +22,14 @@ extension DBManager {
     }
 
     /// Insert tag if it doesn't exist, otherwise return existing one
+    /// Creates the tag if it does not exist. If it already exists, returns the existing tag.
+    /// - Parameter name: tag name.
+    /// - Returns: The existing or newly created tag row.
     func getOrCreateTag(named name: String) async throws -> Tags {
-        let existing: [Tags] = try await customsupabase
-            .from(self.tagsTableName)
-            .select()
-            .eq("name", value: name)
-            .limit(1)
+        return try await customsupabase
+            .rpc("nl_get_or_create_tag", params: ["p_name": name])
             .execute()
             .value
-        if let first = existing.first { return first }
-
-        let inserted: [Tags] = try await customsupabase
-            .from(self.tagsTableName)
-            .insert(["name": name])
-            .select()
-            .execute()
-            .value
-        return inserted.first ?? Tags(id: nil, name: name)
     }
 
     func fetchAllTags() async throws -> [Tags] {
@@ -93,21 +84,37 @@ extension DBManager {
             .value as [Tags]
     }
 
+    nonisolated struct FetchTasksForTagParams: Codable, Sendable {
+        let p_tag_id: Int64
+    }
+
+    /// Finds all tasks linked to one tag, ordered by most recently updated.
+    /// - Parameter tagIdValue: tag ID.
+    /// - Returns: A list of task rows.
     func fetchTasks(forTag tagIdValue: Int64) async throws -> [Tasks] {
-        let links: [TaskTags] = try await customsupabase
-            .from(self.taskTagsTableName)
-            .select()
-            .eq("tag_id", value: Int(tagIdValue))
+        return try await customsupabase
+            .rpc("nl_get_tasks_for_tag", params: FetchTasksForTagParams(p_tag_id: tagIdValue))
             .execute()
             .value
-        let ids = links.map { $0.task_id }
-        guard !ids.isEmpty else { return [] }
-        let orFilter = ids.map { "id.eq.\($0)" }.joined(separator: ",")
+    }
+
+    nonisolated struct SetTaskTagsParams: Codable, Sendable {
+        let p_task_id: Int64
+        let p_tag_ids: [Int64]
+    }
+
+    /// Replaces all tags for a task with the provided tag list in one operation.
+    /// - Parameters:
+    ///   - taskId: task ID.
+    ///   - tagIds: final list of tag IDs for the task.
+    /// - Returns: A list of the task’s final tags.
+    func setTaskTags(taskId: Int64, tagIds: [Int64]) async throws -> [Tags] {
         return try await customsupabase
-            .from(self.tasksTableName)
-            .select()
-            .or(orFilter)
+            .rpc("nl_set_task_tags", params: SetTaskTagsParams(
+                p_task_id: taskId,
+                p_tag_ids: tagIds
+            ))
             .execute()
-            .value as [Tasks]
+            .value
     }
 }

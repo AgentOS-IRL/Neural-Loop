@@ -216,7 +216,7 @@ struct ExerciseProgressionResult: Codable {
         let session = SessionWrapper(date: WorkoutDateCoding.string(from: date))
         try container.encode(session, forKey: .workout_session)
     }
-    
+
     // Internal init for testing or manual creation
     init(date: Date, weight: Decimal? = nil, reps: Int? = nil, distance: Decimal? = nil, duration: Decimal? = nil, calories: Decimal? = nil) {
         self.date = date
@@ -1238,6 +1238,9 @@ extension DBManager {
     ///     }
     ///   ]
     /// }
+    /// Fetches one workout session with its related workout sets/cardio logs.
+    /// - Parameter sessionId: workout session ID.
+    /// - Returns: A JSON object containing workout session details.
     func fetchWorkoutSessionDetail(sessionId: Int64) async throws -> WorkoutSessionDetail {
         try await customsupabase
             .rpc("get_workout_session_detail", params: ["p_session_id": sessionId])
@@ -1258,6 +1261,9 @@ extension DBManager {
     ///     }
     ///   ]
     /// }
+    /// Calculates workout/fitness analytics for the recent date range.
+    /// - Parameter daysBack: number of recent days to analyze. Default is 29.
+    /// - Returns: A JSON fitness analysis summary.
     func fetchFitnessAnalysisSummary(daysBack: Int) async throws -> FitnessAnalysisSummaryResponse {
         try await customsupabase
             .rpc("get_fitness_analysis_summary", params: ["days_back": daysBack])
@@ -1265,16 +1271,25 @@ extension DBManager {
             .value
     }
 
+    nonisolated struct FetchFitnessHomeBundleParams: Codable, Sendable {
+        let p_days_back: Int
+    }
+
+    /// Loads all main fitness home screen data in one call.
+    /// - Parameter daysBack: number of recent days for analysis. Default 29.
+    /// - Returns: A JSON object with routine summaries, workout sessions, and fitness analysis.
+    func fetchFitnessHomeBundle(daysBack: Int) async throws -> FitnessHomeBundle {
+        return try await customsupabase
+            .rpc("nl_get_fitness_home_bundle", params: FetchFitnessHomeBundleParams(p_days_back: daysBack))
+            .execute()
+            .value
+    }
+
+    nonisolated struct FetchWorkoutRoutinesSummaryParams: Codable, Sendable {}
+
     /// Executes the `get_workout_routines_summary` RPC.
-    /// Expected JSON return structure (mapped to `[WorkoutTemplateSummary]`):
-    /// [
-    ///   {
-    ///     "id": 1,
-    ///     "title": "Push Day",
-    ///     "exerciseCount": 6,
-    ///     "setCount": 18
-    ///   }
-    /// ]
+    /// Fetches routine/template summary data for routine cards or the fitness home screen.
+    /// - Returns: A JSON summary of workout routines.
     func fetchWorkoutRoutinesSummary() async throws -> [WorkoutTemplateSummary] {
         try await customsupabase
             .rpc("get_workout_routines_summary")
@@ -1286,6 +1301,9 @@ extension DBManager {
     /// Expected JSON return structure (mapped to `[WorkoutSet]`):
     /// Returns a flat array of `WorkoutSet` JSON objects representing only
     /// the sets from the single most recent session for the requested exercise IDs.
+    /// Fetches the sets from the single most recent session for the requested exercise IDs.
+    /// - Parameter exerciseIds: List of exercise IDs.
+    /// - Returns: A flat array of WorkoutSet JSON objects.
     func fetchLatestExerciseHistory(exerciseIds: [Int64]) async throws -> [WorkoutSet] {
         try await customsupabase
             .rpc("get_latest_exercise_history", params: ["p_exercise_ids": exerciseIds])
@@ -1293,23 +1311,17 @@ extension DBManager {
             .value
     }
 
+    nonisolated struct FetchExerciseProgressionParams: Codable, Sendable {
+        let p_exercise_id: Int64
+    }
+
+    /// Combines strength sets and cardio logs for one exercise into one timeline ordered by workout date.
+    /// - Parameter exerciseId: exercise ID.
+    /// - Returns: A JSON array of historical workout entries for that exercise.
     func fetchExerciseProgression(exerciseId: Int64) async throws -> [ExerciseProgressionResult] {
-        // Fetch sets (rep-based)
-        let sets: [ExerciseProgressionResult] = try await customsupabase
-            .from(workoutSetTableName)
-            .select("weight, reps, workout_session(date)")
-            .eq("exercise_id", value: Int(exerciseId))
+        return try await customsupabase
+            .rpc("nl_get_exercise_progression", params: FetchExerciseProgressionParams(p_exercise_id: exerciseId))
             .execute()
             .value
-
-        // Fetch cardio logs
-        let logs: [ExerciseProgressionResult] = try await customsupabase
-            .from(cardioLogTableName)
-            .select("distance_meters, duration_minutes, calories, workout_session(date)")
-            .eq("exercise_id", value: Int(exerciseId))
-            .execute()
-            .value
-
-        return (sets + logs).sorted { $0.date < $1.date }
     }
 }

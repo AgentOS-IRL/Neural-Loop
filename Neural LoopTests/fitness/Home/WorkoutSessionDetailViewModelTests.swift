@@ -397,4 +397,9 @@ private final class FakeWorkoutSessionDetailDataManager: WorkoutDataManaging {
     func fetchWorkoutSets(exerciseId: Int64) async throws -> [WorkoutSet] { [] }
     func fetchWorkoutSessions() async throws -> [WorkoutSession] { [detail.session] }
     func fetchExerciseProgression(exerciseId: Int64) async throws -> [ExerciseProgressionResult] { [] }
+
+    func fetchFitnessHomeBundle(daysBack: Int) async throws -> FitnessHomeBundle { fatalError("Not implemented") }
+    func fetchFitnessAnalysisSummary(daysBack: Int) async throws -> FitnessAnalysisSummaryResponse { fatalError("Not implemented") }
+    func fetchWorkoutRoutinesSummary() async throws -> [WorkoutTemplateSummary] { [] }
+    func fetchLatestExerciseHistory(exerciseIds: [Int64]) async throws -> [WorkoutSet] { [] }
 }

@@ -12,7 +12,7 @@ import Combine
 
 @MainActor
 protocol TodoSubtaskServicing {
-    func getSubTasks(taskId: Int64) async -> [SubTasks]
+    func getTaskDetailBundle(taskId: Int64) async -> TaskDetailBundle?
     func addSubTask(_ title: String, taskId: Int64) async -> SubTasks?
     func setSubTaskIsCompleted(subtask_id: UUID, is_completed: Bool) async
     func deleteSubTask(subtask_id: UUID) async
@@ -27,13 +27,13 @@ extension  UnifiedDataModel {
         return nil
     }
     
-    func getSubTasks(taskId: Int64) async -> [SubTasks] {
+    func getTaskDetailBundle(taskId: Int64) async -> TaskDetailBundle? {
         do {
-            return try await manager.fetchAllSubTasks(task_id: taskId)
+            return try await manager.fetchTaskDetail(taskId: taskId)
         }
         catch {
-            print("Error fetching subtasks", error)
-            return []
+            print("Error fetching task detail", error)
+            return nil
         }
     }
     

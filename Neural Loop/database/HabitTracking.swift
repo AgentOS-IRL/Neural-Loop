@@ -14,11 +14,22 @@ struct HabitTracking: Codable, Identifiable {
     var habit_id: Int64
     var entry_date: Date
     var value: Int
-    
-    
+
+
     static func fromLocal(_ record: HabitTrackingLocalRecord) -> Self {
         .init(id: Int64(record.id), habit_id: Int64(record.habitID), entry_date: record.entryDate, value: Int(record.value))
     }
+}
+
+struct HabitEntryWithSummary: Codable {
+    let entry: HabitTracking
+    let window_total: Int64
+}
+
+struct HabitWindowTotal: Codable {
+    let window_start: Date
+    let window_end: Date
+    let total_value: Int64
 }
 
 extension DBManager {
@@ -35,6 +46,40 @@ extension DBManager {
             .value
         try self.localHabitTrackingStore.add(inserted.first!)
         return inserted.first ?? entry
+    }
+
+    nonisolated struct AddHabitEntryParams: Codable, Sendable {
+        let p_habit_id: Int64
+        let p_value: Int
+        let p_entry_date: String
+        let p_window_start: String?
+        let p_window_end: String?
+    }
+
+    /// Adds one habit tracking entry, then calculates the updated total for the active UI window.
+    /// - Parameters:
+    ///   - habitId: habit ID.
+    ///   - value: value to add.
+    ///   - date: entry date/time.
+    ///   - windowStart: optional summary start date/time.
+    ///   - windowEnd: optional summary end date/time.
+    /// - Returns: A JSON object with the new habit entry and the total value for the requested window.
+    func addHabitEntryWithSummary(habitId: Int64, value: Int, date: Date, windowStart: Date? = nil, windowEnd: Date? = nil) async throws -> HabitEntryWithSummary {
+        let params = AddHabitEntryParams(
+            p_habit_id: habitId,
+            p_value: value,
+            p_entry_date: WorkoutDateCoding.string(from: date),
+            p_window_start: windowStart != nil ? WorkoutDateCoding.string(from: windowStart!) : nil,
+            p_window_end: windowEnd != nil ? WorkoutDateCoding.string(from: windowEnd!) : nil
+        )
+
+        let result: HabitEntryWithSummary = try await customsupabase
+            .rpc("nl_add_habit_entry_with_summary", params: params)
+            .execute()
+            .value
+
+        try self.localHabitTrackingStore.add(result.entry)
+        return result
     }
 
     /// Convenience to add by components.
@@ -59,34 +104,63 @@ extension DBManager {
             .value
         return rows.first
     }
+
+    nonisolated struct WindowParam: Codable, Sendable {
+        let window_start: Date
+        let window_end: Date
+    }
     
+    nonisolated struct FetchHabitWindowTotalsParams: Codable, Sendable {
+        let p_habit_id: Int64
+        let p_windows: [WindowParam]
+    }
+
+    /// Calculates habit totals for multiple time windows in one database call.
+    /// - Parameters:
+    ///   - habitId: habit ID.
+    ///   - windows: array of time windows, each with `start` and `end`.
+    /// - Returns: A list of objects with `window_start`, `window_end`, and `total_value`.
+    func fetchHabitWindowTotals(habitId: Int64, windows: [(start: Date, end: Date)]) async throws -> [HabitWindowTotal] {
+        let windowParams = windows.map { WindowParam(window_start: $0.start, window_end: $0.end) }
+
+        return try await customsupabase
+            .rpc("nl_get_habit_window_totals", params: FetchHabitWindowTotalsParams(
+                p_habit_id: habitId,
+                p_windows: windowParams
+            ))
+            .execute()
+            .value
+    }
+
+    nonisolated struct HabitTrackingDeltaParams: Codable, Sendable {
+        let p_last_id: Int64
+        let p_limit: Int
+    }
     
     func reloadHabitEntries(refresh: Bool = false) async throws {
-        
         // 1️⃣ Clear local store
         if refresh {
             try localHabitTrackingStore.deleteAllEntries()
         }
-        
-        
 
         let pageSize = 500
         var lastID: Int64 = try localHabitTrackingStore.fetchLastHabitEntryId()
         
         print(lastID)
         var hasMore = true
-
         while hasMore {
-            
-            let builder = customsupabase
-                .from(self.habitTrackingTableName)
-                .select()
-                .gt("id", value: Int(lastID))
-                .order("id", ascending: true)
-                .limit(pageSize)
-                
-            let entries: [HabitTracking] = try await builder.execute().value  as [HabitTracking]
-
+            /// Fetches habit tracking entries with IDs greater than the last synced ID.
+            /// - Parameters:
+            ///   - last_id: last synced habit tracking ID.
+            ///   - limit: max rows to return.
+            /// - Returns: A list of habit tracking rows.
+            let entries: [HabitTracking] = try await customsupabase
+                .rpc("nl_get_habit_tracking_delta", params: HabitTrackingDeltaParams(
+                    p_last_id: lastID,
+                    p_limit: pageSize
+                ))
+                .execute()
+                .value
 
             if entries.isEmpty {
                 print("No more entries")

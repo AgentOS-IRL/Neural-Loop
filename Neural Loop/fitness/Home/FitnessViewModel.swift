@@ -330,24 +330,16 @@ final class FitnessViewModel: ObservableObject {
         let revision = stateRevision
 
         do {
-            async let routinesTask = dataManager.fetchWorkoutRoutinesSummary()
-            async let sessionsTask = dataManager.fetchWorkoutSessions()
-            async let analysisTask = dataManager.fetchFitnessAnalysisSummary(daysBack: 29)
+            let bundle = try await dataManager.fetchFitnessHomeBundle(daysBack: 29)
 
-            let (routinesSummary, workoutSessions, analysisResponse) = try await (
-                routinesTask,
-                sessionsTask,
-                analysisTask
-            )
-
-            let analysis = Self.makeAnalysisSummary(from: analysisResponse)
+            let analysis = Self.makeAnalysisSummary(from: bundle.analysis)
 
             guard revision == stateRevision else {
                 return
             }
 
-            templates = routinesSummary
-            sessions = workoutSessions.map { session in
+            templates = bundle.routines
+            sessions = bundle.sessions.map { session in
                 WorkoutSessionSummary(
                     id: session.id ?? 0,
                     date: session.date,

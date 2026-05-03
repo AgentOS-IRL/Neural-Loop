@@ -44,14 +44,19 @@ extension  UnifiedDataModel {
         do {
             HabitSkipPersistenceManager.shared.unskipHabitToday(habitId: id)
 
-            let entry = try await manager.addHabitEntry(
+            let window = HabitWindow.window(for: habit, reference: date)
+            let result = try await manager.addHabitEntryWithSummary(
                 habitId: id,
                 value: value,
-                date: date
+                date: date,
+                windowStart: window.start,
+                windowEnd: window.end
             )
             
             if habitTrackingEntriesMap[id] != nil {
-                habitTrackingEntriesMap[id]!.append(entry)
+                habitTrackingEntriesMap[id]!.append(result.entry)
+            } else {
+                habitTrackingEntriesMap[id] = [result.entry]
             }
 
             await notificationScheduler.scheduleHabit(
@@ -142,23 +147,12 @@ extension  UnifiedDataModel {
         let timeWindows = getTimeWindows(frequency:frequency)
         
         var output: [Date: Float] = [:]
-        for window in timeWindows {
-            
-            let data = try await manager.fetchHabitEntries(
-                forTask: id,
-                from: window.0,
-                to: window.1
-            )
-            
-            let sum = data
-                        .map { Int($0.value) }
-                        .reduce(0, +)
-
-            output[window.0] = Float(sum)
+        let totals = try await manager.fetchHabitWindowTotals(habitId: id, windows: timeWindows)
+        for total in totals {
+            output[total.window_start] = Float(total.total_value)
         }
             
         return output
-        
     }
     
     

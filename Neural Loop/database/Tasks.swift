@@ -19,6 +19,12 @@ struct SubTasks: Codable, Identifiable{
 
 extension SubTasks: Equatable {}
 
+struct TaskDetailBundle: Codable {
+    let task: Tasks
+    let subtasks: [SubTasks]
+    let tags: [Tags]
+}
+
 struct Tasks: Codable, Identifiable{
     static let databasePrimaryKey = ["id"]
 
@@ -228,18 +234,38 @@ extension DBManager {
             .execute()
     }
 
-    func markTaskCompleted(taskId: Int64) async throws {
-        let now = ISO8601DateFormatter().string(from: Date())
+    nonisolated struct FetchTaskDetailParams: Codable, Sendable {
+        let p_task_id: Int64
+    }
 
-        _ = try await customsupabase
-            .from(tasksTableName)
-            .update([
-                "is_completed": "true",
-                "completed_at": now,
-                "updated_at": now
-            ])
-            .eq("id", value: Int(taskId))
+    /// Fetches all data needed for one task detail screen.
+    /// - Parameter taskId: task ID.
+    /// - Returns: A JSON object with the task, subtasks, and tags.
+    func fetchTaskDetail(taskId: Int64) async throws -> TaskDetailBundle {
+        return try await customsupabase
+            .rpc("nl_get_task_detail", params: FetchTaskDetailParams(p_task_id: taskId))
             .execute()
+            .value
+    }
+
+    nonisolated struct MarkTaskCompletedParams: Codable, Sendable {
+        let p_task_id: Int64
+        let p_completed: Bool
+    }
+
+    /// Updates task completion state, sets or clears `completed_at`, updates `updated_at`, and returns the saved task row.
+    /// - Parameters:
+    ///   - taskId: task ID.
+    ///   - completed: `true` to mark completed, `false` to mark incomplete. Default `true`.
+    /// - Returns: The updated task row.
+    func markTaskCompleted(taskId: Int64, completed: Bool = true) async throws -> Tasks {
+        return try await customsupabase
+            .rpc("nl_mark_task_completed", params: MarkTaskCompletedParams(
+                p_task_id: taskId,
+                p_completed: completed
+            ))
+            .execute()
+            .value
     }
 
     // MARK: - Delete

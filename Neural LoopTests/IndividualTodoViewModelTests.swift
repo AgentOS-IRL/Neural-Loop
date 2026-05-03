@@ -107,14 +107,15 @@ private final class MockTodoSubtaskService: TodoSubtaskServicing {
     var fetchResults: [[SubTasks]] = []
     var addResult: SubTasks?
 
-    func getSubTasks(taskId: Int64) async -> [SubTasks] {
+    func getTaskDetailBundle(taskId: Int64) async -> TaskDetailBundle? {
         fetchRequests.append(taskId)
 
         if !fetchResults.isEmpty {
-            return fetchResults.removeFirst()
+            let mockTask = Tasks(id: taskId, title: "Mock", priority: 0, is_completed: false, is_deadline: false)
+            return TaskDetailBundle(task: mockTask, subtasks: fetchResults.removeFirst(), tags: [])
         }
 
-        return []
+        return nil
     }
 
     func addSubTask(_ title: String, taskId: Int64) async -> SubTasks? {

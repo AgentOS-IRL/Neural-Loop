@@ -356,6 +356,12 @@ struct FitnessAnalysisSummaryResponse: Codable, Equatable {
     let exercise_volumes: [ExerciseVolume]
 }
 
+struct FitnessHomeBundle: Codable, Equatable {
+    let routines: [WorkoutTemplateSummary]
+    let sessions: [WorkoutSession]
+    let analysis: FitnessAnalysisSummaryResponse
+}
+
 extension ActiveWorkoutDraft {
     var summary: WorkoutDraftSummary {
         let totalSets = exercises.reduce(0) { partialResult, exercise in
@@ -390,6 +396,7 @@ protocol WorkoutDataManaging {
     func createCardioLog(_ request: CreateCardioLogRequest) async throws -> CardioLog
     func deleteWorkoutSession(id: Int64) async throws
     func fetchWorkoutSets(exerciseId: Int64) async throws -> [WorkoutSet]
+    func fetchFitnessHomeBundle(daysBack: Int) async throws -> FitnessHomeBundle
     func fetchWorkoutSessions() async throws -> [WorkoutSession]
     func fetchWorkoutSessionDetail(sessionId: Int64) async throws -> WorkoutSessionDetail
     func fetchExerciseProgression(exerciseId: Int64) async throws -> [ExerciseProgressionResult]
