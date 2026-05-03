@@ -21,8 +21,8 @@ private enum StartListeningWidgetTheme {
 
     static let heroFill = LinearGradient(
         colors: [
-            Color.white.opacity(0.30),
-            Color.white.opacity(0.12)
+            Color.white.opacity(0.34),
+            Color.white.opacity(0.10)
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
@@ -30,14 +30,16 @@ private enum StartListeningWidgetTheme {
 
     static let border = LinearGradient(
         colors: [
-            Color.white.opacity(0.36),
-            Color.white.opacity(0.12)
+            Color.white.opacity(0.62),
+            Color.white.opacity(0.16),
+            Color.white.opacity(0.04)
         ],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
     static let accent = Color(red: 0.14, green: 0.49, blue: 0.53)
+    static let solidSurface = Color(red: 0.08, green: 0.20, blue: 0.24)
     static let tint = Color.white.opacity(0.96)
     static let secondaryText = Color.white.opacity(0.82)
     static let glow = Color(red: 0.97, green: 0.77, blue: 0.42)
@@ -69,6 +71,8 @@ struct StartListeningProvider: TimelineProvider {
 
 struct StartListeningWidgetEntryView: View {
     @Environment(\.widgetFamily) private var widgetFamily
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var entry: StartListeningEntry
 
@@ -120,57 +124,40 @@ struct StartListeningWidgetEntryView: View {
 
     var body: some View {
         ZStack {
-            widgetBackground
+            adaptiveWidgetBackground
 
             VStack(spacing: widgetFamily == .systemSmall ? 6 : (widgetFamily == .systemMedium ? 9 : 12)) {
                 if widgetFamily != .systemSmall {
                     header
                 }
 
-                if widgetFamily == .systemSmall {
-                    compactGrid
-                } else if widgetFamily == .systemMedium {
-                    mediumRow
-                } else {
-                    explicitGrid
-                }
+                shortcutLayout
             }
             .padding(widgetFamily == .systemSmall ? 8 : (widgetFamily == .systemMedium ? 12 : 14))
         }
         .containerBackground(for: .widget) {
-            widgetBackground
+            adaptiveWidgetBackground
         }
     }
 
     private var header: some View {
         HStack(alignment: .center, spacing: 10) {
-            ZStack {
-                Circle()
-                    .fill(StartListeningWidgetTheme.heroFill)
-                    .overlay(Circle().strokeBorder(StartListeningWidgetTheme.border, lineWidth: 1))
-                    .shadow(color: .black.opacity(0.10), radius: 6, x: 0, y: 3)
-
-                Image(systemName: "sparkles")
-                    .font(.system(size: widgetFamily == .systemLarge ? 14 : 12, weight: .semibold))
-                    .foregroundStyle(StartListeningWidgetTheme.accent)
-            }
-            .frame(width: widgetFamily == .systemLarge ? 34 : 30, height: widgetFamily == .systemLarge ? 34 : 30)
+            headerBadge
+                .frame(width: widgetFamily == .systemLarge ? 34 : 30, height: widgetFamily == .systemLarge ? 34 : 30)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Neural Loop")
                     .font(.system(size: widgetFamily == .systemLarge ? 14 : 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(StartListeningWidgetTheme.tint)
+                    .foregroundStyle(primaryTextStyle)
 
                 Text("Quick launch")
                     .font(.system(size: widgetFamily == .systemLarge ? 11 : 10, weight: .medium, design: .rounded))
-                    .foregroundStyle(StartListeningWidgetTheme.secondaryText)
+                    .foregroundStyle(secondaryTextStyle)
             }
 
             Spacer(minLength: 0)
 
-            Image(systemName: "arrow.up.right.circle.fill")
-                .font(.system(size: widgetFamily == .systemLarge ? 15 : 13, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.94), StartListeningWidgetTheme.accent)
+            headerTrailingIcon
         }
         .padding(.horizontal, 3)
     }
@@ -180,9 +167,176 @@ struct StartListeningWidgetEntryView: View {
         case .systemLarge:
             return 12
         case .systemMedium:
-            return 7
+            return 8
         default:
-            return 6
+            return 8
+        }
+    }
+
+    private var tileCornerRadius: CGFloat {
+        switch widgetFamily {
+        case .systemSmall:
+            return 10
+        case .systemMedium:
+            return 14
+        default:
+            return 16
+        }
+    }
+
+    private var usesLiquidGlass: Bool {
+        guard !reduceTransparency else { return false }
+
+        switch renderingMode {
+        case .fullColor:
+            return true
+        case .accented, .vibrant:
+            return false
+        default:
+            return true
+        }
+    }
+
+    private var primaryTextStyle: AnyShapeStyle {
+        switch renderingMode {
+        case .fullColor:
+            return AnyShapeStyle(StartListeningWidgetTheme.tint)
+        case .accented, .vibrant:
+            return AnyShapeStyle(Color.primary)
+        default:
+            return AnyShapeStyle(StartListeningWidgetTheme.tint)
+        }
+    }
+
+    private var secondaryTextStyle: AnyShapeStyle {
+        switch renderingMode {
+        case .fullColor:
+            return AnyShapeStyle(StartListeningWidgetTheme.secondaryText)
+        case .accented, .vibrant:
+            return AnyShapeStyle(Color.secondary)
+        default:
+            return AnyShapeStyle(StartListeningWidgetTheme.secondaryText)
+        }
+    }
+
+    private var systemTileFillOpacity: Double {
+        switch renderingMode {
+        case .accented:
+            return 0.10
+        case .vibrant:
+            return 0.08
+        case .fullColor:
+            return 0.10
+        default:
+            return 0.10
+        }
+    }
+
+    @ViewBuilder
+    private var shortcutLayout: some View {
+        if usesLiquidGlass {
+            GlassEffectContainer {
+                shortcutLayoutContent
+            }
+        } else {
+            shortcutLayoutContent
+        }
+    }
+
+    @ViewBuilder
+    private var shortcutLayoutContent: some View {
+        if widgetFamily == .systemSmall {
+            compactGrid
+        } else if widgetFamily == .systemMedium {
+            mediumRow
+        } else {
+            explicitGrid
+        }
+    }
+
+    @ViewBuilder
+    private var headerBadge: some View {
+        let shape = Circle()
+
+        switch renderingMode {
+        case .fullColor:
+            ZStack {
+                if usesLiquidGlass {
+                    shape
+                        .fill(.clear)
+                        .glassEffect(
+                            .regular.tint(StartListeningWidgetTheme.accent.opacity(0.28)),
+                            in: shape
+                        )
+                } else {
+                    shape
+                        .fill(StartListeningWidgetTheme.solidSurface)
+                }
+
+                shape
+                    .fill(StartListeningWidgetTheme.heroFill)
+                    .blendMode(.screen)
+
+                Image(systemName: "sparkles")
+                    .font(.system(size: widgetFamily == .systemLarge ? 14 : 12, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .overlay(shape.strokeBorder(StartListeningWidgetTheme.border, lineWidth: 0.6).blendMode(.overlay))
+            .shadow(color: .black.opacity(0.08), radius: 10, x: 0, y: 5)
+
+        case .accented:
+            ZStack {
+                shape
+                    .fill(Color.primary.opacity(0.10))
+
+                Image(systemName: "sparkles")
+                    .font(.system(size: widgetFamily == .systemLarge ? 14 : 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .widgetAccentable()
+            }
+
+        case .vibrant:
+            ZStack {
+                shape
+                    .fill(Color.primary.opacity(0.10))
+
+                Image(systemName: "sparkles")
+                    .font(.system(size: widgetFamily == .systemLarge ? 14 : 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
+
+        default:
+            ZStack {
+                shape
+                    .fill(StartListeningWidgetTheme.heroFill)
+
+                Image(systemName: "sparkles")
+                    .font(.system(size: widgetFamily == .systemLarge ? 14 : 12, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .overlay(shape.strokeBorder(StartListeningWidgetTheme.border, lineWidth: 0.6))
+        }
+    }
+
+    @ViewBuilder
+    private var headerTrailingIcon: some View {
+        let icon = Image(systemName: "arrow.up.right.circle.fill")
+            .font(.system(size: widgetFamily == .systemLarge ? 15 : 13, weight: .semibold))
+
+        switch renderingMode {
+        case .fullColor:
+            icon
+                .foregroundStyle(.white.opacity(0.94), StartListeningWidgetTheme.accent)
+        case .accented:
+            icon
+                .foregroundStyle(.primary)
+                .widgetAccentable()
+        case .vibrant:
+            icon
+                .foregroundStyle(.primary)
+        default:
+            icon
+                .foregroundStyle(.white.opacity(0.94), StartListeningWidgetTheme.accent)
         }
     }
 
@@ -234,20 +388,45 @@ struct StartListeningWidgetEntryView: View {
 
     @ViewBuilder
     private func shortcutTile(_ shortcut: WidgetShortcut) -> some View {
-        let cornerRadius: CGFloat = widgetFamily == .systemSmall ? 18 : (widgetFamily == .systemMedium ? 20 : 24)
+        switch renderingMode {
+        case .fullColor:
+            fullColorShortcutTile(shortcut)
+        case .accented:
+            systemShortcutTile(shortcut, accentIcon: true)
+        case .vibrant:
+            systemShortcutTile(shortcut, accentIcon: false)
+        default:
+            fullColorShortcutTile(shortcut)
+        }
+    }
 
-        VStack(alignment: .center, spacing: widgetFamily == .systemLarge ? 9 : (widgetFamily == .systemMedium ? 5 : 6)) {
+    private func fullColorShortcutTile(_ shortcut: WidgetShortcut) -> some View {
+        let cornerRadius = tileCornerRadius
+
+        return VStack(alignment: .center, spacing: widgetFamily == .systemLarge ? 9 : (widgetFamily == .systemMedium ? 5 : 6)) {
             ZStack {
                 Circle()
-                    .fill(shortcut.accentColor.opacity(shortcut.style == .ai ? 0.34 : 0.24))
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                shortcut.accentColor.opacity(shortcut.style == .ai ? 0.58 : 0.42),
+                                shortcut.accentColor.opacity(shortcut.style == .ai ? 0.22 : 0.16),
+                                Color.white.opacity(0.08)
+                            ],
+                            center: .topLeading,
+                            startRadius: 2,
+                            endRadius: shortcut.iconContainerSize(for: widgetFamily)
+                        )
+                    )
                     .frame(
                         width: shortcut.iconContainerSize(for: widgetFamily),
                         height: shortcut.iconContainerSize(for: widgetFamily)
                     )
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.28), lineWidth: 0.5).blendMode(.overlay))
 
                 Image(systemName: shortcut.systemImage)
                     .font(.system(size: shortcut.iconSize(for: widgetFamily), weight: .semibold))
-                    .foregroundStyle(shortcut.iconColor)
+                    .foregroundStyle(.white)
                     .frame(
                         width: shortcut.iconContainerSize(for: widgetFamily),
                         height: shortcut.iconContainerSize(for: widgetFamily),
@@ -262,7 +441,7 @@ struct StartListeningWidgetEntryView: View {
 
             Text(shortcut.title)
                 .font(.system(size: shortcut.labelSize(for: widgetFamily), weight: .semibold, design: .rounded))
-                .foregroundStyle(StartListeningWidgetTheme.tint)
+                .foregroundStyle(.white)
                 .lineLimit(1)
                 .multilineTextAlignment(.center)
                 .minimumScaleFactor(0.68)
@@ -271,18 +450,164 @@ struct StartListeningWidgetEntryView: View {
         .frame(maxWidth: .infinity, minHeight: shortcut.minTileHeight(for: widgetFamily), alignment: .center)
         .padding(.horizontal, widgetFamily == .systemSmall ? 8 : (widgetFamily == .systemMedium ? 7 : 12))
         .padding(.vertical, widgetFamily == .systemSmall ? 8 : (widgetFamily == .systemMedium ? 7 : 12))
-        .background(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(shortcut.tileFill)
+        .background {
+            fullColorTileBackground(shortcut, cornerRadius: cornerRadius)
+        }
+        .overlay {
+            tileSpecularEdge(cornerRadius: cornerRadius, strong: shortcut.style == .ai)
+        }
+        .shadow(color: .black.opacity(widgetFamily == .systemLarge ? 0.10 : 0.08), radius: 15, x: 0, y: 8)
+        .shadow(color: .black.opacity(0.04), radius: 3, x: 0, y: 1)
+    }
+
+    private func systemShortcutTile(_ shortcut: WidgetShortcut, accentIcon: Bool) -> some View {
+        let cornerRadius = tileCornerRadius
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+        return VStack(alignment: .center, spacing: widgetFamily == .systemLarge ? 9 : (widgetFamily == .systemMedium ? 5 : 6)) {
+            systemShortcutIcon(shortcut, accentIcon: accentIcon)
+
+            Text(shortcut.title)
+                .font(.system(size: shortcut.labelSize(for: widgetFamily), weight: .semibold, design: .rounded))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.68)
+        }
+        .frame(maxWidth: .infinity, minHeight: shortcut.minTileHeight(for: widgetFamily), alignment: .center)
+        .padding(.horizontal, widgetFamily == .systemSmall ? 8 : (widgetFamily == .systemMedium ? 7 : 12))
+        .padding(.vertical, widgetFamily == .systemSmall ? 8 : (widgetFamily == .systemMedium ? 7 : 12))
+        .background {
+            shape
+                .fill(Color.primary.opacity(systemTileFillOpacity))
+        }
+        .overlay {
+            shape
+                .strokeBorder(Color.primary.opacity(0.14), lineWidth: 0.6)
+        }
+    }
+
+    @ViewBuilder
+    private func systemShortcutIcon(_ shortcut: WidgetShortcut, accentIcon: Bool) -> some View {
+        let icon = ZStack {
+            Circle()
+                .fill(Color.primary.opacity(0.10))
+                .frame(
+                    width: shortcut.iconContainerSize(for: widgetFamily),
+                    height: shortcut.iconContainerSize(for: widgetFamily)
+                )
+
+            Image(systemName: shortcut.systemImage)
+                .font(.system(size: shortcut.iconSize(for: widgetFamily), weight: .semibold))
+                .foregroundStyle(.primary)
+                .frame(
+                    width: shortcut.iconContainerSize(for: widgetFamily),
+                    height: shortcut.iconContainerSize(for: widgetFamily),
+                    alignment: .center
+                )
+        }
+        .frame(
+            width: shortcut.iconContainerSize(for: widgetFamily),
+            height: shortcut.iconContainerSize(for: widgetFamily),
+            alignment: .center
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(StartListeningWidgetTheme.border, lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(widgetFamily == .systemLarge ? 0.14 : 0.10), radius: 10, x: 0, y: 5)
+
+        if accentIcon {
+            icon.widgetAccentable()
+        } else {
+            icon
+        }
+    }
+
+    @ViewBuilder
+    private func fullColorTileBackground(_ shortcut: WidgetShortcut, cornerRadius: CGFloat) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+        ZStack {
+            if usesLiquidGlass {
+                shape
+                    .fill(.clear)
+                    .glassEffect(
+                        .regular
+                            .tint(shortcut.accentColor.opacity(shortcut.style == .ai ? 0.36 : 0.24))
+                            .interactive(),
+                        in: shape
+                    )
+            } else {
+                shape
+                    .fill(StartListeningWidgetTheme.solidSurface)
+
+                shape
+                    .fill(shortcut.accentColor)
+                    .blendMode(.softLight)
+            }
+
+            shape
+                .fill(Color.black.opacity(shortcut.style == .ai ? 0.10 : 0.14))
+                .blendMode(.multiply)
+
+            shape
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(shortcut.style == .ai ? 0.24 : 0.18),
+                            shortcut.accentColor.opacity(shortcut.style == .ai ? 0.18 : 0.10),
+                            Color.clear
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .blendMode(.screen)
+
+            shape
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.20),
+                            Color.white.opacity(0.04),
+                            Color.clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .center
+                    )
+                )
+                .blendMode(.screen)
+        }
+        .clipShape(shape)
+    }
+
+    private func tileSpecularEdge(cornerRadius: CGFloat, strong: Bool) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .strokeBorder(
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(strong ? 0.70 : 0.58),
+                        Color.white.opacity(0.12),
+                        Color.white.opacity(0.03)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                lineWidth: 0.6
+            )
+            .blendMode(.overlay)
+            .allowsHitTesting(false)
     }
 
     // MARK: - Background
+
+    @ViewBuilder
+    private var adaptiveWidgetBackground: some View {
+        switch renderingMode {
+        case .fullColor:
+            widgetBackground
+        case .accented, .vibrant:
+            Color.clear
+        default:
+            widgetBackground
+        }
+    }
 
     private var widgetBackground: some View {
         ZStack {
@@ -366,19 +691,6 @@ private struct WidgetShortcut: Identifiable {
         }
     }
 
-    var tileFill: some ShapeStyle {
-        AnyShapeStyle(
-            LinearGradient(
-                colors: [
-                    accentColor.opacity(style == .ai ? 0.52 : 0.34),
-                    Color.white.opacity(style == .ai ? 0.16 : 0.12)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-    }
-
     var accentColor: Color {
         switch title {
         case "AI":
@@ -396,10 +708,6 @@ private struct WidgetShortcut: Identifiable {
         default:
             return StartListeningWidgetTheme.accent
         }
-    }
-
-    var iconColor: some ShapeStyle {
-        AnyShapeStyle(Color.white.opacity(0.98))
     }
 
     func iconContainerSize(for family: WidgetFamily) -> CGFloat {

@@ -101,7 +101,7 @@ struct WorkoutLiveActivity: Widget {
                     }
 
                     if let kg = context.state.weightKg {
-                        Text("· \(kg)kg")
+                        Text("· \(kg.formatted())kg")
                             .font(.system(.caption, design: .rounded, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
