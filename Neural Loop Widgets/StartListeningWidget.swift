@@ -124,8 +124,6 @@ struct StartListeningWidgetEntryView: View {
 
     var body: some View {
         ZStack {
-            adaptiveWidgetBackground
-
             VStack(spacing: widgetFamily == .systemSmall ? 6 : (widgetFamily == .systemMedium ? 9 : 12)) {
                 if widgetFamily != .systemSmall {
                     header
@@ -778,20 +776,46 @@ struct StartListeningWidget: Widget {
 
 // MARK: - Preview
 
-#Preview(as: .systemSmall) {
+#Preview("System Small", as: .systemSmall) {
     StartListeningWidget()
 } timeline: {
     StartListeningEntry(date: .now)
 }
 
-#Preview(as: .systemMedium) {
+#Preview("System Medium", as: .systemMedium) {
     StartListeningWidget()
 } timeline: {
     StartListeningEntry(date: .now)
 }
 
-#Preview(as: .systemLarge) {
+#Preview("System Large", as: .systemLarge) {
     StartListeningWidget()
 } timeline: {
     StartListeningEntry(date: .now)
+}
+
+struct StartListeningWidget_Previews: PreviewProvider {
+    static var previews: some View {
+        Group {
+            StartListeningWidgetEntryView(entry: StartListeningEntry(date: .now))
+                .previewContext(WidgetPreviewContext(family: .systemSmall))
+                .environment(\.widgetRenderingMode, .accented)
+                .previewDisplayName("Small - Accented")
+
+            StartListeningWidgetEntryView(entry: StartListeningEntry(date: .now))
+                .previewContext(WidgetPreviewContext(family: .systemMedium))
+                .environment(\.widgetRenderingMode, .accented)
+                .previewDisplayName("Medium - Accented")
+
+            StartListeningWidgetEntryView(entry: StartListeningEntry(date: .now))
+                .previewContext(WidgetPreviewContext(family: .systemLarge))
+                .environment(\.widgetRenderingMode, .accented)
+                .previewDisplayName("Large - Accented")
+
+            StartListeningWidgetEntryView(entry: StartListeningEntry(date: .now))
+                .previewContext(WidgetPreviewContext(family: .systemSmall))
+                .environment(\.widgetRenderingMode, .vibrant)
+                .previewDisplayName("Small - Vibrant")
+        }
+    }
 }
