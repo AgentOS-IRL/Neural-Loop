@@ -9,40 +9,73 @@ import WidgetKit
 import SwiftUI
 
 private enum StartListeningWidgetTheme {
-    static let background = LinearGradient(
-        colors: [
-            Color(red: 0.20, green: 0.78, blue: 0.88),
-            Color(red: 0.35, green: 0.82, blue: 0.75),
-            Color(red: 0.90, green: 0.78, blue: 0.35)
-        ],
-        startPoint: .leading,
-        endPoint: .topTrailing
-    )
+    static func background(for colorScheme: ColorScheme) -> LinearGradient {
+        LinearGradient(
+            colors: colorScheme == .dark ? [
+                Color(red: 0.01, green: 0.04, blue: 0.11),
+                Color(red: 0.03, green: 0.13, blue: 0.24),
+                Color(red: 0.14, green: 0.08, blue: 0.27),
+                Color(red: 0.27, green: 0.10, blue: 0.27)
+            ] : [
+                Color(red: 0.20, green: 0.78, blue: 0.88),
+                Color(red: 0.35, green: 0.82, blue: 0.75),
+                Color(red: 0.90, green: 0.78, blue: 0.35)
+            ],
+            startPoint: .leading,
+            endPoint: .topTrailing
+        )
+    }
 
-    static let heroFill = LinearGradient(
-        colors: [
-            Color.white.opacity(0.34),
-            Color.white.opacity(0.10)
-        ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
+    static func heroFill(for colorScheme: ColorScheme) -> LinearGradient {
+        LinearGradient(
+            colors: colorScheme == .dark ? [
+                Color.white.opacity(0.18),
+                Color(red: 0.22, green: 0.66, blue: 0.76).opacity(0.07),
+                Color.white.opacity(0.04)
+            ] : [
+                Color.white.opacity(0.34),
+                Color.white.opacity(0.10)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
 
-    static let border = LinearGradient(
-        colors: [
-            Color.white.opacity(0.62),
-            Color.white.opacity(0.16),
-            Color.white.opacity(0.04)
-        ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
+    static func border(for colorScheme: ColorScheme) -> LinearGradient {
+        LinearGradient(
+            colors: colorScheme == .dark ? [
+                Color.white.opacity(0.34),
+                Color(red: 0.30, green: 0.72, blue: 0.82).opacity(0.14),
+                Color.white.opacity(0.04)
+            ] : [
+                Color.white.opacity(0.62),
+                Color.white.opacity(0.16),
+                Color.white.opacity(0.04)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
 
-    static let accent = Color(red: 0.14, green: 0.49, blue: 0.53)
-    static let solidSurface = Color(red: 0.08, green: 0.20, blue: 0.24)
-    static let tint = Color.white.opacity(0.96)
-    static let secondaryText = Color.white.opacity(0.82)
-    static let glow = Color(red: 0.97, green: 0.77, blue: 0.42)
+    static func accent(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(red: 0.20, green: 0.62, blue: 0.74) : Color(red: 0.14, green: 0.49, blue: 0.53)
+    }
+
+    static func solidSurface(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(red: 0.02, green: 0.05, blue: 0.10) : Color(red: 0.08, green: 0.20, blue: 0.24)
+    }
+
+    static func tint(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.white.opacity(0.98) : Color.white.opacity(0.96)
+    }
+
+    static func secondaryText(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color.white.opacity(0.84) : Color.white.opacity(0.82)
+    }
+
+    static func glow(for colorScheme: ColorScheme) -> Color {
+        colorScheme == .dark ? Color(red: 0.25, green: 0.66, blue: 0.78) : Color(red: 0.97, green: 0.77, blue: 0.42)
+    }
 }
 
 // MARK: - Timeline
@@ -73,6 +106,7 @@ struct StartListeningWidgetEntryView: View {
     @Environment(\.widgetFamily) private var widgetFamily
     @Environment(\.widgetRenderingMode) private var renderingMode
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
 
     var entry: StartListeningEntry
 
@@ -198,22 +232,22 @@ struct StartListeningWidgetEntryView: View {
     private var primaryTextStyle: AnyShapeStyle {
         switch renderingMode {
         case .fullColor:
-            return AnyShapeStyle(StartListeningWidgetTheme.tint)
+            return AnyShapeStyle(StartListeningWidgetTheme.tint(for: colorScheme))
         case .accented, .vibrant:
             return AnyShapeStyle(Color.primary)
         default:
-            return AnyShapeStyle(StartListeningWidgetTheme.tint)
+            return AnyShapeStyle(StartListeningWidgetTheme.tint(for: colorScheme))
         }
     }
 
     private var secondaryTextStyle: AnyShapeStyle {
         switch renderingMode {
         case .fullColor:
-            return AnyShapeStyle(StartListeningWidgetTheme.secondaryText)
+            return AnyShapeStyle(StartListeningWidgetTheme.secondaryText(for: colorScheme))
         case .accented, .vibrant:
             return AnyShapeStyle(Color.secondary)
         default:
-            return AnyShapeStyle(StartListeningWidgetTheme.secondaryText)
+            return AnyShapeStyle(StartListeningWidgetTheme.secondaryText(for: colorScheme))
         }
     }
 
@@ -263,24 +297,24 @@ struct StartListeningWidgetEntryView: View {
                     shape
                         .fill(.clear)
                         .glassEffect(
-                            .regular.tint(StartListeningWidgetTheme.accent.opacity(0.28)),
+                            .regular.tint(StartListeningWidgetTheme.accent(for: colorScheme).opacity(colorScheme == .dark ? 0.24 : 0.28)),
                             in: shape
                         )
                 } else {
                     shape
-                        .fill(StartListeningWidgetTheme.solidSurface)
+                        .fill(StartListeningWidgetTheme.solidSurface(for: colorScheme))
                 }
 
                 shape
-                    .fill(StartListeningWidgetTheme.heroFill)
+                    .fill(StartListeningWidgetTheme.heroFill(for: colorScheme))
                     .blendMode(.screen)
 
                 Image(systemName: "sparkles")
                     .font(.system(size: widgetFamily == .systemLarge ? 14 : 12, weight: .semibold))
                     .foregroundStyle(.white)
             }
-            .overlay(shape.strokeBorder(StartListeningWidgetTheme.border, lineWidth: 0.6).blendMode(.overlay))
-            .shadow(color: .black.opacity(0.08), radius: 10, x: 0, y: 5)
+            .overlay(shape.strokeBorder(StartListeningWidgetTheme.border(for: colorScheme), lineWidth: 0.6).blendMode(.overlay))
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.24 : 0.08), radius: 10, x: 0, y: 5)
 
         case .accented:
             ZStack {
@@ -306,13 +340,13 @@ struct StartListeningWidgetEntryView: View {
         default:
             ZStack {
                 shape
-                    .fill(StartListeningWidgetTheme.heroFill)
+                    .fill(StartListeningWidgetTheme.heroFill(for: colorScheme))
 
                 Image(systemName: "sparkles")
                     .font(.system(size: widgetFamily == .systemLarge ? 14 : 12, weight: .semibold))
                     .foregroundStyle(.white)
             }
-            .overlay(shape.strokeBorder(StartListeningWidgetTheme.border, lineWidth: 0.6))
+            .overlay(shape.strokeBorder(StartListeningWidgetTheme.border(for: colorScheme), lineWidth: 0.6))
         }
     }
 
@@ -324,7 +358,7 @@ struct StartListeningWidgetEntryView: View {
         switch renderingMode {
         case .fullColor:
             icon
-                .foregroundStyle(.white.opacity(0.94), StartListeningWidgetTheme.accent)
+                .foregroundStyle(.white.opacity(0.94), StartListeningWidgetTheme.accent(for: colorScheme))
         case .accented:
             icon
                 .foregroundStyle(.primary)
@@ -334,7 +368,7 @@ struct StartListeningWidgetEntryView: View {
                 .foregroundStyle(.primary)
         default:
             icon
-                .foregroundStyle(.white.opacity(0.94), StartListeningWidgetTheme.accent)
+                .foregroundStyle(.white.opacity(0.94), StartListeningWidgetTheme.accent(for: colorScheme))
         }
     }
 
@@ -400,6 +434,7 @@ struct StartListeningWidgetEntryView: View {
 
     private func fullColorShortcutTile(_ shortcut: WidgetShortcut) -> some View {
         let cornerRadius = tileCornerRadius
+        let shadowOpacity = colorScheme == .dark ? 0.34 : (widgetFamily == .systemLarge ? 0.10 : 0.08)
 
         return VStack(alignment: .center, spacing: widgetFamily == .systemLarge ? 9 : (widgetFamily == .systemMedium ? 5 : 6)) {
             ZStack {
@@ -407,9 +442,9 @@ struct StartListeningWidgetEntryView: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                shortcut.accentColor.opacity(shortcut.style == .ai ? 0.58 : 0.42),
-                                shortcut.accentColor.opacity(shortcut.style == .ai ? 0.22 : 0.16),
-                                Color.white.opacity(0.08)
+                                shortcut.accentColor.opacity(shortcut.style == .ai ? (colorScheme == .dark ? 0.52 : 0.58) : (colorScheme == .dark ? 0.38 : 0.42)),
+                                shortcut.accentColor.opacity(shortcut.style == .ai ? (colorScheme == .dark ? 0.22 : 0.22) : (colorScheme == .dark ? 0.16 : 0.16)),
+                                Color.white.opacity(colorScheme == .dark ? 0.04 : 0.08)
                             ],
                             center: .topLeading,
                             startRadius: 2,
@@ -420,7 +455,7 @@ struct StartListeningWidgetEntryView: View {
                         width: shortcut.iconContainerSize(for: widgetFamily),
                         height: shortcut.iconContainerSize(for: widgetFamily)
                     )
-                    .overlay(Circle().strokeBorder(Color.white.opacity(0.28), lineWidth: 0.5).blendMode(.overlay))
+                    .overlay(Circle().strokeBorder(Color.white.opacity(colorScheme == .dark ? 0.26 : 0.28), lineWidth: 0.5).blendMode(.overlay))
 
                 Image(systemName: shortcut.systemImage)
                     .font(.system(size: shortcut.iconSize(for: widgetFamily), weight: .semibold))
@@ -454,8 +489,8 @@ struct StartListeningWidgetEntryView: View {
         .overlay {
             tileSpecularEdge(cornerRadius: cornerRadius, strong: shortcut.style == .ai)
         }
-        .shadow(color: .black.opacity(widgetFamily == .systemLarge ? 0.10 : 0.08), radius: 15, x: 0, y: 8)
-        .shadow(color: .black.opacity(0.04), radius: 3, x: 0, y: 1)
+        .shadow(color: .black.opacity(shadowOpacity), radius: colorScheme == .dark ? 18 : 15, x: 0, y: 8)
+        .shadow(color: shortcut.accentColor.opacity(colorScheme == .dark ? 0.10 : 0.04), radius: colorScheme == .dark ? 10 : 3, x: 0, y: 1)
     }
 
     private func systemShortcutTile(_ shortcut: WidgetShortcut, accentIcon: Bool) -> some View {
@@ -533,7 +568,7 @@ struct StartListeningWidgetEntryView: View {
                     )
             } else {
                 shape
-                    .fill(StartListeningWidgetTheme.solidSurface)
+                    .fill(StartListeningWidgetTheme.solidSurface(for: colorScheme))
 
                 shape
                     .fill(shortcut.accentColor)
@@ -541,15 +576,15 @@ struct StartListeningWidgetEntryView: View {
             }
 
             shape
-                .fill(Color.black.opacity(shortcut.style == .ai ? 0.10 : 0.14))
+                .fill(Color.black.opacity(colorScheme == .dark ? (shortcut.style == .ai ? 0.30 : 0.34) : (shortcut.style == .ai ? 0.10 : 0.14)))
                 .blendMode(.multiply)
 
             shape
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(shortcut.style == .ai ? 0.24 : 0.18),
-                            shortcut.accentColor.opacity(shortcut.style == .ai ? 0.18 : 0.10),
+                            Color.white.opacity(colorScheme == .dark ? (shortcut.style == .ai ? 0.14 : 0.10) : (shortcut.style == .ai ? 0.24 : 0.18)),
+                            shortcut.accentColor.opacity(colorScheme == .dark ? (shortcut.style == .ai ? 0.18 : 0.14) : (shortcut.style == .ai ? 0.18 : 0.10)),
                             Color.clear
                         ],
                         startPoint: .topLeading,
@@ -562,8 +597,8 @@ struct StartListeningWidgetEntryView: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.20),
-                            Color.white.opacity(0.04),
+                            Color.white.opacity(colorScheme == .dark ? 0.10 : 0.20),
+                            Color.white.opacity(colorScheme == .dark ? 0.02 : 0.04),
                             Color.clear
                         ],
                         startPoint: .top,
@@ -580,8 +615,8 @@ struct StartListeningWidgetEntryView: View {
             .strokeBorder(
                 LinearGradient(
                     colors: [
-                        Color.white.opacity(strong ? 0.70 : 0.58),
-                        Color.white.opacity(0.12),
+                        Color.white.opacity(colorScheme == .dark ? (strong ? 0.42 : 0.34) : (strong ? 0.70 : 0.58)),
+                        Color.white.opacity(colorScheme == .dark ? 0.12 : 0.12),
                         Color.white.opacity(0.03)
                     ],
                     startPoint: .topLeading,
@@ -609,10 +644,14 @@ struct StartListeningWidgetEntryView: View {
 
     private var widgetBackground: some View {
         ZStack {
-            StartListeningWidgetTheme.background
+            StartListeningWidgetTheme.background(for: colorScheme)
 
             LinearGradient(
-                colors: [
+                colors: colorScheme == .dark ? [
+                    Color.black.opacity(0.20),
+                    Color(red: 0.12, green: 0.46, blue: 0.62).opacity(0.24),
+                    Color(red: 0.58, green: 0.18, blue: 0.44).opacity(0.20)
+                ] : [
                     Color.clear,
                     Color(red: 0.55, green: 0.38, blue: 0.88).opacity(0.58),
                     Color(red: 0.72, green: 0.40, blue: 0.75).opacity(0.40)
@@ -623,7 +662,7 @@ struct StartListeningWidgetEntryView: View {
 
             RadialGradient(
                 colors: [
-                    StartListeningWidgetTheme.glow.opacity(0.28),
+                    StartListeningWidgetTheme.glow(for: colorScheme).opacity(colorScheme == .dark ? 0.22 : 0.28),
                     Color.clear
                 ],
                 center: .topLeading,
@@ -635,7 +674,7 @@ struct StartListeningWidgetEntryView: View {
 
             RadialGradient(
                 colors: [
-                    Color.white.opacity(0.16),
+                    (colorScheme == .dark ? Color(red: 0.72, green: 0.24, blue: 0.52).opacity(0.10) : Color.white.opacity(0.16)),
                     Color.clear
                 ],
                 center: .center,
@@ -647,9 +686,9 @@ struct StartListeningWidgetEntryView: View {
 
             LinearGradient(
                 colors: [
-                    Color.white.opacity(0.08),
+                    Color.white.opacity(colorScheme == .dark ? 0.03 : 0.08),
                     Color.clear,
-                    Color.black.opacity(0.10)
+                    Color.black.opacity(colorScheme == .dark ? 0.32 : 0.10)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -704,7 +743,7 @@ private struct WidgetShortcut: Identifiable {
         case "Add Note":
             return Color(red: 0.72, green: 0.40, blue: 0.75)
         default:
-            return StartListeningWidgetTheme.accent
+            return Color(red: 0.14, green: 0.49, blue: 0.53)
         }
     }
 
@@ -797,6 +836,21 @@ struct StartListeningWidget: Widget {
 struct StartListeningWidget_Previews: PreviewProvider {
     static var previews: some View {
         Group {
+            StartListeningWidgetEntryView(entry: StartListeningEntry(date: .now))
+                .previewContext(WidgetPreviewContext(family: .systemSmall))
+                .environment(\.colorScheme, .dark)
+                .previewDisplayName("Small - Dark")
+
+            StartListeningWidgetEntryView(entry: StartListeningEntry(date: .now))
+                .previewContext(WidgetPreviewContext(family: .systemMedium))
+                .environment(\.colorScheme, .dark)
+                .previewDisplayName("Medium - Dark")
+
+            StartListeningWidgetEntryView(entry: StartListeningEntry(date: .now))
+                .previewContext(WidgetPreviewContext(family: .systemLarge))
+                .environment(\.colorScheme, .dark)
+                .previewDisplayName("Large - Dark")
+
             StartListeningWidgetEntryView(entry: StartListeningEntry(date: .now))
                 .previewContext(WidgetPreviewContext(family: .systemSmall))
                 .environment(\.widgetRenderingMode, .accented)
