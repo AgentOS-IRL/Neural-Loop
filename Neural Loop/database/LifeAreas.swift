@@ -10,7 +10,7 @@ import Supabase
 
 struct LifeAreas: Codable, Identifiable {
     static let databasePrimaryKey = ["id"]
-    
+
     var id: Int64?
     var name: String
     var vision: String?
@@ -19,6 +19,12 @@ struct LifeAreas: Codable, Identifiable {
     var icon: String
 }
 
+struct LifeAreaDeleteResult: Codable {
+    let deleted_life_area_id: Int64
+    let deleted_goal_ids: [Int64]
+    let deleted_task_ids: [Int64]
+    let deleted_habit_ids: [Int64]
+}
 
 extension DBManager {
     private var lifeAreasTableName: String { "life_areas" }
@@ -64,7 +70,7 @@ extension DBManager {
             .select()
             .execute()
     }
-    
+
     func updateVision(id: Int64, vision: String) async throws {
         _ = try await customsupabase
             .from(self.lifeAreasTableName)
@@ -83,6 +89,20 @@ extension DBManager {
             .execute()
     }
     
+    nonisolated struct DeleteLifeAreaParams: Codable, Sendable {
+        let p_life_area_id: Int64
+    }
+
+    /// Collects IDs of related goals/tasks/habits, deletes the life area, then returns those IDs so the app can clean up local state or notifications.
+    /// - Parameter areaId: life area ID to delete.
+    /// - Returns: A JSON object with deleted life area ID, goal IDs, task IDs, and habit IDs.
+    func deleteLifeAreaWithDeletedIDs(id areaId: Int64) async throws -> LifeAreaDeleteResult {
+        return try await customsupabase
+            .rpc("nl_delete_life_area_with_deleted_ids", params: DeleteLifeAreaParams(p_life_area_id: areaId))
+            .execute()
+            .value
+    }
+
     // Mark: - Get Name
     func fetchLifeAreaName(by idValue: Int64) async throws -> String? {
         let rows: [LifeAreas] = try await customsupabase

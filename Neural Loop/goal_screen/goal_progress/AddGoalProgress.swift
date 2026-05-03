@@ -9,7 +9,7 @@ import SwiftUI
 
 struct AddGoalProgressView: View {
     let goalTracking: GoalsTracking
-    let onSaved: () -> Void
+    let onSaved: (GoalTrackingBundle) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var model: UnifiedDataModel
@@ -136,21 +136,20 @@ struct AddGoalProgressView: View {
             return
         }
         
-        
-        let record = GoalsTrackingRecord(
-            id: nil,
-            goals_tracking_id: trackingId,
-            type: goalTracking.type,
+        let bundle = await model.createGoalsTrackingRecordAndReturnBundle(
+            goalsTrackingId: trackingId,
+            type: goalTracking.type.rawValue,
             value: inputValue,
             label: unitLabel,
-            created_at: selectedDate
+            createdDate: selectedDate
         )
-        await model.createGoalsTrackingRecord(record:record)
         
-        
-        onSaved()
-        dismiss()
-        
+        if let bundle = bundle {
+            onSaved(bundle)
+            dismiss()
+        } else {
+            error = "Failed to save progress."
+        }
     }
 
     private var parsedInputValue: Double? {

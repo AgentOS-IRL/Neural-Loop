@@ -545,9 +545,13 @@ struct GoalDetailView: View {
                 NavigationLink{
                 
                     // Edit goal tracking
-                    AddGoalProgressView( goalTracking: goalTracking ) {
+                    AddGoalProgressView( goalTracking: goalTracking ) { bundle in
                         Task {
-                            await setGoalTrackingRecords()
+                            goalTracking = bundle.tracking
+                            progressSnapshot = makeProgressSnapshot(
+                                tracking: bundle.tracking,
+                                customRecords: bundle.records
+                            )
                         }
                     }
                 }  label: {

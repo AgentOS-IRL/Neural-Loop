@@ -83,6 +83,11 @@ class MockWorkoutDataManager: WorkoutDataManaging {
     func fetchExerciseProgression(exerciseId: Int64) async throws -> [ExerciseProgressionResult] {
         return progressionResults
     }
+
+    func fetchFitnessHomeBundle(daysBack: Int) async throws -> FitnessHomeBundle { fatalError("Not implemented") }
+    func fetchFitnessAnalysisSummary(daysBack: Int) async throws -> FitnessAnalysisSummaryResponse { fatalError("Not implemented") }
+    func fetchWorkoutRoutinesSummary() async throws -> [WorkoutTemplateSummary] { [] }
+    func fetchLatestExerciseHistory(exerciseIds: [Int64]) async throws -> [WorkoutSet] { [] }
     
     // Unimplemented but required by protocol
     func fetchAllEquipment() async throws -> [Equipment] { [] }

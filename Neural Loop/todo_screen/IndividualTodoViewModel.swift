@@ -33,7 +33,11 @@ final class IndividualTodoViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
-        subTasks = await model.getSubTasks(taskId: taskId)
+        if let bundle = await model.getTaskDetailBundle(taskId: taskId) {
+            subTasks = bundle.subtasks
+        } else {
+            subTasks = []
+        }
     }
 
     func createSubTask(from model: TodoSubtaskServicing, taskId: Int64?) async {

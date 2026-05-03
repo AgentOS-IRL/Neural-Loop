@@ -144,26 +144,10 @@ extension  UnifiedDataModel {
     func deleteLifeArea(_ lifeArea: LifeAreas) async {
         guard let lifeAreaId = lifeArea.id else { return }
         do {
-            let removedGoalIds = goals
-                .filter { $0.lifearea_id == lifeAreaId }
-                .compactMap(\.id)
-            let removedGoalIdSet = Set(removedGoalIds)
-            let taskBelongsToDeletedLifeArea: (Tasks) -> Bool = { task in
-                task.lifearea_id == lifeAreaId ||
-                task.goal_id.map { removedGoalIdSet.contains($0) } == true
-            }
-            let habitBelongsToDeletedLifeArea: (Habits) -> Bool = { habit in
-                habit.lifearea_id == lifeAreaId ||
-                habit.goal_id.map { removedGoalIdSet.contains($0) } == true
-            }
-            let removedTaskIds = tasks
-                .filter(taskBelongsToDeletedLifeArea)
-                .compactMap(\.id)
-            let removedHabitIds = habits
-                .filter(habitBelongsToDeletedLifeArea)
-                .compactMap(\.id)
-
-            try await manager.deleteLifeArea(id: lifeAreaId)
+            let result = try await manager.deleteLifeAreaWithDeletedIDs(id: lifeAreaId)
+            let removedGoalIds = result.deleted_goal_ids
+            let removedTaskIds = result.deleted_task_ids
+            let removedHabitIds = result.deleted_habit_ids
 
             for taskId in removedTaskIds {
                 await notificationScheduler.clearTaskNotifications(taskId: taskId)
@@ -172,14 +156,18 @@ extension  UnifiedDataModel {
                 await notificationScheduler.clearHabitNotifications(habitId: habitId)
             }
 
+            let removedGoalIdSet = Set(removedGoalIds)
+            let removedTaskIdSet = Set(removedTaskIds)
+            let removedHabitIdSet = Set(removedHabitIds)
+
             lifeAreas.removeAll { $0.id == lifeAreaId }
             lifeAreaExpandedIds.remove(lifeAreaId)
-            goals.removeAll { $0.lifearea_id == lifeAreaId }
+            goals.removeAll { removedGoalIdSet.contains($0.id ?? -1) }
             goalTracking.removeAll { tracking in
-                removedGoalIds.contains(tracking.goal_id)
+                removedGoalIdSet.contains(tracking.goal_id)
             }
-            tasks.removeAll(where: taskBelongsToDeletedLifeArea)
-            habits.removeAll(where: habitBelongsToDeletedLifeArea)
+            tasks.removeAll { removedTaskIdSet.contains($0.id ?? -1) }
+            habits.removeAll { removedHabitIdSet.contains($0.id ?? -1) }
             removeGoalsFromLongTermBuckets(goalIds: removedGoalIds)
         }
         catch {
@@ -236,6 +224,29 @@ extension  UnifiedDataModel {
         }
         catch {
             print("Failed to create tracking record: \(error)")
+        }
+    }
+    
+    func createGoalsTrackingRecordAndReturnBundle(
+        goalsTrackingId: Int64,
+        type: String,
+        value: Double,
+        label: String,
+        createdDate: Date
+    ) async -> GoalTrackingBundle? {
+        do {
+            let bundle = try await manager.createGoalTrackingRecordAndReturnBundle(
+                goalsTrackingId: goalsTrackingId,
+                type: type,
+                value: value,
+                label: label,
+                createdDate: createdDate
+            )
+            upsertGoalTrackingInMemory(bundle.tracking)
+            return bundle
+        } catch {
+            print("Failed to create tracking record bundle: \(error)")
+            return nil
         }
     }
 

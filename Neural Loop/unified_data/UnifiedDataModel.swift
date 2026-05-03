@@ -157,32 +157,24 @@ final class UnifiedDataModel: ObservableObject {
     }
     
     private func initialize(manager: DBManager ) async {
-        
-        do{
-            try await manager.reloadHabitEntries()
+        do {
+            let lastID = try manager.localHabitTrackingStore.fetchLastHabitEntryId()
+            let snapshot = try await manager.fetchAppBootstrapSnapshot(lastHabitTrackingId: lastID)
+            
+            try manager.localHabitTrackingStore.addMultiple(snapshot.habit_tracking_delta)
+            
+            self.lifeAreas = snapshot.life_areas
+            self.goals = snapshot.goals
+            self.goalTracking = snapshot.goals_tracking
+            self.tags = snapshot.tags
+            self.tasks = snapshot.tasks
+            self.secrets = snapshot.secrets
+            self.secretsLoaded = true
+            
+            self.habits = snapshot.habits
+        } catch {
+            print("Error initializing from snapshot:", error)
         }
-        catch {
-            print("Error Reloading Habit Entries", error)
-            fatalError("\(error)")
-        }
-        
-        async let _goals = loadGoals(manager: manager)
-        async let _tracking = loadGoalTracking(manager: manager)
-        async let _habits = loadHabits(manager: manager)
-        async let _lifeAreas = loadLifeAreas(manager: manager)
-        async let _tags = loadTags(manager: manager)
-        async let _tasks = loadTasks(manager: manager)
-        async let _secrets = loadSecrets(fetcher: secretsFetcher)
-        
-        _ = await (
-            _goals,
-            _tracking,
-            _habits,
-            _lifeAreas,
-            _tags,
-            _tasks,
-            _secrets
-        )
 
         await scheduleNotifications()
     }

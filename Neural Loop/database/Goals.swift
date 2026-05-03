@@ -58,6 +58,14 @@ struct Goals: Codable, Identifiable {
         }
 }
 
+struct GoalDetailBundle: Codable {
+    let goal: Goals
+    let sub_goals: [Goals]
+    let tasks: [Tasks]
+    let habits: [Habits]
+    let tracking: GoalsTracking?
+    let tracking_records: [GoalsTrackingRecord]
+}
 
 extension DBManager {
     // NOTE:
@@ -101,6 +109,16 @@ extension DBManager {
             .execute()
             .value
         return rows.first
+    }
+    
+    /// Fetches all data needed for one goal detail or progress screen.
+    /// - Parameter goalId: goal ID.
+    /// - Returns: A JSON object with the goal, sub-goals, linked tasks, linked habits, tracking config, and tracking records.
+    func fetchGoalDetail(goalId: Int64) async throws -> GoalDetailBundle {
+        return try await customsupabase
+            .rpc("nl_get_goal_detail", params: ["p_goal_id": goalId])
+            .execute()
+            .value
     }
     
     func fetchGoalName(by idValue: Int64) async throws -> String? {

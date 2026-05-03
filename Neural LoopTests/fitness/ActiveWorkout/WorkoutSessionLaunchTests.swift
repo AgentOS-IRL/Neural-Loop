@@ -397,6 +397,11 @@ class FakeLaunchDataManager: WorkoutTemplateReadingDataManaging, WorkoutDataMana
         return []
     }
 
+    func fetchFitnessHomeBundle(daysBack: Int) async throws -> FitnessHomeBundle { fatalError("Not implemented") }
+    func fetchFitnessAnalysisSummary(daysBack: Int) async throws -> FitnessAnalysisSummaryResponse { fatalError("Not implemented") }
+    func fetchWorkoutRoutinesSummary() async throws -> [WorkoutTemplateSummary] { [] }
+    func fetchLatestExerciseHistory(exerciseIds: [Int64]) async throws -> [WorkoutSet] { [] }
+
     func updateWorkoutSession(_ session: WorkoutSession) async throws -> WorkoutSession { session }
     func updateWorkoutSet(_ set: WorkoutSet) async throws -> WorkoutSet { set }
     func deleteWorkoutSet(id: Int64) async throws {}
