@@ -157,12 +157,12 @@ struct CardioLog: Codable, Identifiable, Equatable {
     var calories: Decimal?
 }
 
-struct WorkoutSessionDetail: Equatable {
+struct WorkoutSessionDetail: Equatable, Codable {
     let session: WorkoutSession
     let exercises: [WorkoutSessionExerciseDetail]
 }
 
-struct WorkoutSessionExerciseDetail: Equatable {
+struct WorkoutSessionExerciseDetail: Equatable, Codable {
     let exerciseId: Int64
     let exerciseName: String
     let exerciseType: ExerciseType
@@ -1224,35 +1224,40 @@ extension DBManager {
             .execute()
     }
 
+    /// Executes the `get_workout_session_detail` RPC.
+    /// Expected JSON return structure (mapped to `WorkoutSessionDetail`):
+    /// {
+    ///   "session": { ...WorkoutSession fields... },
+    ///   "exercises": [
+    ///     {
+    ///       "exerciseId": 1,
+    ///       "exerciseName": "Bench Press",
+    ///       "exerciseType": "rep_based",
+    ///       "sets": [{ ...WorkoutSet fields... }],
+    ///       "cardioLogs": [{ ...CardioLog fields... }]
+    ///     }
+    ///   ]
+    /// }
     func fetchWorkoutSessionDetail(sessionId: Int64) async throws -> WorkoutSessionDetail {
-        guard let session = try await fetchWorkoutSession(by: sessionId) else {
-            throw WorkoutDatabaseError.missingIdentifier
-        }
-
-        let sets = try await fetchWorkoutSets(sessionId: sessionId)
-        let logs = try await fetchCardioLogs(sessionId: sessionId)
-
-        let exerciseIds = Array(Set(sets.map { $0.exercise_id } + logs.map { $0.exercise_id })).sorted()
-        var exerciseDetails: [WorkoutSessionExerciseDetail] = []
-
-        for id in exerciseIds {
-            if let exercise = try await fetchExercise(by: id) {
-                let exerciseSets = sets.filter { $0.exercise_id == id }
-                let exerciseLogs = logs.filter { $0.exercise_id == id }
-
-                exerciseDetails.append(WorkoutSessionExerciseDetail(
-                    exerciseId: id,
-                    exerciseName: exercise.name,
-                    exerciseType: exercise.type,
-                    sets: exerciseSets,
-                    cardioLogs: exerciseLogs
-                ))
-            }
-        }
-
-        return WorkoutSessionDetail(session: session, exercises: exerciseDetails)
+        try await customsupabase
+            .rpc("get_workout_session_detail", params: ["p_session_id": sessionId])
+            .execute()
+            .value
     }
 
+    /// Executes the `get_fitness_analysis_summary` RPC.
+    /// Expected JSON return structure (mapped to `FitnessAnalysisSummaryResponse`):
+    /// {
+    ///   "daily_volumes": [ { "date": "2023-10-25", "volume": 5000.0 } ],
+    ///   "exercise_volumes": [
+    ///     {
+    ///       "exercise_id": 1,
+    ///       "equipment_id": 2,
+    ///       "volume": 2500.0,
+    ///       "primary_muscles": ["Chest", "Triceps"]
+    ///     }
+    ///   ]
+    /// }
     func fetchFitnessAnalysisSummary(daysBack: Int) async throws -> FitnessAnalysisSummaryResponse {
         try await customsupabase
             .rpc("get_fitness_analysis_summary", params: ["days_back": daysBack])
@@ -1260,9 +1265,30 @@ extension DBManager {
             .value
     }
 
+    /// Executes the `get_workout_routines_summary` RPC.
+    /// Expected JSON return structure (mapped to `[WorkoutTemplateSummary]`):
+    /// [
+    ///   {
+    ///     "id": 1,
+    ///     "title": "Push Day",
+    ///     "exerciseCount": 6,
+    ///     "setCount": 18
+    ///   }
+    /// ]
     func fetchWorkoutRoutinesSummary() async throws -> [WorkoutTemplateSummary] {
         try await customsupabase
             .rpc("get_workout_routines_summary")
+            .execute()
+            .value
+    }
+
+    /// Executes the `get_latest_exercise_history` RPC.
+    /// Expected JSON return structure (mapped to `[WorkoutSet]`):
+    /// Returns a flat array of `WorkoutSet` JSON objects representing only
+    /// the sets from the single most recent session for the requested exercise IDs.
+    func fetchLatestExerciseHistory(exerciseIds: [Int64]) async throws -> [WorkoutSet] {
+        try await customsupabase
+            .rpc("get_latest_exercise_history", params: ["p_exercise_ids": exerciseIds])
             .execute()
             .value
     }

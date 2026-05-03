@@ -54,13 +54,18 @@ actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
         }
 
         // 1. Fetch routine and exercises
-        guard let routine = try await db.fetchRoutine(by: routineID) else {
+        async let routineTask = db.fetchRoutine(by: routineID)
+        async let routineExercisesTask = db.fetchRoutineExercises(routineId: routineID)
+        async let allExercisesTask = db.fetchAllExercisesWithMuscles()
+        async let allEquipmentTask = db.fetchAllEquipment()
+
+        guard let routine = try await routineTask else {
             throw WorkoutLaunchError.routineNotFound
         }
 
-        let routineExercises = try await db.fetchRoutineExercises(routineId: routineID)
-        let allExercises = try await db.fetchAllExercisesWithMuscles()
-        let allEquipment = try await db.fetchAllEquipment()
+        let routineExercises = try await routineExercisesTask
+        let allExercises = try await allExercisesTask
+        let allEquipment = try await allEquipmentTask
 
         // 2. Map to ActiveWorkoutDraft using the mapper
         var draft = WorkoutRoutineMapper.mapToSessionState(

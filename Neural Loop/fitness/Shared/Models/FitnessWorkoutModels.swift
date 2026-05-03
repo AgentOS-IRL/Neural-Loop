@@ -395,6 +395,7 @@ protocol WorkoutDataManaging {
     func fetchExerciseProgression(exerciseId: Int64) async throws -> [ExerciseProgressionResult]
     func fetchFitnessAnalysisSummary(daysBack: Int) async throws -> FitnessAnalysisSummaryResponse
     func fetchWorkoutRoutinesSummary() async throws -> [WorkoutTemplateSummary]
+    func fetchLatestExerciseHistory(exerciseIds: [Int64]) async throws -> [WorkoutSet]
     func updateWorkoutSession(_ session: WorkoutSession) async throws -> WorkoutSession
     func updateWorkoutSet(_ set: WorkoutSet) async throws -> WorkoutSet
     func deleteWorkoutSet(id: Int64) async throws
