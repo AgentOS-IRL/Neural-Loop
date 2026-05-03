@@ -228,7 +228,7 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
     }
 }
 
-struct WorkoutTemplateSummary: Identifiable, Equatable {
+struct WorkoutTemplateSummary: Identifiable, Equatable, Codable {
     let id: Int64
     var title: String
     var exerciseCount: Int
@@ -340,6 +340,22 @@ struct WorkoutDraftSummary: Identifiable, Equatable {
     }
 }
 
+struct FitnessAnalysisSummaryResponse: Codable, Equatable {
+    struct DailyVolume: Codable, Equatable {
+        let date: String
+        let volume: Double
+    }
+    struct ExerciseVolume: Codable, Equatable {
+        let exercise_id: Int64
+        let equipment_id: Int64?
+        let volume: Double
+        let primary_muscles: [String]
+    }
+    
+    let daily_volumes: [DailyVolume]
+    let exercise_volumes: [ExerciseVolume]
+}
+
 extension ActiveWorkoutDraft {
     var summary: WorkoutDraftSummary {
         let totalSets = exercises.reduce(0) { partialResult, exercise in
@@ -377,6 +393,8 @@ protocol WorkoutDataManaging {
     func fetchWorkoutSessions() async throws -> [WorkoutSession]
     func fetchWorkoutSessionDetail(sessionId: Int64) async throws -> WorkoutSessionDetail
     func fetchExerciseProgression(exerciseId: Int64) async throws -> [ExerciseProgressionResult]
+    func fetchFitnessAnalysisSummary(daysBack: Int) async throws -> FitnessAnalysisSummaryResponse
+    func fetchWorkoutRoutinesSummary() async throws -> [WorkoutTemplateSummary]
     func updateWorkoutSession(_ session: WorkoutSession) async throws -> WorkoutSession
     func updateWorkoutSet(_ set: WorkoutSet) async throws -> WorkoutSet
     func deleteWorkoutSet(id: Int64) async throws

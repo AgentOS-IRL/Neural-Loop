@@ -2,11 +2,51 @@ import Combine
 import ActivityKit
 import Foundation
 
+struct FitnessMuscleVolume: Identifiable, Equatable {
+    let name: String
+    var volume: Double
+
+    var id: String { name }
+}
+
+struct FitnessProgressionPoint: Identifiable, Equatable {
+    let date: Date
+    var volume: Double
+
+    var id: Date { date }
+}
+
+struct FitnessAnalysisSummary: Equatable {
+    static let defaultMuscleVolumes: [FitnessMuscleVolume] = [
+        FitnessMuscleVolume(name: "Chest", volume: 0),
+        FitnessMuscleVolume(name: "Back", volume: 0),
+        FitnessMuscleVolume(name: "Legs", volume: 0),
+        FitnessMuscleVolume(name: "Core", volume: 0),
+        FitnessMuscleVolume(name: "Shoulders", volume: 0),
+        FitnessMuscleVolume(name: "Arms", volume: 0)
+    ]
+
+    static let empty = FitnessAnalysisSummary(
+        totalVolume: 0,
+        muscleVolumes: defaultMuscleVolumes,
+        progressionPoints: []
+    )
+
+    var totalVolume: Double
+    var muscleVolumes: [FitnessMuscleVolume]
+    var progressionPoints: [FitnessProgressionPoint]
+
+    var hasStrengthData: Bool {
+        totalVolume > 0 || progressionPoints.contains { $0.volume > 0 }
+    }
+}
+
 @MainActor
 final class FitnessViewModel: ObservableObject {
     @Published private(set) var templates: [WorkoutTemplateSummary] = []
     @Published private(set) var sessions: [WorkoutSessionSummary] = []
     @Published private(set) var activeDraftSummary: WorkoutDraftSummary?
+    @Published private(set) var analysisSummary: FitnessAnalysisSummary = .empty
     @Published private(set) var isLoading = false
     @Published var activeViewModel: ActiveWorkoutViewModel?
     @Published var errorMessage: String?
@@ -290,44 +330,23 @@ final class FitnessViewModel: ObservableObject {
         let revision = stateRevision
 
         do {
-            async let routinesTask = dataManager.fetchAllRoutines()
+            async let routinesTask = dataManager.fetchWorkoutRoutinesSummary()
             async let sessionsTask = dataManager.fetchWorkoutSessions()
+            async let analysisTask = dataManager.fetchFitnessAnalysisSummary(daysBack: 29)
 
-            let (routines, workoutSessions) = try await (routinesTask, sessionsTask)
+            let (routinesSummary, workoutSessions, analysisResponse) = try await (
+                routinesTask,
+                sessionsTask,
+                analysisTask
+            )
 
-            let sortedRoutines = routines.compactMap { routine -> (id: Int64, routine: Routine)? in
-                guard let id = routine.id else {
-                    return nil
-                }
-
-                return (id: id, routine: routine)
-            }
-            .sorted { lhs, rhs in
-                switch lhs.routine.name.localizedCaseInsensitiveCompare(rhs.routine.name) {
-                case .orderedAscending:
-                    return true
-                case .orderedDescending:
-                    return false
-                case .orderedSame:
-                    return lhs.id < rhs.id
-                @unknown default:
-                    return lhs.id < rhs.id
-                }
-            }
-
-            var loadedTemplates: [WorkoutTemplateSummary] = []
-            loadedTemplates.reserveCapacity(sortedRoutines.count)
-
-            for entry in sortedRoutines {
-                let routineExercises = try await dataManager.fetchRoutineExercises(routineId: entry.id)
-                loadedTemplates.append(Self.makeSummary(for: entry.routine, routineExercises: routineExercises))
-            }
+            let analysis = Self.makeAnalysisSummary(from: analysisResponse)
 
             guard revision == stateRevision else {
                 return
             }
 
-            templates = loadedTemplates
+            templates = routinesSummary
             sessions = workoutSessions.map { session in
                 WorkoutSessionSummary(
                     id: session.id ?? 0,
@@ -336,6 +355,7 @@ final class FitnessViewModel: ObservableObject {
                     notes: session.notes
                 )
             }
+            analysisSummary = analysis
             activeDraftSummary = loadActiveDraftSummary()
             hasLoaded = true
         } catch {
@@ -353,20 +373,92 @@ final class FitnessViewModel: ObservableObject {
         return draft.summary
     }
 
-    private static func makeSummary(
-        for routine: Routine,
-        routineExercises: [RoutineExercise]
-    ) -> WorkoutTemplateSummary {
-        let exerciseCount = routineExercises.count
-        let setCount = routineExercises.reduce(0) { partialResult, routineExercise in
-            partialResult + (routineExercise.target_sets ?? 1)
+    private static func makeAnalysisSummary(
+        from response: FitnessAnalysisSummaryResponse
+    ) -> FitnessAnalysisSummary {
+        var totalVolume = 0.0
+        var muscleVolumeByBucket = Dictionary(
+            uniqueKeysWithValues: FitnessAnalysisSummary.defaultMuscleVolumes.map { ($0.name, 0.0) }
+        )
+
+        for ev in response.exercise_volumes {
+            totalVolume += ev.volume
+            let buckets = bucketNames(for: ev.primary_muscles)
+            guard !buckets.isEmpty else { continue }
+            
+            let splitVolume = ev.volume / Double(buckets.count)
+            for bucket in buckets {
+                muscleVolumeByBucket[bucket, default: 0] += splitVolume
+            }
         }
 
-        return WorkoutTemplateSummary(
-            id: routine.id ?? 0,
-            title: routine.name,
-            exerciseCount: exerciseCount,
-            setCount: setCount
+        let muscleVolumes = FitnessAnalysisSummary.defaultMuscleVolumes.map { muscle in
+            FitnessMuscleVolume(
+                name: muscle.name,
+                volume: muscleVolumeByBucket[muscle.name] ?? 0
+            )
+        }
+
+        let progressionPoints = response.daily_volumes.compactMap { dv -> FitnessProgressionPoint? in
+            guard let date = WorkoutDateCoding.date(from: dv.date) else { return nil }
+            return FitnessProgressionPoint(date: date, volume: dv.volume)
+        }
+        .sorted { $0.date < $1.date }
+
+        return FitnessAnalysisSummary(
+            totalVolume: totalVolume,
+            muscleVolumes: muscleVolumes,
+            progressionPoints: progressionPoints
         )
+    }
+
+    private static func bucketNames(for muscleNames: [String]) -> [String] {
+        var buckets: Set<String> = []
+
+        for muscleName in muscleNames {
+            let normalized = muscleName.lowercased()
+
+            if normalized.contains("chest") || normalized.contains("pectoral") {
+                buckets.insert("Chest")
+            }
+
+            if normalized.contains("back") ||
+                normalized.contains("lat") ||
+                normalized.contains("trap") ||
+                normalized.contains("rhomboid") {
+                buckets.insert("Back")
+            }
+
+            if normalized.contains("quad") ||
+                normalized.contains("hamstring") ||
+                normalized.contains("glute") ||
+                normalized.contains("calf") ||
+                normalized.contains("leg") ||
+                normalized.contains("adductor") ||
+                normalized.contains("abductor") {
+                buckets.insert("Legs")
+            }
+
+            if normalized.contains("core") ||
+                normalized.contains("ab") ||
+                normalized.contains("oblique") {
+                buckets.insert("Core")
+            }
+
+            if normalized.contains("shoulder") || normalized.contains("deltoid") {
+                buckets.insert("Shoulders")
+            }
+
+            if normalized.contains("bicep") ||
+                normalized.contains("tricep") ||
+                normalized.contains("forearm") ||
+                normalized.contains("arm") {
+                buckets.insert("Arms")
+            }
+        }
+
+        return FitnessAnalysisSummary.defaultMuscleVolumes
+            .map(\.name)
+            .filter { buckets.contains($0) }
     }
 }

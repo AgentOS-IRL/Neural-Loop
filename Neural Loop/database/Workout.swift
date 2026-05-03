@@ -1253,6 +1253,20 @@ extension DBManager {
         return WorkoutSessionDetail(session: session, exercises: exerciseDetails)
     }
 
+    func fetchFitnessAnalysisSummary(daysBack: Int) async throws -> FitnessAnalysisSummaryResponse {
+        try await customsupabase
+            .rpc("get_fitness_analysis_summary", params: ["days_back": daysBack])
+            .execute()
+            .value
+    }
+
+    func fetchWorkoutRoutinesSummary() async throws -> [WorkoutTemplateSummary] {
+        try await customsupabase
+            .rpc("get_workout_routines_summary")
+            .execute()
+            .value
+    }
+
     func fetchExerciseProgression(exerciseId: Int64) async throws -> [ExerciseProgressionResult] {
         // Fetch sets (rep-based)
         let sets: [ExerciseProgressionResult] = try await customsupabase

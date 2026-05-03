@@ -168,7 +168,7 @@ struct LiquidGlassTabBar: View {
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
 
         return VStack(alignment: .leading, spacing: 6) {
-            utilityMenuButton(.fitness)
+            utilityMenuButton(.ai)
             utilityMenuButton(.settings)
         }
         .padding(8)
