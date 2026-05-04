@@ -54,8 +54,8 @@ func fetchTodaysGenesysEvents(
         let events = eventStore.events(matching: predicate)
 
         // 🎯 Find TimeOff event
-        let filtered: [EKEvent] = events.filter { ||
-            $0.title.lowercased().contains("pto") ||
+        let filtered: [EKEvent] = events.filter {
+            !($0.title.lowercased().contains("pto") ||
             $0.title.lowercased().contains("canceled:"))
         }
 
