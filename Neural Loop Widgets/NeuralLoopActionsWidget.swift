@@ -1,5 +1,5 @@
 //
-//  StartListeningWidget.swift
+//  NeuralLoopActionsWidget.swift
 //  Neural Loop Widgets
 //
 //  Created by Codex on 28/04/2026.
@@ -8,7 +8,7 @@
 import WidgetKit
 import SwiftUI
 
-private enum StartListeningWidgetTheme {
+private enum NeuralLoopActionsWidgetTheme {
     static func background(for colorScheme: ColorScheme) -> LinearGradient {
         LinearGradient(
             colors: colorScheme == .dark ? [
@@ -80,21 +80,21 @@ private enum StartListeningWidgetTheme {
 
 // MARK: - Timeline
 
-struct StartListeningEntry: TimelineEntry {
+struct NeuralLoopActionsEntry: TimelineEntry {
     let date: Date
 }
 
-struct StartListeningProvider: TimelineProvider {
-    func placeholder(in context: Context) -> StartListeningEntry {
-        StartListeningEntry(date: .now)
+struct NeuralLoopActionsProvider: TimelineProvider {
+    func placeholder(in context: Context) -> NeuralLoopActionsEntry {
+        NeuralLoopActionsEntry(date: .now)
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (StartListeningEntry) -> Void) {
-        completion(StartListeningEntry(date: .now))
+    func getSnapshot(in context: Context, completion: @escaping (NeuralLoopActionsEntry) -> Void) {
+        completion(NeuralLoopActionsEntry(date: .now))
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<StartListeningEntry>) -> Void) {
-        let entry = StartListeningEntry(date: .now)
+    func getTimeline(in context: Context, completion: @escaping (Timeline<NeuralLoopActionsEntry>) -> Void) {
+        let entry = NeuralLoopActionsEntry(date: .now)
         let nextRefresh = Calendar.current.date(byAdding: .hour, value: 24, to: .now) ?? .now
         completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
     }
@@ -102,13 +102,13 @@ struct StartListeningProvider: TimelineProvider {
 
 // MARK: - Widget Entry View
 
-struct StartListeningWidgetEntryView: View {
+struct NeuralLoopActionsWidgetEntryView: View {
     @Environment(\.widgetFamily) private var widgetFamily
     @Environment(\.widgetRenderingMode) private var renderingMode
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var colorScheme
 
-    var entry: StartListeningEntry
+    var entry: NeuralLoopActionsEntry
 
     private let primaryShortcuts: [WidgetShortcut] = [
         WidgetShortcut(
@@ -232,22 +232,22 @@ struct StartListeningWidgetEntryView: View {
     private var primaryTextStyle: AnyShapeStyle {
         switch renderingMode {
         case .fullColor:
-            return AnyShapeStyle(StartListeningWidgetTheme.tint(for: colorScheme))
+            return AnyShapeStyle(NeuralLoopActionsWidgetTheme.tint(for: colorScheme))
         case .accented, .vibrant:
             return AnyShapeStyle(Color.primary)
         default:
-            return AnyShapeStyle(StartListeningWidgetTheme.tint(for: colorScheme))
+            return AnyShapeStyle(NeuralLoopActionsWidgetTheme.tint(for: colorScheme))
         }
     }
 
     private var secondaryTextStyle: AnyShapeStyle {
         switch renderingMode {
         case .fullColor:
-            return AnyShapeStyle(StartListeningWidgetTheme.secondaryText(for: colorScheme))
+            return AnyShapeStyle(NeuralLoopActionsWidgetTheme.secondaryText(for: colorScheme))
         case .accented, .vibrant:
             return AnyShapeStyle(Color.secondary)
         default:
-            return AnyShapeStyle(StartListeningWidgetTheme.secondaryText(for: colorScheme))
+            return AnyShapeStyle(NeuralLoopActionsWidgetTheme.secondaryText(for: colorScheme))
         }
     }
 
@@ -297,23 +297,23 @@ struct StartListeningWidgetEntryView: View {
                     shape
                         .fill(.clear)
                         .glassEffect(
-                            .regular.tint(StartListeningWidgetTheme.accent(for: colorScheme).opacity(colorScheme == .dark ? 0.24 : 0.28)),
+                            .regular.tint(NeuralLoopActionsWidgetTheme.accent(for: colorScheme).opacity(colorScheme == .dark ? 0.24 : 0.28)),
                             in: shape
                         )
                 } else {
                     shape
-                        .fill(StartListeningWidgetTheme.solidSurface(for: colorScheme))
+                        .fill(NeuralLoopActionsWidgetTheme.solidSurface(for: colorScheme))
                 }
 
                 shape
-                    .fill(StartListeningWidgetTheme.heroFill(for: colorScheme))
+                    .fill(NeuralLoopActionsWidgetTheme.heroFill(for: colorScheme))
                     .blendMode(.screen)
 
                 Image(systemName: "sparkles")
                     .font(.system(size: widgetFamily == .systemLarge ? 14 : 12, weight: .semibold))
                     .foregroundStyle(.white)
             }
-            .overlay(shape.strokeBorder(StartListeningWidgetTheme.border(for: colorScheme), lineWidth: 0.6).blendMode(.overlay))
+            .overlay(shape.strokeBorder(NeuralLoopActionsWidgetTheme.border(for: colorScheme), lineWidth: 0.6).blendMode(.overlay))
             .shadow(color: .black.opacity(colorScheme == .dark ? 0.24 : 0.08), radius: 10, x: 0, y: 5)
 
         case .accented:
@@ -340,13 +340,13 @@ struct StartListeningWidgetEntryView: View {
         default:
             ZStack {
                 shape
-                    .fill(StartListeningWidgetTheme.heroFill(for: colorScheme))
+                    .fill(NeuralLoopActionsWidgetTheme.heroFill(for: colorScheme))
 
                 Image(systemName: "sparkles")
                     .font(.system(size: widgetFamily == .systemLarge ? 14 : 12, weight: .semibold))
                     .foregroundStyle(.white)
             }
-            .overlay(shape.strokeBorder(StartListeningWidgetTheme.border(for: colorScheme), lineWidth: 0.6))
+            .overlay(shape.strokeBorder(NeuralLoopActionsWidgetTheme.border(for: colorScheme), lineWidth: 0.6))
         }
     }
 
@@ -358,7 +358,7 @@ struct StartListeningWidgetEntryView: View {
         switch renderingMode {
         case .fullColor:
             icon
-                .foregroundStyle(.white.opacity(0.94), StartListeningWidgetTheme.accent(for: colorScheme))
+                .foregroundStyle(.white.opacity(0.94), NeuralLoopActionsWidgetTheme.accent(for: colorScheme))
         case .accented:
             icon
                 .foregroundStyle(.primary)
@@ -368,7 +368,7 @@ struct StartListeningWidgetEntryView: View {
                 .foregroundStyle(.primary)
         default:
             icon
-                .foregroundStyle(.white.opacity(0.94), StartListeningWidgetTheme.accent(for: colorScheme))
+                .foregroundStyle(.white.opacity(0.94), NeuralLoopActionsWidgetTheme.accent(for: colorScheme))
         }
     }
 
@@ -568,7 +568,7 @@ struct StartListeningWidgetEntryView: View {
                     )
             } else {
                 shape
-                    .fill(StartListeningWidgetTheme.solidSurface(for: colorScheme))
+                    .fill(NeuralLoopActionsWidgetTheme.solidSurface(for: colorScheme))
 
                 shape
                     .fill(shortcut.accentColor)
@@ -644,7 +644,7 @@ struct StartListeningWidgetEntryView: View {
 
     private var widgetBackground: some View {
         ZStack {
-            StartListeningWidgetTheme.background(for: colorScheme)
+            NeuralLoopActionsWidgetTheme.background(for: colorScheme)
 
             LinearGradient(
                 colors: colorScheme == .dark ? [
@@ -662,7 +662,7 @@ struct StartListeningWidgetEntryView: View {
 
             RadialGradient(
                 colors: [
-                    StartListeningWidgetTheme.glow(for: colorScheme).opacity(colorScheme == .dark ? 0.22 : 0.28),
+                    NeuralLoopActionsWidgetTheme.glow(for: colorScheme).opacity(colorScheme == .dark ? 0.22 : 0.28),
                     Color.clear
                 ],
                 center: .topLeading,
@@ -800,14 +800,14 @@ private struct WidgetShortcut: Identifiable {
 
 // MARK: - Widget Configuration
 
-struct StartListeningWidget: Widget {
-    let kind: String = "StartListeningWidget"
+struct NeuralLoopActionsWidget: Widget {
+    let kind: String = "NeuralLoopActionsWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: StartListeningProvider()) { entry in
-            StartListeningWidgetEntryView(entry: entry)
+        StaticConfiguration(kind: kind, provider: NeuralLoopActionsProvider()) { entry in
+            NeuralLoopActionsWidgetEntryView(entry: entry)
         }
-        .configurationDisplayName("Neural Loop")
+        .configurationDisplayName("Neural Loop Actions")
         .description("Quick access to AI, tasks, calendar, and workout.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
@@ -816,57 +816,57 @@ struct StartListeningWidget: Widget {
 // MARK: - Preview
 
 #Preview("System Small", as: .systemSmall) {
-    StartListeningWidget()
+    NeuralLoopActionsWidget()
 } timeline: {
-    StartListeningEntry(date: .now)
+    NeuralLoopActionsEntry(date: .now)
 }
 
 #Preview("System Medium", as: .systemMedium) {
-    StartListeningWidget()
+    NeuralLoopActionsWidget()
 } timeline: {
-    StartListeningEntry(date: .now)
+    NeuralLoopActionsEntry(date: .now)
 }
 
 #Preview("System Large", as: .systemLarge) {
-    StartListeningWidget()
+    NeuralLoopActionsWidget()
 } timeline: {
-    StartListeningEntry(date: .now)
+    NeuralLoopActionsEntry(date: .now)
 }
 
-struct StartListeningWidget_Previews: PreviewProvider {
+struct NeuralLoopActionsWidget_Previews: PreviewProvider {
     static var previews: some View {
         Group {
-            StartListeningWidgetEntryView(entry: StartListeningEntry(date: .now))
+            NeuralLoopActionsWidgetEntryView(entry: NeuralLoopActionsEntry(date: .now))
                 .previewContext(WidgetPreviewContext(family: .systemSmall))
                 .environment(\.colorScheme, .dark)
                 .previewDisplayName("Small - Dark")
 
-            StartListeningWidgetEntryView(entry: StartListeningEntry(date: .now))
+            NeuralLoopActionsWidgetEntryView(entry: NeuralLoopActionsEntry(date: .now))
                 .previewContext(WidgetPreviewContext(family: .systemMedium))
                 .environment(\.colorScheme, .dark)
                 .previewDisplayName("Medium - Dark")
 
-            StartListeningWidgetEntryView(entry: StartListeningEntry(date: .now))
+            NeuralLoopActionsWidgetEntryView(entry: NeuralLoopActionsEntry(date: .now))
                 .previewContext(WidgetPreviewContext(family: .systemLarge))
                 .environment(\.colorScheme, .dark)
                 .previewDisplayName("Large - Dark")
 
-            StartListeningWidgetEntryView(entry: StartListeningEntry(date: .now))
+            NeuralLoopActionsWidgetEntryView(entry: NeuralLoopActionsEntry(date: .now))
                 .previewContext(WidgetPreviewContext(family: .systemSmall))
                 .environment(\.widgetRenderingMode, .accented)
                 .previewDisplayName("Small - Accented")
 
-            StartListeningWidgetEntryView(entry: StartListeningEntry(date: .now))
+            NeuralLoopActionsWidgetEntryView(entry: NeuralLoopActionsEntry(date: .now))
                 .previewContext(WidgetPreviewContext(family: .systemMedium))
                 .environment(\.widgetRenderingMode, .accented)
                 .previewDisplayName("Medium - Accented")
 
-            StartListeningWidgetEntryView(entry: StartListeningEntry(date: .now))
+            NeuralLoopActionsWidgetEntryView(entry: NeuralLoopActionsEntry(date: .now))
                 .previewContext(WidgetPreviewContext(family: .systemLarge))
                 .environment(\.widgetRenderingMode, .accented)
                 .previewDisplayName("Large - Accented")
 
-            StartListeningWidgetEntryView(entry: StartListeningEntry(date: .now))
+            NeuralLoopActionsWidgetEntryView(entry: NeuralLoopActionsEntry(date: .now))
                 .previewContext(WidgetPreviewContext(family: .systemSmall))
                 .environment(\.widgetRenderingMode, .vibrant)
                 .previewDisplayName("Small - Vibrant")
