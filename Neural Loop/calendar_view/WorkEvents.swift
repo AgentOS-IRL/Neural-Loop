@@ -11,7 +11,6 @@ func fetchGenesysEvents(for date: Date = Date()) async -> [SimpleEvent] {
 
 func fetchTodaysGenesysEvents(
     for date: Date = Date(),
-    ignorePrefix: String = "sanjeev halyal",
     completion: @escaping ([SimpleEvent]) -> Void
 ) {
     let eventStore = EKEventStore()
@@ -55,16 +54,10 @@ func fetchTodaysGenesysEvents(
         let events = eventStore.events(matching: predicate)
 
         // 🎯 Find TimeOff event
-        for event in events {
-            print(event)
-            if event.title.lowercased().hasPrefix(ignorePrefix) {
-                completion([])
-                return
-            }
+        let filtered: [EKEvent] = events.filter { ||
+            $0.title.lowercased().contains("pto") ||
+            $0.title.lowercased().contains("canceled:"))
         }
-
-        // 🧹 Filter overlaps
-        let filtered: [EKEvent] = events
 
         // 📦 Map result
         let result = filtered
