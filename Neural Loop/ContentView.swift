@@ -43,6 +43,8 @@ struct ContentView: View {
         case .tasks:
             selectedTab = .tasks
             deepLink.clearPendingNavigation()
+        case .habits:
+            selectedTab = .tasks
         case .addTask, .addNote:
             selectedTab = .tasks
         case .calendar:

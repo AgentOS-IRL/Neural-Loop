@@ -102,6 +102,9 @@ struct TaskHubView: View {
 
     private func handlePendingDeepLink(_ link: AppDeepLink?) {
         switch link {
+        case .habits:
+            navigationModel.select(.habits)
+            deepLink.clearPendingNavigation()
         case .addTask:
             navigationModel.select(.todo)
         case .addNote:

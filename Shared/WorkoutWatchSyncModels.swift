@@ -11,6 +11,7 @@ public enum WatchTab: Hashable {
 public enum NeuralLoopDeepLink: String, Codable {
     case aiListen = "ai/listen"
     case tasks = "tasks"
+    case habits = "habits"
     case addTask = "tasks/add"
     case addNote = "notes/add"
     case calendar = "calendar"
