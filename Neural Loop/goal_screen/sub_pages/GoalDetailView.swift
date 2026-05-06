@@ -310,17 +310,23 @@ struct GoalDetailView: View {
                             }
                             else{
                                 ForEach(habits) { habit in
-                                    if let progress = model.currentHabitProgressMap[habit.id!]{
-                                        HabitCardView(
-                                            habit: habit,
-                                            progress: progress,
-                                            onIncrement: {
-                                                Task {
-                                                    await model.incrementHabit(habit, value:1)
-                                                }
+                                    let progress = habit.id.flatMap { model.currentHabitProgressMap[$0] }
+                                    let isInactive = !HabitWindow.isOccurring(on: .now, habit: habit) || progress == nil
+                                    HabitCardView(
+                                        habit: habit,
+                                        progress: progress ?? HabitProgress(
+                                            current: 0,
+                                            target: Int(habit.target),
+                                            targetLabel: habit.label ?? "Times",
+                                            window: HabitWindow.window(for: habit, reference: .now)
+                                        ),
+                                        isInactive: isInactive,
+                                        onIncrement: {
+                                            Task {
+                                                await model.incrementHabit(habit, value:1)
                                             }
-                                        )
-                                    }
+                                        }
+                                    )
                                 }
                             }
                         }

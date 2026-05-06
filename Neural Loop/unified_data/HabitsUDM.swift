@@ -113,6 +113,7 @@ extension  UnifiedDataModel {
     func unskipHabitToday(_ habit: Habits) async{
         guard let id = habit.id else {return}
         HabitSkipPersistenceManager.shared.unskipHabitToday(habitId: id)
+        refreshWidgetSnapshot()
         await refreshHabitNotifications(for: habit)
         
     }
@@ -120,6 +121,7 @@ extension  UnifiedDataModel {
     func skipHabitToday(_ habit: Habits) async {
         guard let id = habit.id else { return }
         HabitSkipPersistenceManager.shared.skipHabitToday(habitId: id)
+        refreshWidgetSnapshot()
         await notificationScheduler.clearHabitNotifications(habitId: id)
     }
     

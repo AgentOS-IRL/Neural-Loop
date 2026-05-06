@@ -41,34 +41,37 @@ struct HabitView: View {
                     }
 
                     ForEach(model.habits, id: \.id) { habit in
-                        if let id = habit.id,
-                           let progress = model.currentHabitProgressMap[id] {
-                            HabitCardView(
-                                habit: habit,
-                                progress: progress,
-                                onIncrement: {
-                                    Task {
-                                        await model.incrementHabit(habit, value: 1)
-                                    }
+                        let progress = activeProgress(for: habit)
+                        let isInactive = !HabitWindow.isOccurring(on: .now, habit: habit) || progress == nil
+
+                        HabitCardView(
+                            habit: habit,
+                            progress: progress ?? inactiveProgress(for: habit),
+                            isInactive: isInactive,
+                            onIncrement: {
+                                Task {
+                                    await model.incrementHabit(habit, value: 1)
                                 }
-                            )
-                            .onTapGesture {
+                            }
+                        )
+                        .onTapGesture {
+                            if !isInactive {
                                 addProgressToHabit = habit
                             }
-                            .contextMenu {
-                                Button {
-                                    selectedHabit = habit
-                                } label: {
-                                    Label("Edit Habit", systemImage: "pencil")
-                                }
+                        }
+                        .contextMenu {
+                            Button {
+                                selectedHabit = habit
+                            } label: {
+                                Label("Edit Habit", systemImage: "pencil")
+                            }
 
-                                Button(role: .destructive) {
-                                    Task {
-                                        await model.deleteHabit(habit)
-                                    }
-                                } label: {
-                                    Label("Delete Habit", systemImage: "trash")
+                            Button(role: .destructive) {
+                                Task {
+                                    await model.deleteHabit(habit)
                                 }
+                            } label: {
+                                Label("Delete Habit", systemImage: "trash")
                             }
                         }
                     }
@@ -80,6 +83,20 @@ struct HabitView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func activeProgress(for habit: Habits) -> HabitProgress? {
+        guard let id = habit.id else { return nil }
+        return model.currentHabitProgressMap[id]
+    }
+
+    private func inactiveProgress(for habit: Habits) -> HabitProgress {
+        HabitProgress(
+            current: 0,
+            target: Int(habit.target),
+            targetLabel: habit.label ?? "Times",
+            window: HabitWindow.window(for: habit, reference: .now)
+        )
     }
 
     private var habitEmbeddedHeader: some View {
@@ -248,6 +265,7 @@ struct HabitCardView: View {
     
     let habit: Habits
     let progress: HabitProgress
+    var isInactive: Bool = false
     let onIncrement: () -> Void
 
     @State private var isSkippedToday = false
@@ -261,21 +279,21 @@ struct HabitCardView: View {
                     HStack(spacing: 8) {
                         Text(habit.title)
                             .font(.system(.headline, design: .rounded, weight: .bold))
-                            .foregroundStyle(AppTheme.textPrimary)
+                            .foregroundStyle(isInactive ? AppTheme.textSecondary : AppTheme.textPrimary)
                         Spacer()
                         statusLabel
                     }
                 }
                 VStack{
                     
-                            Text("\(progress.current) / \(progress.target) \(progress.targetLabel)  ·  \(progress.window.label.uppercased())")
+                            Text(progressSummary)
                                 .font(.system(.caption2, design: .rounded, weight: .semibold))
                                 .foregroundStyle(AppTheme.textSecondary)
-                                .strikethrough(isSkippedToday, color: AppTheme.textSecondary)
+                                .strikethrough(isSkippedToday && !isInactive, color: AppTheme.textSecondary)
                     // ── Progress bar ────────────────────────────────────────────────
                     ProgressView(value: Double(progress.current), total: Double(progress.target))
                         .progressViewStyle(.linear)
-                        .tint(isSkippedToday ? AppTheme.textSecondary : AppTheme.glowColor)
+                        .tint((isSkippedToday || isInactive) ? AppTheme.textSecondary : AppTheme.glowColor)
                 }
                 
             }
@@ -283,7 +301,7 @@ struct HabitCardView: View {
 
 
             // ── Weekly chart — full width ────────────────────────────────────
-            if let id = habit.id, model.progressChartData[id] != nil {
+            if !isInactive, let id = habit.id, model.progressChartData[id] != nil {
                 ProgressChartView(habit: habit, values: model.progressChartData[id]!)
             }
 
@@ -317,6 +335,8 @@ struct HabitCardView: View {
                     }
                 }
                 .buttonStyle(ScaleButtonStyle())
+                .disabled(isInactive)
+                .opacity(isInactive ? 0.4 : 1.0)
 
                 Spacer()
 
@@ -331,8 +351,8 @@ struct HabitCardView: View {
                         .shadow(color: AppTheme.accentColor.opacity(0.3), radius: 8, x: 0, y: 4)
                 }
                 .buttonStyle(ScaleButtonStyle())
-                .disabled(isSkippedToday)
-                .opacity(isSkippedToday ? 0.4 : 1.0)
+                .disabled(isSkippedToday || isInactive)
+                .opacity((isSkippedToday || isInactive) ? 0.4 : 1.0)
             }
         }
         .padding(20)
@@ -343,6 +363,7 @@ struct HabitCardView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous))
         .shadow(color: .black.opacity(0.06), radius: 10, y: 6)
+        .opacity(isInactive ? 0.58 : 1.0)
         .onAppear {
             isSkippedToday = model.isHabitSkippedToday(habit)
         }
@@ -351,13 +372,24 @@ struct HabitCardView: View {
         }
     }
 
+    private var progressSummary: String {
+        if isInactive {
+            return "Not scheduled today"
+        }
+
+        return "\(progress.current) / \(progress.target) \(progress.targetLabel)  ·  \(progress.window.label.uppercased())"
+    }
+
     private var statusLabel: some View {
         let ratio = progress.ratio
 
         let text: String
         let color: Color
 
-        if isSkippedToday {
+        if isInactive {
+            text = "Not Today"
+            color = AppTheme.textSecondary
+        } else if isSkippedToday {
             text = "Skipped"
             color = AppTheme.textSecondary
         } else {

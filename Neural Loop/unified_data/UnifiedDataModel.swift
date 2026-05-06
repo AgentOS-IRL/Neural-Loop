@@ -70,6 +70,7 @@ final class UnifiedDataModel: ObservableObject {
             }
 
             scheduleNotificationRefresh()
+            refreshWidgetSnapshot()
             
         }}
     
@@ -89,6 +90,7 @@ final class UnifiedDataModel: ObservableObject {
         didSet {
             _shortTermTasksDataBucket = []
             scheduleNotificationRefresh()
+            refreshWidgetSnapshot()
         }
     }
     @Published var secrets: [Secrets] = []
@@ -130,6 +132,7 @@ final class UnifiedDataModel: ObservableObject {
             }
 
             scheduleNotificationRefresh()
+            refreshWidgetSnapshot()
             
         }
     }
