@@ -306,6 +306,50 @@ struct WorkoutSessionSummary: Identifiable, Equatable {
     let date: Date
     let title: String
     let notes: String?
+    let startTime: String?
+    let endTime: String?
+
+    init(
+        id: Int64,
+        date: Date,
+        title: String,
+        notes: String?,
+        startTime: String? = nil,
+        endTime: String? = nil
+    ) {
+        self.id = id
+        self.date = date
+        self.title = title
+        self.notes = notes
+        self.startTime = startTime
+        self.endTime = endTime
+    }
+
+    var durationMinutes: Int? {
+        guard let startSeconds = Self.seconds(from: startTime),
+              let endSeconds = Self.seconds(from: endTime) else {
+            return nil
+        }
+
+        let secondsInDay = 24 * 60 * 60
+        let elapsedSeconds = endSeconds >= startSeconds
+            ? endSeconds - startSeconds
+            : (secondsInDay - startSeconds) + endSeconds
+
+        return Int((Double(elapsedSeconds) / 60).rounded())
+    }
+
+    private static func seconds(from time: String?) -> Int? {
+        guard let time, !time.isEmpty else { return nil }
+        let parts = time.split(separator: ":").compactMap { Int(String($0)) }
+        guard parts.count >= 2 else { return nil }
+
+        let hours = parts[0]
+        let minutes = parts[1]
+        let seconds = parts.count >= 3 ? parts[2] : 0
+
+        return (hours * 60 * 60) + (minutes * 60) + seconds
+    }
 }
 
 struct WorkoutDraftSummary: Identifiable, Equatable {

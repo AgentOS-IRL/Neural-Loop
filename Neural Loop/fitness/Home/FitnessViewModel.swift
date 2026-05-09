@@ -29,15 +29,19 @@ struct FitnessAnalysisSummary: Equatable {
     static let empty = FitnessAnalysisSummary(
         totalVolume: 0,
         muscleVolumes: defaultMuscleVolumes,
+        muscleFrequencies: defaultMuscleVolumes,
         progressionPoints: []
     )
 
     var totalVolume: Double
     var muscleVolumes: [FitnessMuscleVolume]
+    var muscleFrequencies: [FitnessMuscleVolume]
     var progressionPoints: [FitnessProgressionPoint]
 
     var hasStrengthData: Bool {
-        totalVolume > 0 || progressionPoints.contains { $0.volume > 0 }
+        totalVolume > 0 ||
+            muscleFrequencies.contains { $0.volume > 0 } ||
+            progressionPoints.contains { $0.volume > 0 }
     }
 }
 
@@ -344,7 +348,9 @@ final class FitnessViewModel: ObservableObject {
                     id: session.id ?? 0,
                     date: session.date,
                     title: session.session_type,
-                    notes: session.notes
+                    notes: session.notes,
+                    startTime: session.start_time,
+                    endTime: session.end_time
                 )
             }
             analysisSummary = analysis
@@ -372,6 +378,9 @@ final class FitnessViewModel: ObservableObject {
         var muscleVolumeByBucket = Dictionary(
             uniqueKeysWithValues: FitnessAnalysisSummary.defaultMuscleVolumes.map { ($0.name, 0.0) }
         )
+        var muscleFrequencyByBucket = Dictionary(
+            uniqueKeysWithValues: FitnessAnalysisSummary.defaultMuscleVolumes.map { ($0.name, 0.0) }
+        )
 
         for ev in response.exercise_volumes {
             totalVolume += ev.volume
@@ -381,6 +390,7 @@ final class FitnessViewModel: ObservableObject {
             let splitVolume = ev.volume / Double(buckets.count)
             for bucket in buckets {
                 muscleVolumeByBucket[bucket, default: 0] += splitVolume
+                muscleFrequencyByBucket[bucket, default: 0] += 1
             }
         }
 
@@ -388,6 +398,12 @@ final class FitnessViewModel: ObservableObject {
             FitnessMuscleVolume(
                 name: muscle.name,
                 volume: muscleVolumeByBucket[muscle.name] ?? 0
+            )
+        }
+        let muscleFrequencies = FitnessAnalysisSummary.defaultMuscleVolumes.map { muscle in
+            FitnessMuscleVolume(
+                name: muscle.name,
+                volume: muscleFrequencyByBucket[muscle.name] ?? 0
             )
         }
 
@@ -400,6 +416,7 @@ final class FitnessViewModel: ObservableObject {
         return FitnessAnalysisSummary(
             totalVolume: totalVolume,
             muscleVolumes: muscleVolumes,
+            muscleFrequencies: muscleFrequencies,
             progressionPoints: progressionPoints
         )
     }
