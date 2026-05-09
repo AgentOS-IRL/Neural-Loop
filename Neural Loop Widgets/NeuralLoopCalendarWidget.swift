@@ -90,11 +90,11 @@ struct NeuralLoopCalendarWidgetEntryView: View {
     }
 
     private var activeTasks: [NeuralLoopWidgetTask] {
-        Array(entry.snapshot.tasks.prefix(family == .systemLarge ? 5 : 2))
+        Array(entry.snapshot.tasks.prefix(family == .systemLarge ? 5 : 3))
     }
 
     private var displayedHabits: [NeuralLoopWidgetHabit] {
-        Array(entry.snapshot.habits.prefix(family == .systemLarge ? 5 : 2))
+        Array(entry.snapshot.habits.prefix(family == .systemLarge ? 5 : 3))
     }
 
     private var taskCountText: String {
@@ -109,9 +109,9 @@ struct NeuralLoopCalendarWidgetEntryView: View {
     private var background: some View {
         LinearGradient(
             colors: colorScheme == .dark ? [
-                Color(red: 0.03, green: 0.04, blue: 0.06),
-                Color(red: 0.07, green: 0.09, blue: 0.13),
-                Color(red: 0.08, green: 0.12, blue: 0.11)
+//                Color(red: 0.03, green: 0.04, blue: 0.06),
+//                Color(red: 0.07, green: 0.09, blue: 0.13),
+//                Color(red: 0.08, green: 0.12, blue: 0.11)
             ] : [
                 Color(red: 0.98, green: 0.98, blue: 0.95),
                 Color(red: 0.92, green: 0.97, blue: 0.96),
@@ -152,7 +152,7 @@ struct NeuralLoopCalendarWidgetEntryView: View {
 
             Spacer(minLength: 0)
         }
-        .padding(13)
+//        .padding(13)
     }
 
     private var mediumLayout: some View {
@@ -195,7 +195,7 @@ struct NeuralLoopCalendarWidgetEntryView: View {
                 }
             }
         }
-        .padding(14)
+//        .padding(14)
     }
 
     private var largeLayout: some View {
@@ -242,7 +242,7 @@ struct NeuralLoopCalendarWidgetEntryView: View {
 
             FooterStatus(updatedAt: entry.snapshot.updatedAt)
         }
-        .padding(16)
+//        .padding(16)
     }
 
     private var compactHeader: some View {
