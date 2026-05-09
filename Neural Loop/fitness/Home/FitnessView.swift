@@ -139,6 +139,8 @@ struct FitnessView: View {
         case .home:
             VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
                 fitnessHomeHero
+                FitnessActivityCalendarCard(sessions: viewModel.sessions)
+                FitnessActivitySummaryCard(sessions: viewModel.sessions)
                 StrengthVolumeCard(
                     summary: viewModel.analysisSummary,
                     isLoading: viewModel.isLoading
@@ -452,32 +454,490 @@ struct FitnessView: View {
     }
 }
 
-private struct StrengthVolumeCard: View {
-    let summary: FitnessAnalysisSummary
-    let isLoading: Bool
+private struct FitnessActivityPeriod {
+    let startDate: Date
+    let endDate: Date
+    let calendar: Calendar
+
+    static func last30Days(now: Date = Date()) -> FitnessActivityPeriod {
+        var calendar = Calendar.current
+        calendar.firstWeekday = 2
+
+        let endDate = calendar.startOfDay(for: now)
+        let startDate = calendar.date(byAdding: .day, value: -30, to: endDate) ?? endDate
+
+        return FitnessActivityPeriod(startDate: startDate, endDate: endDate, calendar: calendar)
+    }
+
+    var days: [Date] {
+        var result: [Date] = []
+        var current = startDate
+
+        while calendar.compare(current, to: endDate, toGranularity: .day) != .orderedDescending {
+            result.append(current)
+            guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
+            current = next
+        }
+
+        return result
+    }
+
+    var monthStarts: [Date] {
+        guard
+            let periodStartMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: startDate)),
+            let periodEndMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: endDate))
+        else {
+            return []
+        }
+
+        var result: [Date] = []
+        var current = periodStartMonth
+
+        while calendar.compare(current, to: periodEndMonth, toGranularity: .month) != .orderedDescending {
+            result.append(current)
+            guard let next = calendar.date(byAdding: .month, value: 1, to: current) else { break }
+            current = next
+        }
+
+        if result.count == 1,
+           let previousMonth = calendar.date(byAdding: .month, value: -1, to: result[0]) {
+            result.insert(previousMonth, at: 0)
+        }
+
+        return Array(result.suffix(2))
+    }
+
+    func contains(_ date: Date) -> Bool {
+        let day = calendar.startOfDay(for: date)
+        return calendar.compare(day, to: startDate, toGranularity: .day) != .orderedAscending &&
+            calendar.compare(day, to: endDate, toGranularity: .day) != .orderedDescending
+    }
+}
+
+private struct FitnessActivityCalendarCard: View {
+    let sessions: [WorkoutSessionSummary]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        let period = FitnessActivityPeriod.last30Days()
+        let countsByDay = activityCounts(in: period)
+
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 22) {
+                ForEach(period.monthStarts, id: \.self) { monthStart in
+                    FitnessActivityMonthGrid(
+                        monthStart: monthStart,
+                        period: period,
+                        activityCountsByDay: countsByDay
+                    )
+                }
+            }
+
+            HStack(spacing: 18) {
+                legendItem(color: Color(red: 0.60, green: 0.86, blue: 0.28), title: "1 activity")
+                legendItem(color: Color(red: 0.30, green: 0.74, blue: 0.50), title: "2 activities")
+                legendItem(color: Color(red: 0.00, green: 0.66, blue: 0.72), title: "3+ activities")
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, minHeight: 238, alignment: .leading)
+        .background {
+            AnalysisCardBackground()
+        }
+    }
+
+    private func activityCounts(in period: FitnessActivityPeriod) -> [Date: Int] {
+        sessions.reduce(into: [:]) { result, session in
+            guard period.contains(session.date) else { return }
+            let day = period.calendar.startOfDay(for: session.date)
+            result[day, default: 0] += 1
+        }
+    }
+
+    private func legendItem(color: Color, title: String) -> some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(color)
+                .frame(width: 10, height: 10)
+
+            Text(title)
+                .font(.system(.subheadline, design: .rounded, weight: .bold))
+                .foregroundStyle(AppTheme.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+    }
+}
+
+private struct FitnessActivityMonthGrid: View {
+    let monthStart: Date
+    let period: FitnessActivityPeriod
+    let activityCountsByDay: [Date: Int]
+    private static let weekdaySymbols = ["M", "T", "W", "T", "F", "S", "S"]
+
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(monthStart.formatted(.dateTime.month(.abbreviated).year()))
+                .font(.system(.title2, design: .rounded, weight: .bold))
+                .foregroundStyle(AppTheme.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            LazyVGrid(columns: columns, spacing: 10) {
+                ForEach(Array(Self.weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
+                    Text(symbol)
+                        .font(.system(.caption, design: .rounded, weight: .bold))
+                        .foregroundStyle(AppTheme.textSecondary.opacity(0.42))
+                        .frame(maxWidth: .infinity)
+                }
+
+                ForEach(calendarCells) { cell in
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(color(for: cell))
+                        .frame(height: 11)
+                        .overlay {
+                            if cell.isToday {
+                                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                    .strokeBorder(Color.blue.opacity(0.86), lineWidth: 1.5)
+                            }
+                        }
+                        .opacity(cell.date == nil ? 0 : 1)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var calendarCells: [FitnessActivityCalendarCell] {
+        let calendar = period.calendar
+        guard let dayRange = calendar.range(of: .day, in: .month, for: monthStart) else {
+            return []
+        }
+
+        let leadingBlanks = leadingBlankCount(for: monthStart, calendar: calendar)
+        var cells = (0..<leadingBlanks).map { index in
+            FitnessActivityCalendarCell(id: "blank-\(index)", date: nil, count: 0, isInPeriod: false, isToday: false)
+        }
+
+        for day in dayRange {
+            guard let date = calendar.date(byAdding: .day, value: day - 1, to: monthStart) else { continue }
+            let dateKey = calendar.startOfDay(for: date)
+            cells.append(
+                FitnessActivityCalendarCell(
+                    id: dateKey.timeIntervalSince1970.description,
+                    date: dateKey,
+                    count: activityCountsByDay[dateKey, default: 0],
+                    isInPeriod: period.contains(dateKey),
+                    isToday: calendar.isDateInToday(dateKey)
+                )
+            )
+        }
+
+        while cells.count % 7 != 0 {
+            cells.append(
+                FitnessActivityCalendarCell(
+                    id: "trailing-\(cells.count)",
+                    date: nil,
+                    count: 0,
+                    isInPeriod: false,
+                    isToday: false
+                )
+            )
+        }
+
+        return cells
+    }
+
+    private func leadingBlankCount(for date: Date, calendar: Calendar) -> Int {
+        let weekday = calendar.component(.weekday, from: date)
+        return (weekday - calendar.firstWeekday + 7) % 7
+    }
+
+    private func color(for cell: FitnessActivityCalendarCell) -> Color {
+        guard cell.date != nil else { return .clear }
+
+        guard cell.isInPeriod else {
+            return AppTheme.textSecondary.opacity(0.06)
+        }
+
+        switch cell.count {
+        case 1:
+            return Color(red: 0.60, green: 0.86, blue: 0.28)
+        case 2:
+            return Color(red: 0.30, green: 0.74, blue: 0.50)
+        case 3...:
+            return Color(red: 0.00, green: 0.66, blue: 0.72)
+        default:
+            return AppTheme.textSecondary.opacity(0.14)
+        }
+    }
+}
+
+private struct FitnessActivityCalendarCell: Identifiable {
+    let id: String
+    let date: Date?
+    let count: Int
+    let isInPeriod: Bool
+    let isToday: Bool
+}
+
+private struct FitnessActivitySummaryCard: View {
+    let sessions: [WorkoutSessionSummary]
+
+    var body: some View {
+        let period = FitnessActivityPeriod.last30Days()
+        let series = dailyMinutes(in: period)
+        let totalMinutes = series.reduce(0) { $0 + $1.minutes }
+
+        VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 10) {
-                Image(systemName: "scalemass.fill")
+                Image(systemName: "chart.bar.fill")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(AppTheme.textSecondary)
 
-                Text("Total Volume")
+                Text("Activity Summary")
                     .font(.system(.title3, design: .rounded, weight: .bold))
                     .foregroundStyle(AppTheme.textPrimary)
 
                 Spacer()
 
-                Image(systemName: "chevron.up.chevron.down")
+                Image(systemName: "arrow.right")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(AppTheme.textSecondary)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(formatMinutes(totalMinutes))
+                    .font(.system(size: 46, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppTheme.textPrimary)
+
+                Text(periodText(period))
+                    .font(.system(.title3, design: .rounded, weight: .bold))
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+
+            HStack(alignment: .top, spacing: 16) {
+                VStack(spacing: 12) {
+                    activityLineChart(series: series)
+
+                    HStack {
+                        Text(shortDateText(period.startDate))
+                        Spacer()
+                        Text(shortDateText(midpointDate(in: period)))
+                        Spacer()
+                        Text(shortDateText(period.endDate))
+                    }
+                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                }
+
+                VStack(alignment: .trailing, spacing: 0) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(AppTheme.textSecondary.opacity(0.45))
+
+                        Text(formatMinutes(totalMinutes))
+                            .font(.system(.title3, design: .rounded, weight: .bold))
+                            .foregroundStyle(AppTheme.textPrimary)
+                    }
+
+                    Spacer()
+
+                    Text("\(max(3, series.map(\.minutes).max() ?? 0))")
+                        .foregroundStyle(AppTheme.textSecondary.opacity(0.42))
+
+                    Spacer()
+
+                    Text("0")
+                        .foregroundStyle(AppTheme.textSecondary.opacity(0.42))
+                }
+                .font(.system(.headline, design: .rounded, weight: .bold))
+                .frame(width: 50, height: 170)
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, minHeight: 320, alignment: .topLeading)
+        .background {
+            AnalysisCardBackground()
+        }
+    }
+
+    private func dailyMinutes(in period: FitnessActivityPeriod) -> [FitnessActivityDailyMinutes] {
+        let minutesByDay = sessions.reduce(into: [Date: Int]()) { result, session in
+            guard period.contains(session.date), let durationMinutes = session.durationMinutes else { return }
+            let day = period.calendar.startOfDay(for: session.date)
+            result[day, default: 0] += durationMinutes
+        }
+
+        return period.days.map { day in
+            FitnessActivityDailyMinutes(date: day, minutes: minutesByDay[day, default: 0])
+        }
+    }
+
+    private func activityLineChart(series: [FitnessActivityDailyMinutes]) -> some View {
+        GeometryReader { proxy in
+            let maxMinutes = max(3, series.map(\.minutes).max() ?? 0)
+            let points = chartPoints(for: series, in: proxy.size, maxMinutes: maxMinutes)
+
+            ZStack {
+                FitnessActivityDottedTicks()
+                    .stroke(
+                        AppTheme.textSecondary.opacity(0.18),
+                        style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [2, 14])
+                    )
+
+                Path { path in
+                    guard let first = points.first else { return }
+                    path.move(to: first)
+
+                    for point in points.dropFirst() {
+                        path.addLine(to: point)
+                    }
+                }
+                .stroke(
+                    Color(red: 1.0, green: 0.67, blue: 0.36),
+                    style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
+                )
+
+                if let first = points.first {
+                    Circle()
+                        .fill(AppTheme.cardGradient)
+                        .frame(width: 18, height: 18)
+                        .overlay {
+                            Circle()
+                                .strokeBorder(Color(red: 1.0, green: 0.67, blue: 0.36), lineWidth: 4)
+                        }
+                        .position(first)
+                }
+
+                if let last = points.last {
+                    Circle()
+                        .fill(AppTheme.cardGradient)
+                        .frame(width: 28, height: 28)
+                        .overlay {
+                            Circle()
+                                .strokeBorder(Color(red: 1.0, green: 0.67, blue: 0.36), lineWidth: 5)
+                        }
+                        .shadow(color: Color(red: 1.0, green: 0.67, blue: 0.36).opacity(0.34), radius: 16, x: 0, y: 0)
+                        .position(last)
+                }
+            }
+        }
+        .frame(height: 150)
+    }
+
+    private func chartPoints(
+        for series: [FitnessActivityDailyMinutes],
+        in size: CGSize,
+        maxMinutes: Int
+    ) -> [CGPoint] {
+        guard !series.isEmpty else { return [] }
+
+        let bottomInset: CGFloat = 18
+        let topInset: CGFloat = 12
+        let drawableHeight = max(size.height - topInset - bottomInset, 1)
+        let denominator = max(series.count - 1, 1)
+
+        return series.enumerated().map { index, value in
+            let x = CGFloat(index) / CGFloat(denominator) * size.width
+            let ratio = CGFloat(value.minutes) / CGFloat(maxMinutes)
+            let y = topInset + ((1 - ratio) * drawableHeight)
+            return CGPoint(x: x, y: y)
+        }
+    }
+
+    private func periodText(_ period: FitnessActivityPeriod) -> String {
+        "\(shortDateText(period.startDate)) - \(shortDateText(period.endDate)) \(yearText(period.endDate))"
+    }
+
+    private func midpointDate(in period: FitnessActivityPeriod) -> Date {
+        period.calendar.date(byAdding: .day, value: period.days.count / 2, to: period.startDate) ?? period.startDate
+    }
+
+    private func shortDateText(_ date: Date) -> String {
+        date.formatted(.dateTime.day().month(.abbreviated))
+    }
+
+    private func yearText(_ date: Date) -> String {
+        date.formatted(.dateTime.year())
+    }
+
+    private func formatMinutes(_ minutes: Int) -> String {
+        if minutes >= 60 {
+            let hours = minutes / 60
+            let remainingMinutes = minutes % 60
+            return remainingMinutes > 0 ? "\(hours)h \(remainingMinutes)m" : "\(hours)h"
+        }
+
+        return "\(minutes)m"
+    }
+}
+
+private struct FitnessActivityDailyMinutes: Identifiable {
+    let date: Date
+    let minutes: Int
+
+    var id: Date { date }
+}
+
+private struct FitnessActivityDottedTicks: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let y = rect.maxY - 18
+        path.move(to: CGPoint(x: rect.minX, y: y))
+        path.addLine(to: CGPoint(x: rect.maxX, y: y))
+        return path
+    }
+}
+
+private struct StrengthVolumeCard: View {
+    let summary: FitnessAnalysisSummary
+    let isLoading: Bool
+    @State private var selectedMetric: MuscleWheelMetric = .totalVolume
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            HStack(spacing: 10) {
+                Image(systemName: selectedMetric.iconSystemName)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+
+                Text(selectedMetric.title)
+                    .font(.system(.title3, design: .rounded, weight: .bold))
+                    .foregroundStyle(AppTheme.textPrimary)
+
+                Spacer()
+
+                Menu {
+                    ForEach(MuscleWheelMetric.allCases) { metric in
+                        Button {
+                            selectedMetric = metric
+                        } label: {
+                            Label(metric.title, systemImage: metric == selectedMetric ? "checkmark" : metric.iconSystemName)
+                        }
+                    }
+                } label: {
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .frame(width: 34, height: 34)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Change analysis metric")
             }
 
             if isLoading && !summary.hasStrengthData {
                 loadingAnalysis
             } else {
-                MuscleVolumeWheel(summary: summary)
+                MuscleVolumeWheel(
+                    muscleVolumes: selectedMetric.muscleVolumes(from: summary),
+                    valueFormatter: selectedMetric.valueText
+                )
             }
         }
         .padding(20)
@@ -500,11 +960,66 @@ private struct StrengthVolumeCard: View {
     }
 }
 
-private struct MuscleVolumeWheel: View {
-    let summary: FitnessAnalysisSummary
+private enum MuscleWheelMetric: String, CaseIterable, Identifiable {
+    case totalVolume
+    case workoutFrequency
 
-    private var muscleVolumes: [FitnessMuscleVolume] {
-        summary.muscleVolumes
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .totalVolume: return "Total Volume"
+        case .workoutFrequency: return "Workout Frequency"
+        }
+    }
+
+    var iconSystemName: String {
+        switch self {
+        case .totalVolume: return "scalemass.fill"
+        case .workoutFrequency: return "calendar.badge.clock"
+        }
+    }
+
+    func muscleVolumes(from summary: FitnessAnalysisSummary) -> [FitnessMuscleVolume] {
+        switch self {
+        case .totalVolume: return summary.muscleVolumes
+        case .workoutFrequency: return summary.muscleFrequencies
+        }
+    }
+
+    func valueText(_ value: Double) -> String {
+        switch self {
+        case .totalVolume:
+            let rounded = Int(value.rounded())
+
+            if rounded >= 1000 {
+                let thousands = Double(rounded) / 1000
+                return "\(thousands.formatted(.number.precision(.fractionLength(1))))k kg"
+            }
+
+            return "\(rounded) kg"
+        case .workoutFrequency:
+            return "\(Int(value.rounded()))x"
+        }
+    }
+}
+
+private struct MuscleVolumeWheel: View {
+    let muscleVolumes: [FitnessMuscleVolume]
+    let valueFormatter: (Double) -> String
+    private let ringCount = 4
+    private let ringWidth: CGFloat = 10
+    private let ringGap: CGFloat = 5
+    private let innerRingRadius: CGFloat = 28
+    private let sectorDegrees = 60.0
+    private let sectorGapDegrees = 12.0
+
+    private var maxMuscleVolume: Double {
+        muscleVolumes.map(\.volume).max() ?? 0
+    }
+
+    private var hasData: Bool {
+        maxMuscleVolume > 0
     }
 
     var body: some View {
@@ -526,41 +1041,98 @@ private struct MuscleVolumeWheel: View {
 
     private var centerWheel: some View {
         ZStack {
-            ForEach(0..<24, id: \.self) { index in
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(segmentColor(for: index))
-                    .frame(width: 44, height: 18)
-                    .offset(y: -58)
-                    .rotationEffect(.degrees(Double(index) * 15))
+            ForEach(Array(muscleVolumes.enumerated()), id: \.element.id) { index, muscle in
+                ForEach(0..<ringCount, id: \.self) { ringIndex in
+                    let angles = angleRange(for: muscle, fallbackIndex: index)
+                    let radius = radius(for: ringIndex)
+
+                    MuscleVolumeWheelArc(
+                        radius: radius,
+                        startAngle: angles.start,
+                        endAngle: angles.end
+                    )
+                    .stroke(
+                        AppTheme.textSecondary.opacity(0.14),
+                        style: StrokeStyle(lineWidth: ringWidth, lineCap: .round)
+                    )
+
+                    if activeFraction(for: muscle, ringIndex: ringIndex) > 0 {
+                        MuscleVolumeWheelArc(
+                            radius: radius,
+                            startAngle: angles.start,
+                            endAngle: angles.end
+                        )
+                        .stroke(
+                            AppTheme.accentColor.opacity(activeOpacity(for: muscle, ringIndex: ringIndex)),
+                            style: StrokeStyle(lineWidth: ringWidth, lineCap: .round)
+                        )
+                    }
+                }
             }
 
             Circle()
                 .fill(AppTheme.textPrimary.opacity(0.05))
                 .frame(width: 54, height: 54)
         }
-        .opacity(summary.hasStrengthData ? 0.92 : 0.42)
+        .opacity(hasData ? 0.92 : 0.42)
     }
 
-    private func segmentColor(for index: Int) -> Color {
-        guard summary.totalVolume > 0 else {
-            return AppTheme.textSecondary.opacity(0.16)
-        }
+    private func radius(for ringIndex: Int) -> CGFloat {
+        innerRingRadius + CGFloat(ringIndex) * (ringWidth + ringGap)
+    }
 
-        let activeCount = max(
-            1,
-            Int((summary.muscleVolumes.filter { $0.volume > 0 }.count * 24) / max(summary.muscleVolumes.count, 1))
+    private func angleRange(
+        for muscle: FitnessMuscleVolume,
+        fallbackIndex: Int
+    ) -> (start: Angle, end: Angle) {
+        let center = sectorCenterAngle(for: muscle, fallbackIndex: fallbackIndex)
+        let halfSpan = (sectorDegrees - sectorGapDegrees) / 2
+
+        return (
+            start: .degrees(center - halfSpan),
+            end: .degrees(center + halfSpan)
         )
+    }
 
-        if index < activeCount {
-            return AppTheme.accentColor.opacity(0.42)
+    private func sectorCenterAngle(
+        for muscle: FitnessMuscleVolume,
+        fallbackIndex: Int
+    ) -> Double {
+        switch muscle.name {
+        case "Chest": return -90
+        case "Back": return -30
+        case "Legs": return 30
+        case "Shoulders": return 90
+        case "Core": return 150
+        case "Arms": return 210
+        default: return -90 + Double(fallbackIndex) * sectorDegrees
         }
+    }
 
-        return AppTheme.textSecondary.opacity(0.16)
+    private func activeFraction(
+        for muscle: FitnessMuscleVolume,
+        ringIndex: Int
+    ) -> Double {
+        guard maxMuscleVolume > 0, muscle.volume > 0 else { return 0 }
+
+        let ratio = min(max(muscle.volume / maxMuscleVolume, 0), 1)
+        let lowerBound = Double(ringIndex) / Double(ringCount)
+        let upperBound = Double(ringIndex + 1) / Double(ringCount)
+
+        guard ratio > lowerBound else { return 0 }
+        return min((ratio - lowerBound) / (upperBound - lowerBound), 1)
+    }
+
+    private func activeOpacity(
+        for muscle: FitnessMuscleVolume,
+        ringIndex: Int
+    ) -> Double {
+        0.22 + (activeFraction(for: muscle, ringIndex: ringIndex) * 0.42)
     }
 
     private func muscleLabel(_ muscle: FitnessMuscleVolume) -> some View {
         VStack(spacing: 2) {
-            Text(volumeText(muscle.volume))
+            Text(valueFormatter(muscle.volume))
                 .font(.system(.title3, design: .rounded, weight: .bold))
                 .foregroundStyle(AppTheme.textSecondary)
                 .lineLimit(1)
@@ -589,16 +1161,23 @@ private struct MuscleVolumeWheel: View {
 
         return CGPoint(x: fractional.x * size.width, y: fractional.y * size.height)
     }
+}
 
-    private func volumeText(_ value: Double) -> String {
-        let rounded = Int(value.rounded())
+private struct MuscleVolumeWheelArc: Shape {
+    let radius: CGFloat
+    let startAngle: Angle
+    let endAngle: Angle
 
-        if rounded >= 1000 {
-            let thousands = Double(rounded) / 1000
-            return "\(thousands.formatted(.number.precision(.fractionLength(1))))k kg"
-        }
-
-        return "\(rounded) kg"
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.addArc(
+            center: CGPoint(x: rect.midX, y: rect.midY),
+            radius: radius,
+            startAngle: startAngle,
+            endAngle: endAngle,
+            clockwise: false
+        )
+        return path
     }
 }
 
