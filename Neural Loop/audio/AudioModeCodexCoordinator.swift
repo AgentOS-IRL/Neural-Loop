@@ -197,6 +197,8 @@ final class AudioModeCodexCoordinator: ObservableObject {
         switch normalizedToolName(name) {
         case "create_task":
             try await handleCreateTask(arguments: arguments)
+        case "create_shopping_list":
+            try await handleCreateShoppingList(arguments: arguments)
         case "notes":
             await handleCreateNote(arguments: arguments)
         default:
@@ -235,40 +237,49 @@ final class AudioModeCodexCoordinator: ObservableObject {
             updated_at: nil
         )
 
-        guard let savedTask = await model.saveTask(task) else {
-            appendError("Task could not be saved.")
+        await saveTaskWithSubTasks(
+            task,
+            subTaskTitles: subTaskTitlesValue(in: arguments),
+            confirmationSubject: "Task"
+        )
+    }
+
+    private func handleCreateShoppingList(arguments: [String: Any]) async throws {
+        guard let location = firstNonEmptyTrimmedStringValue(for: ["location", "store", "place"], in: arguments) else {
+            appendError("Codex did not provide a shopping list location.")
             return
         }
 
-        let subTaskTitles = subTaskTitlesValue(in: arguments)
-        var createdSubTaskTitles: [String] = []
-        var failedSubTaskTitles: [String] = []
-
-        guard let savedTaskID = savedTask.id, savedTaskID > 0 else {
-            appendToolResult(createTaskConfirmationText(
-                taskID: nil,
-                title: savedTask.title,
-                createdSubTaskTitles: createdSubTaskTitles,
-                failedSubTaskTitles: subTaskTitles
-            ), kind: .taskCreated)
+        let itemTitles = shoppingItemTitlesValue(in: arguments)
+        guard !itemTitles.isEmpty else {
+            appendError("Codex did not provide shopping list items.")
             return
         }
 
-        for subTaskTitle in subTaskTitles {
-            guard let savedSubTask = await model.addSubTask(subTaskTitle, taskId: savedTaskID) else {
-                failedSubTaskTitles.append(subTaskTitle)
-                continue
-            }
+        let startDate = try parseShoppingListStartDate(arguments: arguments)
+        let title = shoppingListTitle(location: location)
+        let task = Tasks(
+            id: nil,
+            title: title,
+            description: shoppingListDescription(location: location, items: itemTitles),
+            priority: 0,
+            goal_id: nil,
+            lifearea_id: nil,
+            is_completed: false,
+            is_deadline: false,
+            completed_at: nil,
+            recursion_rule: nil,
+            start_date: startDate,
+            duration: 900,
+            created_at: nil,
+            updated_at: nil
+        )
 
-            createdSubTaskTitles.append(savedSubTask.title)
-        }
-
-        appendToolResult(createTaskConfirmationText(
-            taskID: savedTaskID,
-            title: savedTask.title,
-            createdSubTaskTitles: createdSubTaskTitles,
-            failedSubTaskTitles: failedSubTaskTitles
-        ), kind: .taskCreated)
+        await saveTaskWithSubTasks(
+            task,
+            subTaskTitles: itemTitles,
+            confirmationSubject: "Shopping list"
+        )
     }
 
     private func parseTaskSchedule(arguments: [String: Any]) throws -> (startDate: Date?, duration: Double?) {
@@ -317,6 +328,33 @@ final class AudioModeCodexCoordinator: ObservableObject {
         ))
     }
 
+    private func parseShoppingListStartDate(arguments: [String: Any]) throws -> Date {
+        guard let rawStartDate = optionalStringValue(for: ["start_date"], in: arguments), !rawStartDate.isEmpty else {
+            return defaultShoppingListStartDate()
+        }
+
+        guard let startDate = parseStartDate(rawStartDate) else {
+            throw AudioModeCodexCoordinatorError.invalidShoppingListStartDate(rawStartDate)
+        }
+
+        return startDate
+    }
+
+    private func defaultShoppingListStartDate(now: Date = Date()) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let components = calendar.dateComponents([.year, .month, .day], from: now)
+        return calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: components.year,
+            month: components.month,
+            day: components.day,
+            hour: 15,
+            minute: 0,
+            second: 0
+        )) ?? now
+    }
+
     private func durationValue(in arguments: [String: Any]) -> Double? {
         for key in ["duration"] {
             if let value = arguments[key] as? Double {
@@ -354,6 +392,25 @@ final class AudioModeCodexCoordinator: ObservableObject {
         }
     }
 
+    private func shoppingItemTitlesValue(in arguments: [String: Any]) -> [String] {
+        guard let rawItems = arrayValue(for: ["items"], in: arguments) else {
+            return []
+        }
+
+        return rawItems.compactMap { item in
+            if let stringItem = item as? String {
+                let trimmedItem = stringItem.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmedItem.isEmpty ? nil : trimmedItem
+            }
+
+            guard let itemArguments = item as? [String: Any] else {
+                return nil
+            }
+
+            return firstNonEmptyTrimmedStringValue(for: ["title", "name", "item"], in: itemArguments)
+        }
+    }
+
     private func arrayValue(for keys: [String], in arguments: [String: Any]) -> [Any]? {
         for key in keys {
             if let value = arguments[key] as? [Any] {
@@ -367,14 +424,57 @@ final class AudioModeCodexCoordinator: ObservableObject {
         return nil
     }
 
+    private func saveTaskWithSubTasks(
+        _ task: Tasks,
+        subTaskTitles: [String],
+        confirmationSubject: String
+    ) async {
+        guard let savedTask = await model.saveTask(task) else {
+            appendError("\(confirmationSubject) could not be saved.")
+            return
+        }
+
+        var createdSubTaskTitles: [String] = []
+        var failedSubTaskTitles: [String] = []
+
+        guard let savedTaskID = savedTask.id, savedTaskID > 0 else {
+            appendToolResult(createTaskConfirmationText(
+                subject: confirmationSubject,
+                taskID: nil,
+                title: savedTask.title,
+                createdSubTaskTitles: createdSubTaskTitles,
+                failedSubTaskTitles: subTaskTitles
+            ), kind: .taskCreated)
+            return
+        }
+
+        for subTaskTitle in subTaskTitles {
+            guard let savedSubTask = await model.addSubTask(subTaskTitle, taskId: savedTaskID) else {
+                failedSubTaskTitles.append(subTaskTitle)
+                continue
+            }
+
+            createdSubTaskTitles.append(savedSubTask.title)
+        }
+
+        appendToolResult(createTaskConfirmationText(
+            subject: confirmationSubject,
+            taskID: savedTaskID,
+            title: savedTask.title,
+            createdSubTaskTitles: createdSubTaskTitles,
+            failedSubTaskTitles: failedSubTaskTitles
+        ), kind: .taskCreated)
+    }
+
     private func createTaskConfirmationText(
+        subject: String,
         taskID: Int64?,
         title: String,
         createdSubTaskTitles: [String],
         failedSubTaskTitles: [String]
     ) -> String {
         let taskIDText = taskID.map(String.init) ?? "unknown"
-        var components = ["Task created (id: \(taskIDText)): \(title)"]
+        var components = ["\(subject) created (id: \(taskIDText)): \(title)"]
 
         if !createdSubTaskTitles.isEmpty {
             components.append("Subtasks created: \(createdSubTaskTitles.joined(separator: ", "))")
@@ -385,6 +485,15 @@ final class AudioModeCodexCoordinator: ObservableObject {
         }
 
         return components.joined(separator: ". ") + "."
+    }
+
+    private func shoppingListTitle(location: String) -> String {
+        return "Shopping list: \(location)"
+    }
+
+    private func shoppingListDescription(location: String, items: [String]) -> String {
+        let itemText = items.joined(separator: ", ")
+        return "Shopping list for \(location). Items: \(itemText)."
     }
 
     private func handleCreateNote(arguments: [String: Any]) async {
@@ -568,11 +677,14 @@ final class AudioModeCodexCoordinator: ObservableObject {
 
 private enum AudioModeCodexCoordinatorError: LocalizedError {
     case invalidTaskStartDate(String)
+    case invalidShoppingListStartDate(String)
 
     var errorDescription: String? {
         switch self {
         case .invalidTaskStartDate(let value):
             return "Codex provided an invalid task start date: \(value)"
+        case .invalidShoppingListStartDate(let value):
+            return "Codex provided an invalid shopping list start date: \(value)"
         }
     }
 }

@@ -8,11 +8,12 @@ swift test
 ## Chat Conversation Script
 
 The package includes a local conversation runner for manually exercising the
-Codex chat flow with the same `create_task` and `Notes` tool contract used by
-audio mode. Grocery requests can be handled in a single `create_task` call
-with a nested `sub_tasks` array, and the runner will print the parent payload
-followed by each nested dummy subtask payload. Tool calls are handled by dummy
-executors that print the task or note payload instead of saving into the app.
+Codex chat flow with the same `create_task`, `create_shopping_list`, and
+`Notes` tool contract used by audio mode. Shopping requests are handled with
+`create_shopping_list`, which requires a location and items, and the runner
+will print the templated parent payload followed by each nested dummy item
+payload. Tool calls are handled by dummy executors that print the task,
+shopping list, or note payload instead of saving into the app.
 
 Set up local credentials:
 

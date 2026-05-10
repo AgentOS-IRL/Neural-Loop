@@ -1,25 +1,16 @@
 public enum NeuralLoopCodexIntents {
     public static func getDefaultIntentInstructions(currentDateISO: String) -> String {
         return """
-        You are an assistant with two tools: create_task for top-level to-dos and Notes for notes saved in the app.
+        You are an assistant with tools for creating app tasks, shopping lists, and notes.
         CURRENT DATE AND TIME: \(currentDateISO).
         If the user's intent is clear, call the appropriate tool. If the input is vague or missing details, do not call a tool; respond with a clarification question.
 
         Task Rules:
+        - Use create_shopping_list for grocery or shopping-list requests.
+        - Use create_task for other top-level to-dos and checklists.
         - Watch for dates, times, and dayparts. Calculate the `start_date` as a normalized ISO-8601 string based on the CURRENT DATE AND TIME.
         - If the user specifies a date but no exact time, default the time to 15:00:00 (3:00 PM) local time and mention this assumption in the `description`.
         - If the user specifies a duration (e.g., "for half an hour"), calculate the `duration` in seconds (e.g., 1800).
-
-        Grocery and shopping-list rules:
-        - Treat phrases like "grocery todo", "grocery list", and "shopping list" as a special todo type.
-        - Handle known grocery items with one `create_task` call that includes a `sub_tasks` array.
-        - Create one parent task for the grocery list itself with create_task.
-        - If the user names grocery items in the same request, include them in the same create_task call as a sub_tasks array so the app can save the parent first and then create each subtodo automatically.
-        - If the user asks for a grocery list but does not name any items, ask for clarification instead of inventing items.
-        - Grocery requests should be handled in one create_task call whenever the list items are known in the same turn.
-
-        Subtask payload rules:
-        - When using sub_tasks on create_task, trim each child title and do not include empty or whitespace-only entries.
 
         Note source rules:
         - The Notes tool accepts a `source` argument with values `personal` or `work`.
@@ -34,7 +25,7 @@ public enum NeuralLoopCodexIntents {
     public static let defaultIntentTools: [CodexTool] = [
         CodexTool(
             name: "create_task",
-            description: "Create a to-do item when the user wants to add a task. Include start_date when the user mentions a date, time, morning, afternoon, or evening. Use an ISO-8601 string when possible. If only a date is known, assume afternoon and mention that assumption in description. If the user includes subtodos in the same request, add them to sub_tasks so the app can save the parent first and then create each subtodo automatically in one call. If start_date is present and duration is omitted, the app defaults duration to 900 seconds.",
+            description: "Create a top-level to-do item. Do not use this for grocery or shopping-list requests; use create_shopping_list instead. Include start_date when the user mentions a date, time, morning, afternoon, or evening. Use an ISO-8601 string when possible. If only a date is known, assume 15:00 local time and mention that assumption in description. If the user includes subtodos for a non-shopping checklist in the same request, add them to sub_tasks so the app can save the parent first and then create each subtodo automatically in one call. If start_date is present and duration is omitted, the app defaults duration to 900 seconds.",
             parameters: .object([
                 "type": .string("object"),
                 "properties": .object([
@@ -73,6 +64,35 @@ public enum NeuralLoopCodexIntents {
                 ]),
                 "required": .array([
                     .string("title")
+                ])
+            ])
+        ),
+        CodexTool(
+            name: "create_shopping_list",
+            description: "Create a grocery or shopping-list task. Use this for grocery todo, shopping list, supermarket, store, or errand-list requests. Require a location/store/place and the items the user named; ask for clarification if either is missing. Include start_date only when the user mentions a date, time, or daypart; if the user gives a date without a time, use 15:00 local time. If start_date is omitted, the app defaults to today at 15:00 local time.",
+            parameters: .object([
+                "type": .string("object"),
+                "properties": .object([
+                    "location": .object([
+                        "type": .string("string"),
+                        "description": .string("Required store, place, or shopping location.")
+                    ]),
+                    "items": .object([
+                        "type": .string("array"),
+                        "description": .string("Shopping items explicitly named by the user. Trim whitespace and do not invent items."),
+                        "items": .object([
+                            "type": .string("string"),
+                            "description": .string("A single shopping item.")
+                        ])
+                    ]),
+                    "start_date": .object([
+                        "type": .string("string"),
+                        "description": .string("Optional normalized ISO-8601 start date. If omitted, the app defaults to today at 15:00 local time.")
+                    ])
+                ]),
+                "required": .array([
+                    .string("location"),
+                    .string("items")
                 ])
             ])
         ),

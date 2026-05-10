@@ -30,7 +30,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         let model = FakeAudioModeCodexModel(llmEnabled: true)
         let coordinator = AudioModeCodexCoordinator(model: model)
 
-        XCTAssertEqual(coordinator.intentTools.map(\.name), ["create_task", "Notes"])
+        XCTAssertEqual(coordinator.intentTools.map(\.name), ["create_task", "create_shopping_list", "Notes"])
     }
 
     func testCreateTaskToolCallPersistsTaskAndShowsConfirmation() async {
@@ -138,6 +138,132 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
             "Task created (id: 101): Todo list. Subtasks created: Call dentist."
         )
         XCTAssertNil(coordinator.errorMessage)
+    }
+
+    func testShoppingListToolCallPersistsTemplatedTaskAndItems() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "create_shopping_list",
+                arguments: [
+                    "location": "Tesco",
+                    "items": [
+                        "  Milk  ",
+                        "Eggs"
+                    ],
+                    "start_date": "2026-04-20"
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Make a Tesco shopping list with milk and eggs")
+        await Task.yield()
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(client.converseCallCount, 1)
+        XCTAssertEqual(model.savedTasks.count, 1)
+        XCTAssertEqual(model.savedTasks.first?.title, "Shopping list: Tesco")
+        XCTAssertEqual(model.savedTasks.first?.description, "Shopping list for Tesco. Items: Milk, Eggs.")
+        XCTAssertEqual(model.savedTasks.first?.duration, 900)
+        XCTAssertEqual(model.savedSubTasks.map(\.title), ["Milk", "Eggs"])
+        XCTAssertEqual(model.savedSubTasks.compactMap(\.task_id), [101, 101])
+
+        let calendar = Calendar.current
+        let startDate = model.savedTasks.first?.start_date ?? .distantPast
+        XCTAssertEqual(calendar.component(.year, from: startDate), 2026)
+        XCTAssertEqual(calendar.component(.month, from: startDate), 4)
+        XCTAssertEqual(calendar.component(.day, from: startDate), 20)
+        XCTAssertEqual(calendar.component(.hour, from: startDate), 15)
+        XCTAssertEqual(calendar.component(.minute, from: startDate), 0)
+        XCTAssertEqual(
+            coordinator.conversationFeed.last?.content,
+            "Shopping list created (id: 101): Shopping list: Tesco. Subtasks created: Milk, Eggs."
+        )
+        XCTAssertNil(coordinator.errorMessage)
+    }
+
+    func testShoppingListToolCallDefaultsScheduleToTodayAtAfternoon() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "create_shopping_list",
+                arguments: [
+                    "location": "Tesco",
+                    "items": [
+                        "Apples"
+                    ]
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let now = Date()
+
+        coordinator.handleCommittedTranscript("Add apples to a shopping list")
+        await Task.yield()
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertEqual(model.savedTasks.count, 1)
+        XCTAssertEqual(model.savedTasks.first?.title, "Shopping list: Tesco")
+        XCTAssertEqual(model.savedTasks.first?.description, "Shopping list for Tesco. Items: Apples.")
+        XCTAssertEqual(model.savedSubTasks.map(\.title), ["Apples"])
+
+        let calendar = Calendar.current
+        let startDate = model.savedTasks.first?.start_date ?? .distantPast
+        XCTAssertEqual(calendar.component(.year, from: startDate), calendar.component(.year, from: now))
+        XCTAssertEqual(calendar.component(.month, from: startDate), calendar.component(.month, from: now))
+        XCTAssertEqual(calendar.component(.day, from: startDate), calendar.component(.day, from: now))
+        XCTAssertEqual(calendar.component(.hour, from: startDate), 15)
+        XCTAssertEqual(calendar.component(.minute, from: startDate), 0)
+    }
+
+    func testShoppingListToolCallRejectsMissingLocation() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "create_shopping_list",
+                arguments: [
+                    "items": [
+                        "Apples"
+                    ]
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Make a shopping list with apples")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertTrue(model.savedTasks.isEmpty)
+        XCTAssertTrue(model.savedSubTasks.isEmpty)
+        XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .error])
+        XCTAssertEqual(coordinator.errorMessage, "Codex did not provide a shopping list location.")
+    }
+
+    func testShoppingListToolCallRejectsMissingItems() async {
+        let model = FakeAudioModeCodexModel(llmEnabled: true)
+        let client = FakeAudioModeCodexClient(
+            result: .callTool(
+                name: "create_shopping_list",
+                arguments: [
+                    "location": "Tesco",
+                    "items": []
+                ]
+            )
+        )
+        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+
+        coordinator.handleCommittedTranscript("Make a Tesco shopping list")
+        await Task.yield()
+        await Task.yield()
+
+        XCTAssertTrue(model.savedTasks.isEmpty)
+        XCTAssertTrue(model.savedSubTasks.isEmpty)
+        XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .error])
+        XCTAssertEqual(coordinator.errorMessage, "Codex did not provide shopping list items.")
     }
 
     func testCreateTaskToolCallShowsFailureWhenParentSaveFails() async {

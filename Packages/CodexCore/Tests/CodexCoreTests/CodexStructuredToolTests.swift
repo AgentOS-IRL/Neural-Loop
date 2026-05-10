@@ -14,6 +14,7 @@ private enum CodexStructuredToolTestFixtures {
     static var defaultIntentTools: [CodexTool] {
         [
             createTaskTool,
+            createShoppingListTool,
             notesTool
         ]
     }
@@ -127,6 +128,33 @@ private enum CodexStructuredToolTestFixtures {
         ])
     )
 
+    static let createShoppingListTool = CodexTool(
+        name: "create_shopping_list",
+        description: "Create a grocery or shopping-list task. Use this for grocery todo, shopping list, supermarket, store, or errand-list requests. Require a location/store/place and the items the user named; ask for clarification if either is missing. Include start_date only when the user mentions a date, time, or daypart; if the user gives a date without a time, use 15:00 local time. If start_date is omitted, the app defaults to today at 15:00 local time.",
+        parameters: .object([
+            "type": .string("object"),
+            "properties": .object([
+                "location": .object([
+                    "type": .string("string"),
+                    "description": .string("Required store, place, or shopping location.")
+                ]),
+                "items": .object([
+                    "type": .string("array"),
+                    "description": .string("Shopping items explicitly named by the user. Trim whitespace and do not invent items."),
+                    "items": .object([
+                        "type": .string("string"),
+                        "description": .string("A single shopping item.")
+                    ])
+                ]),
+                "start_date": .object([
+                    "type": .string("string"),
+                    "description": .string("Optional normalized ISO-8601 start date. If omitted, the app defaults to today at 15:00 local time.")
+                ])
+            ]),
+            "required": .array([.string("location"), .string("items")])
+        ])
+    )
+
     static let notesTool = CodexTool(
         name: "Notes",
         description: "Create a personal app note or a Genesys work note when the user wants to save information.",
@@ -225,12 +253,10 @@ final class CodexStructuredToolTests: XCTestCase {
     func testDefaultIntentInstructionsDescribeGroceryWorkflow() {
         let instructions = CodexStructuredToolTestFixtures.defaultIntentInstructions
 
-        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("grocery list"))
-        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("shopping list"))
+        XCTAssertTrue(instructions.contains("create_shopping_list"))
         XCTAssertTrue(instructions.contains("create_task"))
-        XCTAssertTrue(instructions.contains("one `create_task` call"))
-        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("sub_tasks"))
-        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("trim each child title"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("grocery"))
+        XCTAssertTrue(instructions.localizedCaseInsensitiveContains("shopping-list"))
         XCTAssertFalse(instructions.contains("create_sub_task"))
     }
 
@@ -393,6 +419,21 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(parameters["required"] as? [String], ["content"])
     }
 
+    func testDefaultShoppingListToolIncludesItemsLocationAndStartDate() throws {
+        let shoppingTool = try XCTUnwrap(NeuralLoopCodexIntents.defaultIntentTools.first { $0.name == "create_shopping_list" })
+        let encoded = try JSONEncoder().encode(shoppingTool)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        let parameters = try XCTUnwrap(json["parameters"] as? [String: Any])
+        let properties = try XCTUnwrap(parameters["properties"] as? [String: Any])
+
+        XCTAssertEqual(json["type"] as? String, "function")
+        XCTAssertEqual(json["name"] as? String, "create_shopping_list")
+        XCTAssertNotNil(properties["location"])
+        XCTAssertNotNil(properties["items"])
+        XCTAssertNotNil(properties["start_date"])
+        XCTAssertEqual(parameters["required"] as? [String], ["location", "items"])
+    }
+
     func testCodexToolEncodesSubTaskPayload() throws {
         let encoded = try JSONEncoder().encode(CodexStructuredToolTestFixtures.createSubTaskTool)
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
@@ -479,9 +520,10 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertNil(json["previous_response_id"])
 
         let tools = try XCTUnwrap(json["tools"] as? [[String: Any]])
-        XCTAssertEqual(tools.count, 2)
+        XCTAssertEqual(tools.count, 3)
         XCTAssertEqual(tools[0]["name"] as? String, "create_task")
-        XCTAssertEqual(tools[1]["name"] as? String, "Notes")
+        XCTAssertEqual(tools[1]["name"] as? String, "create_shopping_list")
+        XCTAssertEqual(tools[2]["name"] as? String, "Notes")
     }
 
     func testWorkoutRequestIncludesWorkoutToolDefinitionsAndAutoChoice() async throws {
@@ -879,9 +921,9 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(text, "What grocery items should I add?")
     }
 
-    func testConverseReturnsParentTaskToolCallForGroceryRequest() async throws {
+    func testConverseReturnsShoppingListToolCallForGroceryRequest() async throws {
         let streamPayload = """
-        {"type":"response.output_text.delta","delta":{"tool_calls":[{"id":"call_parent","index":0,"function":{"name":"create_task","arguments":"{\\"title\\":\\"Grocery list\\",\\"description\\":\\"Milk and eggs\\",\\"sub_tasks\\":[{\\"title\\":\\"Milk\\"},{\\"title\\":\\"Eggs\\"}]}"}}]}}
+        {"type":"response.output_text.delta","delta":{"tool_calls":[{"id":"call_parent","index":0,"function":{"name":"create_shopping_list","arguments":"{\\"location\\":\\"Tesco\\",\\"items\\":[\\"Milk\\",\\"Eggs\\"]}"}}]}}
         """
 
         let tool = CodexStructuredTool(
@@ -905,17 +947,12 @@ final class CodexStructuredToolTests: XCTestCase {
             return XCTFail("Expected tool call")
         }
 
-        XCTAssertEqual(name, "create_task")
-        XCTAssertEqual(arguments["title"] as? String, "Grocery list")
-        XCTAssertEqual(arguments["description"] as? String, "Milk and eggs")
-        let rawSubTasks = try XCTUnwrap(arguments["sub_tasks"] as? [Any])
-        let subTasks = try rawSubTasks.map { try XCTUnwrap($0 as? [String: Any]) }
-        XCTAssertEqual(subTasks.count, 2)
-        XCTAssertEqual(subTasks[0]["title"] as? String, "Milk")
-        XCTAssertEqual(subTasks[1]["title"] as? String, "Eggs")
+        XCTAssertEqual(name, "create_shopping_list")
+        XCTAssertEqual(arguments["location"] as? String, "Tesco")
+        XCTAssertEqual(arguments["items"] as? [String], ["Milk", "Eggs"])
 
         let event = try CodexStreamEvent.parse(from: Data(streamPayload.utf8))
-        XCTAssertEqual(event.toolCalls?.compactMap(\.name), ["create_task"])
+        XCTAssertEqual(event.toolCalls?.compactMap(\.name), ["create_shopping_list"])
     }
 
     func testBuildBodyProducesStructuredFormat() throws {

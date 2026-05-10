@@ -56,8 +56,8 @@ struct CodexChatConversation {
         }
 
         print("Codex chat conversation")
-        print("Using Neural Loop dummy tools: create_task and Notes.")
-        print("Grocery requests can use one create_task call with nested sub_tasks, and the dummy runner prints the parent and each nested subtask together.")
+        print("Using Neural Loop dummy tools: create_task, create_shopping_list, and Notes.")
+        print("Shopping requests use create_shopping_list, and the dummy runner prints the templated parent and each item subtask together.")
         print("Type /quit to exit, /reset to clear conversation state, or /state to print response state.")
 
         while true {
@@ -162,6 +162,8 @@ private struct DummyToolExecutor {
         switch normalized(name) {
         case "create_task":
             return try createTask(arguments)
+        case "create_shopping_list":
+            return try createShoppingList(arguments)
         case "notes", "create_note":
             return try createNote(arguments)
         default:
@@ -200,6 +202,36 @@ private struct DummyToolExecutor {
         return output.joined(separator: "\n\n")
     }
 
+    private func createShoppingList(_ arguments: [String: Any]) throws -> String {
+        guard let location = firstNonEmptyString(for: ["location", "store", "place"], in: arguments) else {
+            throw ScriptError.invalidToolArguments("create_shopping_list requires a location.")
+        }
+
+        let items = shoppingItemTitlesValue(in: arguments)
+        guard !items.isEmpty else {
+            throw ScriptError.invalidToolArguments("create_shopping_list requires at least one item.")
+        }
+
+        let parentID = "dummy-shopping-list-\(UUID().uuidString)"
+        let title = "Shopping list: \(location)"
+        var payload: [String: Any] = [
+            "id": parentID,
+            "title": title,
+            "description": shoppingListDescription(location: location, items: items),
+            "duration": 900
+        ]
+
+        payload["start_date"] = firstNonEmptyString(for: ["start_date"], in: arguments) ?? "today 15:00 local"
+
+        let childPayloads = items.map { title in
+            dummySubTaskPayload(parentTaskID: parentID, title: title)
+        }
+
+        var output = ["Dummy shopping list created:\n\(prettyJSON(payload))"]
+        output.append(contentsOf: childPayloads.map { "Dummy shopping item created:\n\($0)" })
+        return output.joined(separator: "\n\n")
+    }
+
     private func createNote(_ arguments: [String: Any]) throws -> String {
         guard let content = firstNonEmptyString(for: ["content", "note"], in: arguments) else {
             throw ScriptError.invalidToolArguments("Notes requires non-empty content.")
@@ -226,6 +258,25 @@ private struct DummyToolExecutor {
         }
     }
 
+    private func shoppingItemTitlesValue(in arguments: [String: Any]) -> [String] {
+        guard let rawItems = arrayValue(for: ["items"], in: arguments) else {
+            return []
+        }
+
+        return rawItems.compactMap { item in
+            if let stringItem = item as? String {
+                let trimmedItem = stringItem.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmedItem.isEmpty ? nil : trimmedItem
+            }
+
+            guard let itemArguments = item as? [String: Any] else {
+                return nil
+            }
+
+            return firstNonEmptyString(for: ["title", "name", "item"], in: itemArguments)
+        }
+    }
+
     private func arrayValue(for keys: [String], in arguments: [String: Any]) -> [Any]? {
         for key in keys {
             if let value = arguments[key] as? [Any] {
@@ -247,6 +298,11 @@ private struct DummyToolExecutor {
             "is_completed": false
         ]
         return prettyJSON(payload)
+    }
+
+    private func shoppingListDescription(location: String, items: [String]) -> String {
+        let itemText = items.joined(separator: ", ")
+        return "Shopping list for \(location). Items: \(itemText)."
     }
 
     private func normalized(_ name: String) -> String {
