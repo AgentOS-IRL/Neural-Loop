@@ -343,6 +343,15 @@ private final class FakeWorkoutSiriCodexModel: WorkoutSiriCodexModel {
         self.codexAccessToken = codexAccessToken
         self.codexAccountID = codexAccountID
     }
+
+    func validCodexCredentials() async -> CodexCredentials? {
+        guard let codexAccessToken,
+              let codexAccountID else {
+            return nil
+        }
+
+        return CodexCredentials(accessToken: codexAccessToken, accountID: codexAccountID)
+    }
 }
 
 private final class FakeWorkoutSiriCodexClient: WorkoutSiriCodexExecuting {

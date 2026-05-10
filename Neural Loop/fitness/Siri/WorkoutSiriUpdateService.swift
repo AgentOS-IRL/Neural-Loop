@@ -11,6 +11,7 @@ protocol WorkoutSiriCodexModel: AnyObject {
     var llm_enabled: Bool { get }
     var codexAccessToken: String? { get }
     var codexAccountID: String? { get }
+    func validCodexCredentials() async -> CodexCredentials?
 }
 
 enum WorkoutSiriUpdateOutcome: Equatable {
@@ -59,7 +60,7 @@ final class WorkoutSiriUpdateService: WorkoutSiriUpdating {
             return .unavailable("Workout updates need LLM access to be enabled in the app.")
         }
 
-        guard let accessToken = model.codexAccessToken, let accountID = model.codexAccountID else {
+        guard let credentials = await model.validCodexCredentials() else {
             return .unavailable("Workout updates need your Codex credentials to be loaded in the app.")
         }
 
@@ -69,7 +70,7 @@ final class WorkoutSiriUpdateService: WorkoutSiriUpdating {
             return .noActiveSession("I can't find an active workout session. Start one first.")
         }
 
-        guard let client = resolvedCodexClient(accessToken: accessToken, accountID: accountID) else {
+        guard let client = resolvedCodexClient(credentials: credentials) else {
             return .unavailable("Workout updates need Codex access before I can update the set.")
         }
 
@@ -129,16 +130,13 @@ final class WorkoutSiriUpdateService: WorkoutSiriUpdating {
         }
     }
 
-    private func resolvedCodexClient(
-        accessToken: String,
-        accountID: String
-    ) -> (any WorkoutSiriCodexExecuting)? {
+    private func resolvedCodexClient(credentials: CodexCredentials) -> (any WorkoutSiriCodexExecuting)? {
         if let codexClient {
             return codexClient
         }
 
         return CodexStructuredToolWorkoutSiriAdapter(
-            tool: CodexStructuredTool(access_token: accessToken, account_id: accountID)
+            tool: CodexStructuredTool(access_token: credentials.accessToken, account_id: credentials.accountID)
         )
     }
 

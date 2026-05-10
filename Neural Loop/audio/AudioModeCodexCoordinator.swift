@@ -16,6 +16,7 @@ protocol AudioModeCodexModel: AnyObject {
     var llm_enabled: Bool { get }
     var codexAccessToken: String? { get }
     var codexAccountID: String? { get }
+    func validCodexCredentials() async -> CodexCredentials?
     func getTask(by id: Int64) -> Tasks?
     func saveTask(_ task: Tasks) async -> Tasks?
     func addSubTask(_ title: String, taskId: Int64) async -> SubTasks?
@@ -141,7 +142,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
             return
         }
 
-        guard let client = resolvedCodexClient() else {
+        guard let client = await resolvedCodexClient() else {
             appendError("Codex client is unavailable.")
             return
         }
@@ -457,20 +458,17 @@ final class AudioModeCodexCoordinator: ObservableObject {
         }
     }
 
-    private func resolvedCodexClient() -> (any AudioModeCodexExecuting)? {
+    private func resolvedCodexClient() async -> (any AudioModeCodexExecuting)? {
         if let codexClient {
             return codexClient
         }
 
-        guard
-            let accessToken = model.codexAccessToken,
-            let accountID = model.codexAccountID
-        else {
+        guard let credentials = await model.validCodexCredentials() else {
             return nil
         }
 
         return CodexStructuredToolAudioModeAdapter(
-            tool: CodexStructuredTool(access_token: accessToken, account_id: accountID)
+            tool: CodexStructuredTool(access_token: credentials.accessToken, account_id: credentials.accountID)
         )
     }
 

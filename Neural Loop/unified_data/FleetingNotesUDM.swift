@@ -44,11 +44,10 @@ extension UnifiedDataModel {
         let dateResolver: (any GenesysReminderDateResolving)?
         if dueDate == nil,
            llm_enabled,
-           let codexAccessToken,
-           let codexAccountID {
+           let credentials = await validCodexCredentials() {
             dateResolver = CodexGenesysReminderDateResolver(
-                accessToken: codexAccessToken,
-                accountID: codexAccountID
+                accessToken: credentials.accessToken,
+                accountID: credentials.accountID
             )
         } else {
             dateResolver = nil

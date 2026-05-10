@@ -158,6 +158,15 @@ private final class FakeWorkoutRoutineGenerationCodexModel: WorkoutRoutineGenera
     var llm_enabled: Bool = true
     var codexAccessToken: String? = "token"
     var codexAccountID: String? = "account"
+
+    func validCodexCredentials() async -> CodexCredentials? {
+        guard let codexAccessToken,
+              let codexAccountID else {
+            return nil
+        }
+
+        return CodexCredentials(accessToken: codexAccessToken, accountID: codexAccountID)
+    }
 }
 
 private final class FakeWorkoutRoutineGenerationCodexClient: WorkoutRoutineGenerationCodexExecuting {

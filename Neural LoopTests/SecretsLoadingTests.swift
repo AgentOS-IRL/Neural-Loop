@@ -22,6 +22,27 @@ final class SecretsLoadingTests: XCTestCase {
         XCTAssertEqual(decoded[1].value, "secret-two")
     }
 
+    func testSecretsModelDecodesNullValue() throws {
+        let data = """
+        [
+          {"key":"optional_secret","value":null}
+        ]
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode([Secrets].self, from: data)
+
+        XCTAssertEqual(decoded.count, 1)
+        XCTAssertEqual(decoded[0].key, "optional_secret")
+        XCTAssertNil(decoded[0].value)
+    }
+
+    func testNeuralLoopSecretKeyNamesAreStable() {
+        XCTAssertEqual(codexAuthTokenSecretKey, "neural_loop_codex_auth_token")
+        XCTAssertEqual(chatgptAccountIDSecretKey, "neural_loop_chatgpt_account_id")
+        XCTAssertEqual(codexRefreshTokenSecretKey, "neural_loop_codex_refresh_token")
+        XCTAssertEqual(codexTokenExpirySecretKey, "neural_loop_codex_token_expiry")
+    }
+
     func testLoadSecretsStoresRowsAndDerivesSortedKeys() async {
         let rows = [
             Secrets(key: "zeta_token", value: "hidden-z"),
@@ -253,6 +274,133 @@ final class SecretsLoadingTests: XCTestCase {
         XCTAssertFalse(model.llm_enabled)
     }
 
+    func testLoadSecretsRefreshesCodexTokenWhenExpiryIsNull() async {
+        let rows = codexSecretRows(expiry: nil)
+        let updater = MockSecretsUpdater()
+        let refresher = MockCodexTokenRefresher()
+        let model = UnifiedDataModel(
+            manager: DBManager.newInstance(),
+            secretsFetcher: MockSecretsFetcher(rows: rows),
+            secretsUpdater: updater,
+            codexTokenRefresher: refresher,
+            autoStart: false
+        )
+
+        await model.loadSecrets()
+
+        XCTAssertEqual(refresher.refreshTokens, ["refresh-old"])
+        XCTAssertEqual(updater.value(for: codexAuthTokenSecretKey), "access-new")
+        XCTAssertEqual(updater.value(for: codexRefreshTokenSecretKey), "refresh-new")
+        XCTAssertNotNil(updater.value(for: codexTokenExpirySecretKey))
+        XCTAssertEqual(model.codexAccessToken, "access-new")
+        XCTAssertEqual(model.codexAccountID, "account-1")
+    }
+
+    func testLoadSecretsRefreshesCodexTokenWhenExpiryIsExpired() async {
+        let rows = codexSecretRows(expiry: isoDateString(secondsFromNow: -1))
+        let refresher = MockCodexTokenRefresher()
+        let model = UnifiedDataModel(
+            manager: DBManager.newInstance(),
+            secretsFetcher: MockSecretsFetcher(rows: rows),
+            secretsUpdater: MockSecretsUpdater(),
+            codexTokenRefresher: refresher,
+            autoStart: false
+        )
+
+        await model.loadSecrets()
+
+        XCTAssertEqual(refresher.refreshTokens, ["refresh-old"])
+        XCTAssertEqual(model.codexAccessToken, "access-new")
+    }
+
+    func testLoadSecretsRefreshesCodexTokenWhenExpiryIsNearExpiry() async {
+        let rows = codexSecretRows(expiry: isoDateString(secondsFromNow: 30))
+        let refresher = MockCodexTokenRefresher()
+        let model = UnifiedDataModel(
+            manager: DBManager.newInstance(),
+            secretsFetcher: MockSecretsFetcher(rows: rows),
+            secretsUpdater: MockSecretsUpdater(),
+            codexTokenRefresher: refresher,
+            autoStart: false
+        )
+
+        await model.loadSecrets()
+
+        XCTAssertEqual(refresher.refreshTokens, ["refresh-old"])
+        XCTAssertEqual(model.codexAccessToken, "access-new")
+    }
+
+    func testLoadSecretsRefreshesCodexTokenWhenExpiryIsMalformed() async {
+        let rows = codexSecretRows(expiry: "not-a-date")
+        let refresher = MockCodexTokenRefresher()
+        let model = UnifiedDataModel(
+            manager: DBManager.newInstance(),
+            secretsFetcher: MockSecretsFetcher(rows: rows),
+            secretsUpdater: MockSecretsUpdater(),
+            codexTokenRefresher: refresher,
+            autoStart: false
+        )
+
+        await model.loadSecrets()
+
+        XCTAssertEqual(refresher.refreshTokens, ["refresh-old"])
+        XCTAssertEqual(model.codexAccessToken, "access-new")
+    }
+
+    func testLoadSecretsRefreshesCodexTokenWhenAccessTokenIsMissing() async {
+        var rows = codexSecretRows(expiry: isoDateString(secondsFromNow: 3600))
+        rows.updateSecretValue(nil, for: codexAuthTokenSecretKey)
+        let refresher = MockCodexTokenRefresher()
+        let model = UnifiedDataModel(
+            manager: DBManager.newInstance(),
+            secretsFetcher: MockSecretsFetcher(rows: rows),
+            secretsUpdater: MockSecretsUpdater(),
+            codexTokenRefresher: refresher,
+            autoStart: false
+        )
+
+        await model.loadSecrets()
+
+        XCTAssertEqual(refresher.refreshTokens, ["refresh-old"])
+        XCTAssertEqual(model.codexAccessToken, "access-new")
+    }
+
+    func testLoadSecretsDoesNotRefreshCodexTokenWhenExpiryIsValid() async {
+        let rows = codexSecretRows(expiry: isoDateString(secondsFromNow: 3600))
+        let refresher = MockCodexTokenRefresher()
+        let model = UnifiedDataModel(
+            manager: DBManager.newInstance(),
+            secretsFetcher: MockSecretsFetcher(rows: rows),
+            secretsUpdater: MockSecretsUpdater(),
+            codexTokenRefresher: refresher,
+            autoStart: false
+        )
+
+        await model.loadSecrets()
+
+        XCTAssertTrue(refresher.refreshTokens.isEmpty)
+        XCTAssertEqual(model.codexAccessToken, "access-old")
+    }
+
+    func testRefreshSecretsForcesCodexTokenRefresh() async {
+        let rows = codexSecretRows(expiry: isoDateString(secondsFromNow: 3600))
+        let updater = MockSecretsUpdater()
+        let refresher = MockCodexTokenRefresher()
+        let model = UnifiedDataModel(
+            manager: DBManager.newInstance(),
+            secretsFetcher: MockSecretsFetcher(rows: rows),
+            secretsUpdater: updater,
+            codexTokenRefresher: refresher,
+            autoStart: false
+        )
+
+        await model.refreshSecrets()
+
+        XCTAssertEqual(refresher.refreshTokens, ["refresh-old"])
+        XCTAssertEqual(updater.value(for: codexAuthTokenSecretKey), "access-new")
+        XCTAssertEqual(model.codexAccessToken, "access-new")
+    }
+
     func testAudioModeTransitionCopyUsesAIPageLabels() {
         XCTAssertEqual(AudioModeTransitionCopy.pageTitle, "AI")
         XCTAssertEqual(AudioModeTransitionCopy.activeStatusTitle, "AI ready")
@@ -269,11 +417,56 @@ final class SecretsLoadingTests: XCTestCase {
     }
 }
 
+private func codexSecretRows(expiry: String?) -> [Secrets] {
+    [
+        Secrets(key: codexAuthTokenSecretKey, value: "access-old"),
+        Secrets(key: chatgptAccountIDSecretKey, value: "account-1"),
+        Secrets(key: codexRefreshTokenSecretKey, value: "refresh-old"),
+        Secrets(key: codexTokenExpirySecretKey, value: expiry)
+    ]
+}
+
+private func isoDateString(secondsFromNow seconds: TimeInterval) -> String {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime]
+    return formatter.string(from: Date().addingTimeInterval(seconds))
+}
+
 private struct MockSecretsFetcher: SecretsFetching {
     let rows: [Secrets]
 
     func fetchAllSecrets() async throws -> [Secrets] {
         rows
+    }
+}
+
+private final class MockSecretsUpdater: SecretsUpdating {
+    private(set) var updatedValues: [String: String?] = [:]
+
+    func updateSecretValue(key: String, value: String?) async throws {
+        updatedValues.updateValue(value, forKey: key)
+    }
+
+    func value(for key: String) -> String? {
+        guard let value = updatedValues[key] else {
+            return nil
+        }
+
+        return value
+    }
+}
+
+private final class MockCodexTokenRefresher: CodexTokenRefreshing {
+    private(set) var refreshTokens: [String] = []
+    var response = CodexTokenRefreshResponse(
+        access_token: "access-new",
+        expires_in: 3600,
+        refresh_token: "refresh-new"
+    )
+
+    func refreshCodexToken(refreshToken: String) async throws -> CodexTokenRefreshResponse {
+        refreshTokens.append(refreshToken)
+        return response
     }
 }
 

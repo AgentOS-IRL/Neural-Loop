@@ -1019,6 +1019,15 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
             sourceTitle: workReminderSaveResult.sourceTitle
         )
     }
+
+    func validCodexCredentials() async -> CodexCredentials? {
+        guard let codexAccessToken,
+              let codexAccountID else {
+            return nil
+        }
+
+        return CodexCredentials(accessToken: codexAccessToken, accountID: codexAccountID)
+    }
 }
 
 private final class FakeAudioModeCodexClient: AudioModeCodexExecuting {

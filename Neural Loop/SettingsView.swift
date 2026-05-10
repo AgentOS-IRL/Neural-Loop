@@ -102,7 +102,7 @@ struct SettingsView: View {
                         Text("LLM Access")
                             .font(.system(.headline, design: .rounded, weight: .bold))
                             .foregroundStyle(AppTheme.textPrimary)
-                        Text("Enable LLM features only when the `codex_auth_token` secret is loaded.")
+                        Text("Enable LLM features only when the `\(codexAuthTokenSecretKey)` secret is loaded.")
                             .font(.system(.subheadline, design: .rounded, weight: .medium))
                             .foregroundStyle(AppTheme.textSecondary)
                     }
@@ -152,7 +152,7 @@ struct SettingsView: View {
                 }
                 .disabled(isRefreshingSecrets)
                 
-                Text("LLM access is enabled only when the codex_auth_token secret exists and this switch is on. Use Refresh Secrets if the table changed externally.")
+                Text("LLM access is enabled only when the \(codexAuthTokenSecretKey) secret exists and this switch is on. Use Refresh Secrets if the table changed externally.")
                     .font(.system(.caption, design: .rounded, weight: .medium))
                     .foregroundStyle(AppTheme.textSecondary)
             }

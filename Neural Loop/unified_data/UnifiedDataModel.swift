@@ -33,9 +33,12 @@ final class UnifiedDataModel: ObservableObject {
     let manager :DBManager
     let workReminderService: GenesysReminderService
     private let secretsFetcher: any SecretsFetching
+    private let secretsUpdater: any SecretsUpdating
+    private let codexTokenRefresher: any CodexTokenRefreshing
     let calendar: Calendar
     let notificationScheduler: NotificationAutoScheduler
     private var notificationRescheduleTask: Task<Void, Never>?
+    private var codexTokenRefreshTask: Task<CodexCredentials?, Never>?
     
     var _shortTermTasksDataBucket: [DateBucket] = []
     
@@ -140,6 +143,8 @@ final class UnifiedDataModel: ObservableObject {
     init(
         manager: DBManager? = nil,
         secretsFetcher: (any SecretsFetching)? = nil,
+        secretsUpdater: (any SecretsUpdating)? = nil,
+        codexTokenRefresher: (any CodexTokenRefreshing)? = nil,
         autoStart: Bool = true,
         notificationScheduler: NotificationAutoScheduler? = nil,
         workReminderService: GenesysReminderService? = nil
@@ -148,6 +153,8 @@ final class UnifiedDataModel: ObservableObject {
         self.manager = resolvedManager
         self.workReminderService = workReminderService ?? GenesysReminderService()
         self.secretsFetcher = secretsFetcher ?? resolvedManager
+        self.secretsUpdater = secretsUpdater ?? resolvedManager
+        self.codexTokenRefresher = codexTokenRefresher ?? CodexTokenRefreshService()
         self.calendar  = Calendar.neuralLoopDisplay
         self.notificationScheduler = notificationScheduler ?? .shared
         self.llmOverrideEnabled = UserDefaults.standard.bool(forKey: llmEnabledOverrideStorageKey)
@@ -173,6 +180,7 @@ final class UnifiedDataModel: ObservableObject {
             self.tasks = snapshot.tasks
             self.secrets = snapshot.secrets
             self.secretsLoaded = true
+            _ = await refreshCodexTokenIfNeeded(force: false)
             
             self.habits = snapshot.habits
         } catch {
@@ -260,7 +268,7 @@ final class UnifiedDataModel: ObservableObject {
         }
     }
 
-    func loadSecrets(fetcher: (any SecretsFetching)? = nil) async {
+    func loadSecrets(fetcher: (any SecretsFetching)? = nil, refreshCodexToken: Bool = true) async {
         defer {
             secretsLoaded = true
         }
@@ -270,13 +278,17 @@ final class UnifiedDataModel: ObservableObject {
             let source = fetcher ?? secretsFetcher
             let fetched = try await source.fetchAllSecrets()
             secrets = fetched
+            if refreshCodexToken {
+                _ = await refreshCodexTokenIfNeeded(force: false)
+            }
         } catch {
             print("error", error)
         }
     }
 
     func refreshSecrets() async {
-        await loadSecrets()
+        await loadSecrets(refreshCodexToken: false)
+        _ = await refreshCodexTokenIfNeeded(force: true)
     }
 
     var loadedSecretKeys: [String] {
@@ -310,6 +322,93 @@ final class UnifiedDataModel: ObservableObject {
     var codexAccountID: String? {
         secrets.secretValue(for: chatgptAccountIDSecretKey)
     }
+
+    func validCodexCredentials() async -> CodexCredentials? {
+        if shouldRefreshCodexToken() {
+            return await refreshCodexTokenIfNeeded(force: false)
+        }
+
+        return currentCodexCredentials
+    }
+
+    private var currentCodexCredentials: CodexCredentials? {
+        guard let accessToken = codexAccessToken,
+              let accountID = codexAccountID else {
+            return nil
+        }
+
+        return CodexCredentials(accessToken: accessToken, accountID: accountID)
+    }
+
+    private func shouldRefreshCodexToken() -> Bool {
+        guard secrets.secretValue(for: codexRefreshTokenSecretKey) != nil else {
+            return false
+        }
+
+        guard secrets.secretValue(for: codexAuthTokenSecretKey) != nil else {
+            return true
+        }
+
+        guard let expiryValue = secrets.secretValue(for: codexTokenExpirySecretKey) else {
+            return true
+        }
+
+        guard let expiryDate = Self.codexTokenExpiryFormatter.date(from: expiryValue) else {
+            return true
+        }
+
+        return expiryDate <= Date().addingTimeInterval(60)
+    }
+
+    private func refreshCodexTokenIfNeeded(force: Bool) async -> CodexCredentials? {
+        guard force || shouldRefreshCodexToken() else {
+            return currentCodexCredentials
+        }
+
+        guard let refreshToken = secrets.secretValue(for: codexRefreshTokenSecretKey) else {
+            return currentCodexCredentials
+        }
+
+        if let codexTokenRefreshTask {
+            return await codexTokenRefreshTask.value
+        }
+
+        let task = Task<CodexCredentials?, Never> { @MainActor in
+            await self.performCodexTokenRefresh(refreshToken: refreshToken)
+        }
+        codexTokenRefreshTask = task
+        let credentials = await task.value
+        codexTokenRefreshTask = nil
+
+        return credentials ?? currentCodexCredentials
+    }
+
+    private func performCodexTokenRefresh(refreshToken: String) async -> CodexCredentials? {
+        do {
+            let response = try await codexTokenRefresher.refreshCodexToken(refreshToken: refreshToken)
+            let expiryDate = Date().addingTimeInterval(response.expires_in)
+            let expiryValue = Self.codexTokenExpiryFormatter.string(from: expiryDate)
+
+            try await secretsUpdater.updateSecretValue(key: codexAuthTokenSecretKey, value: response.access_token)
+            try await secretsUpdater.updateSecretValue(key: codexRefreshTokenSecretKey, value: response.refresh_token)
+            try await secretsUpdater.updateSecretValue(key: codexTokenExpirySecretKey, value: expiryValue)
+
+            secrets.updateSecretValue(response.access_token, for: codexAuthTokenSecretKey)
+            secrets.updateSecretValue(response.refresh_token, for: codexRefreshTokenSecretKey)
+            secrets.updateSecretValue(expiryValue, for: codexTokenExpirySecretKey)
+
+            return currentCodexCredentials
+        } catch {
+            print("Error refreshing Codex token:", error)
+            return nil
+        }
+    }
+
+    private static let codexTokenExpiryFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
 
     func setLLMOverrideEnabled(_ enabled: Bool) {
         llmOverrideEnabled = enabled

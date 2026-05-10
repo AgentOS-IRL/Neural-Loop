@@ -11,10 +11,12 @@ protocol WorkoutRoutineGenerationCodexExecuting {
     ) async throws -> CodexIntentResult
 }
 
+@MainActor
 protocol WorkoutRoutineGenerationCodexModel: AnyObject {
     var llm_enabled: Bool { get }
     var codexAccessToken: String? { get }
     var codexAccountID: String? { get }
+    func validCodexCredentials() async -> CodexCredentials?
 }
 
 @MainActor
@@ -53,7 +55,7 @@ final class WorkoutRoutineGenerationCodexCoordinator: ObservableObject {
             return nil
         }
 
-        guard let client = resolvedCodexClient() else {
+        guard let client = await resolvedCodexClient() else {
             appendError("Codex client is unavailable.")
             return nil
         }
@@ -136,20 +138,17 @@ final class WorkoutRoutineGenerationCodexCoordinator: ObservableObject {
         }
     }
 
-    private func resolvedCodexClient() -> (any WorkoutRoutineGenerationCodexExecuting)? {
+    private func resolvedCodexClient() async -> (any WorkoutRoutineGenerationCodexExecuting)? {
         if let codexClient {
             return codexClient
         }
 
-        guard
-            let accessToken = model.codexAccessToken,
-            let accountID = model.codexAccountID
-        else {
+        guard let credentials = await model.validCodexCredentials() else {
             return nil
         }
 
         return CodexStructuredToolWorkoutRoutineAdapter(
-            tool: CodexStructuredTool(access_token: accessToken, account_id: accountID)
+            tool: CodexStructuredTool(access_token: credentials.accessToken, account_id: credentials.accountID)
         )
     }
 
