@@ -116,6 +116,8 @@
 		262A7F632FA14F0D00C1A47F /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		262A7F652FA14F0D00C1A47F /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		262A903F2FA1D0A700C1A47F /* Neural Loop Watch WidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Neural Loop Watch WidgetsExtension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		342300012FA8000000000001 /* Supabase.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Supabase.xcconfig; sourceTree = "<group>"; };
+		342300022FA8000000000001 /* Supabase.xcconfig.example */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Supabase.xcconfig.example; sourceTree = "<group>"; };
 		34237FBE2F0AF4CA002E0D02 /* Neural Loop.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Neural Loop.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		349D25D82F2402090001589F /* Neural Loop Watch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Neural Loop Watch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		349D25E92F2403890001589F /* ConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityManager.swift; sourceTree = "<group>"; };
@@ -231,6 +233,7 @@
 		34237FB52F0AF4CA002E0D02 = {
 			isa = PBXGroup;
 			children = (
+				342300002FA8000000000001 /* Config */,
 				349D25E82F2403620001589F /* Shared */,
 				34237FC02F0AF4CA002E0D02 /* Neural Loop */,
 				34B495972F138D78000FAD6D /* Neural LoopTests */,
@@ -240,6 +243,15 @@
 				34EB1EAF2F0FFE9800F5B247 /* Frameworks */,
 				34237FBF2F0AF4CA002E0D02 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		342300002FA8000000000001 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				342300012FA8000000000001 /* Supabase.xcconfig */,
+				342300022FA8000000000001 /* Supabase.xcconfig.example */,
+			);
+			path = Config;
 			sourceTree = "<group>";
 		};
 		34237FBF2F0AF4CA002E0D02 /* Products */ = {
@@ -830,6 +842,7 @@
 		};
 		34237FCC2F0AF4CB002E0D02 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 342300012FA8000000000001 /* Supabase.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -865,6 +878,7 @@
 		};
 		34237FCD2F0AF4CB002E0D02 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 342300012FA8000000000001 /* Supabase.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;

@@ -1,0 +1,7 @@
+// Default non-secret placeholders. Real local values belong in
+// Config/Supabase.local.xcconfig, which is intentionally ignored by git.
+
+SUPABASE_URL = 
+SUPABASE_PUBLISHABLE_KEY = 
+
+#include? "Supabase.local.xcconfig"

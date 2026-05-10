@@ -13,6 +13,10 @@
 			</array>
 		</dict>
 	</array>
+	<key>SupabasePublishableKey</key>
+	<string>$(SUPABASE_PUBLISHABLE_KEY)</string>
+	<key>SupabaseURL</key>
+	<string>$(SUPABASE_URL)</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app uses the microphone to capture your speech for transcription.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
