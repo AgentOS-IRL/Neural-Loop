@@ -1,0 +1,5 @@
+// Copy this file to Config/Supabase.local.xcconfig and fill in local values.
+// Config/Supabase.local.xcconfig is intentionally ignored by git.
+
+SUPABASE_URL = https://your-project-ref.supabase.co
+SUPABASE_PUBLISHABLE_KEY = your-publishable-key

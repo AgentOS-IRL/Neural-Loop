@@ -1,5 +1,6 @@
 output.diff
 plan/**
+Config/Supabase.local.xcconfig
 
 
 # Xcode User Data
