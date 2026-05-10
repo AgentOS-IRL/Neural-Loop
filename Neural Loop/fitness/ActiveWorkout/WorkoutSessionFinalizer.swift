@@ -29,16 +29,21 @@ actor WorkoutSessionFinalizer: WorkoutSessionFinalizing {
         
         // 2. Create sets or cardio logs
         for exerciseState in draft.exercises {
+            var savedSetNumber = 0
+
             for setDraft in exerciseState.sets {
+                guard setDraft.isCompleted else { continue }
+
                 if exerciseState.exercise.isRepBased {
                     // Only save sets that have reps
                     let repsString = setDraft.repsText.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard let reps = Int(repsString), reps > 0 else { continue }
+                    savedSetNumber += 1
                     
                     let setRequest = CreateWorkoutSetRequest(
                         workout_session_id: savedSession.id ?? 0,
                         exercise_id: exerciseState.exercise.id,
-                        set_number: setDraft.setNumber,
+                        set_number: savedSetNumber,
                         reps: reps,
                         weight: NumericFormatter.parse(setDraft.weightText),
                         superset_group_id: exerciseState.supersetGroupID

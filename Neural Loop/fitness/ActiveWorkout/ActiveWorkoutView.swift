@@ -3,6 +3,7 @@ import SwiftUI
 struct ActiveWorkoutView: View {
     @ObservedObject var viewModel: ActiveWorkoutViewModel
     @Environment(\.dismiss) var dismiss
+    @State private var isShowingFinishConfirmation = false
     
     var body: some View {
         NavigationView {
@@ -69,6 +70,19 @@ struct ActiveWorkoutView: View {
                 if let error = viewModel.errorMessage {
                     Text(error)
                 }
+            }
+            .alert("Finish workout?", isPresented: $isShowingFinishConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Finish Workout", role: .destructive) {
+                    Task {
+                        await viewModel.finishWorkout()
+                        if viewModel.errorMessage == nil {
+                            dismiss()
+                        }
+                    }
+                }
+            } message: {
+                Text("This will save the workout session and close the active workout.")
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -143,12 +157,7 @@ struct ActiveWorkoutView: View {
     
     private var finishButton: some View {
         Button(action: {
-            Task {
-                await viewModel.finishWorkout()
-                if viewModel.errorMessage == nil {
-                    dismiss()
-                }
-            }
+            isShowingFinishConfirmation = true
         }) {
             Group {
                 if viewModel.isLoading {
