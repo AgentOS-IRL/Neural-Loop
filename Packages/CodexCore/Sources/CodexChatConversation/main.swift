@@ -162,8 +162,6 @@ private struct DummyToolExecutor {
         switch normalized(name) {
         case "create_task":
             return try createTask(arguments)
-        case "create_sub_task":
-            return try createSubTask(arguments)
         case "notes", "create_note":
             return try createNote(arguments)
         default:
@@ -212,25 +210,6 @@ private struct DummyToolExecutor {
             "content": content
         ]
         return "Dummy note created:\n\(prettyJSON(payload))"
-    }
-
-    private func createSubTask(_ arguments: [String: Any]) throws -> String {
-        guard let taskID = int64Value(for: ["task_id"], in: arguments), taskID > 0 else {
-            throw ScriptError.invalidToolArguments("create_sub_task requires a valid parent task_id and a non-empty title.")
-        }
-
-        guard let title = firstNonEmptyString(for: ["title"], in: arguments) else {
-            throw ScriptError.invalidToolArguments("create_sub_task requires a valid parent task_id and a non-empty title.")
-        }
-
-        let payload: [String: Any] = [
-            "id": "dummy-subtask-\(UUID().uuidString)",
-            "task_id": taskID,
-            "title": title,
-            "is_completed": false
-        ]
-
-        return "Dummy subtask created:\n\(prettyJSON(payload))"
     }
 
     private func subTaskTitlesValue(in arguments: [String: Any]) -> [String] {
@@ -298,38 +277,6 @@ private struct DummyToolExecutor {
         if let value = arguments[key] as? String {
             return Double(value.trimmingCharacters(in: .whitespacesAndNewlines))
         }
-        return nil
-    }
-
-    private func int64Value(for keys: [String], in arguments: [String: Any]) -> Int64? {
-        let lowerBound = Double(Int64.min)
-        let upperBound = Double(Int64.max)
-
-        for key in keys {
-            if let value = arguments[key] as? Int64 {
-                return value
-            }
-            if let value = arguments[key] as? Int {
-                return Int64(value)
-            }
-            if let value = arguments[key] as? Double {
-                guard value.isFinite,
-                      value >= lowerBound,
-                      value <= upperBound,
-                      value.rounded(.towardZero) == value else {
-                    continue
-                }
-                return Int64(value)
-            }
-            if let value = arguments[key] as? String {
-                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty, let parsed = Int64(trimmed) else {
-                    continue
-                }
-                return parsed
-            }
-        }
-
         return nil
     }
 

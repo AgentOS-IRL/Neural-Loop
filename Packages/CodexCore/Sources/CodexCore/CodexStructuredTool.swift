@@ -127,6 +127,7 @@ public final class CodexStructuredTool {
     public let timeout: TimeInterval
     public let sessionConfiguration: URLSessionConfiguration
     private let streamingChunksProvider: ((URLRequest) async throws -> [Data])?
+    private let session: URLSession
 
     private let requestEncoder = JSONEncoder()
     private let responseDecoder = JSONDecoder()
@@ -151,6 +152,7 @@ public final class CodexStructuredTool {
         sessionConfiguration.timeoutIntervalForRequest = timeout
         sessionConfiguration.timeoutIntervalForResource = timeout
         self.sessionConfiguration = sessionConfiguration
+        self.session = URLSession(configuration: sessionConfiguration)
         self.streamingChunksProvider = streamingChunksProvider
         self.requestEncoder.outputFormatting = []
     }
@@ -424,7 +426,6 @@ public final class CodexStructuredTool {
                 throw CodexStructuredToolError.transport(error.localizedDescription)
             }
         } else {
-            let session = URLSession(configuration: sessionConfiguration)
             do {
                 let (bytes, response) = try await session.bytes(for: request)
                 try await validate(bytes: bytes, response: response)

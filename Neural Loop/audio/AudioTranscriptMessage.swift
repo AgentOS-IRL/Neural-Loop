@@ -46,7 +46,6 @@ enum AudioToolResultKind: Equatable {
     case personalNoteCreated
     case workNoteCreated
     case taskCreated
-    case subtaskCreated
 
     var badgeText: String? {
         switch self {
@@ -54,7 +53,7 @@ enum AudioToolResultKind: Equatable {
             return "Personal"
         case .workNoteCreated:
             return "Work"
-        case .taskCreated, .subtaskCreated:
+        case .taskCreated:
             return nil
         }
     }
@@ -65,7 +64,7 @@ enum AudioToolResultKind: Equatable {
             return "note.text"
         case .workNoteCreated:
             return "briefcase.fill"
-        case .taskCreated, .subtaskCreated:
+        case .taskCreated:
             return "checkmark.seal.fill"
         }
     }

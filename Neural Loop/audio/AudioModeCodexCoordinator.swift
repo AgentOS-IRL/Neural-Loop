@@ -197,8 +197,6 @@ final class AudioModeCodexCoordinator: ObservableObject {
         switch normalizedToolName(name) {
         case "create_task":
             try await handleCreateTask(arguments: arguments)
-        case "create_sub_task":
-            try await handleCreateSubTask(arguments: arguments)
         case "notes":
             await handleCreateNote(arguments: arguments)
         default:
@@ -273,34 +271,6 @@ final class AudioModeCodexCoordinator: ObservableObject {
         ), kind: .taskCreated)
     }
 
-    private func handleCreateSubTask(arguments: [String: Any]) async throws {
-        guard let parentTaskID = int64Value(for: ["task_id"], in: arguments), parentTaskID > 0 else {
-            appendError("Codex did not provide a parent task id.")
-            return
-        }
-
-        guard let title = stringValue(for: ["title"], in: arguments) else {
-            appendError("Codex did not provide a subtask title.")
-            return
-        }
-
-        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedTitle.isEmpty else {
-            appendError("Codex did not provide a subtask title.")
-            return
-        }
-
-        guard let savedSubTask = await model.addSubTask(trimmedTitle, taskId: parentTaskID) else {
-            appendError("Subtask could not be saved.")
-            return
-        }
-
-        appendToolResult(
-            "Subtask created under task \(parentTaskID) (id: \(savedSubTask.id.uuidString)): \(savedSubTask.title)",
-            kind: .subtaskCreated
-        )
-    }
-
     private func parseTaskSchedule(arguments: [String: Any]) throws -> (startDate: Date?, duration: Double?) {
         guard let rawStartDate = optionalStringValue(for: ["start_date"], in: arguments), !rawStartDate.isEmpty else {
             return (nil, nil)
@@ -341,7 +311,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
             year: components.year,
             month: components.month,
             day: components.day,
-            hour: 12,
+            hour: 15,
             minute: 0,
             second: 0
         ))
@@ -564,38 +534,6 @@ final class AudioModeCodexCoordinator: ObservableObject {
         default:
             return .invalid
         }
-    }
-
-    private func int64Value(for keys: [String], in arguments: [String: Any]) -> Int64? {
-        let lowerBound = Double(Int64.min)
-        let upperBound = Double(Int64.max)
-
-        for key in keys {
-            if let value = arguments[key] as? Int64 {
-                return value
-            }
-            if let value = arguments[key] as? Int {
-                return Int64(value)
-            }
-            if let value = arguments[key] as? Double {
-                guard value.isFinite,
-                      value >= lowerBound,
-                      value <= upperBound,
-                      value.rounded(.towardZero) == value else {
-                    continue
-                }
-                return Int64(value)
-            }
-            if let value = arguments[key] as? String {
-                let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmedValue.isEmpty, let parsedValue = Int64(trimmedValue) else {
-                    continue
-                }
-                return parsedValue
-            }
-        }
-
-        return nil
     }
 
     private func makeCodexMessages(

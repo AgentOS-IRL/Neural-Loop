@@ -234,7 +234,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertNil(coordinator.errorMessage)
     }
 
-    func testCreateSubTaskToolCallPersistsSubTaskAndShowsConfirmation() async {
+    func testCreateSubTaskToolCallIsRejectedAsUnknownTool() async {
         let model = FakeAudioModeCodexModel(llmEnabled: true)
         let client = FakeAudioModeCodexClient(
             result: .callTool(
@@ -252,38 +252,12 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         await Task.yield()
 
         XCTAssertEqual(client.converseCallCount, 1)
-        XCTAssertEqual(model.savedSubTasks.count, 1)
-        XCTAssertEqual(model.savedSubTasks.first?.task_id, 42)
-        XCTAssertEqual(model.savedSubTasks.first?.title, "Draft outline")
+        XCTAssertTrue(model.savedSubTasks.isEmpty)
         XCTAssertFalse(model.savedTasks.contains { $0.title == "Draft outline" })
         XCTAssertTrue(model.savedFleetingNotes.isEmpty)
-        XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .toolResult])
-        XCTAssertEqual(coordinator.conversationFeed.last?.content, "Subtask created under task 42 (id: 00000000-0000-0000-0000-000000000042): Draft outline")
-        XCTAssertFalse(coordinator.isSending)
-        XCTAssertNil(coordinator.errorMessage)
-    }
-
-    func testCreateSubTaskToolCallRejectsOutOfRangeParentTaskID() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
-            result: .callTool(
-                name: "create_sub_task",
-                arguments: [
-                    "task_id": 1e100,
-                    "title": "Draft outline"
-                ]
-            )
-        )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
-
-        coordinator.handleCommittedTranscript("Add a subtask")
-        await Task.yield()
-        await Task.yield()
-
-        XCTAssertEqual(client.converseCallCount, 1)
-        XCTAssertTrue(model.savedSubTasks.isEmpty)
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .error])
-        XCTAssertEqual(coordinator.errorMessage, "Codex did not provide a parent task id.")
+        XCTAssertFalse(coordinator.isSending)
+        XCTAssertEqual(coordinator.errorMessage, "Unknown Codex tool call: create_sub_task")
     }
 
     func testCreateTaskToolCallPersistsScheduledTaskWithExplicitTimeAndDefaultDuration() async {
@@ -374,7 +348,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertEqual(calendar.component(.year, from: startDate), 2026)
         XCTAssertEqual(calendar.component(.month, from: startDate), 4)
         XCTAssertEqual(calendar.component(.day, from: startDate), 20)
-        XCTAssertEqual(calendar.component(.hour, from: startDate), 12)
+        XCTAssertEqual(calendar.component(.hour, from: startDate), 15)
         XCTAssertEqual(calendar.component(.minute, from: startDate), 0)
     }
 
@@ -420,113 +394,6 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
         XCTAssertTrue(model.savedTasks.isEmpty)
         XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .error])
         XCTAssertEqual(coordinator.errorMessage, "Codex provided an invalid task start date: next blursday")
-    }
-
-    func testCreateSubTaskToolCallRejectsBlankTitle() async {
-        let parentTask = Tasks(
-            id: 42,
-            title: "Parent task",
-            description: nil,
-            priority: 0,
-            goal_id: nil,
-            lifearea_id: nil,
-            is_completed: false,
-            is_deadline: false,
-            completed_at: nil,
-            recursion_rule: nil,
-            start_date: nil,
-            duration: nil,
-            created_at: nil,
-            updated_at: nil
-        )
-        let model = FakeAudioModeCodexModel(
-            llmEnabled: true,
-            seededTasks: [parentTask]
-        )
-        let client = FakeAudioModeCodexClient(
-            result: .callTool(
-                name: "create_sub_task",
-                arguments: [
-                    "task_id": 42,
-                    "title": "   "
-                ]
-            )
-        )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
-
-        coordinator.handleCommittedTranscript("Add a subtask")
-        await Task.yield()
-        await Task.yield()
-
-        XCTAssertEqual(client.converseCallCount, 1)
-        XCTAssertTrue(model.savedSubTasks.isEmpty)
-        XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .error])
-        XCTAssertEqual(coordinator.errorMessage, "Codex did not provide a subtask title.")
-    }
-
-    func testCreateSubTaskToolCallRejectsMissingParentTaskContext() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
-            result: .callTool(
-                name: "create_sub_task",
-                arguments: [
-                    "title": "Draft outline"
-                ]
-            )
-        )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
-
-        coordinator.handleCommittedTranscript("Add a subtask")
-        await Task.yield()
-        await Task.yield()
-
-        XCTAssertEqual(client.converseCallCount, 1)
-        XCTAssertTrue(model.savedSubTasks.isEmpty)
-        XCTAssertEqual(coordinator.conversationFeed.map(\.role), [.user, .status, .error])
-        XCTAssertEqual(coordinator.errorMessage, "Codex did not provide a parent task id.")
-    }
-
-    func testCreateSubTaskToolCallShowsFailureWhenPersistenceFails() async {
-        let parentTask = Tasks(
-            id: 42,
-            title: "Parent task",
-            description: nil,
-            priority: 0,
-            goal_id: nil,
-            lifearea_id: nil,
-            is_completed: false,
-            is_deadline: false,
-            completed_at: nil,
-            recursion_rule: nil,
-            start_date: nil,
-            duration: nil,
-            created_at: nil,
-            updated_at: nil
-        )
-        let model = FakeAudioModeCodexModel(
-            llmEnabled: true,
-            seededTasks: [parentTask],
-            subTaskSaveShouldFail: true
-        )
-        let client = FakeAudioModeCodexClient(
-            result: .callTool(
-                name: "create_sub_task",
-                arguments: [
-                    "task_id": 42,
-                    "title": "Draft outline"
-                ]
-            )
-        )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
-
-        coordinator.handleCommittedTranscript("Add a subtask")
-        await Task.yield()
-        await Task.yield()
-
-        XCTAssertEqual(client.converseCallCount, 1)
-        XCTAssertEqual(model.savedSubTasks.count, 1)
-        XCTAssertTrue(coordinator.conversationFeed.map(\.role).contains(.error))
-        XCTAssertEqual(coordinator.errorMessage, "Subtask could not be saved.")
     }
 
     func testFollowupTurnReusesCodexHistoryAndResponseState() async throws {
