@@ -426,7 +426,7 @@ final class UnifiedDataModel: ObservableObject {
 //                to: window.end
             )
             print("got entries for habit: \(habit.id!) \(entries.count)")
-            habitTrackingEntriesMap[habit.id!] = entries
+            habitTrackingEntriesMap[habit.id!] = entries.latestFirst()
         }
         catch{
             print("Error fetching entries for habit: \(habit.id!)")

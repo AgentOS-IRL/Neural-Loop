@@ -21,6 +21,17 @@ struct HabitTracking: Codable, Identifiable {
     }
 }
 
+extension Array where Element == HabitTracking {
+    func latestFirst() -> [HabitTracking] {
+        sorted {
+            if $0.entry_date == $1.entry_date {
+                return ($0.id ?? 0) > ($1.id ?? 0)
+            }
+            return $0.entry_date > $1.entry_date
+        }
+    }
+}
+
 struct HabitEntryWithSummary: Codable {
     let entry: HabitTracking
     let window_total: Int64

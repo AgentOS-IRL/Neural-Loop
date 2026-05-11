@@ -29,7 +29,7 @@ extension  UnifiedDataModel {
                 forTask: habitId,
                 from: window.start,
                 to: window.end
-            )
+            ).latestFirst()
         }
         catch {
             print("Error fetching habit entries: \(error)")
@@ -53,11 +53,9 @@ extension  UnifiedDataModel {
                 windowEnd: window.end
             )
             
-            if habitTrackingEntriesMap[id] != nil {
-                habitTrackingEntriesMap[id]!.append(result.entry)
-            } else {
-                habitTrackingEntriesMap[id] = [result.entry]
-            }
+            var entries = habitTrackingEntriesMap[id, default: []]
+            entries.insert(result.entry, at: 0)
+            habitTrackingEntriesMap[id] = entries.latestFirst()
 
             await notificationScheduler.scheduleHabit(
                 habit,

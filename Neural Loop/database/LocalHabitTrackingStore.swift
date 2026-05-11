@@ -141,7 +141,10 @@ final class LocalHabitTrackingStore {
             }
 
             return try request
-                .order(HabitTrackingLocalRecord.Columns.entryDate)
+                .order(
+                    HabitTrackingLocalRecord.Columns.entryDate.desc,
+                    HabitTrackingLocalRecord.Columns.id.desc
+                )
                 .fetchAll(db)
                 .map(HabitTracking.fromLocal)
         }
