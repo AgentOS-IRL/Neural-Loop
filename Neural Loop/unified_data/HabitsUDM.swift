@@ -63,10 +63,31 @@ extension  UnifiedDataModel {
                 habit,
                 progress: currentHabitProgressMap[id]
             )
+
+            await addWaterToHealthKitIfNeeded(for: habit, value: value, date: date)
             
         } catch {
             print("Error adding entry for habit: \(habit.id!)")
         }
+    }
+
+    private func addWaterToHealthKitIfNeeded(for habit: Habits, value: Int, date: Date) async {
+        guard value > 0, isWaterHabit(habit) else { return }
+
+        do {
+            try await HealthKitWaterWriter.shared.saveWater(
+                milliliters: Double(value) * 500,
+                date: date
+            )
+        } catch {
+            print("Error saving water to HealthKit: \(error)")
+        }
+    }
+
+    private func isWaterHabit(_ habit: Habits) -> Bool {
+        let title = habit.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let label = (habit.label ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return title.contains("water") || title.contains("hydration") || label.contains("water")
     }
     
     func saveNewHabit(_ habit: Habits) async {
