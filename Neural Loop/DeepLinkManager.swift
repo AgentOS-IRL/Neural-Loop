@@ -23,7 +23,7 @@ final class DeepLinkManager: ObservableObject {
     /// destination and then clear this value once handled.
     @Published var pendingDeepLink: AppDeepLink?
 
-    /// Whether the AI/audio page should start recording
+    /// Whether the AI page should start recording
     /// as soon as it appears.
     @Published var shouldStartListening = false
 
@@ -97,7 +97,7 @@ final class DeepLinkManager: ObservableObject {
         pendingDeepLink = nil
     }
 
-    /// Call once the audio page has consumed the listen intent.
+    /// Call once the AI page has consumed the listen intent.
     func clearListeningIntent() {
         shouldStartListening = false
     }

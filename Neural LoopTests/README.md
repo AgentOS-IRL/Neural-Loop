@@ -4,8 +4,8 @@
 
 ## Coverage Areas
 
-- Audio transcription and speech detection state.
-- Audio mode Codex coordination.
+- AI transcription and speech detection state.
+- AI mode Codex coordination.
 - Fleeting notes state and database behavior.
 - Secrets loading and LLM enablement logic.
 - `ContentView` and `TaskHub` navigation behavior.

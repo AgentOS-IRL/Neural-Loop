@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum AudioModeTheme {
+enum AIModeTheme {
     enum Metrics {
         static let screenPadding: CGFloat = 20
         static let sectionSpacing: CGFloat = 18
@@ -78,7 +78,7 @@ enum AudioModeTheme {
     static let badgeBorder = Color.white.opacity(0.12)
     static let heroGlow = AppTheme.accentColor.opacity(0.22)
 
-    static func statusTint(for state: AudioTranscriptionDisplayState) -> Color {
+    static func statusTint(for state: AITranscriptionDisplayState) -> Color {
         switch state {
         case .inactive:
             return Color(red: 0.68, green: 0.83, blue: 0.99)
@@ -95,7 +95,7 @@ enum AudioModeTheme {
         }
     }
 
-    static func messageBackground(for role: AudioTranscriptMessageRole) -> LinearGradient {
+    static func messageBackground(for role: AITranscriptMessageRole) -> LinearGradient {
         let colors: [Color]
         switch role {
         case .user:
@@ -128,7 +128,7 @@ enum AudioModeTheme {
         return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 
-    static func messageBorder(for role: AudioTranscriptMessageRole) -> Color {
+    static func messageBorder(for role: AITranscriptMessageRole) -> Color {
         switch role {
         case .user:
             return Color.white.opacity(0.12)
@@ -143,7 +143,7 @@ enum AudioModeTheme {
         }
     }
 
-    static func messageIconColor(for role: AudioTranscriptMessageRole) -> Color {
+    static func messageIconColor(for role: AITranscriptMessageRole) -> Color {
         switch role {
         case .user:
             return Color.white.opacity(0.90)
@@ -158,7 +158,7 @@ enum AudioModeTheme {
         }
     }
 
-    static func messageLabelColor(for role: AudioTranscriptMessageRole) -> Color {
+    static func messageLabelColor(for role: AITranscriptMessageRole) -> Color {
         switch role {
         case .user:
             return Color.white.opacity(Surface.textSecondaryOpacity)
@@ -173,7 +173,7 @@ enum AudioModeTheme {
         }
     }
 
-    static func messageBodyColor(for role: AudioTranscriptMessageRole) -> Color {
+    static func messageBodyColor(for role: AITranscriptMessageRole) -> Color {
         switch role {
         case .status:
             return Color.white.opacity(0.90)
@@ -184,7 +184,7 @@ enum AudioModeTheme {
         }
     }
 
-    static func bannerBackground(for tone: AudioModeBannerTone) -> LinearGradient {
+    static func bannerBackground(for tone: AIModeBannerTone) -> LinearGradient {
         switch tone {
         case .info:
             return LinearGradient(
@@ -216,7 +216,7 @@ enum AudioModeTheme {
         }
     }
 
-    static func bannerBorder(for tone: AudioModeBannerTone) -> Color {
+    static func bannerBorder(for tone: AIModeBannerTone) -> Color {
         switch tone {
         case .info:
             return AppTheme.accentColor.opacity(0.22)
@@ -227,7 +227,7 @@ enum AudioModeTheme {
         }
     }
 
-    static func bannerIconColor(for tone: AudioModeBannerTone) -> Color {
+    static func bannerIconColor(for tone: AIModeBannerTone) -> Color {
         switch tone {
         case .info:
             return AppTheme.accentColor.opacity(0.95)

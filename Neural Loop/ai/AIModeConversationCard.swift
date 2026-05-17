@@ -1,13 +1,13 @@
 import SwiftUI
 
-enum AudioModeConversationLayout: Equatable {
+enum AIModeConversationLayout: Equatable {
     case card
     case primaryFeed
 }
 
-struct AudioModeConversationCard: View, Equatable {
-    let state: AudioModeViewState.Conversation
-    var layout: AudioModeConversationLayout = .card
+struct AIModeConversationCard: View, Equatable {
+    let state: AIModeViewState.Conversation
+    var layout: AIModeConversationLayout = .card
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -46,7 +46,7 @@ struct AudioModeConversationCard: View, Equatable {
         }
         .padding(layout == .primaryFeed ? 18 : 22)
         .frame(maxWidth: .infinity, maxHeight: maxHeight, alignment: .leading)
-        .background(AudioModeCardBackground())
+        .background(AIModeCardBackground())
     }
 
     private var maxHeight: CGFloat? {
@@ -60,36 +60,36 @@ struct AudioModeConversationCard: View, Equatable {
         HStack(spacing: 10) {
             Image(systemName: "bubble.left.and.bubble.right.fill")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(AudioModeTheme.messageIconColor(for: .status))
+                .foregroundStyle(AIModeTheme.messageIconColor(for: .status))
 
             Text("Codex conversation")
                 .font(.system(size: 15, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textSecondaryOpacity))
+                .foregroundStyle(.white.opacity(AIModeTheme.Surface.textSecondaryOpacity))
 
             Spacer(minLength: 8)
 
             if let badgeText = state.headerBadgeText {
                 Text(badgeText)
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textTertiaryOpacity))
+                    .foregroundStyle(.white.opacity(AIModeTheme.Surface.textTertiaryOpacity))
             }
         }
     }
 
-    private func banner(text: String, tone: AudioModeBannerTone) -> some View {
+    private func banner(text: String, tone: AIModeBannerTone) -> some View {
         HStack(spacing: 12) {
             if tone == .info && state.headerBadgeText == "Sending" {
                 ProgressView()
-                    .tint(AudioModeTheme.bannerIconColor(for: tone))
+                    .tint(AIModeTheme.bannerIconColor(for: tone))
             } else {
                 Image(systemName: tone == .error ? "exclamationmark.triangle.fill" : "bolt.badge.clock.fill")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(AudioModeTheme.bannerIconColor(for: tone))
+                    .foregroundStyle(AIModeTheme.bannerIconColor(for: tone))
             }
 
             Text(text)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textPrimaryOpacity))
+                .foregroundStyle(.white.opacity(AIModeTheme.Surface.textPrimaryOpacity))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -97,17 +97,17 @@ struct AudioModeConversationCard: View, Equatable {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(
-                cornerRadius: AudioModeTheme.Metrics.innerCornerRadius,
+                cornerRadius: AIModeTheme.Metrics.innerCornerRadius,
                 style: .continuous
             )
-            .fill(AudioModeTheme.bannerBackground(for: tone))
+            .fill(AIModeTheme.bannerBackground(for: tone))
         )
         .overlay {
             RoundedRectangle(
-                cornerRadius: AudioModeTheme.Metrics.innerCornerRadius,
+                cornerRadius: AIModeTheme.Metrics.innerCornerRadius,
                 style: .continuous
             )
-            .strokeBorder(AudioModeTheme.bannerBorder(for: tone), lineWidth: 1)
+            .strokeBorder(AIModeTheme.bannerBorder(for: tone), lineWidth: 1)
         }
     }
 
@@ -115,11 +115,11 @@ struct AudioModeConversationCard: View, Equatable {
         VStack(alignment: .leading, spacing: 8) {
             Text(state.emptyTitle)
                 .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textPrimaryOpacity))
+                .foregroundStyle(.white.opacity(AIModeTheme.Surface.textPrimaryOpacity))
 
             Text(state.emptyDetail)
                 .font(.system(size: 15, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textSecondaryOpacity))
+                .foregroundStyle(.white.opacity(AIModeTheme.Surface.textSecondaryOpacity))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(20)
@@ -130,21 +130,21 @@ struct AudioModeConversationCard: View, Equatable {
         )
         .background(
             RoundedRectangle(
-                cornerRadius: AudioModeTheme.Metrics.innerCornerRadius,
+                cornerRadius: AIModeTheme.Metrics.innerCornerRadius,
                 style: .continuous
             )
-            .fill(Color.white.opacity(AudioModeTheme.Surface.mutedFillOpacity))
+            .fill(Color.white.opacity(AIModeTheme.Surface.mutedFillOpacity))
         )
         .overlay {
             RoundedRectangle(
-                cornerRadius: AudioModeTheme.Metrics.innerCornerRadius,
+                cornerRadius: AIModeTheme.Metrics.innerCornerRadius,
                 style: .continuous
             )
-            .strokeBorder(Color.white.opacity(AudioModeTheme.Surface.secondaryBorderOpacity), lineWidth: 1)
+            .strokeBorder(Color.white.opacity(AIModeTheme.Surface.secondaryBorderOpacity), lineWidth: 1)
         }
     }
 
-    private func row(_ message: AudioTranscriptMessage) -> some View {
+    private func row(_ message: AITranscriptMessage) -> some View {
         HStack {
             if message.role.alignsTrailing {
                 Spacer(minLength: 34)
@@ -154,21 +154,21 @@ struct AudioModeConversationCard: View, Equatable {
                 HStack(spacing: 8) {
                     Image(systemName: message.toolResultKind?.systemImage ?? message.role.systemImage)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(AudioModeTheme.messageIconColor(for: message.role))
+                        .foregroundStyle(AIModeTheme.messageIconColor(for: message.role))
 
                     Text(message.role.displayTitle)
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(AudioModeTheme.messageLabelColor(for: message.role))
+                        .foregroundStyle(AIModeTheme.messageLabelColor(for: message.role))
 
                     if let badgeText = message.toolResultKind?.badgeText {
                         Text(badgeText)
                             .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textPrimaryOpacity))
+                            .foregroundStyle(.white.opacity(AIModeTheme.Surface.textPrimaryOpacity))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .background(
                                 Capsule()
-                                    .fill(AudioModeTheme.messageIconColor(for: message.role).opacity(0.18))
+                                    .fill(AIModeTheme.messageIconColor(for: message.role).opacity(0.18))
                             )
                     }
 
@@ -177,7 +177,7 @@ struct AudioModeConversationCard: View, Equatable {
 
                 Text(message.content)
                     .font(.system(size: 17, weight: .medium, design: .rounded))
-                    .foregroundStyle(AudioModeTheme.messageBodyColor(for: message.role))
+                    .foregroundStyle(AIModeTheme.messageBodyColor(for: message.role))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -186,17 +186,17 @@ struct AudioModeConversationCard: View, Equatable {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(
-                    cornerRadius: AudioModeTheme.Metrics.innerCornerRadius,
+                    cornerRadius: AIModeTheme.Metrics.innerCornerRadius,
                     style: .continuous
                 )
-                .fill(AudioModeTheme.messageBackground(for: message.role))
+                .fill(AIModeTheme.messageBackground(for: message.role))
             )
             .overlay {
                 RoundedRectangle(
-                    cornerRadius: AudioModeTheme.Metrics.innerCornerRadius,
+                    cornerRadius: AIModeTheme.Metrics.innerCornerRadius,
                     style: .continuous
                 )
-                .strokeBorder(AudioModeTheme.messageBorder(for: message.role), lineWidth: 1)
+                .strokeBorder(AIModeTheme.messageBorder(for: message.role), lineWidth: 1)
             }
 
             if !message.role.alignsTrailing {

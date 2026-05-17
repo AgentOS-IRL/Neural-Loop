@@ -1,13 +1,13 @@
 import Foundation
 
-enum AudioModeBannerTone: Equatable {
+enum AIModeBannerTone: Equatable {
     case info
     case warning
     case error
 }
 
-struct AudioModeTranscriptionViewData: Equatable {
-    let displayState: AudioTranscriptionDisplayState
+struct AIModeTranscriptionViewData: Equatable {
+    let displayState: AITranscriptionDisplayState
     let title: String
     let detail: String
     let badgeText: String?
@@ -22,18 +22,18 @@ struct AudioModeTranscriptionViewData: Equatable {
     let transcriptHistoryCount: Int
 }
 
-struct AudioModeConversationViewData: Equatable {
-    let messages: [AudioTranscriptMessage]
+struct AIModeConversationViewData: Equatable {
+    let messages: [AITranscriptMessage]
     let bannerText: String?
-    let bannerTone: AudioModeBannerTone?
+    let bannerTone: AIModeBannerTone?
     let isSending: Bool
     let isLLMDisabled: Bool
     let noteTargetStatusText: String?
 
     init(
-        messages: [AudioTranscriptMessage],
+        messages: [AITranscriptMessage],
         bannerText: String?,
-        bannerTone: AudioModeBannerTone?,
+        bannerTone: AIModeBannerTone?,
         isSending: Bool,
         isLLMDisabled: Bool,
         noteTargetStatusText: String? = nil
@@ -46,17 +46,17 @@ struct AudioModeConversationViewData: Equatable {
         self.noteTargetStatusText = noteTargetStatusText
     }
 
-    var scrollTargetMessageID: AudioTranscriptMessage.ID? {
+    var scrollTargetMessageID: AITranscriptMessage.ID? {
         messages.last?.id
     }
 }
 
-struct AudioModeViewState: Equatable {
+struct AIModeViewState: Equatable {
     struct Hero: Equatable {
         let title: String
         let detail: String
         let badgeText: String?
-        let tintState: AudioTranscriptionDisplayState
+        let tintState: AITranscriptionDisplayState
         let microphoneSystemImage: String
         let micButtonLabel: String
         let isActionDisabled: Bool
@@ -72,14 +72,14 @@ struct AudioModeViewState: Equatable {
     }
 
     struct Conversation: Equatable {
-        let messages: [AudioTranscriptMessage]
+        let messages: [AITranscriptMessage]
         let bannerText: String?
-        let bannerTone: AudioModeBannerTone?
+        let bannerTone: AIModeBannerTone?
         let headerBadgeText: String?
         let emptyTitle: String
         let emptyDetail: String
 
-        var scrollTargetMessageID: AudioTranscriptMessage.ID? {
+        var scrollTargetMessageID: AITranscriptMessage.ID? {
             messages.last?.id
         }
     }
@@ -96,8 +96,8 @@ struct AudioModeViewState: Equatable {
     let actionBar: ActionBar
 
     init(
-        transcription: AudioModeTranscriptionViewData,
-        conversation: AudioModeConversationViewData,
+        transcription: AIModeTranscriptionViewData,
+        conversation: AIModeConversationViewData,
         isAIPageAvailable: Bool = true
     ) {
         let heroBadge = if !isAIPageAvailable {
@@ -167,8 +167,8 @@ struct AudioModeViewState: Equatable {
         )
         self.actionBar = ActionBar(
             primaryStatusChips: chips,
-            modeStatusTitle: isAIPageAvailable ? AudioModeTransitionCopy.activeStatusTitle : "AI unavailable",
-            modeStatusDetail: isAIPageAvailable ? AudioModeTransitionCopy.activeStatusDetail : "AI requires loaded Codex secrets before voice capture can start."
+            modeStatusTitle: isAIPageAvailable ? AIModeTransitionCopy.activeStatusTitle : "AI unavailable",
+            modeStatusDetail: isAIPageAvailable ? AIModeTransitionCopy.activeStatusDetail : "AI requires loaded Codex secrets before voice capture can start."
         )
     }
 }

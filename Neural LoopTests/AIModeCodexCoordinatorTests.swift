@@ -3,16 +3,16 @@ import CodexCore
 @testable import Neural_Loop
 
 @MainActor
-final class AudioModeCodexCoordinatorTests: XCTestCase {
+final class AIModeCodexCoordinatorTests: XCTestCase {
     private let iso8601Formatter = ISO8601DateFormatter()
 
     func testClarificationResponseIsShownInFeed() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .clarify(text: "Which task should I create?"),
             returnedState: CodexConversationState(previousResponseID: "resp_1")
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Create something")
         await Task.yield()
@@ -27,15 +27,15 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testDefaultIntentToolsExcludeCreateSubTask() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let coordinator = AudioModeCodexCoordinator(model: model)
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let coordinator = AIModeCodexCoordinator(model: model)
 
         XCTAssertEqual(coordinator.intentTools.map(\.name), ["create_task", "create_shopping_list", "Notes"])
     }
 
     func testCreateTaskToolCallPersistsTaskAndShowsConfirmation() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "create_task",
                 arguments: [
@@ -44,7 +44,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Buy milk")
         await Task.yield()
@@ -63,8 +63,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testCreateTaskToolCallPersistsTaskThenNestedSubTasksInOrder() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "create_task",
                 arguments: [
@@ -78,7 +78,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Make a grocery list with milk, eggs, and bread")
         await Task.yield()
@@ -108,8 +108,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testCreateTaskToolCallIgnoresBlankNestedSubTaskTitles() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "create_task",
                 arguments: [
@@ -122,7 +122,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Make a todo list")
         await Task.yield()
@@ -141,8 +141,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testShoppingListToolCallPersistsTemplatedTaskAndItems() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "create_shopping_list",
                 arguments: [
@@ -155,7 +155,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Make a Tesco shopping list with milk and eggs")
         await Task.yield()
@@ -185,8 +185,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testShoppingListToolCallDefaultsScheduleToTodayAtAfternoon() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "create_shopping_list",
                 arguments: [
@@ -197,7 +197,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
         let now = Date()
 
         coordinator.handleCommittedTranscript("Add apples to a shopping list")
@@ -220,8 +220,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testShoppingListToolCallRejectsMissingLocation() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "create_shopping_list",
                 arguments: [
@@ -231,7 +231,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Make a shopping list with apples")
         await Task.yield()
@@ -244,8 +244,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testShoppingListToolCallRejectsMissingItems() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "create_shopping_list",
                 arguments: [
@@ -254,7 +254,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Make a Tesco shopping list")
         await Task.yield()
@@ -267,11 +267,11 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testCreateTaskToolCallShowsFailureWhenParentSaveFails() async {
-        let model = FakeAudioModeCodexModel(
+        let model = FakeAIModeCodexModel(
             llmEnabled: true,
             taskSaveShouldFail: true
         )
-        let client = FakeAudioModeCodexClient(
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "create_task",
                 arguments: [
@@ -282,7 +282,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Create a broken task")
         await Task.yield()
@@ -296,11 +296,11 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testCreateTaskToolCallReportsPartialSuccessWhenNestedSubTaskSaveFails() async {
-        let model = FakeAudioModeCodexModel(
+        let model = FakeAIModeCodexModel(
             llmEnabled: true,
             subTaskSaveShouldFail: true
         )
-        let client = FakeAudioModeCodexClient(
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "create_task",
                 arguments: [
@@ -313,7 +313,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Create a grocery list")
         await Task.yield()
@@ -332,11 +332,11 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testCreateTaskToolCallReportsUnknownIdWhenSaveDoesNotReturnOne() async {
-        let model = FakeAudioModeCodexModel(
+        let model = FakeAIModeCodexModel(
             llmEnabled: true,
             taskSaveResultID: 0
         )
-        let client = FakeAudioModeCodexClient(
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "create_task",
                 arguments: [
@@ -347,7 +347,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Create a task without an id")
         await Task.yield()
@@ -361,8 +361,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testCreateSubTaskToolCallIsRejectedAsUnknownTool() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "create_sub_task",
                 arguments: [
@@ -371,7 +371,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Add a subtask")
         await Task.yield()
@@ -387,8 +387,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testCreateTaskToolCallPersistsScheduledTaskWithExplicitTimeAndDefaultDuration() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "create_task",
                 arguments: [
@@ -398,7 +398,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Join standup tomorrow at 9:30")
         await Task.yield()
@@ -412,8 +412,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testCreateTaskToolCallParsesTimezoneLessStartDateInLocalTimezone() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "create_task",
                 arguments: [
@@ -422,7 +422,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Join standup tomorrow at 9:30")
         await Task.yield()
@@ -446,8 +446,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testCreateTaskToolCallDefaultsDateOnlyScheduleToAfternoon() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "create_task",
                 arguments: [
@@ -457,7 +457,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Call dentist on April 20")
         await Task.yield()
@@ -479,8 +479,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testCreateTaskToolCallPreservesExplicitDurationWhenProvided() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "create_task",
                 arguments: [
@@ -490,7 +490,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Schedule deep work Saturday at 1 PM for 30 minutes")
         await Task.yield()
@@ -501,8 +501,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testCreateTaskToolCallRejectsInvalidStartDate() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "create_task",
                 arguments: [
@@ -511,7 +511,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Plan trip next blursday")
         await Task.yield()
@@ -523,8 +523,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testFollowupTurnReusesCodexHistoryAndResponseState() async throws {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient { messages, state, callCount in
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient { messages, state, callCount in
             switch callCount {
             case 1:
                 XCTAssertEqual(messages.count, 1)
@@ -553,7 +553,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 )
             }
         }
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Create a task")
         await Task.yield()
@@ -575,8 +575,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testNotesToolCallPersistsFleetingNoteAndShowsConfirmation() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "Notes",
                 arguments: [
@@ -584,7 +584,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Remember the keys")
         await Task.yield()
@@ -600,8 +600,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testNotesToolCallRejectsBlankContent() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "Notes",
                 arguments: [
@@ -609,7 +609,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Save a note")
         await Task.yield()
@@ -623,8 +623,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testNotesToolCallFallsBackToNoteWhenContentIsBlank() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "Notes",
                 arguments: [
@@ -633,7 +633,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Remember the passport")
         await Task.yield()
@@ -647,11 +647,11 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testNotesToolCallShowsFailureWhenPersistenceFails() async {
-        let model = FakeAudioModeCodexModel(
+        let model = FakeAIModeCodexModel(
             llmEnabled: true,
             fleetingNoteSaveResult: nil
         )
-        let client = FakeAudioModeCodexClient(
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "Notes",
                 arguments: [
@@ -659,7 +659,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Remember the passport")
         await Task.yield()
@@ -673,8 +673,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testNotesToolCallWithPersonalSourcePersistsPersonalNote() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "Notes",
                 arguments: [
@@ -683,7 +683,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Save a personal note")
         await Task.yield()
@@ -695,8 +695,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testNotesToolCallWithScopePersonalPersistsPersonalNote() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "Notes",
                 arguments: [
@@ -705,7 +705,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Save a note")
         await Task.yield()
@@ -716,8 +716,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testNotesToolCallWithWorkSourceCreatesWorkReminder() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "Notes",
                 arguments: [
@@ -726,7 +726,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Save a work note")
         await Task.yield()
@@ -740,11 +740,11 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testNotesToolCallWithWorkSourceSurfacesPermissionFailure() async {
-        let model = FakeAudioModeCodexModel(
+        let model = FakeAIModeCodexModel(
             llmEnabled: true,
             workReminderError: GenesysReminderServiceError.accessDenied
         )
-        let client = FakeAudioModeCodexClient(
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "Notes",
                 arguments: [
@@ -753,7 +753,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Save a work note")
         await Task.yield()
@@ -767,8 +767,8 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testNotesToolCallWithUnknownSourceShowsError() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(
             result: .callTool(
                 name: "Notes",
                 arguments: [
@@ -777,7 +777,7 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
                 ]
             )
         )
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Save a note")
         await Task.yield()
@@ -789,9 +789,9 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testDisabledLLMBlocksCodexRequestAndSurfacesStatus() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: false)
-        let client = FakeAudioModeCodexClient(result: .clarify(text: "Unused"))
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let model = FakeAIModeCodexModel(llmEnabled: false)
+        let client = FakeAIModeCodexClient(result: .clarify(text: "Unused"))
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Make a task")
         await Task.yield()
@@ -808,9 +808,9 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testCodexFailureSurfacesErrorWithoutCrashing() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(error: TestError.codexFailure)
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(error: TestError.codexFailure)
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Break")
         await Task.yield()
@@ -825,9 +825,9 @@ final class AudioModeCodexCoordinatorTests: XCTestCase {
     }
 
     func testCancelledDrainDoesNotAppendErrorAfterReset() async {
-        let model = FakeAudioModeCodexModel(llmEnabled: true)
-        let client = FakeAudioModeCodexClient(result: .cancelledAfterYield(error: TestError.codexFailure))
-        let coordinator = AudioModeCodexCoordinator(model: model, codexClient: client)
+        let model = FakeAIModeCodexModel(llmEnabled: true)
+        let client = FakeAIModeCodexClient(result: .cancelledAfterYield(error: TestError.codexFailure))
+        let coordinator = AIModeCodexCoordinator(model: model, codexClient: client)
 
         coordinator.handleCommittedTranscript("Cancel me")
         await Task.yield()
@@ -853,7 +853,7 @@ private enum TestError: LocalizedError {
     }
 }
 
-private final class FakeAudioModeCodexModel: AudioModeCodexModel {
+private final class FakeAIModeCodexModel: AIModeCodexModel {
     var llm_enabled: Bool
     var codexAccessToken: String?
     var codexAccountID: String?
@@ -1023,7 +1023,7 @@ private final class FakeAudioModeCodexModel: AudioModeCodexModel {
     }
 }
 
-private final class FakeAudioModeCodexClient: AudioModeCodexExecuting {
+private final class FakeAIModeCodexClient: AIModeCodexExecuting {
     enum Outcome {
         case clarify(text: String)
         case callTool(name: String, arguments: [String: Any])

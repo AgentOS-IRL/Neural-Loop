@@ -3,7 +3,7 @@ import AVFoundation
 import Combine
 import Speech
 
-enum AudioTranscriptionPermissionState: Equatable {
+enum AITranscriptionPermissionState: Equatable {
     case unknown
     case requesting
     case authorized
@@ -17,7 +17,7 @@ enum AudioTranscriptionPermissionState: Equatable {
     }
 }
 
-enum AudioTranscriptionSessionState: Equatable {
+enum AITranscriptionSessionState: Equatable {
     case inactive
     case checking
     case listening
@@ -25,7 +25,7 @@ enum AudioTranscriptionSessionState: Equatable {
     case cooldownPending
 }
 
-enum AudioTranscriptionDisplayState: Equatable {
+enum AITranscriptionDisplayState: Equatable {
     case inactive
     case checkingPermissions
     case listening
@@ -34,23 +34,23 @@ enum AudioTranscriptionDisplayState: Equatable {
     case unavailable
 }
 
-struct AudioTranscriptionUpdate: Equatable {
+struct AITranscriptionUpdate: Equatable {
     let transcript: String
     let isFinal: Bool
 }
 
-enum AudioTranscriptionEvent: Equatable {
+enum AITranscriptionEvent: Equatable {
     case speechDetected
     case speechEnded
-    case update(AudioTranscriptionUpdate)
+    case update(AITranscriptionUpdate)
     case failure(String)
 }
 
-enum AudioTranscriptionError: LocalizedError, Equatable {
+enum AITranscriptionError: LocalizedError, Equatable {
     case sessionAlreadyActive
     case recognizerUnavailable
     case audioSessionUnavailable
-    case permissionDenied(AudioTranscriptionPermissionState)
+    case permissionDenied(AITranscriptionPermissionState)
     case failedToStartAudioEngine
     case failedToStartRecognitionTask
 
@@ -63,7 +63,7 @@ enum AudioTranscriptionError: LocalizedError, Equatable {
         case .audioSessionUnavailable:
             return "Audio recording is unavailable."
         case .permissionDenied(let state):
-            return audioTranscriptionPermissionMessage(for: state)
+            return aiTranscriptionPermissionMessage(for: state)
         case .failedToStartAudioEngine:
             return "Unable to start the audio engine."
         case .failedToStartRecognitionTask:
@@ -72,55 +72,55 @@ enum AudioTranscriptionError: LocalizedError, Equatable {
     }
 }
 
-protocol AudioTranscribingSession {
-    func currentPermissionState() -> AudioTranscriptionPermissionState
-    func requestPermissions() async -> AudioTranscriptionPermissionState
+protocol AITranscribingSession {
+    func currentPermissionState() -> AITranscriptionPermissionState
+    func requestPermissions() async -> AITranscriptionPermissionState
     func start(
         onDeviceRecognition: Bool,
-        resultHandler: @escaping (AudioTranscriptionEvent) -> Void
+        resultHandler: @escaping (AITranscriptionEvent) -> Void
     ) async throws
     func rolloverSegment()
     func stop()
 }
 
-protocol AudioCooldownTimerControlling {
+protocol AICooldownTimerControlling {
     func cancel()
 }
 
-protocol AudioCooldownTimerScheduling {
-    func schedule(after delay: TimeInterval, _ handler: @escaping () -> Void) -> any AudioCooldownTimerControlling
+protocol AICooldownTimerScheduling {
+    func schedule(after delay: TimeInterval, _ handler: @escaping () -> Void) -> any AICooldownTimerControlling
 }
 
 @MainActor
-final class AudioTranscriptionManager: ObservableObject {
-    @Published private(set) var permissionState: AudioTranscriptionPermissionState
-    @Published private(set) var sessionState: AudioTranscriptionSessionState = .inactive
+final class AITranscriptionManager: ObservableObject {
+    @Published private(set) var permissionState: AITranscriptionPermissionState
+    @Published private(set) var sessionState: AITranscriptionSessionState = .inactive
     @Published private(set) var isRecording = false
     @Published private(set) var transcriptText = ""
     @Published private(set) var isTranscriptFinal = false
-    @Published private(set) var transcriptHistory: [AudioTranscriptMessage] = []
+    @Published private(set) var transcriptHistory: [AITranscriptMessage] = []
     @Published private(set) var errorMessage: String?
     var onCommittedTranscript: ((String) -> Void)?
 
-    private let session: any AudioTranscribingSession
+    private let session: any AITranscribingSession
     private let preferOnDeviceRecognition: Bool
-    private let cooldownScheduler: any AudioCooldownTimerScheduling
+    private let cooldownScheduler: any AICooldownTimerScheduling
     private let segmentCommitCooldownDuration: TimeInterval
-    private var cooldownTimer: (any AudioCooldownTimerControlling)?
+    private var cooldownTimer: (any AICooldownTimerControlling)?
     private var activeSession = false
     private var isStartingSession = false
     private var isAwaitingSegmentCommit = false
     private var isSegmentOpen = false
 
     init(
-        session: (any AudioTranscribingSession)? = nil,
+        session: (any AITranscribingSession)? = nil,
         preferOnDeviceRecognition: Bool = false,
-        cooldownScheduler: (any AudioCooldownTimerScheduling)? = nil,
+        cooldownScheduler: (any AICooldownTimerScheduling)? = nil,
         segmentCommitCooldownDuration: TimeInterval = 3.0
     ) {
-        self.session = session ?? LiveAudioTranscriptionSession()
+        self.session = session ?? LiveAITranscriptionSession()
         self.preferOnDeviceRecognition = preferOnDeviceRecognition
-        self.cooldownScheduler = cooldownScheduler ?? MainQueueAudioCooldownTimerScheduler()
+        self.cooldownScheduler = cooldownScheduler ?? MainQueueAICooldownTimerScheduler()
         self.segmentCommitCooldownDuration = segmentCommitCooldownDuration
         self.permissionState = self.session.currentPermissionState()
     }
@@ -155,7 +155,7 @@ final class AudioTranscriptionManager: ObservableObject {
         isRecording ? "stop.fill" : "mic.fill"
     }
 
-    var displayState: AudioTranscriptionDisplayState {
+    var displayState: AITranscriptionDisplayState {
         switch permissionState {
         case .requesting:
             return .checkingPermissions
@@ -289,8 +289,8 @@ final class AudioTranscriptionManager: ObservableObject {
         return "Live"
     }
 
-    var viewData: AudioModeTranscriptionViewData {
-        AudioModeTranscriptionViewData(
+    var viewData: AIModeTranscriptionViewData {
+        AIModeTranscriptionViewData(
             displayState: displayState,
             title: primaryStatusTitle,
             detail: secondaryStatusText,
@@ -392,7 +392,7 @@ final class AudioTranscriptionManager: ObservableObject {
             isStartingSession = false
         }
 
-        let permission: AudioTranscriptionPermissionState
+        let permission: AITranscriptionPermissionState
         if requestPermissions {
             permission = await session.requestPermissions()
             permissionState = permission
@@ -405,7 +405,7 @@ final class AudioTranscriptionManager: ObservableObject {
         }
 
         guard permission.isAuthorized else {
-            errorMessage = audioTranscriptionPermissionMessage(for: permission)
+            errorMessage = aiTranscriptionPermissionMessage(for: permission)
             setSessionState(.inactive)
             return
         }
@@ -490,7 +490,7 @@ final class AudioTranscriptionManager: ObservableObject {
         }
     }
 
-    private func handleEvent(_ event: AudioTranscriptionEvent) {
+    private func handleEvent(_ event: AITranscriptionEvent) {
         switch event {
         case .speechDetected:
             handleSpeechDetected()
@@ -571,12 +571,12 @@ final class AudioTranscriptionManager: ObservableObject {
             return
         }
 
-        transcriptHistory.append(AudioTranscriptMessage(content: trimmedTranscript))
+        transcriptHistory.append(AITranscriptMessage(content: trimmedTranscript))
         onCommittedTranscript?(trimmedTranscript)
         resetTranscript()
     }
 
-    private func setSessionState(_ state: AudioTranscriptionSessionState) {
+    private func setSessionState(_ state: AITranscriptionSessionState) {
         if sessionState != state {
             sessionState = state
         }
@@ -588,7 +588,7 @@ final class AudioTranscriptionManager: ObservableObject {
     }
 }
 
-func audioTranscriptionPermissionMessage(for state: AudioTranscriptionPermissionState) -> String {
+func aiTranscriptionPermissionMessage(for state: AITranscriptionPermissionState) -> String {
     switch state {
     case .unknown, .requesting, .authorized:
         return "Tap the mic to start speaking."
@@ -603,9 +603,9 @@ func audioTranscriptionPermissionMessage(for state: AudioTranscriptionPermission
     }
 }
 
-final class MainQueueAudioCooldownTimerScheduler: AudioCooldownTimerScheduling {
-    func schedule(after delay: TimeInterval, _ handler: @escaping () -> Void) -> any AudioCooldownTimerControlling {
-        let token = DispatchAudioCooldownTimerToken()
+final class MainQueueAICooldownTimerScheduler: AICooldownTimerScheduling {
+    func schedule(after delay: TimeInterval, _ handler: @escaping () -> Void) -> any AICooldownTimerControlling {
+        let token = DispatchAICooldownTimerToken()
         let workItem = DispatchWorkItem {
             Task { @MainActor in
                 handler()
@@ -618,7 +618,7 @@ final class MainQueueAudioCooldownTimerScheduler: AudioCooldownTimerScheduling {
     }
 }
 
-final class DispatchAudioCooldownTimerToken: AudioCooldownTimerControlling {
+final class DispatchAICooldownTimerToken: AICooldownTimerControlling {
     fileprivate var workItem: DispatchWorkItem?
 
     func cancel() {
@@ -627,7 +627,7 @@ final class DispatchAudioCooldownTimerToken: AudioCooldownTimerControlling {
     }
 }
 
-final class LiveAudioTranscriptionSession: AudioTranscribingSession {
+final class LiveAITranscriptionSession: AITranscribingSession {
     private static let inputTapBufferSize: AVAudioFrameCount = 256
     private let audioSession: AudioSessionControlling
     private let audioEngine: AudioEngineControlling
@@ -638,7 +638,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
     private var activeRequest: (any SpeechRecognitionRequestControlling)?
     private var activeTask: (any SpeechRecognitionTaskControlling)?
     private var activeRecognizer: (any SpeechRecognizerControlling)?
-    private var activeResultHandler: ((AudioTranscriptionEvent) -> Void)?
+    private var activeResultHandler: ((AITranscriptionEvent) -> Void)?
     private var isRunning = false
     private var isCapturingAudio = false
     private var isSpeechActive = false
@@ -671,7 +671,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
         }
     }
 
-    func currentPermissionState() -> AudioTranscriptionPermissionState {
+    func currentPermissionState() -> AITranscriptionPermissionState {
         let speechStatus = speechAuthorization.currentAuthorizationStatus()
         let recordPermission = audioSession.recordPermission
 
@@ -698,7 +698,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
         return .unavailable
     }
 
-    func requestPermissions() async -> AudioTranscriptionPermissionState {
+    func requestPermissions() async -> AITranscriptionPermissionState {
         let speechStatus = await speechAuthorization.requestAuthorization()
 
         switch speechStatus {
@@ -720,18 +720,18 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
 
     func start(
         onDeviceRecognition: Bool,
-        resultHandler: @escaping (AudioTranscriptionEvent) -> Void
+        resultHandler: @escaping (AITranscriptionEvent) -> Void
     ) async throws {
         guard !isRunning else {
-            throw AudioTranscriptionError.sessionAlreadyActive
+            throw AITranscriptionError.sessionAlreadyActive
         }
 
         guard let recognizer = recognizerFactory(), recognizer.isAvailable else {
-            throw AudioTranscriptionError.recognizerUnavailable
+            throw AITranscriptionError.recognizerUnavailable
         }
 
         guard currentPermissionState().isAuthorized else {
-            throw AudioTranscriptionError.permissionDenied(currentPermissionState())
+            throw AITranscriptionError.permissionDenied(currentPermissionState())
         }
 
         try audioSession.setCategory(
@@ -783,7 +783,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
             try audioEngine.start()
         } catch {
             cleanupAfterFailedStart()
-            throw AudioTranscriptionError.failedToStartAudioEngine
+            throw AITranscriptionError.failedToStartAudioEngine
         }
     }
 
@@ -818,7 +818,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
 
         if activeRequest == nil {
             guard let recognizer = activeRecognizer else {
-                emit(.failure(AudioTranscriptionError.recognizerUnavailable.localizedDescription))
+                emit(.failure(AITranscriptionError.recognizerUnavailable.localizedDescription))
                 return
             }
 
@@ -847,7 +847,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
                     return
                 }
 
-                let update = AudioTranscriptionUpdate(
+                let update = AITranscriptionUpdate(
                     transcript: recognitionResult.transcript,
                     isFinal: recognitionResult.isFinal
                 )
@@ -858,7 +858,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
             guard let task else {
                 activeRequest = nil
                 activeTaskIdentifier = nil
-                emit(.failure(AudioTranscriptionError.failedToStartRecognitionTask.localizedDescription))
+                emit(.failure(AITranscriptionError.failedToStartRecognitionTask.localizedDescription))
                 return
             }
 
@@ -937,7 +937,7 @@ final class LiveAudioTranscriptionSession: AudioTranscribingSession {
         }
     }
 
-    private func emit(_ event: AudioTranscriptionEvent) {
+    private func emit(_ event: AITranscriptionEvent) {
         Task { @MainActor in
             guard self.isRunning else {
                 return

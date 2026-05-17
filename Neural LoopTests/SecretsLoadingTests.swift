@@ -76,7 +76,7 @@ final class SecretsLoadingTests: XCTestCase {
         XCTAssertFalse(model.loadedSecretKeys.contains("do-not-render"))
     }
 
-    func testCanUseAudioModeWhenCodexAuthTokenIsPresent() async {
+    func testCanUseAIModeWhenCodexAuthTokenIsPresent() async {
         let rows = [
             Secrets(key: "settings_flag", value: "do-not-render"),
             Secrets(key: codexAuthTokenSecretKey, value: "hidden-token"),
@@ -93,10 +93,10 @@ final class SecretsLoadingTests: XCTestCase {
         await model.loadSecrets()
 
         XCTAssertTrue(model.secretsLoaded)
-        XCTAssertTrue(model.canUseAudioMode)
+        XCTAssertTrue(model.canUseAIMode)
     }
 
-    func testCanUseAudioModeIsFalseWhenChatGPTAccountIDIsMissing() async {
+    func testCanUseAIModeIsFalseWhenChatGPTAccountIDIsMissing() async {
         let rows = [
             Secrets(key: codexAuthTokenSecretKey, value: "hidden-token")
         ]
@@ -109,10 +109,10 @@ final class SecretsLoadingTests: XCTestCase {
         await model.loadSecrets()
 
         XCTAssertTrue(model.secretsLoaded)
-        XCTAssertFalse(model.canUseAudioMode)
+        XCTAssertFalse(model.canUseAIMode)
     }
 
-    func testCanUseAudioModeIsFalseWhenCodexAuthTokenIsMissing() async {
+    func testCanUseAIModeIsFalseWhenCodexAuthTokenIsMissing() async {
         let rows = [
             Secrets(key: "settings_flag", value: "do-not-render")
         ]
@@ -125,10 +125,10 @@ final class SecretsLoadingTests: XCTestCase {
         await model.loadSecrets()
 
         XCTAssertTrue(model.secretsLoaded)
-        XCTAssertFalse(model.canUseAudioMode)
+        XCTAssertFalse(model.canUseAIMode)
     }
 
-    func testCanUseAudioModeDependsOnSecretKeyNotValue() async {
+    func testCanUseAIModeDependsOnSecretKeyNotValue() async {
         let rows = [
             Secrets(key: "not_the_token", value: codexAuthTokenSecretKey)
         ]
@@ -141,10 +141,10 @@ final class SecretsLoadingTests: XCTestCase {
         await model.loadSecrets()
 
         XCTAssertTrue(model.secretsLoaded)
-        XCTAssertFalse(model.canUseAudioMode)
+        XCTAssertFalse(model.canUseAIMode)
     }
 
-    func testCanUseAudioModeRequiresBothSecrets() async {
+    func testCanUseAIModeRequiresBothSecrets() async {
         let rows = [
             Secrets(key: codexAuthTokenSecretKey, value: "hidden-token"),
             Secrets(key: chatgptAccountIDSecretKey, value: "hidden-account")
@@ -160,7 +160,7 @@ final class SecretsLoadingTests: XCTestCase {
         XCTAssertTrue(model.secretsLoaded)
         XCTAssertTrue(model.hasCodexAuthTokenSecret)
         XCTAssertTrue(model.hasChatGPTAccountIDSecret)
-        XCTAssertTrue(model.canUseAudioMode)
+        XCTAssertTrue(model.canUseAIMode)
     }
 
     func testShouldEnableLLMFeatureRequiresSecretAndOverride() {
@@ -401,10 +401,10 @@ final class SecretsLoadingTests: XCTestCase {
         XCTAssertEqual(model.codexAccessToken, "access-new")
     }
 
-    func testAudioModeTransitionCopyUsesAIPageLabels() {
-        XCTAssertEqual(AudioModeTransitionCopy.pageTitle, "AI")
-        XCTAssertEqual(AudioModeTransitionCopy.activeStatusTitle, "AI ready")
-        XCTAssertEqual(AudioModeTransitionCopy.activeStatusDetail, "Voice capture can send committed segments to Codex.")
+    func testAIModeTransitionCopyUsesAIPageLabels() {
+        XCTAssertEqual(AIModeTransitionCopy.pageTitle, "AI")
+        XCTAssertEqual(AIModeTransitionCopy.activeStatusTitle, "AI ready")
+        XCTAssertEqual(AIModeTransitionCopy.activeStatusDetail, "Voice capture can send committed segments to Codex.")
     }
 
     func testSettingsDebugSectionsOnlyShowWhenDebugIsEnabled() {

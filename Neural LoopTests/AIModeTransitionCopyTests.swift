@@ -1,24 +1,24 @@
 import XCTest
 @testable import Neural_Loop
 
-final class AudioModeTransitionCopyTests: XCTestCase {
+final class AIModeTransitionCopyTests: XCTestCase {
     func testAvailabilityMessageExplainsLoadingState() {
         XCTAssertEqual(
-            AudioModeTransitionCopy.availabilityMessage(secretsLoaded: false, canUseAudioMode: false),
+            AIModeTransitionCopy.availabilityMessage(secretsLoaded: false, canUseAIMode: false),
             "AI stays unavailable until secrets finish loading."
         )
     }
 
     func testAvailabilityMessageExplainsMissingSecretsState() {
         XCTAssertEqual(
-            AudioModeTransitionCopy.availabilityMessage(secretsLoaded: true, canUseAudioMode: false),
+            AIModeTransitionCopy.availabilityMessage(secretsLoaded: true, canUseAIMode: false),
             "AI requires both the \(codexAuthTokenSecretKey) and \(chatgptAccountIDSecretKey) secrets in public.secrets."
         )
     }
 
     func testAvailabilityMessageExplainsReadyState() {
         XCTAssertEqual(
-            AudioModeTransitionCopy.availabilityMessage(secretsLoaded: true, canUseAudioMode: true),
+            AIModeTransitionCopy.availabilityMessage(secretsLoaded: true, canUseAIMode: true),
             "AI is ready for voice capture and Codex actions."
         )
     }

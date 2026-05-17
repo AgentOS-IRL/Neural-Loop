@@ -1,9 +1,9 @@
 import XCTest
 @testable import Neural_Loop
 
-final class AudioModeViewStateTests: XCTestCase {
+final class AIModeViewStateTests: XCTestCase {
     func testConversationScrollTargetIsNilWhenThereAreNoMessages() {
-        let conversation = AudioModeConversationViewData(
+        let conversation = AIModeConversationViewData(
             messages: [],
             bannerText: nil,
             bannerTone: nil,
@@ -16,7 +16,7 @@ final class AudioModeViewStateTests: XCTestCase {
 
     func testConversationScrollTargetUsesNewestMessageIDForSingleMessageFeed() {
         let messageID = UUID()
-        let conversation = AudioModeConversationViewData(
+        let conversation = AIModeConversationViewData(
             messages: [
                 .init(id: messageID, role: .assistant, content: "Reply ready")
             ],
@@ -30,17 +30,17 @@ final class AudioModeViewStateTests: XCTestCase {
     }
 
     func testConversationScrollTargetMovesToLatestMessageWhenMessagesAppend() {
-        let firstMessage = AudioTranscriptMessage(id: UUID(), role: .user, content: "Start")
-        let secondMessage = AudioTranscriptMessage(id: UUID(), role: .assistant, content: "Continue")
+        let firstMessage = AITranscriptMessage(id: UUID(), role: .user, content: "Start")
+        let secondMessage = AITranscriptMessage(id: UUID(), role: .assistant, content: "Continue")
 
-        let initialConversation = AudioModeConversationViewData(
+        let initialConversation = AIModeConversationViewData(
             messages: [firstMessage],
             bannerText: nil,
             bannerTone: nil,
             isSending: false,
             isLLMDisabled: false
         )
-        let appendedConversation = AudioModeConversationViewData(
+        let appendedConversation = AIModeConversationViewData(
             messages: [firstMessage, secondMessage],
             bannerText: nil,
             bannerTone: nil,
@@ -53,7 +53,7 @@ final class AudioModeViewStateTests: XCTestCase {
     }
 
     func testMapsListeningStateIntoHeroTranscriptAndEmptyConversation() {
-        let transcription = AudioModeTranscriptionViewData(
+        let transcription = AIModeTranscriptionViewData(
             displayState: .listening,
             title: "Listening for your next phrase",
             detail: "The session is still live and ready for the next segment.",
@@ -68,7 +68,7 @@ final class AudioModeViewStateTests: XCTestCase {
             isRecording: true,
             transcriptHistoryCount: 2
         )
-        let conversation = AudioModeConversationViewData(
+        let conversation = AIModeConversationViewData(
             messages: [],
             bannerText: nil,
             bannerTone: nil,
@@ -76,17 +76,17 @@ final class AudioModeViewStateTests: XCTestCase {
             isLLMDisabled: false
         )
 
-        let state = AudioModeViewState(transcription: transcription, conversation: conversation)
+        let state = AIModeViewState(transcription: transcription, conversation: conversation)
 
         XCTAssertEqual(state.hero.badgeText, "Open session")
         XCTAssertEqual(state.transcript.footnote, "2 saved segments in this session")
         XCTAssertEqual(state.conversation.emptyTitle, "Codex activity will appear here")
         XCTAssertEqual(state.actionBar.primaryStatusChips, ["Open session"])
-        XCTAssertEqual(state.actionBar.modeStatusTitle, AudioModeTransitionCopy.activeStatusTitle)
+        XCTAssertEqual(state.actionBar.modeStatusTitle, AIModeTransitionCopy.activeStatusTitle)
     }
 
     func testMapsSendingConversationIntoBannerAndHeaderBadge() {
-        let transcription = AudioModeTranscriptionViewData(
+        let transcription = AIModeTranscriptionViewData(
             displayState: .transcribing,
             title: "Transcribing live speech",
             detail: "Speech is being converted into text and prepared for Codex.",
@@ -101,7 +101,7 @@ final class AudioModeViewStateTests: XCTestCase {
             isRecording: true,
             transcriptHistoryCount: 0
         )
-        let conversation = AudioModeConversationViewData(
+        let conversation = AIModeConversationViewData(
             messages: [.init(role: .user, content: "Create a follow-up task")],
             bannerText: "Sending to Codex...",
             bannerTone: .info,
@@ -109,16 +109,16 @@ final class AudioModeViewStateTests: XCTestCase {
             isLLMDisabled: false
         )
 
-        let state = AudioModeViewState(transcription: transcription, conversation: conversation)
+        let state = AIModeViewState(transcription: transcription, conversation: conversation)
 
         XCTAssertEqual(state.conversation.bannerText, "Sending to Codex...")
         XCTAssertEqual(state.conversation.headerBadgeText, "Sending")
         XCTAssertEqual(state.actionBar.primaryStatusChips, ["Transcribing", "Sending"])
-        XCTAssertEqual(state.actionBar.modeStatusDetail, AudioModeTransitionCopy.activeStatusDetail)
+        XCTAssertEqual(state.actionBar.modeStatusDetail, AIModeTransitionCopy.activeStatusDetail)
     }
 
-    func testMapsDisabledAudioModeIntoUnavailableEmptyState() {
-        let transcription = AudioModeTranscriptionViewData(
+    func testMapsDisabledAIModeIntoUnavailableEmptyState() {
+        let transcription = AIModeTranscriptionViewData(
             displayState: .unavailable,
             title: "Microphone unavailable",
             detail: "Speech transcription is unavailable on this device.",
@@ -133,7 +133,7 @@ final class AudioModeViewStateTests: XCTestCase {
             isRecording: false,
             transcriptHistoryCount: 0
         )
-        let conversation = AudioModeConversationViewData(
+        let conversation = AIModeConversationViewData(
             messages: [],
             bannerText: nil,
             bannerTone: nil,
@@ -141,7 +141,7 @@ final class AudioModeViewStateTests: XCTestCase {
             isLLMDisabled: false
         )
 
-        let state = AudioModeViewState(
+        let state = AIModeViewState(
             transcription: transcription,
             conversation: conversation,
             isAIPageAvailable: false
@@ -157,7 +157,7 @@ final class AudioModeViewStateTests: XCTestCase {
     }
 
     func testMapsLLMDisabledConversationIntoWarningState() {
-        let transcription = AudioModeTranscriptionViewData(
+        let transcription = AIModeTranscriptionViewData(
             displayState: .inactive,
             title: "AI",
             detail: "Voice stays active across pauses until you stop the session.",
@@ -172,7 +172,7 @@ final class AudioModeViewStateTests: XCTestCase {
             isRecording: false,
             transcriptHistoryCount: 0
         )
-        let conversation = AudioModeConversationViewData(
+        let conversation = AIModeConversationViewData(
             messages: [],
             bannerText: "LLM access is disabled.",
             bannerTone: .warning,
@@ -180,7 +180,7 @@ final class AudioModeViewStateTests: XCTestCase {
             isLLMDisabled: true
         )
 
-        let state = AudioModeViewState(transcription: transcription, conversation: conversation)
+        let state = AIModeViewState(transcription: transcription, conversation: conversation)
 
         XCTAssertEqual(state.conversation.headerBadgeText, "Disabled")
         XCTAssertEqual(state.conversation.emptyTitle, "Codex replies are turned off")
@@ -188,7 +188,7 @@ final class AudioModeViewStateTests: XCTestCase {
     }
 
     func testMapsRecentNoteTargetIntoActionBarChip() {
-        let transcription = AudioModeTranscriptionViewData(
+        let transcription = AIModeTranscriptionViewData(
             displayState: .inactive,
             title: "AI",
             detail: "Voice stays active across pauses until you stop the session.",
@@ -203,7 +203,7 @@ final class AudioModeViewStateTests: XCTestCase {
             isRecording: false,
             transcriptHistoryCount: 0
         )
-        let conversation = AudioModeConversationViewData(
+        let conversation = AIModeConversationViewData(
             messages: [
                 .init(
                     role: .toolResult,
@@ -218,7 +218,7 @@ final class AudioModeViewStateTests: XCTestCase {
             noteTargetStatusText: "Notes: Work"
         )
 
-        let state = AudioModeViewState(transcription: transcription, conversation: conversation)
+        let state = AIModeViewState(transcription: transcription, conversation: conversation)
 
         XCTAssertEqual(state.actionBar.primaryStatusChips, ["Ready", "Notes: Work"])
     }

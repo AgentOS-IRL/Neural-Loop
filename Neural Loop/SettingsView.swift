@@ -119,8 +119,8 @@ struct SettingsView: View {
                     )
 
                     statusRow(
-                        isOn: model.secretsLoaded && model.canUseAudioMode,
-                        text: model.secretsLoaded ? (model.canUseAudioMode ? "AI secrets present" : "AI secrets missing") : "Refreshing secrets..."
+                        isOn: model.secretsLoaded && model.canUseAIMode,
+                        text: model.secretsLoaded ? (model.canUseAIMode ? "AI secrets present" : "AI secrets missing") : "Refreshing secrets..."
                     )
                 }
 
@@ -163,9 +163,9 @@ struct SettingsView: View {
         settingsCard(title: "System") {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 8) {
-                    Image(systemName: model.canUseAudioMode ? "checkmark.seal.fill" : "xmark.seal")
-                        .foregroundStyle(model.canUseAudioMode ? .green : AppTheme.textSecondary)
-                    Text(model.secretsLoaded ? (model.canUseAudioMode ? "\(codexAuthTokenSecretKey) present" : "\(codexAuthTokenSecretKey) missing") : "Checking AI entitlement...")
+                    Image(systemName: model.canUseAIMode ? "checkmark.seal.fill" : "xmark.seal")
+                        .foregroundStyle(model.canUseAIMode ? .green : AppTheme.textSecondary)
+                    Text(model.secretsLoaded ? (model.canUseAIMode ? "\(codexAuthTokenSecretKey) present" : "\(codexAuthTokenSecretKey) missing") : "Checking AI entitlement...")
                         .font(.system(.subheadline, design: .rounded, weight: .medium))
                         .foregroundStyle(AppTheme.textSecondary)
                 }

@@ -2,13 +2,13 @@
 
 ## Project Overview
 
-Neural Loop is an iOS-first SwiftUI productivity app with a lightweight watchOS companion. The app combines goals, habits, todos, task planning, fleeting notes, calendar views, notifications, audio mode, and settings into a single mobile workflow.
+Neural Loop is an iOS-first SwiftUI productivity app with a lightweight watchOS companion. The app combines goals, habits, todos, task planning, fleeting notes, calendar views, notifications, AI mode, and settings into a single mobile workflow.
 
 The repository also includes Supabase-backed data access, SwiftData local state, app-wide orchestration through `UnifiedDataModel`, shared WatchConnectivity helpers, deployment automation, and a local `CodexCore` Swift package.
 
 ## Repository Map
 
-- `Neural Loop/` - Main iOS app target. Contains SwiftUI screens, app entry points, data orchestration, scheduling, notifications, audio mode, app utilities, and feature modules.
+- `Neural Loop/` - Main iOS app target. Contains SwiftUI screens, app entry points, data orchestration, scheduling, notifications, AI mode, app utilities, and feature modules.
 - `Neural Loop Watch Watch App/` - Lightweight watchOS companion target that uses shared connectivity to display and send simple messages.
 - `Shared/` - Cross-target Swift code. Currently centered on `ConnectivityManager.swift` for `WCSession` setup and message delivery.
 - `Packages/CodexCore/` - Local Swift package for Codex structured-tool support.
@@ -25,7 +25,7 @@ The repository also includes Supabase-backed data access, SwiftData local state,
 - `Neural Loop/goal_screen/`, `habit_screen/`, `todo_screen/`, `task_screen/`, and `fleeting_notes/` contain the core productivity feature views and state helpers.
 - `Neural Loop/calendar_view/` and `Neural Loop/utils/NeuralLoopCalendarService.swift` handle calendar display and calendar service integration.
 - `Neural Loop/schedule/` contains reusable task timing, repeat, and scheduling controls.
-- `Neural Loop/audio/` contains audio mode UI, transcription state, speech detection, and Codex coordination.
+- `Neural Loop/ai/` contains AI mode UI, transcription state, speech detection, and Codex coordination.
 - `Neural Loop/NotificationManager.swift` and `Neural Loop/ai_or_not/auto_notification_scheduler/` handle reminder permissions, scheduling, and automation.
 - `Neural Loop/tab_bar/` contains the custom app tab model and visual tab bar components.
 
@@ -39,7 +39,7 @@ The watch target is intentionally small. `Neural Loop Watch Watch App/Neural_Loo
 
 Supabase integration lives under `Neural Loop/database/`. Publishable client configuration is in `SupabaseUltis.swift`; secret metadata and loading behavior are represented in `Secrets.swift`.
 
-LLM and audio-related features depend on configured secret rows such as `codex_auth_token` and `chatgpt_account_id`. Do not commit private credential values, local tokens, or personal account secrets to this repository.
+LLM and AI-related features depend on configured secret rows such as `codex_auth_token` and `chatgpt_account_id`. Do not commit private credential values, local tokens, or personal account secrets to this repository.
 
 ## Development Notes
 

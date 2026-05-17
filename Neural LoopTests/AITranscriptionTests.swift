@@ -4,11 +4,11 @@ import XCTest
 @testable import Neural_Loop
 
 @MainActor
-final class AudioTranscriptionTests: XCTestCase {
+final class AITranscriptionTests: XCTestCase {
     func testStartRecordingRequestsPermissionsAndBeginsSession() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()
-        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+        let manager = AITranscriptionManager(session: session, cooldownScheduler: scheduler)
 
         await manager.startRecording()
 
@@ -23,11 +23,11 @@ final class AudioTranscriptionTests: XCTestCase {
     func testManualStopClearsTranscriptHistoryBeforeNewSession() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()
-        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+        let manager = AITranscriptionManager(session: session, cooldownScheduler: scheduler)
 
         await manager.startRecording()
         session.emit(.speechDetected)
-        session.emit(.update(AudioTranscriptionUpdate(transcript: "first pass", isFinal: false)))
+        session.emit(.update(AITranscriptionUpdate(transcript: "first pass", isFinal: false)))
         session.emit(.speechEnded)
         scheduler.fireLast()
         await Task.yield()
@@ -50,7 +50,7 @@ final class AudioTranscriptionTests: XCTestCase {
     func testDeniedPermissionPreventsStartAndSurfacesExplanation() async {
         let session = FakeTranscribingSession(permissionState: .microphoneDenied)
         let scheduler = FakeCooldownTimerScheduler()
-        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+        let manager = AITranscriptionManager(session: session, cooldownScheduler: scheduler)
 
         await manager.startRecording()
 
@@ -65,7 +65,7 @@ final class AudioTranscriptionTests: XCTestCase {
     func testPresentationHelpersReflectUnavailableMicState() {
         let session = FakeTranscribingSession(permissionState: .speechDenied)
         let scheduler = FakeCooldownTimerScheduler()
-        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+        let manager = AITranscriptionManager(session: session, cooldownScheduler: scheduler)
 
         XCTAssertEqual(manager.displayState, .unavailable)
         XCTAssertEqual(manager.primaryStatusTitle, "Microphone unavailable")
@@ -80,11 +80,11 @@ final class AudioTranscriptionTests: XCTestCase {
     func testPresentationHelpersReflectCooldownStateAndHistoryCount() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()
-        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+        let manager = AITranscriptionManager(session: session, cooldownScheduler: scheduler)
 
         await manager.startRecording()
         session.emit(.speechDetected)
-        session.emit(.update(AudioTranscriptionUpdate(transcript: "hello world", isFinal: false)))
+        session.emit(.update(AITranscriptionUpdate(transcript: "hello world", isFinal: false)))
         session.emit(.speechEnded)
 
         XCTAssertEqual(manager.displayState, .transcribing)
@@ -103,11 +103,11 @@ final class AudioTranscriptionTests: XCTestCase {
     func testTranscriptCardTextPrioritizesErrorsOverStaleTranscript() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()
-        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+        let manager = AITranscriptionManager(session: session, cooldownScheduler: scheduler)
 
         await manager.startRecording()
         session.emit(.speechDetected)
-        session.emit(.update(AudioTranscriptionUpdate(transcript: "old transcript", isFinal: false)))
+        session.emit(.update(AITranscriptionUpdate(transcript: "old transcript", isFinal: false)))
 
         XCTAssertEqual(manager.transcriptCardText, "old transcript")
 
@@ -122,11 +122,11 @@ final class AudioTranscriptionTests: XCTestCase {
     func testPartialRecognitionUpdatesTranscriptString() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()
-        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+        let manager = AITranscriptionManager(session: session, cooldownScheduler: scheduler)
 
         await manager.startRecording()
         session.emit(.speechDetected)
-        session.emit(.update(AudioTranscriptionUpdate(transcript: "hello", isFinal: false)))
+        session.emit(.update(AITranscriptionUpdate(transcript: "hello", isFinal: false)))
 
         XCTAssertEqual(manager.transcriptText, "hello")
         XCTAssertFalse(manager.isTranscriptFinal)
@@ -137,7 +137,7 @@ final class AudioTranscriptionTests: XCTestCase {
     func testSpeechDetectedCancelsCooldownAndStartsTranscribing() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()
-        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+        let manager = AITranscriptionManager(session: session, cooldownScheduler: scheduler)
 
         await manager.startRecording()
         session.emit(.speechDetected)
@@ -157,11 +157,11 @@ final class AudioTranscriptionTests: XCTestCase {
     func testSpeechEndedCommitsTranscriptAndKeepsSessionActive() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()
-        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+        let manager = AITranscriptionManager(session: session, cooldownScheduler: scheduler)
 
         await manager.startRecording()
         session.emit(.speechDetected)
-        session.emit(.update(AudioTranscriptionUpdate(transcript: "hello world", isFinal: false)))
+        session.emit(.update(AITranscriptionUpdate(transcript: "hello world", isFinal: false)))
         session.emit(.speechEnded)
 
         XCTAssertEqual(manager.sessionState, .cooldownPending)
@@ -185,7 +185,7 @@ final class AudioTranscriptionTests: XCTestCase {
     func testCommittedTranscriptCallbackFiresOncePerFinalizedSegment() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()
-        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+        let manager = AITranscriptionManager(session: session, cooldownScheduler: scheduler)
         var committedTranscripts: [String] = []
 
         manager.onCommittedTranscript = { transcript in
@@ -195,13 +195,13 @@ final class AudioTranscriptionTests: XCTestCase {
         await manager.startRecording()
 
         session.emit(.speechDetected)
-        session.emit(.update(AudioTranscriptionUpdate(transcript: "first segment", isFinal: false)))
+        session.emit(.update(AITranscriptionUpdate(transcript: "first segment", isFinal: false)))
         session.emit(.speechEnded)
         scheduler.fireLast()
         await Task.yield()
 
         session.emit(.speechDetected)
-        session.emit(.update(AudioTranscriptionUpdate(transcript: "second segment", isFinal: false)))
+        session.emit(.update(AITranscriptionUpdate(transcript: "second segment", isFinal: false)))
         session.emit(.speechEnded)
         scheduler.fireLast()
         await Task.yield()
@@ -213,7 +213,7 @@ final class AudioTranscriptionTests: XCTestCase {
     func testSpeechDetectedDuringCooldownKeepsSessionAlive() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()
-        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+        let manager = AITranscriptionManager(session: session, cooldownScheduler: scheduler)
 
         await manager.startRecording()
         session.emit(.speechDetected)
@@ -234,11 +234,11 @@ final class AudioTranscriptionTests: XCTestCase {
     func testFinalRecognitionStillRollsIntoHistoryOnCooldown() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()
-        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+        let manager = AITranscriptionManager(session: session, cooldownScheduler: scheduler)
 
         await manager.startRecording()
         session.emit(.speechDetected)
-        session.emit(.update(AudioTranscriptionUpdate(transcript: "hello world", isFinal: true)))
+        session.emit(.update(AITranscriptionUpdate(transcript: "hello world", isFinal: true)))
 
         XCTAssertEqual(manager.transcriptText, "hello world")
         XCTAssertTrue(manager.isTranscriptFinal)
@@ -256,11 +256,11 @@ final class AudioTranscriptionTests: XCTestCase {
     func testManualStopClearsSessionStateAndSavedHistory() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()
-        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+        let manager = AITranscriptionManager(session: session, cooldownScheduler: scheduler)
 
         await manager.startRecording()
         session.emit(.speechDetected)
-        session.emit(.update(AudioTranscriptionUpdate(transcript: "keep this text", isFinal: false)))
+        session.emit(.update(AITranscriptionUpdate(transcript: "keep this text", isFinal: false)))
         session.emit(.speechEnded)
         scheduler.fireLast()
         await Task.yield()
@@ -278,18 +278,18 @@ final class AudioTranscriptionTests: XCTestCase {
     func testMultipleSegmentsAppendSavedMessagesInOrder() async {
         let session = FakeTranscribingSession(permissionState: .authorized)
         let scheduler = FakeCooldownTimerScheduler()
-        let manager = AudioTranscriptionManager(session: session, cooldownScheduler: scheduler)
+        let manager = AITranscriptionManager(session: session, cooldownScheduler: scheduler)
 
         await manager.startRecording()
 
         session.emit(.speechDetected)
-        session.emit(.update(AudioTranscriptionUpdate(transcript: "first segment", isFinal: false)))
+        session.emit(.update(AITranscriptionUpdate(transcript: "first segment", isFinal: false)))
         session.emit(.speechEnded)
         scheduler.fireLast()
         await Task.yield()
 
         session.emit(.speechDetected)
-        session.emit(.update(AudioTranscriptionUpdate(transcript: "second segment", isFinal: false)))
+        session.emit(.update(AITranscriptionUpdate(transcript: "second segment", isFinal: false)))
         session.emit(.speechEnded)
         scheduler.fireLast()
         await Task.yield()
@@ -306,7 +306,7 @@ final class AudioTranscriptionTests: XCTestCase {
         let speechAuthorization = FakeSpeechAuthorization(status: .authorized)
         let recognizer = FakeSpeechRecognizer(isAvailable: true)
         let detector = FakeSpeechDetector()
-        let session = LiveAudioTranscriptionSession(
+        let session = LiveAITranscriptionSession(
             audioSession: audioSession,
             audioEngine: engine,
             speechAuthorization: speechAuthorization,
@@ -370,7 +370,7 @@ final class AudioTranscriptionTests: XCTestCase {
                 silenceDuration: 0.02
             )
         )
-        let session = LiveAudioTranscriptionSession(
+        let session = LiveAITranscriptionSession(
             audioSession: audioSession,
             audioEngine: engine,
             speechAuthorization: speechAuthorization,
@@ -401,7 +401,7 @@ final class AudioTranscriptionTests: XCTestCase {
         let speechAuthorization = FakeSpeechAuthorization(status: .authorized)
         let recognizer = FakeSpeechRecognizer(isAvailable: true)
         let detector = FakeSpeechDetector()
-        let session = LiveAudioTranscriptionSession(
+        let session = LiveAITranscriptionSession(
             audioSession: audioSession,
             audioEngine: engine,
             speechAuthorization: speechAuthorization,
@@ -441,7 +441,7 @@ final class AudioTranscriptionTests: XCTestCase {
         let speechAuthorization = FakeSpeechAuthorization(status: .authorized)
         let recognizer = FakeSpeechRecognizer(isAvailable: true)
         let detector = FakeSpeechDetector()
-        let session = LiveAudioTranscriptionSession(
+        let session = LiveAITranscriptionSession(
             audioSession: audioSession,
             audioEngine: engine,
             speechAuthorization: speechAuthorization,
@@ -493,7 +493,7 @@ final class AudioTranscriptionTests: XCTestCase {
         let speechAuthorization = FakeSpeechAuthorization(status: .authorized)
         let recognizer = FakeSpeechRecognizer(isAvailable: true)
         let detector = FakeSpeechDetector()
-        let session = LiveAudioTranscriptionSession(
+        let session = LiveAITranscriptionSession(
             audioSession: audioSession,
             audioEngine: engine,
             speechAuthorization: speechAuthorization,
@@ -524,30 +524,30 @@ final class AudioTranscriptionTests: XCTestCase {
 }
 
 @MainActor
-private final class FakeTranscribingSession: AudioTranscribingSession {
-    var permissionState: AudioTranscriptionPermissionState
+private final class FakeTranscribingSession: AITranscribingSession {
+    var permissionState: AITranscriptionPermissionState
     var requestPermissionsCallCount = 0
     var startCallCount = 0
     var rolloverSegmentCallCount = 0
     var stopCallCount = 0
-    private var resultHandler: ((AudioTranscriptionEvent) -> Void)?
+    private var resultHandler: ((AITranscriptionEvent) -> Void)?
 
-    init(permissionState: AudioTranscriptionPermissionState) {
+    init(permissionState: AITranscriptionPermissionState) {
         self.permissionState = permissionState
     }
 
-    func currentPermissionState() -> AudioTranscriptionPermissionState {
+    func currentPermissionState() -> AITranscriptionPermissionState {
         permissionState
     }
 
-    func requestPermissions() async -> AudioTranscriptionPermissionState {
+    func requestPermissions() async -> AITranscriptionPermissionState {
         requestPermissionsCallCount += 1
         return permissionState
     }
 
     func start(
         onDeviceRecognition: Bool,
-        resultHandler: @escaping (AudioTranscriptionEvent) -> Void
+        resultHandler: @escaping (AITranscriptionEvent) -> Void
     ) async throws {
         startCallCount += 1
         self.resultHandler = resultHandler
@@ -562,12 +562,12 @@ private final class FakeTranscribingSession: AudioTranscribingSession {
         resultHandler = nil
     }
 
-    func emit(_ event: AudioTranscriptionEvent) {
+    func emit(_ event: AITranscriptionEvent) {
         resultHandler?(event)
     }
 }
 
-private final class FakeCooldownTimerScheduler: AudioCooldownTimerScheduling {
+private final class FakeCooldownTimerScheduler: AICooldownTimerScheduling {
     private(set) var scheduleCallCount = 0
     private(set) var cancelCallCount = 0
     private(set) var scheduledDelays: [TimeInterval] = []
@@ -577,7 +577,7 @@ private final class FakeCooldownTimerScheduler: AudioCooldownTimerScheduling {
         tokens.last
     }
 
-    func schedule(after delay: TimeInterval, _ handler: @escaping () -> Void) -> any AudioCooldownTimerControlling {
+    func schedule(after delay: TimeInterval, _ handler: @escaping () -> Void) -> any AICooldownTimerControlling {
         scheduleCallCount += 1
         scheduledDelays.append(delay)
         let token = FakeCooldownTimerToken(
@@ -595,7 +595,7 @@ private final class FakeCooldownTimerScheduler: AudioCooldownTimerScheduling {
     }
 }
 
-private final class FakeCooldownTimerToken: AudioCooldownTimerControlling {
+private final class FakeCooldownTimerToken: AICooldownTimerControlling {
     private let onCancel: () -> Void
     private let handler: () -> Void
     private(set) var isCancelled = false

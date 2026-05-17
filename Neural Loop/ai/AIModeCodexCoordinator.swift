@@ -2,7 +2,7 @@ import Foundation
 import Combine
 import CodexCore
 
-protocol AudioModeCodexExecuting {
+protocol AIModeCodexExecuting {
     func converse(
         messages: [CodexInputMessage],
         state: CodexConversationState,
@@ -12,7 +12,7 @@ protocol AudioModeCodexExecuting {
 }
 
 @MainActor
-protocol AudioModeCodexModel: AnyObject {
+protocol AIModeCodexModel: AnyObject {
     var llm_enabled: Bool { get }
     var codexAccessToken: String? { get }
     var codexAccountID: String? { get }
@@ -25,16 +25,16 @@ protocol AudioModeCodexModel: AnyObject {
 }
 
 @MainActor
-final class AudioModeCodexCoordinator: ObservableObject {
-    @Published private(set) var conversationFeed: [AudioTranscriptMessage] = []
+final class AIModeCodexCoordinator: ObservableObject {
+    @Published private(set) var conversationFeed: [AITranscriptMessage] = []
     @Published private(set) var codexState = CodexConversationState()
     @Published private(set) var isSending = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var statusMessage: String?
     @Published private(set) var lastNoteResultSource: FleetingNoteSource?
 
-    private let model: any AudioModeCodexModel
-    private let codexClient: (any AudioModeCodexExecuting)?
+    private let model: any AIModeCodexModel
+    private let codexClient: (any AIModeCodexExecuting)?
     private var pendingTranscripts: [String] = []
     private var drainTask: Task<Void, Never>?
     private var codexMessages: [CodexInputMessage] = []
@@ -49,7 +49,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
         return errorMessage ?? statusMessage
     }
 
-    var bannerTone: AudioModeBannerTone? {
+    var bannerTone: AIModeBannerTone? {
         if errorMessage != nil {
             return .error
         }
@@ -66,8 +66,8 @@ final class AudioModeCodexCoordinator: ObservableObject {
         statusMessage == "LLM access is disabled."
     }
 
-    var viewData: AudioModeConversationViewData {
-        AudioModeConversationViewData(
+    var viewData: AIModeConversationViewData {
+        AIModeConversationViewData(
             messages: conversationFeed,
             bannerText: bannerText,
             bannerTone: bannerTone,
@@ -78,8 +78,8 @@ final class AudioModeCodexCoordinator: ObservableObject {
     }
 
     init(
-        model: any AudioModeCodexModel,
-        codexClient: (any AudioModeCodexExecuting)? = nil,
+        model: any AIModeCodexModel,
+        codexClient: (any AIModeCodexExecuting)? = nil,
     ) {
         self.model = model
         self.codexClient = codexClient
@@ -288,7 +288,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
         }
 
         guard let startDate = parseStartDate(rawStartDate) else {
-            throw AudioModeCodexCoordinatorError.invalidTaskStartDate(rawStartDate)
+            throw AIModeCodexCoordinatorError.invalidTaskStartDate(rawStartDate)
         }
 
         if let explicitDuration = durationValue(in: arguments) {
@@ -334,7 +334,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
         }
 
         guard let startDate = parseStartDate(rawStartDate) else {
-            throw AudioModeCodexCoordinatorError.invalidShoppingListStartDate(rawStartDate)
+            throw AIModeCodexCoordinatorError.invalidShoppingListStartDate(rawStartDate)
         }
 
         return startDate
@@ -537,7 +537,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
         }
     }
 
-    private func resolvedCodexClient() async -> (any AudioModeCodexExecuting)? {
+    private func resolvedCodexClient() async -> (any AIModeCodexExecuting)? {
         if let codexClient {
             return codexClient
         }
@@ -546,7 +546,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
             return nil
         }
 
-        return CodexStructuredToolAudioModeAdapter(
+        return CodexStructuredToolAIModeAdapter(
             tool: CodexStructuredTool(access_token: credentials.accessToken, account_id: credentials.accountID)
         )
     }
@@ -561,7 +561,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
         codexMessages.append(contentsOf: makeCodexMessages(role: .assistant, content: trimmed))
     }
 
-    private func appendToolResult(_ text: String, kind: AudioToolResultKind? = nil) {
+    private func appendToolResult(_ text: String, kind: AIToolResultKind? = nil) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             return
@@ -646,7 +646,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
     }
 
     private func makeCodexMessages(
-        role: AudioTranscriptMessageRole,
+        role: AITranscriptMessageRole,
         content: String
     ) -> [CodexInputMessage] {
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -675,7 +675,7 @@ final class AudioModeCodexCoordinator: ObservableObject {
     }
 }
 
-private enum AudioModeCodexCoordinatorError: LocalizedError {
+private enum AIModeCodexCoordinatorError: LocalizedError {
     case invalidTaskStartDate(String)
     case invalidShoppingListStartDate(String)
 
@@ -689,7 +689,7 @@ private enum AudioModeCodexCoordinatorError: LocalizedError {
     }
 }
 
-final class CodexStructuredToolAudioModeAdapter: AudioModeCodexExecuting {
+final class CodexStructuredToolAIModeAdapter: AIModeCodexExecuting {
     private let tool: CodexStructuredTool
 
     init(tool: CodexStructuredTool) {
@@ -711,7 +711,7 @@ final class CodexStructuredToolAudioModeAdapter: AudioModeCodexExecuting {
     }
 }
 
-extension AudioModeCodexCoordinator {
+extension AIModeCodexCoordinator {
 
     private static let iso8601DateFormatters: [ISO8601DateFormatter] = {
         let formatterWithInternetDateTime = ISO8601DateFormatter()

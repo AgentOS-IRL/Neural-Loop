@@ -1,14 +1,14 @@
 import SwiftUI
 
-struct AudioModeVoiceInputBar: View, Equatable {
-    let micState: AudioModeViewState.Hero
-    let transcriptState: AudioModeViewState.Transcript
-    let actionBarState: AudioModeViewState.ActionBar
+struct AIModeVoiceInputBar: View, Equatable {
+    let micState: AIModeViewState.Hero
+    let transcriptState: AIModeViewState.Transcript
+    let actionBarState: AIModeViewState.ActionBar
     let isReduceMotionEnabled: Bool
     let isPulsing: Bool
     let onTapMic: () -> Void
 
-    static func == (lhs: AudioModeVoiceInputBar, rhs: AudioModeVoiceInputBar) -> Bool {
+    static func == (lhs: AIModeVoiceInputBar, rhs: AIModeVoiceInputBar) -> Bool {
         lhs.micState == rhs.micState
         && lhs.transcriptState == rhs.transcriptState
         && lhs.actionBarState == rhs.actionBarState
@@ -27,12 +27,12 @@ struct AudioModeVoiceInputBar: View, Equatable {
                     if !isReduceMotionEnabled {
                         Circle()
                             .strokeBorder(
-                                AudioModeTheme.statusTint(for: micState.tintState).opacity(0.52),
+                                AIModeTheme.statusTint(for: micState.tintState).opacity(0.52),
                                 lineWidth: 2
                             )
                             .frame(
-                                width: AudioModeTheme.Metrics.bottomMicPulseSize,
-                                height: AudioModeTheme.Metrics.bottomMicPulseSize
+                                width: AIModeTheme.Metrics.bottomMicPulseSize,
+                                height: AIModeTheme.Metrics.bottomMicPulseSize
                             )
                             .scaleEffect(isPulsing ? 1.06 : 0.94)
                             .opacity(isPulsing ? 0.18 : 0.62)
@@ -42,17 +42,17 @@ struct AudioModeVoiceInputBar: View, Equatable {
                         .fill(.ultraThinMaterial)
                         .overlay {
                             Circle()
-                                .fill(AudioModeTheme.actionGradient)
+                                .fill(AIModeTheme.actionGradient)
                                 .opacity(micState.isActionDisabled ? 0.04 : 0.16)
                         }
                         .overlay {
                             Circle()
-                                .strokeBorder(AudioModeTheme.highlightBorder, lineWidth: 1)
+                                .strokeBorder(AIModeTheme.highlightBorder, lineWidth: 1)
                         }
-                        .shadow(color: AudioModeTheme.heroGlow, radius: micState.isActionDisabled ? 8 : 16, y: 8)
+                        .shadow(color: AIModeTheme.heroGlow, radius: micState.isActionDisabled ? 8 : 16, y: 8)
                         .frame(
-                            width: AudioModeTheme.Metrics.bottomMicSize,
-                            height: AudioModeTheme.Metrics.bottomMicSize
+                            width: AIModeTheme.Metrics.bottomMicSize,
+                            height: AIModeTheme.Metrics.bottomMicSize
                         )
 
                     Image(systemName: micState.microphoneSystemImage)
@@ -61,8 +61,8 @@ struct AudioModeVoiceInputBar: View, Equatable {
                         .shadow(color: .black.opacity(0.28), radius: 5, y: 2)
                 }
                 .frame(
-                    width: AudioModeTheme.Metrics.bottomMicPulseSize,
-                    height: AudioModeTheme.Metrics.bottomMicPulseSize
+                    width: AIModeTheme.Metrics.bottomMicPulseSize,
+                    height: AIModeTheme.Metrics.bottomMicPulseSize
                 )
             }
             .buttonStyle(.plain)
@@ -81,23 +81,23 @@ struct AudioModeVoiceInputBar: View, Equatable {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(
-                cornerRadius: AudioModeTheme.Metrics.bottomComposerCornerRadius,
+                cornerRadius: AIModeTheme.Metrics.bottomComposerCornerRadius,
                 style: .continuous
             )
-            .fill(AudioModeTheme.cardFill)
+            .fill(AIModeTheme.cardFill)
             .background(
                 RoundedRectangle(
-                    cornerRadius: AudioModeTheme.Metrics.bottomComposerCornerRadius,
+                    cornerRadius: AIModeTheme.Metrics.bottomComposerCornerRadius,
                     style: .continuous
                 )
                 .fill(.ultraThinMaterial)
             )
             .overlay {
                 RoundedRectangle(
-                    cornerRadius: AudioModeTheme.Metrics.bottomComposerCornerRadius,
+                    cornerRadius: AIModeTheme.Metrics.bottomComposerCornerRadius,
                     style: .continuous
                 )
-                .strokeBorder(AudioModeTheme.highlightBorder, lineWidth: 1)
+                .strokeBorder(AIModeTheme.highlightBorder, lineWidth: 1)
             }
         )
     }
@@ -109,17 +109,17 @@ struct AudioModeVoiceInputBar: View, Equatable {
                 ForEach(actionBarState.primaryStatusChips, id: \.self) { chip in
                     Text(chip)
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textSecondaryOpacity))
+                        .foregroundStyle(.white.opacity(AIModeTheme.Surface.textSecondaryOpacity))
                         .lineLimit(1)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(
                             Capsule(style: .continuous)
-                                .fill(AudioModeTheme.chipFill)
+                                .fill(AIModeTheme.chipFill)
                         )
                         .overlay {
                             Capsule(style: .continuous)
-                                .strokeBorder(AudioModeTheme.chipBorder, lineWidth: 1)
+                                .strokeBorder(AIModeTheme.chipBorder, lineWidth: 1)
                         }
                 }
             }
@@ -132,24 +132,24 @@ struct AudioModeVoiceInputBar: View, Equatable {
             HStack(spacing: 7) {
                 Image(systemName: transcriptState.iconName)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(AudioModeTheme.statusTint(for: micState.tintState))
+                    .foregroundStyle(AIModeTheme.statusTint(for: micState.tintState))
 
                 Text(transcriptTitle)
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textPrimaryOpacity))
+                    .foregroundStyle(.white.opacity(AIModeTheme.Surface.textPrimaryOpacity))
                     .lineLimit(1)
 
                 if let badgeText = transcriptState.badgeText {
                     Text(badgeText)
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textTertiaryOpacity))
+                        .foregroundStyle(.white.opacity(AIModeTheme.Surface.textTertiaryOpacity))
                         .lineLimit(1)
                 }
             }
 
             Text(transcriptBody)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textSecondaryOpacity))
+                .foregroundStyle(.white.opacity(AIModeTheme.Surface.textSecondaryOpacity))
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -166,10 +166,10 @@ struct AudioModeVoiceInputBar: View, Equatable {
     }
 }
 
-struct AudioModeActionBar: View, Equatable {
-    let state: AudioModeViewState.ActionBar
+struct AIModeActionBar: View, Equatable {
+    let state: AIModeViewState.ActionBar
 
-    static func == (lhs: AudioModeActionBar, rhs: AudioModeActionBar) -> Bool {
+    static func == (lhs: AIModeActionBar, rhs: AIModeActionBar) -> Bool {
         lhs.state == rhs.state
     }
 
@@ -181,16 +181,16 @@ struct AudioModeActionBar: View, Equatable {
                         ForEach(state.primaryStatusChips, id: \.self) { chip in
                             Text(chip)
                                 .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textPrimaryOpacity))
+                                .foregroundStyle(.white.opacity(AIModeTheme.Surface.textPrimaryOpacity))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
                                 .background(
                                     Capsule(style: .continuous)
-                                        .fill(AudioModeTheme.chipFill)
+                                        .fill(AIModeTheme.chipFill)
                                 )
                                 .overlay {
                                     Capsule(style: .continuous)
-                                        .strokeBorder(AudioModeTheme.chipBorder, lineWidth: 1)
+                                        .strokeBorder(AIModeTheme.chipBorder, lineWidth: 1)
                                 }
                         }
                     }
@@ -202,11 +202,11 @@ struct AudioModeActionBar: View, Equatable {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(state.modeStatusTitle)
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textPrimaryOpacity))
+                        .foregroundStyle(.white.opacity(AIModeTheme.Surface.textPrimaryOpacity))
 
                     Text(state.modeStatusDetail)
                         .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(AudioModeTheme.Surface.textSecondaryOpacity))
+                        .foregroundStyle(.white.opacity(AIModeTheme.Surface.textSecondaryOpacity))
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -214,6 +214,6 @@ struct AudioModeActionBar: View, Equatable {
             }
         }
         .padding(16)
-        .background(AudioModeCardBackground())
+        .background(AIModeCardBackground())
     }
 }

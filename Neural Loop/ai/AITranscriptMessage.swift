@@ -1,6 +1,6 @@
 import Foundation
 
-enum AudioTranscriptMessageRole: String, Equatable {
+enum AITranscriptMessageRole: String, Equatable {
     case user
     case assistant
     case toolResult
@@ -42,7 +42,7 @@ enum AudioTranscriptMessageRole: String, Equatable {
     }
 }
 
-enum AudioToolResultKind: Equatable {
+enum AIToolResultKind: Equatable {
     case personalNoteCreated
     case workNoteCreated
     case taskCreated
@@ -70,17 +70,17 @@ enum AudioToolResultKind: Equatable {
     }
 }
 
-struct AudioTranscriptMessage: Identifiable, Equatable {
+struct AITranscriptMessage: Identifiable, Equatable {
     let id: UUID
-    let role: AudioTranscriptMessageRole
+    let role: AITranscriptMessageRole
     let content: String
-    let toolResultKind: AudioToolResultKind?
+    let toolResultKind: AIToolResultKind?
 
     init(
         id: UUID = UUID(),
-        role: AudioTranscriptMessageRole = .user,
+        role: AITranscriptMessageRole = .user,
         content: String,
-        toolResultKind: AudioToolResultKind? = nil
+        toolResultKind: AIToolResultKind? = nil
     ) {
         self.id = id
         self.role = role
@@ -88,7 +88,7 @@ struct AudioTranscriptMessage: Identifiable, Equatable {
         self.toolResultKind = toolResultKind
     }
 
-    static func == (lhs: AudioTranscriptMessage, rhs: AudioTranscriptMessage) -> Bool {
+    static func == (lhs: AITranscriptMessage, rhs: AITranscriptMessage) -> Bool {
         lhs.id == rhs.id &&
         lhs.role == rhs.role &&
         lhs.content == rhs.content &&

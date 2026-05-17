@@ -12,11 +12,11 @@ struct ModeBackdropView: View {
 
     var body: some View {
         ZStack {
-            AudioModeTheme.baseBackground
+            AIModeTheme.baseBackground
 
             RadialGradient(
                 colors: [
-                    AudioModeTheme.backdropPrimaryGlow.opacity(reduceTransparency ? 0.12 : 0.22),
+                    AIModeTheme.backdropPrimaryGlow.opacity(reduceTransparency ? 0.12 : 0.22),
                     Color.clear
                 ],
                 center: .topLeading,
@@ -28,7 +28,7 @@ struct ModeBackdropView: View {
 
             RadialGradient(
                 colors: [
-                    AudioModeTheme.backdropSecondaryGlow.opacity(reduceTransparency ? 0.10 : 0.18),
+                    AIModeTheme.backdropSecondaryGlow.opacity(reduceTransparency ? 0.10 : 0.18),
                     Color.clear
                 ],
                 center: .center,
@@ -40,7 +40,7 @@ struct ModeBackdropView: View {
 
             RadialGradient(
                 colors: [
-                    AudioModeTheme.backdropTertiaryGlow.opacity(reduceTransparency ? 0.08 : 0.14),
+                    AIModeTheme.backdropTertiaryGlow.opacity(reduceTransparency ? 0.08 : 0.14),
                     Color.clear
                 ],
                 center: .bottomTrailing,
@@ -66,7 +66,7 @@ struct ModeBackdropView: View {
                     .blendMode(.screen)
 
                 Circle()
-                    .fill(AudioModeTheme.backdropHighlightGlow.opacity(0.06))
+                    .fill(AIModeTheme.backdropHighlightGlow.opacity(0.06))
                     .frame(width: 340, height: 340)
                     .blur(radius: 74)
                     .offset(x: 0, y: -240)

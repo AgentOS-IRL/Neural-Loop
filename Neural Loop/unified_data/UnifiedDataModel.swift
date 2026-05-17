@@ -303,7 +303,7 @@ final class UnifiedDataModel: ObservableObject {
         secrets.containsSecretKey(chatgptAccountIDSecretKey)
     }
 
-    var canUseAudioMode: Bool {
+    var canUseAIMode: Bool {
         secretsLoaded && hasCodexAuthTokenSecret && hasChatGPTAccountIDSecret
     }
 
@@ -492,4 +492,4 @@ final class UnifiedDataModel: ObservableObject {
     }
 }
 
-extension UnifiedDataModel: AudioModeCodexModel {}
+extension UnifiedDataModel: AIModeCodexModel {}

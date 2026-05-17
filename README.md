@@ -1,6 +1,6 @@
 # Neural Loop
 
-Neural Loop is an iOS-first SwiftUI productivity app with a lightweight watchOS companion. The app brings goals, habits, todos, task planning, fleeting notes, calendar views, notifications, audio mode, and settings into one mobile workflow.
+Neural Loop is an iOS-first SwiftUI productivity app with a lightweight watchOS companion. The app brings goals, habits, todos, task planning, fleeting notes, calendar views, notifications, AI mode, and settings into one mobile workflow.
 
 The repository also includes the supporting systems around that app: Supabase-backed data access, SwiftData local state, app-level data orchestration through `UnifiedDataModel`, shared WatchConnectivity helpers, shell deployment automation, and the local `CodexCore` Swift package for structured-tool support.
 
@@ -8,10 +8,10 @@ The repository also includes the supporting systems around that app: Supabase-ba
 
 | Path | Purpose |
 | --- | --- |
-| `Neural Loop/` | Main iOS target with the SwiftUI app, feature screens, data layer, scheduling, notifications, audio mode, and app utilities. |
+| `Neural Loop/` | Main iOS target with the SwiftUI app, feature screens, data layer, scheduling, notifications, AI mode, and app utilities. |
 | `Neural Loop Watch Watch App/` | watchOS companion target that uses shared connectivity to exchange simple messages with the iOS app. |
 | `Shared/` | Cross-target code, currently centered on `ConnectivityManager.swift` for `WCSession` setup and message delivery. |
-| `Neural LoopTests/` | XCTest target for app logic, UI-state helpers, navigation behavior, audio state, secrets loading, formatting, and database-facing helpers. |
+| `Neural LoopTests/` | XCTest target for app logic, UI-state helpers, navigation behavior, AI transcription state, secrets loading, formatting, and database-facing helpers. |
 | `Packages/CodexCore/` | Local Swift package with independent source and test targets for Codex structured-tool support. |
 | `tests/` | Shell-level regression tests, including deployment-script coverage. |
 | `package_deploy.sh` | Archive, install, and launch helper for a configured physical iOS device. |
@@ -22,7 +22,7 @@ The repository also includes the supporting systems around that app: Supabase-ba
 
 `Neural Loop/Neural_LoopApp.swift` is the SwiftUI app entry point. It prepares app services, registers local SwiftData models, and injects shared data into the UI.
 
-`Neural Loop/ContentView.swift` composes the top-level navigation and tab experience. Feature folders under `Neural Loop/` cover goals, tasks, todos, habits, calendar, fleeting notes, audio mode, scheduling, and settings.
+`Neural Loop/ContentView.swift` composes the top-level navigation and tab experience. Feature folders under `Neural Loop/` cover goals, tasks, todos, habits, calendar, fleeting notes, AI mode, scheduling, and settings.
 
 ### Watch App Target
 
@@ -43,7 +43,7 @@ The repository also includes the supporting systems around that app: Supabase-ba
 - `local_data/` contains local SwiftData models used for device-side state.
 - `schedule/` contains task timing, repeat, and scheduling controls shared by feature flows.
 - `NotificationManager.swift` and `ai_or_not/auto_notification_scheduler/` handle reminder permissions, scheduling, and automation.
-- `audio/` contains audio mode presentation, speech detection/transcription state, and Codex coordination.
+- `ai/` contains AI mode presentation, speech detection/transcription state, and Codex coordination.
 - `tab_bar/` contains the custom tab chrome and app tab model.
 - `Shared/ConnectivityManager.swift` handles iOS/watchOS communication through WatchConnectivity.
 
@@ -62,7 +62,7 @@ Resolve Swift package dependencies through Xcode for app work. For the standalon
 
 Supabase integration lives under `Neural Loop/database/`. Publishable Supabase client configuration is defined in `SupabaseUltis.swift`, while secret metadata and loading behavior are represented in `Secrets.swift`.
 
-LLM and audio-related features depend on configured secret rows such as `codex_auth_token` and `chatgpt_account_id`. Do not commit private credential values or personal tokens to this repository.
+LLM and AI-related features depend on configured secret rows such as `codex_auth_token` and `chatgpt_account_id`. Do not commit private credential values or personal tokens to this repository.
 
 ## Automated Testing
 

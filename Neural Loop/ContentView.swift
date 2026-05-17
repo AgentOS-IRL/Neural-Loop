@@ -68,7 +68,7 @@ struct ContentView: View {
             case .tasks:
                 TaskHubView()
             case .ai:
-                AudioModeView()
+                AIModeView()
             case .calendar:
                 CalendarDayView()
             case .fitness:

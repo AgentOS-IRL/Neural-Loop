@@ -61,14 +61,14 @@ final class AppThemeTests: XCTestCase {
         XCTAssertEqual(CalendarEventType.habit.color, AppTheme.habitEventTint)
     }
 
-    func testAudioModeThemeReusesSharedSemanticTokens() {
-        XCTAssertEqual(AudioModeTheme.statusTint(for: .checkingPermissions), AppTheme.warningTint)
-        XCTAssertEqual(AudioModeTheme.statusTint(for: .transcribing), AppTheme.successTint)
-        XCTAssertEqual(AudioModeTheme.statusTint(for: .unavailable), AppTheme.errorTint)
-        XCTAssertEqual(AudioModeTheme.messageBorder(for: .assistant), AppTheme.accentColor.opacity(0.30))
-        XCTAssertEqual(AudioModeTheme.messageBorder(for: .toolResult), AppTheme.successTint.opacity(0.32))
-        XCTAssertEqual(AudioModeTheme.bannerBorder(for: .warning), AppTheme.warningTint.opacity(0.26))
-        XCTAssertEqual(AudioModeTheme.bannerIconColor(for: .error), AppTheme.errorTint.opacity(0.96))
-        XCTAssertEqual(AudioModeTheme.messageIconColor(for: .assistant), AppTheme.accentColor.opacity(0.96))
+    func testAIModeThemeReusesSharedSemanticTokens() {
+        XCTAssertEqual(AIModeTheme.statusTint(for: .checkingPermissions), AppTheme.warningTint)
+        XCTAssertEqual(AIModeTheme.statusTint(for: .transcribing), AppTheme.successTint)
+        XCTAssertEqual(AIModeTheme.statusTint(for: .unavailable), AppTheme.errorTint)
+        XCTAssertEqual(AIModeTheme.messageBorder(for: .assistant), AppTheme.accentColor.opacity(0.30))
+        XCTAssertEqual(AIModeTheme.messageBorder(for: .toolResult), AppTheme.successTint.opacity(0.32))
+        XCTAssertEqual(AIModeTheme.bannerBorder(for: .warning), AppTheme.warningTint.opacity(0.26))
+        XCTAssertEqual(AIModeTheme.bannerIconColor(for: .error), AppTheme.errorTint.opacity(0.96))
+        XCTAssertEqual(AIModeTheme.messageIconColor(for: .assistant), AppTheme.accentColor.opacity(0.96))
     }
 }
