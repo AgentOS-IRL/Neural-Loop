@@ -3,7 +3,10 @@ import SwiftUI
 struct ActiveWorkoutView: View {
     @ObservedObject var viewModel: ActiveWorkoutViewModel
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isShowingFinishConfirmation = false
+    @State private var isLibraryPresented = false
+    @State private var previewGallery: ExerciseMediaGallery?
     
     var body: some View {
         NavigationView {
@@ -43,11 +46,18 @@ struct ActiveWorkoutView: View {
                                     },
                                     onToggleComplete: { setID in
                                         viewModel.toggleSetCompletion(exerciseID: state.id, setID: setID)
+                                    },
+                                    onPreviewRequested: { gallery in
+                                        previewGallery = gallery
                                     }
                                 )
                                 .padding(.horizontal)
                                 .padding(.bottom, isLastInGroup ? 20 : 8)
                             }
+
+                            addExerciseButton
+                                .padding(.horizontal)
+                                .padding(.bottom, 20)
                         }
                         .padding(.vertical)
                     }
@@ -84,6 +94,18 @@ struct ActiveWorkoutView: View {
             } message: {
                 Text("This will save the workout session and close the active workout.")
             }
+            .sheet(item: $previewGallery) { gallery in
+                ExerciseMediaPreviewSheet(gallery: gallery, allowsMotion: !reduceMotion)
+            }
+            .sheet(isPresented: $isLibraryPresented) {
+                ExerciseLibrarySelectionSheet(
+                    items: viewModel.availableExercises,
+                    initiallySelectedExerciseIDs: viewModel.currentExerciseIDs,
+                    onAdd: { selections in
+                        viewModel.addExercises(from: selections)
+                    }
+                )
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
@@ -93,6 +115,9 @@ struct ActiveWorkoutView: View {
                     .disabled(viewModel.isLoading)
                 }
             }
+        }
+        .task {
+            await viewModel.loadExerciseCatalog()
         }
     }
     
@@ -153,6 +178,31 @@ struct ActiveWorkoutView: View {
         let minutes = seconds / 60
         let remainingSeconds = seconds % 60
         return String(format: "%02d:%02d", minutes, remainingSeconds)
+    }
+
+    private var addExerciseButton: some View {
+        Button {
+            isLibraryPresented = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                Text("Add Exercise")
+                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+            }
+            .foregroundStyle(AppTheme.accentColor)
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .background {
+                RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                    .fill(AppTheme.cardGradient)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
+                    .strokeBorder(AppTheme.accentColor.opacity(0.3), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(viewModel.isLoadingCatalog)
     }
     
     private var finishButton: some View {

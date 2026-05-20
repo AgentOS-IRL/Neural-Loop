@@ -10,6 +10,7 @@ struct WorkoutExerciseCard: View {
     let onDistanceChange: (WorkoutSetDraft.ID, String) -> Void
     let onCaloriesChange: (WorkoutSetDraft.ID, String) -> Void
     let onToggleComplete: (WorkoutSetDraft.ID) -> Void
+    var onPreviewRequested: ((ExerciseMediaGallery) -> Void)? = nil
 
     @State private var showingProgression = false
     private let setColumnWidth: CGFloat = 48
@@ -50,7 +51,13 @@ struct WorkoutExerciseCard: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
+        HStack(alignment: .top, spacing: 12) {
+            ExerciseMediaView(
+                exerciseName: card.exercise.name,
+                mode: .thumbnail,
+                onPreviewRequested: onPreviewRequested
+            )
+
             VStack(alignment: .leading, spacing: 6) {
                 if let supersetLabel = card.supersetLabel {
                     Text(supersetLabel)

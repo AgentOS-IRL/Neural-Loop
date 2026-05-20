@@ -11,6 +11,8 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
     @Published var restTimerSeconds: Int = 0
     @Published var isTimerRunning: Bool = false
     @Published var restEndsAt: Date?
+    @Published var availableExercises: [ExerciseLibraryItem] = []
+    @Published var isLoadingCatalog = false
     
     let db: WorkoutDataManaging
     var onDraftChange: ((ActiveWorkoutDraft) -> Void)?
@@ -268,6 +270,53 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         } else {
             stopTimer()
         }
+    }
+
+    // MARK: - Exercise Catalog & Adding Exercises
+
+    var currentExerciseIDs: Set<Int64> {
+        Set(draft.exercises.map { $0.exercise.id })
+    }
+
+    func loadExerciseCatalog() async {
+        guard availableExercises.isEmpty, !isLoadingCatalog else { return }
+        isLoadingCatalog = true
+        defer { isLoadingCatalog = false }
+
+        do {
+            async let equipmentRows = db.fetchAllEquipment()
+            async let exerciseRows = db.fetchAllExercisesWithMuscles()
+
+            let (equipment, exercises) = try await (equipmentRows, exerciseRows)
+            availableExercises = WorkoutCatalogMapper.makeLibraryItems(
+                equipment: equipment,
+                exercises: exercises
+            )
+        } catch {
+            // Catalog load failure is non-blocking; the Add Exercise button stays disabled
+            print("Error loading exercise catalog: \(error)")
+        }
+    }
+
+    func addExercises(from selections: [ExerciseLibraryItem]) {
+        let existingIDs = currentExerciseIDs
+        let newItems = selections.filter { !existingIDs.contains($0.id) }
+        guard !newItems.isEmpty else { return }
+
+        for item in newItems {
+            // Use a negative ID to avoid collisions with real routine_exercise IDs.
+            // Each new ad-hoc exercise gets a unique negative ID based on exercise ID.
+            let syntheticID = -item.id
+
+            let defaultSet = WorkoutSetDraft(setNumber: 1)
+            let cardState = WorkoutExerciseCardState(
+                id: syntheticID,
+                exercise: item,
+                sets: [defaultSet]
+            )
+            draft.exercises.append(cardState)
+        }
+        persistDraft()
     }
 
     private func startTimer(seconds: Int) {
