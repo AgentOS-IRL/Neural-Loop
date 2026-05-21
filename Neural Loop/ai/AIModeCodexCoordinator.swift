@@ -9,6 +9,11 @@ protocol AIModeCodexExecuting {
         tools: [CodexTool],
         instructions: String
     ) async throws -> CodexIntentResult
+
+    func reformat(
+        _ rawTranscript: String,
+        instructions: String
+    ) async throws -> String
 }
 
 @MainActor
@@ -29,6 +34,7 @@ final class AIModeCodexCoordinator: ObservableObject {
     @Published private(set) var conversationFeed: [AITranscriptMessage] = []
     @Published private(set) var codexState = CodexConversationState()
     @Published private(set) var isSending = false
+    @Published private(set) var isReformatting = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var statusMessage: String?
     @Published private(set) var lastNoteResultSource: FleetingNoteSource?
@@ -42,7 +48,36 @@ final class AIModeCodexCoordinator: ObservableObject {
     let intentTools: [CodexTool] = NeuralLoopCodexIntents.defaultIntentTools
     var intentInstructions: String = NeuralLoopCodexIntents.getDefaultIntentInstructions(currentDateISO: ISO8601DateFormatter().string(from: Date()))
 
+    var reformatInstructions: String {
+        var toolContext = ""
+        for tool in intentTools {
+            toolContext += "- \(tool.name): \(tool.description)\n"
+        }
+
+        return """
+        Act as an expert AI dictation assistant. I will provide you with raw, stream-of-consciousness voice transcriptions. Your job is to transform this raw input into clean, perfectly formatted text.
+
+        The user is speaking to a productivity app that supports the following actions:
+        \(toolContext)
+        Keep this context in mind when cleaning the transcript. Preserve any references to tasks, shopping lists, notes, dates, times, locations, items, or work/personal context — these are meaningful to the app.
+
+        Follow these rules strictly:
+        1. **Clean up:** Remove all filler words (um, uh, like), false starts, stutters, and conversational tangents.
+        2. **Fix Mechanics:** Correct grammar and spelling. Add natural punctuation, capitalization, and logical paragraph breaks.
+        3. **Preserve Intent:** Do not remove or rephrase words that signal what the user wants the app to do (e.g., "create a task", "add a note", "shopping list for Tesco", "remind me tomorrow morning"). These phrases drive downstream tool calls.
+        4. **Context-Aware Reformatting:** Analyze the intent and structure the text automatically:
+           - If it sounds like an email ("Hey Sarah..."), format it with proper line breaks and sign-offs.
+           - If it's a brain dump of multiple items, organize them into clean bullet points.
+           - If it's a quick message, keep it concise and punchy.
+        5. **Execute Voice Commands:** If the text includes an explicit command (e.g., "Format this as a formal report" or "Make this a polite Slack message"), apply that style to the rest of the content.
+        6. **Total Fidelity:** Do NOT hallucinate external facts, change my core meaning, or add robotic AI fluff. Never start with "Here is your text:" or "Sure!". Output ONLY the final, polished text.
+        """
+    }
+
     var bannerText: String? {
+        if isReformatting {
+            return "Reformatting transcript…"
+        }
         if isSending {
             return statusMessage ?? "Sending to Codex..."
         }
@@ -56,7 +91,7 @@ final class AIModeCodexCoordinator: ObservableObject {
         if statusMessage == "LLM access is disabled." {
             return .warning
         }
-        if statusMessage != nil {
+        if isReformatting || statusMessage != nil {
             return .info
         }
         return nil
@@ -72,6 +107,7 @@ final class AIModeCodexCoordinator: ObservableObject {
             bannerText: bannerText,
             bannerTone: bannerTone,
             isSending: isSending,
+            isReformatting: isReformatting,
             isLLMDisabled: isLLMDisabled,
             noteTargetStatusText: lastNoteResultSource.map { "Notes: \($0.displayName)" }
         )
@@ -94,6 +130,7 @@ final class AIModeCodexCoordinator: ObservableObject {
         intentInstructions = NeuralLoopCodexIntents.getDefaultIntentInstructions(currentDateISO: ISO8601DateFormatter().string(from: Date()))
         codexState = CodexConversationState()
         isSending = false
+        isReformatting = false
         errorMessage = nil
         statusMessage = nil
         lastNoteResultSource = nil
@@ -147,6 +184,45 @@ final class AIModeCodexCoordinator: ObservableObject {
             return
         }
 
+        // Step 1: Reformat the raw transcript
+        let reformattedTranscript: String
+        do {
+            isReformatting = true
+            let polished = try await client.reformat(
+                transcript,
+                instructions: reformatInstructions
+            )
+
+            if Task.isCancelled {
+                isReformatting = false
+                return
+            }
+
+            reformattedTranscript = polished
+
+            // Update the last user bubble with the reformatted text
+            if let lastUserIndex = conversationFeed.lastIndex(where: { $0.role == .user && $0.content == transcript }) {
+                conversationFeed[lastUserIndex] = AITranscriptMessage(
+                    id: conversationFeed[lastUserIndex].id,
+                    role: .user,
+                    content: reformattedTranscript,
+                    rawContent: transcript
+                )
+            }
+        } catch is CancellationError {
+            isReformatting = false
+            return
+        } catch {
+            if Task.isCancelled {
+                isReformatting = false
+                return
+            }
+            // Fall back to raw transcript silently on reformat failure
+            reformattedTranscript = transcript
+        }
+        isReformatting = false
+
+        // Step 2: Send the reformatted transcript to Codex for intent detection
         isSending = true
         appendStatus("Sending to Codex...")
 
@@ -158,7 +234,7 @@ final class AIModeCodexCoordinator: ObservableObject {
         }
 
         do {
-            let requestMessages = codexMessages + makeCodexMessages(role: .user, content: transcript)
+            let requestMessages = codexMessages + makeCodexMessages(role: .user, content: reformattedTranscript)
             let result = try await client.converse(
                 messages: requestMessages,
                 state: codexState,
@@ -706,6 +782,16 @@ final class CodexStructuredToolAIModeAdapter: AIModeCodexExecuting {
             messages: messages,
             state: state,
             tools: tools,
+            instructions: instructions
+        )
+    }
+
+    func reformat(
+        _ rawTranscript: String,
+        instructions: String
+    ) async throws -> String {
+        try await tool.reformat(
+            rawTranscript,
             instructions: instructions
         )
     }

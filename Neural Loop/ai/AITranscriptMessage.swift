@@ -73,18 +73,21 @@ enum AIToolResultKind: Equatable {
 struct AITranscriptMessage: Identifiable, Equatable {
     let id: UUID
     let role: AITranscriptMessageRole
-    let content: String
+    var content: String
+    let rawContent: String?
     let toolResultKind: AIToolResultKind?
 
     init(
         id: UUID = UUID(),
         role: AITranscriptMessageRole = .user,
         content: String,
+        rawContent: String? = nil,
         toolResultKind: AIToolResultKind? = nil
     ) {
         self.id = id
         self.role = role
         self.content = content
+        self.rawContent = rawContent
         self.toolResultKind = toolResultKind
     }
 
@@ -92,6 +95,8 @@ struct AITranscriptMessage: Identifiable, Equatable {
         lhs.id == rhs.id &&
         lhs.role == rhs.role &&
         lhs.content == rhs.content &&
+        lhs.rawContent == rhs.rawContent &&
         lhs.toolResultKind == rhs.toolResultKind
     }
 }
+

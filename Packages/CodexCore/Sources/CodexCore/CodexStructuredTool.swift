@@ -166,6 +166,20 @@ public final class CodexStructuredTool {
         )
     }
 
+    public func reformat(
+        _ rawTranscript: String,
+        instructions: String
+    ) async throws -> String {
+        let result = try await _post_and_collect_text(
+            prompt: rawTranscript,
+            url: nil,
+            instructions: instructions,
+            text_format: nil
+        )
+        let trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? rawTranscript : trimmed
+    }
+
     public func converse(
         messages: [CodexInputMessage],
         state: CodexConversationState? = nil,

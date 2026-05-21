@@ -24,7 +24,7 @@ struct AIModeConversationCard: View, Equatable {
                     ScrollView {
                         LazyVStack(spacing: 12) {
                             ForEach(state.messages) { message in
-                                row(message)
+                                AIModeConversationRow(message: message)
                                     .id(message.id)
                             }
                         }
@@ -78,7 +78,7 @@ struct AIModeConversationCard: View, Equatable {
 
     private func banner(text: String, tone: AIModeBannerTone) -> some View {
         HStack(spacing: 12) {
-            if tone == .info && state.headerBadgeText == "Sending" {
+            if tone == .info && (state.headerBadgeText == "Sending" || state.headerBadgeText == "Reformatting") {
                 ProgressView()
                     .tint(AIModeTheme.bannerIconColor(for: tone))
             } else {
@@ -144,7 +144,29 @@ struct AIModeConversationCard: View, Equatable {
         }
     }
 
-    private func row(_ message: AITranscriptMessage) -> some View {
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        guard let messageID = state.scrollTargetMessageID else {
+            return
+        }
+
+        DispatchQueue.main.async {
+            proxy.scrollTo(messageID, anchor: .bottom)
+        }
+    }
+}
+
+private struct AIModeConversationRow: View {
+    let message: AITranscriptMessage
+    @State private var showingRaw = false
+
+    private var displayContent: String {
+        if showingRaw, let raw = message.rawContent {
+            return raw
+        }
+        return message.content
+    }
+
+    var body: some View {
         HStack {
             if message.role.alignsTrailing {
                 Spacer(minLength: 34)
@@ -175,11 +197,28 @@ struct AIModeConversationCard: View, Equatable {
                     Spacer(minLength: 0)
                 }
 
-                Text(message.content)
+                Text(displayContent)
                     .font(.system(size: 17, weight: .medium, design: .rounded))
                     .foregroundStyle(AIModeTheme.messageBodyColor(for: message.role))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
+
+                if message.rawContent != nil {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showingRaw.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: showingRaw ? "text.badge.checkmark" : "waveform")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text(showingRaw ? "Show formatted" : "Show raw")
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        }
+                        .foregroundStyle(.white.opacity(AIModeTheme.Surface.textMutedOpacity))
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
@@ -204,16 +243,6 @@ struct AIModeConversationCard: View, Equatable {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(message.content)
-    }
-
-    private func scrollToBottom(_ proxy: ScrollViewProxy) {
-        guard let messageID = state.scrollTargetMessageID else {
-            return
-        }
-
-        DispatchQueue.main.async {
-            proxy.scrollTo(messageID, anchor: .bottom)
-        }
+        .accessibilityLabel(displayContent)
     }
 }

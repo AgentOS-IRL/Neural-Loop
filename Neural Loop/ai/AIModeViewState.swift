@@ -27,6 +27,7 @@ struct AIModeConversationViewData: Equatable {
     let bannerText: String?
     let bannerTone: AIModeBannerTone?
     let isSending: Bool
+    let isReformatting: Bool
     let isLLMDisabled: Bool
     let noteTargetStatusText: String?
 
@@ -35,6 +36,7 @@ struct AIModeConversationViewData: Equatable {
         bannerText: String?,
         bannerTone: AIModeBannerTone?,
         isSending: Bool,
+        isReformatting: Bool = false,
         isLLMDisabled: Bool,
         noteTargetStatusText: String? = nil
     ) {
@@ -42,6 +44,7 @@ struct AIModeConversationViewData: Equatable {
         self.bannerText = bannerText
         self.bannerTone = bannerTone
         self.isSending = isSending
+        self.isReformatting = isReformatting
         self.isLLMDisabled = isLLMDisabled
         self.noteTargetStatusText = noteTargetStatusText
     }
@@ -116,6 +119,9 @@ struct AIModeViewState: Equatable {
         }()
 
         let conversationHeaderBadge: String? = {
+            if conversation.isReformatting {
+                return "Reformatting"
+            }
             if conversation.isSending {
                 return "Sending"
             }
