@@ -194,26 +194,147 @@ func todoDueDateText(
     return "\(dateTimeFormatter.string(from: start)) - \(dateTimeFormatter.string(from: end))"
 }
 
+// MARK: - Deadline Urgency
+
+private enum DeadlineUrgency {
+    case overdue          // past deadline
+    case critical         // < 1 hour remaining
+    case urgent           // < 6 hours remaining
+    case approaching      // < 24 hours remaining
+    case comfortable      // < 3 days remaining
+    case relaxed          // 3+ days remaining
+
+    var tintColor: Color {
+        switch self {
+        case .overdue:     return AppTheme.errorTint
+        case .critical:    return Color(red: 0.85, green: 0.25, blue: 0.18)   // vivid red
+        case .urgent:      return Color(red: 0.93, green: 0.55, blue: 0.14)   // warm orange
+        case .approaching: return AppTheme.warningTint                         // amber
+        case .comfortable: return AppTheme.accentColor                         // teal
+        case .relaxed:     return AppTheme.successTint                         // green/mint
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .overdue:     return "exclamationmark.circle.fill"
+        case .critical:    return "flame.fill"
+        case .urgent:      return "clock.badge.exclamationmark.fill"
+        case .approaching: return "clock.fill"
+        case .comfortable: return "clock"
+        case .relaxed:     return "checkmark.circle"
+        }
+    }
+}
+
+private struct TaskDeadlineCountdown {
+    let text: String
+    let urgency: DeadlineUrgency
+}
+
+/// Builds a compact, human-readable countdown string with hours and minutes,
+/// a negative prefix when overdue, and urgency tier for color mapping.
+private func compactDeadlineCountdown(
+    targetDate: Date?,
+    isDeadlineEnabled: Bool,
+    now: Date = .now
+) -> TaskDeadlineCountdown? {
+    guard isDeadlineEnabled, let targetDate else {
+        return nil
+    }
+
+    let delta = targetDate.timeIntervalSince(now)
+    let isOverdue = delta < 0
+    let totalSeconds = abs(delta)
+
+    // Under a minute – show "now" or "<1m"
+    if totalSeconds < 60 {
+        return .init(
+            text: isOverdue ? "now" : "<1m",
+            urgency: isOverdue ? .overdue : .critical
+        )
+    }
+
+    let totalMinutes = Int(totalSeconds / 60)
+    let totalHours   = totalMinutes / 60
+    let days         = totalHours / 24
+    let hours        = totalHours % 24
+    let minutes      = totalMinutes % 60
+
+    // Build the time string showing both hours and minutes when relevant.
+    var parts: [String] = []
+    if days > 0   { parts.append("\(days)d") }
+    if hours > 0  { parts.append("\(hours)h") }
+    if minutes > 0 && days == 0 { parts.append("\(minutes)m") }  // omit minutes when days shown
+
+    let core = parts.isEmpty ? "<1m" : parts.joined(separator: " ")
+
+    // Determine urgency tier
+    let urgency: DeadlineUrgency
+    if isOverdue {
+        urgency = .overdue
+    } else if totalHours < 1 {
+        urgency = .critical
+    } else if totalHours < 6 {
+        urgency = .urgent
+    } else if totalHours < 24 {
+        urgency = .approaching
+    } else if days < 3 {
+        urgency = .comfortable
+    } else {
+        urgency = .relaxed
+    }
+
+    let text = isOverdue ? "-\(core)" : core
+    return .init(text: text, urgency: urgency)
+}
+
 func taskRowView(task: Tasks, strikeThrough: Bool = false) -> some View {
-    HStack(alignment: .top, spacing: 14) {
+    let deadlineCountdown = compactDeadlineCountdown(
+        targetDate: task.start_date,
+        isDeadlineEnabled: task.is_deadline
+    )
+
+    return HStack(alignment: .top, spacing: 14) {
         // Checkbox placeholder
         Circle()
             .stroke(AppTheme.accentGradient, lineWidth: 2)
             .frame(width: 22, height: 22)
             .padding(.top, 2)
-        
+
         VStack(alignment: .leading, spacing: 6) {
             Text(task.title)
                 .font(.system(.body, design: .rounded, weight: .semibold))
                 .strikethrough(strikeThrough)
                 .foregroundColor(AppTheme.textPrimary)
-            
+
             Text(todoDueDateText(start: task.start_date, duration: task.duration))
                 .font(.system(.caption, design: .rounded, weight: .medium))
                 .foregroundColor(AppTheme.textSecondary)
         }
-        
+
         Spacer()
+
+        if let countdown = deadlineCountdown {
+            HStack(spacing: 4) {
+                Image(systemName: countdown.urgency.iconName)
+                    .font(.system(size: 10, weight: .bold))
+                Text(countdown.text)
+                    .font(.system(.caption2, design: .rounded, weight: .bold))
+            }
+            .foregroundColor(countdown.urgency.tintColor)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                Capsule()
+                    .fill(countdown.urgency.tintColor.opacity(0.12))
+            )
+            .overlay(
+                Capsule()
+                    .strokeBorder(countdown.urgency.tintColor.opacity(0.22), lineWidth: 0.5)
+            )
+        }
+
     }
     .padding(20)
     .background(

@@ -118,12 +118,12 @@ extension  UnifiedDataModel {
     func updateTask(task: Tasks, modified_task: Tasks) async {
         do {
             if task != modified_task {
-                try await manager.updateTask(modified_task)
+                let savedTask = try await manager.updateTask(modified_task)
                 if let index = tasks.firstIndex(where: { $0.id == task.id }) {
                     tasks.remove(at: index)
-                    tasks.append(modified_task)
+                    tasks.append(savedTask)
                 }
-                await refreshTaskNotifications(for: modified_task)
+                await refreshTaskNotifications(for: savedTask)
             }
         }
         catch {

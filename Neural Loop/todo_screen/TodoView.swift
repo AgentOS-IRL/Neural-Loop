@@ -315,6 +315,20 @@ struct TodoView: View {
     private func menuView() -> some View {
         LazyVStack(spacing: 16) {
             if vm.searchText.isEmpty {
+                sectionView(
+                    title: "Today",
+                    tasks: model.todayTaskBucket.tasks,
+                    initialTiming: .init(
+                        start: Calendar.neuralLoopDisplay.date(
+                            bySettingHour: 9,
+                            minute: 0,
+                            second: 0,
+                            of: Date()
+                        )!,
+                        duration: 900
+                    )
+                )
+
                 Button {
                     vm.viewMode = .inbox
                 } label: {
@@ -327,17 +341,6 @@ struct TodoView: View {
                 }
 
                 LazyVStack(spacing: 16) {
-                    Button {
-                        vm.viewMode = .today
-                    } label: {
-                        menuRow(
-                            icon: "calendar",
-                            title: "Today",
-                            count: model.todayTaskBucket.tasks.count,
-                            showPlus: true
-                        )
-                    }
-
                     Button {
                         vm.viewMode = .upcoming
                     } label: {

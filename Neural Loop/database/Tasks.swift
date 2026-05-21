@@ -221,17 +221,51 @@ extension DBManager {
     }
 
     // MARK: - Update
-    func updateTask(_ task: Tasks) async throws {
-        guard let taskId = task.id else { return }
-        
-        var modified_task = task
-        modified_task.updated_at = Date()
-        _ = try await customsupabase
+    private struct TaskUpdatePayload: Codable {
+        let title: String
+        let description: String?
+        let priority: Int
+        let goal_id: Int64?
+        let lifearea_id: Int64?
+        let is_completed: Bool
+        let is_deadline: Bool
+        let completed_at: Date?
+        let recursion_rule: String?
+        let start_date: Date?
+        let duration: Double?
+        let updated_at: Date
+    }
+
+    func updateTask(_ task: Tasks) async throws -> Tasks {
+        guard let taskId = task.id else { return task }
+
+        let payload = TaskUpdatePayload(
+            title: task.title,
+            description: task.description,
+            priority: task.priority,
+            goal_id: task.goal_id,
+            lifearea_id: task.lifearea_id,
+            is_completed: task.is_completed,
+            is_deadline: task.is_deadline,
+            completed_at: task.completed_at,
+            recursion_rule: task.recursion_rule,
+            start_date: task.start_date,
+            duration: task.duration,
+            updated_at: Date()
+        )
+
+        let updatedRows: [Tasks] = try await customsupabase
             .from(self.tasksTableName)
-            .update(modified_task)
+            .update(payload)
             .eq("id", value: Int(taskId))
             .select()
             .execute()
+            .value
+
+        if let updated = updatedRows.first {
+            return updated
+        }
+        return task
     }
 
     nonisolated struct FetchTaskDetailParams: Codable, Sendable {
