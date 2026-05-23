@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct AIModeView: View {
     @EnvironmentObject private var model: UnifiedDataModel
@@ -14,6 +15,7 @@ struct AIModeView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var pulse = false
+    @State private var isShowingCamera = false
 
     @MainActor
     init(model: UnifiedDataModel = .shared) {
@@ -56,7 +58,8 @@ struct AIModeView: View {
                     actionBarState: viewState.actionBar,
                     isReduceMotionEnabled: reduceMotion,
                     isPulsing: pulse,
-                    onTapMic: toggleMicrophone
+                    onTapMic: toggleMicrophone,
+                    onTapCamera: openCamera
                 )
                 .equatable()
                 .padding(.horizontal, AIModeTheme.Metrics.screenPadding)
@@ -90,6 +93,16 @@ struct AIModeView: View {
             transcriptionManager.onCommittedTranscript = nil
             coordinator.resetConversation()
         }
+        .sheet(isPresented: $isShowingCamera) {
+            AIModeCameraPicker(
+                onCapture: handleCameraCapture,
+                onCancel: {
+                    isShowingCamera = false
+                }
+            )
+            .ignoresSafeArea()
+        }
+        .preferredColorScheme(.dark)
     }
 
     private func startListeningFromDeepLinkIfNeeded() async {
@@ -133,6 +146,29 @@ struct AIModeView: View {
                     coordinator.handleCommittedTranscript(transcript)
                 }
                 await transcriptionManager.startRecording()
+            }
+        }
+    }
+
+    private func openCamera() {
+        guard model.canUseAIMode else { return }
+        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+            coordinator.handleCameraUnavailable()
+            return
+        }
+
+        isShowingCamera = true
+    }
+
+    private func handleCameraCapture(_ image: UIImage) {
+        isShowingCamera = false
+
+        Task {
+            do {
+                let payload = try AIModeImagePayload(cameraImage: image)
+                await coordinator.handleCapturedImage(payload)
+            } catch {
+                coordinator.handleImagePreparationFailure(error)
             }
         }
     }

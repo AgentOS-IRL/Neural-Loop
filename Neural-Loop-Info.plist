@@ -19,6 +19,8 @@
 	<string>$(SUPABASE_URL)</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app uses the microphone to capture your speech for transcription.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Neural Loop uses the camera to send captured images to Codex for visual understanding.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Neural Loop writes water logged from your water habit to Apple Health.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>

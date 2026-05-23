@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 enum AIModeConversationLayout: Equatable {
     case card
@@ -202,6 +203,28 @@ private struct AIModeConversationRow: View {
                     .foregroundStyle(AIModeTheme.messageBodyColor(for: message.role))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
+
+                if let imagePreviewData = message.imagePreviewData,
+                   let image = UIImage(data: imagePreviewData) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 180)
+                        .clipShape(
+                            RoundedRectangle(
+                                cornerRadius: AIModeTheme.Metrics.innerCornerRadius - 6,
+                                style: .continuous
+                            )
+                        )
+                        .overlay {
+                            RoundedRectangle(
+                                cornerRadius: AIModeTheme.Metrics.innerCornerRadius - 6,
+                                style: .continuous
+                            )
+                            .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                        }
+                }
 
                 if message.rawContent != nil {
                     Button {

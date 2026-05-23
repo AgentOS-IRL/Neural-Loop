@@ -79,19 +79,22 @@ struct AITranscriptMessage: Identifiable, Equatable {
     var content: String
     let rawContent: String?
     let toolResultKind: AIToolResultKind?
+    let imagePreviewData: Data?
 
     init(
         id: UUID = UUID(),
         role: AITranscriptMessageRole = .user,
         content: String,
         rawContent: String? = nil,
-        toolResultKind: AIToolResultKind? = nil
+        toolResultKind: AIToolResultKind? = nil,
+        imagePreviewData: Data? = nil
     ) {
         self.id = id
         self.role = role
         self.content = content
         self.rawContent = rawContent
         self.toolResultKind = toolResultKind
+        self.imagePreviewData = imagePreviewData
     }
 
     static func == (lhs: AITranscriptMessage, rhs: AITranscriptMessage) -> Bool {
@@ -99,7 +102,7 @@ struct AITranscriptMessage: Identifiable, Equatable {
         lhs.role == rhs.role &&
         lhs.content == rhs.content &&
         lhs.rawContent == rhs.rawContent &&
-        lhs.toolResultKind == rhs.toolResultKind
+        lhs.toolResultKind == rhs.toolResultKind &&
+        lhs.imagePreviewData == rhs.imagePreviewData
     }
 }
-

@@ -364,6 +364,30 @@ final class CodexStructuredToolTests: XCTestCase {
         XCTAssertEqual(json["store"] as? Bool, false)
     }
 
+    func testCodexInputContentEncodesImagePayload() throws {
+        let message = CodexInputMessage(
+            role: "user",
+            content: [
+                CodexInputContent(type: "input_text", text: "Tell me what this image is about."),
+                CodexInputContent(
+                    type: "input_image",
+                    image_url: "data:image/jpeg;base64,abc123",
+                    detail: "high"
+                )
+            ]
+        )
+
+        let encoded = try JSONEncoder().encode(message)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        let content = try XCTUnwrap(json["content"] as? [[String: Any]])
+        XCTAssertEqual(content.first?["text"] as? String, "Tell me what this image is about.")
+        XCTAssertNil(content.first?["image_url"])
+        XCTAssertEqual(content.last?["type"] as? String, "input_image")
+        XCTAssertEqual(content.last?["image_url"] as? String, "data:image/jpeg;base64,abc123")
+        XCTAssertEqual(content.last?["detail"] as? String, "high")
+        XCTAssertNil(content.last?["text"])
+    }
+
     func testCodexToolEncodesOpenAICompatibleFunctionPayload() throws {
         let tool = CodexStructuredToolTestFixtures.createTaskTool
 

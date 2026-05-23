@@ -7,6 +7,7 @@ struct AIModeVoiceInputBar: View, Equatable {
     let isReduceMotionEnabled: Bool
     let isPulsing: Bool
     let onTapMic: () -> Void
+    let onTapCamera: () -> Void
 
     static func == (lhs: AIModeVoiceInputBar, rhs: AIModeVoiceInputBar) -> Bool {
         lhs.micState == rhs.micState
@@ -22,58 +23,19 @@ struct AIModeVoiceInputBar: View, Equatable {
 
             transcriptPreview
 
-            Button(action: onTapMic) {
-                ZStack {
-                    if !isReduceMotionEnabled {
-                        Circle()
-                            .strokeBorder(
-                                AIModeTheme.statusTint(for: micState.tintState).opacity(0.52),
-                                lineWidth: 2
-                            )
-                            .frame(
-                                width: AIModeTheme.Metrics.bottomMicPulseSize,
-                                height: AIModeTheme.Metrics.bottomMicPulseSize
-                            )
-                            .scaleEffect(isPulsing ? 1.06 : 0.94)
-                            .opacity(isPulsing ? 0.18 : 0.62)
-                    }
+            HStack(spacing: 20) {
+                Spacer(minLength: 0)
 
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                        .overlay {
-                            Circle()
-                                .fill(AIModeTheme.actionGradient)
-                                .opacity(micState.isActionDisabled ? 0.04 : 0.16)
-                        }
-                        .overlay {
-                            Circle()
-                                .strokeBorder(AIModeTheme.highlightBorder, lineWidth: 1)
-                        }
-                        .shadow(color: AIModeTheme.heroGlow, radius: micState.isActionDisabled ? 8 : 16, y: 8)
-                        .frame(
-                            width: AIModeTheme.Metrics.bottomMicSize,
-                            height: AIModeTheme.Metrics.bottomMicSize
-                        )
+                cameraButton
 
-                    Image(systemName: micState.microphoneSystemImage)
-                        .font(.system(size: micState.isRecording ? 25 : 29, weight: .bold))
-                        .foregroundStyle(.white.opacity(micState.isActionDisabled ? 0.48 : 0.96))
-                        .shadow(color: .black.opacity(0.28), radius: 5, y: 2)
-                }
-                .frame(
-                    width: AIModeTheme.Metrics.bottomMicPulseSize,
-                    height: AIModeTheme.Metrics.bottomMicPulseSize
-                )
+                microphoneButton
+
+                Color.clear
+                    .frame(width: 50, height: 50)
+                    .accessibilityHidden(true)
+
+                Spacer(minLength: 0)
             }
-            .buttonStyle(.plain)
-            .disabled(micState.isActionDisabled)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(micState.micButtonLabel)
-            .accessibilityHint(
-                micState.isRecording
-                ? "Stops the current session and clears saved transcript history."
-                : "Starts a new continuous voice session."
-            )
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)
@@ -163,6 +125,89 @@ struct AIModeVoiceInputBar: View, Equatable {
 
     private var transcriptBody: String {
         micState.isActionDisabled ? actionBarState.modeStatusDetail : transcriptState.body
+    }
+
+    private var cameraButton: some View {
+        Button(action: onTapCamera) {
+            ZStack {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        Circle()
+                            .fill(Color.white.opacity(actionBarState.isCameraDisabled ? 0.03 : 0.08))
+                    }
+                    .overlay {
+                        Circle()
+                            .strokeBorder(AIModeTheme.highlightBorder, lineWidth: 1)
+                    }
+                    .frame(width: 50, height: 50)
+
+                Image(systemName: "camera.fill")
+                    .font(.system(size: 19, weight: .bold))
+                    .foregroundStyle(.white.opacity(actionBarState.isCameraDisabled ? 0.42 : 0.88))
+            }
+            .frame(width: 50, height: 50)
+        }
+        .buttonStyle(.plain)
+        .disabled(actionBarState.isCameraDisabled)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Capture image")
+        .accessibilityHint("Opens the camera and sends the captured image to Codex.")
+    }
+
+    private var microphoneButton: some View {
+        Button(action: onTapMic) {
+            ZStack {
+                if !isReduceMotionEnabled {
+                    Circle()
+                        .strokeBorder(
+                            AIModeTheme.statusTint(for: micState.tintState).opacity(0.52),
+                            lineWidth: 2
+                        )
+                        .frame(
+                            width: AIModeTheme.Metrics.bottomMicPulseSize,
+                            height: AIModeTheme.Metrics.bottomMicPulseSize
+                        )
+                        .scaleEffect(isPulsing ? 1.06 : 0.94)
+                        .opacity(isPulsing ? 0.18 : 0.62)
+                }
+
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        Circle()
+                            .fill(AIModeTheme.actionGradient)
+                            .opacity(micState.isActionDisabled ? 0.04 : 0.16)
+                    }
+                    .overlay {
+                        Circle()
+                            .strokeBorder(AIModeTheme.highlightBorder, lineWidth: 1)
+                    }
+                    .shadow(color: AIModeTheme.heroGlow, radius: micState.isActionDisabled ? 8 : 16, y: 8)
+                    .frame(
+                        width: AIModeTheme.Metrics.bottomMicSize,
+                        height: AIModeTheme.Metrics.bottomMicSize
+                    )
+
+                Image(systemName: micState.microphoneSystemImage)
+                    .font(.system(size: micState.isRecording ? 25 : 29, weight: .bold))
+                    .foregroundStyle(.white.opacity(micState.isActionDisabled ? 0.48 : 0.96))
+                    .shadow(color: .black.opacity(0.28), radius: 5, y: 2)
+            }
+            .frame(
+                width: AIModeTheme.Metrics.bottomMicPulseSize,
+                height: AIModeTheme.Metrics.bottomMicPulseSize
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(micState.isActionDisabled)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(micState.micButtonLabel)
+        .accessibilityHint(
+            micState.isRecording
+            ? "Stops the current session and clears saved transcript history."
+            : "Starts a new continuous voice session."
+        )
     }
 }
 

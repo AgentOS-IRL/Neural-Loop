@@ -14,6 +14,18 @@ struct ModeBackdropView: View {
         ZStack {
             AIModeTheme.baseBackground
 
+            // Top-edge luminous wash — lifts the status bar region
+            // from pitch-black to a subtle teal/cyan warmth.
+            LinearGradient(
+                colors: [
+                    AIModeTheme.backdropPrimaryGlow.opacity(reduceTransparency ? 0.08 : 0.16),
+                    AIModeTheme.backdropSecondaryGlow.opacity(reduceTransparency ? 0.04 : 0.09),
+                    Color.clear
+                ],
+                startPoint: .top,
+                endPoint: UnitPoint(x: 0.5, y: 0.28)
+            )
+
             RadialGradient(
                 colors: [
                     AIModeTheme.backdropPrimaryGlow.opacity(reduceTransparency ? 0.12 : 0.22),
@@ -51,6 +63,7 @@ struct ModeBackdropView: View {
             .blur(radius: 38)
 
             if !reduceTransparency {
+                // Diagonal glass sheen
                 Rectangle()
                     .fill(
                         LinearGradient(
@@ -65,11 +78,20 @@ struct ModeBackdropView: View {
                     )
                     .blendMode(.screen)
 
+                // Top highlight orb — adds depth behind the status bar
                 Circle()
-                    .fill(AIModeTheme.backdropHighlightGlow.opacity(0.06))
-                    .frame(width: 340, height: 340)
-                    .blur(radius: 74)
-                    .offset(x: 0, y: -240)
+                    .fill(AIModeTheme.backdropHighlightGlow.opacity(0.08))
+                    .frame(width: 400, height: 400)
+                    .blur(radius: 80)
+                    .offset(x: 0, y: -220)
+                    .blendMode(.screen)
+
+                // Subtle secondary glow at the very top-center
+                Ellipse()
+                    .fill(AIModeTheme.backdropPrimaryGlow.opacity(0.06))
+                    .frame(width: 280, height: 120)
+                    .blur(radius: 40)
+                    .offset(x: 0, y: -300)
                     .blendMode(.screen)
             }
         }

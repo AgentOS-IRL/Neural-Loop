@@ -715,11 +715,45 @@ public struct CodexInputMessage: Codable, Equatable, Sendable {
 
 public struct CodexInputContent: Codable, Equatable, Sendable {
     public let type: String
-    public let text: String
+    public let text: String?
+    public let image_url: String?
+    public let detail: String?
 
     public init(type: String, text: String) {
         self.type = type
         self.text = text
+        self.image_url = nil
+        self.detail = nil
+    }
+
+    public init(type: String, image_url: String, detail: String) {
+        self.type = type
+        self.text = nil
+        self.image_url = image_url
+        self.detail = detail
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case text
+        case image_url
+        case detail
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.type = try container.decode(String.self, forKey: .type)
+        self.text = try container.decodeIfPresent(String.self, forKey: .text)
+        self.image_url = try container.decodeIfPresent(String.self, forKey: .image_url)
+        self.detail = try container.decodeIfPresent(String.self, forKey: .detail)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(type, forKey: .type)
+        try container.encodeIfPresent(text, forKey: .text)
+        try container.encodeIfPresent(image_url, forKey: .image_url)
+        try container.encodeIfPresent(detail, forKey: .detail)
     }
 }
 
@@ -1205,7 +1239,19 @@ private enum LangfuseReporter {
         let inputMessages: [[String: Any]] = input.map { msg in
             [
                 "role": msg.role,
-                "content": msg.content.map { ["type": $0.type, "text": $0.text] }
+                "content": msg.content.map { content in
+                    var payload: [String: Any] = ["type": content.type]
+                    if let text = content.text {
+                        payload["text"] = text
+                    }
+                    if let imageURL = content.image_url {
+                        payload["image_url"] = imageURL
+                    }
+                    if let detail = content.detail {
+                        payload["detail"] = detail
+                    }
+                    return payload
+                }
             ]
         }
 

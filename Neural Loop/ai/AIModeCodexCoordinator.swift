@@ -148,6 +148,87 @@ final class AIModeCodexCoordinator: ObservableObject {
         startDrainIfNeeded()
     }
 
+    func handleCapturedImage(_ imagePayload: AIModeImagePayload) async {
+        guard model.llm_enabled else {
+            appendStatus("LLM access is disabled.")
+            return
+        }
+
+        guard let client = await resolvedCodexClient() else {
+            appendError("Codex client is unavailable.")
+            return
+        }
+
+        let prompt = "Tell me what this image is about."
+        errorMessage = nil
+        conversationFeed.append(
+            .init(
+                role: .user,
+                content: "Captured image sent to Codex.",
+                imagePreviewData: imagePayload.previewData
+            )
+        )
+        isSending = true
+        appendStatus("Sending image to Codex...")
+
+        defer {
+            isSending = false
+            if statusMessage == "Sending image to Codex..." {
+                statusMessage = nil
+            }
+        }
+
+        do {
+            let imageMessage = CodexInputMessage(
+                role: "user",
+                content: [
+                    CodexInputContent(type: "input_text", text: prompt),
+                    CodexInputContent(
+                        type: "input_image",
+                        image_url: imagePayload.dataURL,
+                        detail: "high"
+                    )
+                ]
+            )
+            let requestMessages = codexMessages + [imageMessage]
+            let result = try await client.converse(
+                messages: requestMessages,
+                state: codexState,
+                tools: intentTools,
+                instructions: intentInstructions
+            )
+
+            if Task.isCancelled {
+                return
+            }
+
+            codexMessages.append(
+                CodexInputMessage(
+                    role: "user",
+                    content: [CodexInputContent(type: "input_text", text: "\(prompt) [Captured image attached]")]
+                )
+            )
+            codexState = result.state
+            try await handle(result.action)
+        } catch is CancellationError {
+            return
+        } catch {
+            if Task.isCancelled {
+                return
+            }
+
+            appendError(error.localizedDescription)
+        }
+    }
+
+    func handleCameraUnavailable() {
+        appendError("Camera is unavailable on this device.")
+    }
+
+    func handleImagePreparationFailure(_ error: Error) {
+        appendError(error.localizedDescription)
+    }
+
     private func startDrainIfNeeded() {
         guard drainTask == nil else {
             return

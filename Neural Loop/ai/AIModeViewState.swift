@@ -91,6 +91,7 @@ struct AIModeViewState: Equatable {
         let primaryStatusChips: [String]
         let modeStatusTitle: String
         let modeStatusDetail: String
+        let isCameraDisabled: Bool
     }
 
     let hero: Hero
@@ -174,7 +175,8 @@ struct AIModeViewState: Equatable {
         self.actionBar = ActionBar(
             primaryStatusChips: chips,
             modeStatusTitle: isAIPageAvailable ? AIModeTransitionCopy.activeStatusTitle : "AI unavailable",
-            modeStatusDetail: isAIPageAvailable ? AIModeTransitionCopy.activeStatusDetail : "AI requires loaded Codex secrets before voice capture can start."
+            modeStatusDetail: isAIPageAvailable ? AIModeTransitionCopy.activeStatusDetail : "AI requires loaded Codex secrets before voice capture can start.",
+            isCameraDisabled: !isAIPageAvailable || conversation.isSending || conversation.isReformatting
         )
     }
 }

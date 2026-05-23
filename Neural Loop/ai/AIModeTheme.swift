@@ -30,7 +30,7 @@ enum AIModeTheme {
 
     static let baseBackground = LinearGradient(
         colors: [
-            Color(red: 0.03, green: 0.06, blue: 0.11),
+            Color(red: 0.05, green: 0.08, blue: 0.14),
             Color(red: 0.02, green: 0.04, blue: 0.08),
             Color(red: 0.01, green: 0.02, blue: 0.04)
         ],
