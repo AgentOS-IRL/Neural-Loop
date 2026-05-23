@@ -26,6 +26,7 @@ final class TodoViewModel: ObservableObject {
     @Published var searchText: String = ""
     @Published var selectedTaskForEdit: Tasks? = nil
     @Published var selectedTaskForViewer: Tasks? = nil
+    @Published var editTaskAttachments: [ImageAttachment] = []
     
     @Published var showDeleteConfirmation: Bool = false
     @Published var selectedTaskForDelete: Tasks? = nil
@@ -165,7 +166,14 @@ struct TodoView: View {
                 }
                 
                 Button(role: .confirm){
-                    vm.selectedTaskForEdit = task
+                    Task {
+                        if let taskId = task.id {
+                            vm.editTaskAttachments = await model.fetchImageAttachments(forTaskId: taskId)
+                        } else {
+                            vm.editTaskAttachments = []
+                        }
+                        vm.selectedTaskForEdit = task
+                    }
                 }label: {
                     Label("Edit", systemImage: "pencil")
                 }
@@ -677,16 +685,23 @@ struct TodoView: View {
         .sheet(isPresented: $vm.showAddTask) {
             AddEditTodoView(
                 task: nil, initialTiming: vm.initializationTiming
-            ) { newTask in
+            ) { newTask, attachments in
                 Task {
-                    await model.saveTask(newTask)
+                    guard let saved = await model.saveTask(newTask),
+                          let taskId = saved.id else { return }
+                    if !attachments.isEmpty {
+                        await model.saveImageAttachments(attachments, forTaskId: taskId)
+                    }
                 }
             }
         }
         .sheet(item: $vm.selectedTaskForEdit) { task in
-            AddEditTodoView(task: task) { modified_task in
+            AddEditTodoView(task: task, existingAttachments: vm.editTaskAttachments) { modified_task, attachments in
                 Task {
                     await model.updateTask(task: task, modified_task: modified_task)
+                    if let taskId = modified_task.id ?? task.id {
+                        await model.replaceImageAttachments(attachments, forTaskId: taskId)
+                    }
                 }
             }
         }

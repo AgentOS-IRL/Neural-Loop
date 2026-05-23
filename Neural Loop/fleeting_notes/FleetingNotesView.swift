@@ -14,12 +14,15 @@ struct FleetingNotesView: View {
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @ObservedObject private var deepLink = DeepLinkManager.shared
+    @EnvironmentObject private var model: UnifiedDataModel
     @State private var personalNotes: [FleetingNote] = []
     @State private var workReminders: [WorkReminder] = []
     @State private var selectedFilter: FleetingNotesFilter = .all
     @State private var screenState: FleetingNotesScreenState = .loading
     @State private var workNotesWarningMessage: String?
     @State private var activeEditorSheet: FleetingNoteEditorSheet?
+    @State private var selectedCardForEdit: FleetingNoteCardState?
+    @State private var editNoteAttachments: [ImageAttachment] = []
     @State private var selectedNoteForDelete: FleetingNoteCardState?
     @State private var showDeleteConfirmation = false
     @State private var mutationErrorMessage: String?
@@ -89,18 +92,18 @@ struct FleetingNotesView: View {
         .sheet(item: $activeEditorSheet) { sheet in
             switch sheet {
             case .create:
-                EditFleetingNoteView(note: nil) { text in
+                EditFleetingNoteView(note: nil) { text, attachments in
                     do {
-                        try await createNote(text: text)
+                        try await createNote(text: text, attachments: attachments)
                     } catch {
                         mutationErrorMessage = error.localizedDescription
                         throw error
                     }
                 }
             case .edit(let card):
-                EditFleetingNoteView(note: card) { text in
+                EditFleetingNoteView(note: card, existingAttachments: editNoteAttachments) { text, attachments in
                     do {
-                        try await updateNote(card: card, text: text)
+                        try await updateNote(card: card, text: text, attachments: attachments)
                     } catch {
                         mutationErrorMessage = error.localizedDescription
                         throw error
@@ -178,10 +181,16 @@ struct FleetingNotesView: View {
                         FleetingNotesRow(card: card)
                             .contentShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous))
                             .contextMenu {
-                                Button {
-                                    activeEditorSheet = .edit(card)
-                                } label: {
-                                    Label(card.source == .work ? "Edit Work Note" : "Edit Personal Note", systemImage: "pencil")
+                                Button("Edit Note", systemImage: "pencil") {
+                                    Task {
+                                        if card.source == .personal, let noteId = card.rawPersonalID {
+                                            editNoteAttachments = await model.fetchImageAttachments(forFleetingNoteId: noteId)
+                                        } else {
+                                            editNoteAttachments = []
+                                        }
+                                        selectedCardForEdit = card
+                                        activeEditorSheet = .edit(card)
+                                    }
                                 }
 
                                 Button(role: .destructive) {
@@ -519,7 +528,7 @@ struct FleetingNotesView: View {
     }
 
     @MainActor
-    private func createNote(text: String) async throws {
+    private func createNote(text: String, attachments: [ImageAttachment]) async throws {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !trimmedText.isEmpty else {
@@ -535,16 +544,19 @@ struct FleetingNotesView: View {
         isMutatingNote = true
         defer { isMutatingNote = false }
 
-        let createdNote = try await manager.createFleetingNote(
-            CreateFleetingNoteRequest(note: trimmedText)
-        )
+        let request = CreateFleetingNoteRequest(note: trimmedText)
+        let createdNote = try await manager.createFleetingNote(request)
+        
+        if !attachments.isEmpty {
+            await model.saveImageAttachments(attachments, forFleetingNoteId: createdNote.id)
+        }
 
         personalNotes.insert(createdNote, at: 0)
         rebuildScreenState()
     }
 
     @MainActor
-    private func updateNote(card: FleetingNoteCardState, text: String) async throws {
+    private func updateNote(card: FleetingNoteCardState, text: String, attachments: [ImageAttachment]) async throws {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !trimmedText.isEmpty else {
@@ -569,6 +581,7 @@ struct FleetingNotesView: View {
                 id: id,
                 request: UpdateFleetingNoteRequest(note: trimmedText)
             )
+            await model.replaceImageAttachments(attachments, forFleetingNoteId: id)
 
             if let index = personalNotes.firstIndex(where: { $0.id == id }) {
                 personalNotes[index] = updatedNote
@@ -642,4 +655,5 @@ private enum FleetingNoteMutationError: LocalizedError {
 
 #Preview {
     FleetingNotesView()
+        .environmentObject(UnifiedDataModel(autoStart: false))
 }

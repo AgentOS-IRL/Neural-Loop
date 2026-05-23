@@ -233,6 +233,60 @@ extension  UnifiedDataModel {
         await notificationScheduler.scheduleTask(task)
     }
     
+    // MARK: - Task Image Attachments
+
+    func saveImageAttachments(_ attachments: [ImageAttachment], forTaskId taskId: Int64) async {
+        guard !attachments.isEmpty else { return }
+
+        let requests = attachments.map {
+            CreateImageRequest(image_uri: $0.dataURL, task_id: taskId, fleeting_note_id: nil)
+        }
+
+        do {
+            _ = try await manager.insertImages(requests)
+        } catch {
+            print("Error saving task image attachments", error)
+        }
+    }
+
+    func replaceImageAttachments(_ attachments: [ImageAttachment], forTaskId taskId: Int64) async {
+        do {
+            let existingRecords = try await manager.fetchImages(forTaskId: taskId)
+            let existingRecordIDs = Set(existingRecords.map(\.id))
+            let keptRecordIDs = Set(attachments.compactMap(\.existingRecordId))
+            let idsToDelete = Array(existingRecordIDs.subtracting(keptRecordIDs))
+            let requestsToInsert = attachments
+                .filter { $0.existingRecordId == nil }
+                .map { CreateImageRequest(image_uri: $0.dataURL, task_id: taskId, fleeting_note_id: nil) }
+
+            if !idsToDelete.isEmpty {
+                try await manager.deleteImages(ids: idsToDelete)
+            }
+
+            if !requestsToInsert.isEmpty {
+                _ = try await manager.insertImages(requestsToInsert)
+            }
+        } catch {
+            print("Error replacing task image attachments", error)
+        }
+    }
+
+    func fetchImageAttachments(forTaskId taskId: Int64) async -> [ImageAttachment] {
+        do {
+            let records = try await manager.fetchImages(forTaskId: taskId)
+            return records.compactMap { record in
+                guard let thumbnailData = record.image_uri.decodedDataURLPayload() else { return nil }
+                return ImageAttachment(
+                    dataURL: record.image_uri,
+                    thumbnailData: thumbnailData,
+                    existingRecordId: record.id
+                )
+            }
+        } catch {
+            print("Error fetching task image attachments", error)
+            return []
+        }
+    }
 }
 
 extension UnifiedDataModel: TodoSubtaskServicing {}

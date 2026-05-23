@@ -15,6 +15,7 @@ struct ContentView: View {
     @EnvironmentObject private var model: UnifiedDataModel
     @ObservedObject private var deepLink = DeepLinkManager.shared
     @State private var selectedTab: AppTab = .tasks
+    @State private var isMoodMeterPresented = false
 
     var body: some View {
         manualShell
@@ -30,6 +31,10 @@ struct ContentView: View {
         .onChange(of: deepLink.pendingDeepLink) { _, newValue in
             guard newValue != nil else { return }
             handlePendingDeepLink()
+        }
+        .sheet(isPresented: $isMoodMeterPresented) {
+            MoodMeterView()
+                .environmentObject(model)
         }
     }
 
@@ -80,7 +85,12 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .ignoresSafeArea(edges: .bottom)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            LiquidGlassTabBar(selectedTab: $selectedTab)
+            LiquidGlassTabBar(
+                selectedTab: $selectedTab,
+                onMoodMeterRequested: {
+                    isMoodMeterPresented = true
+                }
+            )
                 .ignoresSafeArea(.container, edges: .bottom)
                 .padding(.bottom, -20)
         }

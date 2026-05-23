@@ -9,20 +9,24 @@ import SwiftUI
 
 struct EditFleetingNoteView: View {
     let note: FleetingNoteCardState?
-    let onSave: (String) async throws -> Void
+    let onSave: (String, [ImageAttachment]) async throws -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var text: String
     @State private var errorMessage: String?
+    @State private var attachments: [ImageAttachment] = []
     @State private var isSaving = false
     private let initialText: String
+    private let initialAttachments: [ImageAttachment]
 
-    init(note: FleetingNoteCardState? = nil, onSave: @escaping (String) async throws -> Void) {
+    init(note: FleetingNoteCardState? = nil, existingAttachments: [ImageAttachment] = [], onSave: @escaping (String, [ImageAttachment]) async throws -> Void) {
         self.note = note
         self.onSave = onSave
         self.initialText = note?.note ?? ""
+        self.initialAttachments = existingAttachments
         _text = State(initialValue: note?.note ?? "")
+        _attachments = State(initialValue: existingAttachments)
     }
 
     var body: some View {
@@ -44,6 +48,17 @@ struct EditFleetingNoteView: View {
                                 .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
                         }
                         .clipShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous))
+
+                    // MARK: Attachments
+                    // Work notes don't support attachments in this app iteration
+                    if note == nil || note?.source == .personal {
+                        VStack(alignment: .leading, spacing: 4) {
+                            themedSectionHeader("Attachments")
+                            ThemedCard {
+                                ImageAttachmentSection(attachments: $attachments)
+                            }
+                        }
+                    }
 
                     if let validationMessage {
                         Text(validationMessage)
@@ -95,7 +110,10 @@ struct EditFleetingNoteView: View {
     }
 
     private var canSave: Bool {
-        !trimmedText.isEmpty && trimmedText != initialText && !isSaving
+        let textChanged = trimmedText != initialText
+        let attachmentsChanged = attachments != initialAttachments
+        let hasContent = !trimmedText.isEmpty || !attachments.isEmpty
+        return hasContent && (textChanged || attachmentsChanged) && !isSaving
     }
 
     private var validationMessage: String? {
@@ -138,7 +156,7 @@ struct EditFleetingNoteView: View {
         isSaving = true
 
         do {
-            try await onSave(trimmedText)
+            try await onSave(trimmedText, attachments)
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
@@ -161,6 +179,6 @@ struct EditFleetingNoteView: View {
             badgeText: "Personal",
             sourceSubtitle: "Supabase"
         ),
-        onSave: { _ in }
+        onSave: { _, _ in }
     )
 }

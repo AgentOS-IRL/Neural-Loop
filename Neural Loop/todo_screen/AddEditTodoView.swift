@@ -10,7 +10,7 @@ import RRuleKit
 
 struct AddEditTodoView: View {
     let task: Tasks?
-    let onSave: (Tasks) -> Void
+    let onSave: (Tasks, [ImageAttachment]) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var model: UnifiedDataModel
@@ -28,13 +28,16 @@ struct AddEditTodoView: View {
     @State private var showAreaGoalSheet = false
     @State private var showTimeSheet = false       // clock (time only)
     @State private var showScheduleSheet = false
+
+    @State private var attachments: [ImageAttachment] = []
     
     @State private var showUnsetConfirmation = false
 
 
-    init(task: Tasks?, initialTiming: TaskTiming? = nil, goalId: Int64? = nil, lifeAreaId: Int64? = nil,  onSave: @escaping (Tasks) -> Void) {
+    init(task: Tasks?, initialTiming: TaskTiming? = nil, goalId: Int64? = nil, lifeAreaId: Int64? = nil, existingAttachments: [ImageAttachment] = [], onSave: @escaping (Tasks, [ImageAttachment]) -> Void) {
         self.task = task
         self.onSave = onSave
+        _attachments = State(initialValue: existingAttachments)
         _title = State(initialValue: task?.title ?? "")
         _description = State(initialValue: task?.description ?? "")
         _priority = State(initialValue: task?.priority ?? 0)
@@ -238,6 +241,14 @@ struct AddEditTodoView: View {
                                 }
                             }
                         }
+
+                        // MARK: Attachments
+                        VStack(alignment: .leading, spacing: 4) {
+                            themedSectionHeader("Attachments")
+                            ThemedCard {
+                                ImageAttachmentSection(attachments: $attachments)
+                            }
+                        }
                     }
                     .padding(AppTheme.Metrics.screenPadding)
                     .padding(.bottom, SAFE_AREA_INSET + 20)
@@ -335,7 +346,7 @@ struct AddEditTodoView: View {
             duration: scheduleDraft.timing?.duration ?? nil
         )
 
-        onSave(updatedTask)
+        onSave(updatedTask, attachments)
         dismiss()
     }
     

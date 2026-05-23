@@ -13,6 +13,7 @@ struct LiquidGlassTabBar: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     
     @Binding var selectedTab: AppTab
+    var onMoodMeterRequested: () -> Void = {}
     @Namespace private var glassNS
     @State private var isUtilityMenuPresented = false
     
@@ -168,6 +169,9 @@ struct LiquidGlassTabBar: View {
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
 
         return VStack(alignment: .leading, spacing: 6) {
+            utilityActionMenuButton(title: "Mood Meter", systemImage: "face.smiling") {
+                onMoodMeterRequested()
+            }
             utilityMenuButton(.ai)
             utilityMenuButton(.settings)
         }
@@ -203,6 +207,19 @@ struct LiquidGlassTabBar: View {
         .padding(.trailing, 16)
     }
 
+    private func utilityActionMenuButton(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                isUtilityMenuPresented = false
+            }
+            action()
+        } label: {
+            utilityMenuLabel(title: title, systemImage: systemImage)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
+
     private func utilityMenuButton(_ tab: AppTab) -> some View {
         Button {
             withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
@@ -210,26 +227,30 @@ struct LiquidGlassTabBar: View {
                 isUtilityMenuPresented = false
             }
         } label: {
-            HStack(spacing: 10) {
-                Image(systemName: tab.systemImage)
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 20)
-
-                Text(tab.rawValue)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.86)
-
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(colorScheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.88))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+            utilityMenuLabel(title: tab.rawValue, systemImage: tab.systemImage)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(tab.rawValue)
+    }
+
+    private func utilityMenuLabel(title: String, systemImage: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.system(size: 17, weight: .semibold))
+                .frame(width: 20)
+
+            Text(title)
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.86)
+
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(colorScheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.88))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
     
     private func tabButton(_ tab: AppTab) -> some View {

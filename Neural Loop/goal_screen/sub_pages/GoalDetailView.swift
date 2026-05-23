@@ -41,6 +41,9 @@ struct GoalDetailView: View {
     
     @State private var goalTracking: GoalsTracking = GoalsTracking.empty
     
+    @State private var taskToEdit: Tasks?
+    @State private var editTaskAttachments: [ImageAttachment] = []
+    
     @State private var taskDateBuckets: [DateBucket] = buildShortRangeDateBuckets()
     @State private var goalDateBuckets: [DateBucket] = buildLongRangeDateBuckets()
     @State private var subGoals: [Goals] = []
@@ -175,13 +178,7 @@ struct GoalDetailView: View {
                             }
                             Spacer()
                             
-                            NavigationLink {
-                                AddEditTodoView(task: nil, goalId: goal.id!) { updatedTask in
-                                    Task {
-                                        await model.saveTask(updatedTask)
-                                    }
-                                }
-                            } label: {
+                            Button(action: { showAddTask = true }) {
                                 Image(systemName: "plus")
                                     .font(.system(size: 18, weight: .bold))
                                     .foregroundStyle(AppTheme.textSecondary)
@@ -208,11 +205,7 @@ struct GoalDetailView: View {
                                         .foregroundColor(AppTheme.textSecondary)
                                         .multilineTextAlignment(.center)
                                     
-                                    NavigationLink {
-                                        AddEditTodoView(task: nil) { updatedTask in
-                                            // handle saved task
-                                        }
-                                    } label: {
+                                    Button(action: { showAddTask = true }) {
                                         Text("Create task")
                                             .font(.system(.subheadline, design: .rounded, weight: .bold))
                                             .padding(.horizontal, 24)
@@ -234,10 +227,41 @@ struct GoalDetailView: View {
                             else{
                                 ForEach(tasks) { task in
                                     taskView(task: task)
+                                        .onTapGesture {
+                                            Task {
+                                                if let taskId = task.id {
+                                                    editTaskAttachments = await model.fetchImageAttachments(forTaskId: taskId)
+                                                } else {
+                                                    editTaskAttachments = []
+                                                }
+                                                taskToEdit = task
+                                            }
+                                        }
                                 }
                             }
                         }
                         .padding(.horizontal)
+                    }
+                    
+                    .sheet(isPresented: $showAddTask) {
+                        AddEditTodoView(task: nil, initialTiming: initializationTiming, goalId: goal.id) { newTask, attachments in
+                            Task {
+                                guard let saved = await model.saveTask(newTask), let taskId = saved.id else { return }
+                                if !attachments.isEmpty {
+                                    await model.saveImageAttachments(attachments, forTaskId: taskId)
+                                }
+                            }
+                        }
+                    }
+                    .sheet(item: $taskToEdit) { task in
+                        AddEditTodoView(task: task, existingAttachments: editTaskAttachments) { modifiedTask, attachments in
+                            Task {
+                                await model.updateTask(task: task, modified_task: modifiedTask)
+                                if let taskId = modifiedTask.id ?? task.id {
+                                    await model.replaceImageAttachments(attachments, forTaskId: taskId)
+                                }
+                            }
+                        }
                     }
                     
                     // Habits Section
@@ -655,6 +679,16 @@ struct GoalDetailView: View {
                         ForEach(bucket.ids, id: \.self) { taskId in
                             if let task = tasksMapping[taskId] {
                                 taskView(task: task)
+                                    .onTapGesture {
+                                        Task {
+                                            if let taskId = task.id {
+                                                editTaskAttachments = await model.fetchImageAttachments(forTaskId: taskId)
+                                            } else {
+                                                editTaskAttachments = []
+                                            }
+                                            taskToEdit = task
+                                        }
+                                    }
                             }
                         }
                         
