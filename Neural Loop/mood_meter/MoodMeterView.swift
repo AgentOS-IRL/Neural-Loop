@@ -16,23 +16,32 @@ struct MoodMeterView: View {
     @State private var isSaving = false
     @State private var saveErrorMessage: String?
 
-    private let columns = Array(repeating: GridItem(.fixed(94), spacing: 8), count: 10)
-
     var body: some View {
         NavigationStack {
             ZStack {
                 AppTheme.backgroundGradient
                     .ignoresSafeArea()
 
-                ScrollView(showsIndicators: false) {
+                GeometryReader { proxy in
+                    let gridSize = gridSize(for: proxy.size)
+
                     VStack(alignment: .leading, spacing: 18) {
                         header
-                        moodGrid
+
+                        Spacer(minLength: 0)
+
+                        moodGrid(size: gridSize)
+                            .frame(width: gridSize, height: gridSize)
+                            .frame(maxWidth: .infinity)
+
+                        Spacer(minLength: 0)
+
                         selectedMoodSection
                     }
                     .padding(.horizontal, AppTheme.Metrics.screenPadding)
                     .padding(.top, 18)
-                    .padding(.bottom, 28)
+                    .padding(.bottom, 22)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
             .navigationTitle("Mood Meter")
@@ -92,82 +101,87 @@ struct MoodMeterView: View {
         }
     }
 
-    private var moodGrid: some View {
-        ScrollView(.horizontal, showsIndicators: true) {
-            LazyVGrid(columns: columns, spacing: 8) {
-                ForEach(MoodMeterMood.all) { mood in
-                    moodButton(mood)
-                }
-            }
-            .padding(8)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(AppTheme.materialFallback(reduceTransparency))
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
+    private func moodGrid(size: CGFloat) -> some View {
+        let inset = size * 0.07
+        let step = (size - (inset * 2)) / CGFloat(MoodMeterMood.columnCount - 1)
+
+        return ZStack {
+            moodQuadrantBackground
+
+            ForEach(MoodMeterMood.all) { mood in
+                let center = CGPoint(
+                    x: inset + CGFloat(mood.column) * step,
+                    y: inset + CGFloat(mood.row) * step
+                )
+                let dotSize = dotSize(for: mood, baseSize: max(10, step * 0.36))
+
+                Circle()
+                    .fill(fillColor(for: mood.quadrant))
+                    .frame(width: dotSize, height: dotSize)
+                    .position(center)
+                    .shadow(
+                        color: selectedMood == mood ? fillColor(for: mood.quadrant).opacity(0.42) : .clear,
+                        radius: selectedMood == mood ? 14 : 0,
+                        y: selectedMood == mood ? 6 : 0
+                    )
+                    .animation(.spring(response: 0.28, dampingFraction: 0.76), value: selectedMood)
+                    .accessibilityHidden(true)
             }
         }
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
+        }
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    updateSelectedMood(from: value.location, gridSize: size, inset: inset, step: step)
+                }
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Mood meter grid")
+        .accessibilityValue(selectedMood?.label ?? "No mood selected")
+        .accessibilityHint("Drag across the grid to select a mood")
     }
 
     private var selectedMoodSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Selected mood")
-                .font(.system(.caption, design: .rounded, weight: .semibold))
-                .foregroundStyle(AppTheme.textSecondary)
-                .textCase(.uppercase)
-
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
                 Circle()
                     .fill(selectedMood.map { fillColor(for: $0.quadrant) } ?? AppTheme.textSecondary.opacity(0.30))
-                    .frame(width: 14, height: 14)
+                    .frame(width: 12, height: 12)
 
-                Text(selectedMood?.label ?? "Select a mood")
-                    .font(.system(.title3, design: .rounded, weight: .bold))
-                    .foregroundStyle(AppTheme.textPrimary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("Selected mood")
+                    .font(.system(.caption, design: .rounded, weight: .semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .textCase(.uppercase)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(selectedMood.map { fillColor(for: $0.quadrant).opacity(0.18) } ?? Color(.secondarySystemBackground).opacity(0.72))
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(selectedMood.map { fillColor(for: $0.quadrant).opacity(0.66) } ?? Color.black.opacity(0.08), lineWidth: 1)
-            }
-        }
-    }
 
-    private func moodButton(_ mood: MoodMeterMood) -> some View {
-        let isSelected = selectedMood == mood
+            Text(selectedMood?.label ?? "Move your finger across the grid")
+                .font(.system(size: selectedMood == nil ? 20 : 34, weight: .bold, design: .rounded))
+                .foregroundStyle(AppTheme.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.62)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-        return Button {
-            selectedMood = mood
-        } label: {
-            Text(mood.label)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.74)
-                .foregroundStyle(textColor(for: mood.quadrant))
-                .frame(width: 94, height: 54)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(fillColor(for: mood.quadrant).opacity(isSelected ? 1 : 0.78))
-                )
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(isSelected ? Color.white : Color.black.opacity(0.22), lineWidth: isSelected ? 3 : 0.8)
-                }
-                .shadow(color: isSelected ? fillColor(for: mood.quadrant).opacity(0.34) : .clear, radius: 10, y: 5)
-                .scaleEffect(isSelected ? 1.04 : 1)
+            moodCoordinateText
+                .font(.system(.caption, design: .rounded, weight: .semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+                .lineLimit(1)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(mood.label)
-        .accessibilityHint(isSelected ? "Selected mood" : "Selects \(mood.label)")
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, minHeight: 118, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(selectedMood.map { fillColor(for: $0.quadrant).opacity(0.18) } ?? Color(.secondarySystemBackground).opacity(0.72))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(selectedMood.map { fillColor(for: $0.quadrant).opacity(0.66) } ?? Color.black.opacity(0.08), lineWidth: 1)
+        }
     }
 
     private func saveSelectedMood() async {
@@ -183,6 +197,78 @@ struct MoodMeterView: View {
         }
     }
 
+    private var moodCoordinateText: Text {
+        guard let selectedMood else {
+            return Text("Touch a dot to choose the closest mood")
+        }
+
+        let pleasantness = selectedMood.column < 5 ? "less pleasant" : "more pleasant"
+        let energy = selectedMood.row < 5 ? "higher energy" : "lower energy"
+        return Text("\(energy.capitalized) - \(pleasantness.capitalized)")
+    }
+
+    private var moodQuadrantBackground: some View {
+        GeometryReader { proxy in
+            let halfWidth = proxy.size.width / 2
+            let halfHeight = proxy.size.height / 2
+
+            ZStack {
+                quadrantBlock(.red)
+                    .frame(width: halfWidth, height: halfHeight)
+                    .position(x: halfWidth / 2, y: halfHeight / 2)
+
+                quadrantBlock(.yellow)
+                    .frame(width: halfWidth, height: halfHeight)
+                    .position(x: halfWidth + halfWidth / 2, y: halfHeight / 2)
+
+                quadrantBlock(.blue)
+                    .frame(width: halfWidth, height: halfHeight)
+                    .position(x: halfWidth / 2, y: halfHeight + halfHeight / 2)
+
+                quadrantBlock(.green)
+                    .frame(width: halfWidth, height: halfHeight)
+                    .position(x: halfWidth + halfWidth / 2, y: halfHeight + halfHeight / 2)
+            }
+        }
+        .background(AppTheme.materialFallback(reduceTransparency))
+    }
+
+    private func quadrantBlock(_ quadrant: MoodMeterQuadrant) -> some View {
+        fillColor(for: quadrant)
+            .opacity(reduceTransparency ? 0.20 : 0.13)
+    }
+
+    private func updateSelectedMood(from location: CGPoint, gridSize: CGFloat, inset: CGFloat, step: CGFloat) {
+        let boundedX = min(max(location.x, inset), gridSize - inset)
+        let boundedY = min(max(location.y, inset), gridSize - inset)
+        let column = Int(((boundedX - inset) / step).rounded()).clamped(to: 0...(MoodMeterMood.columnCount - 1))
+        let row = Int(((boundedY - inset) / step).rounded()).clamped(to: 0...(MoodMeterMood.rowCount - 1))
+        let mood = MoodMeterMood.rows[row][column]
+
+        if selectedMood?.row != row || selectedMood?.column != column {
+            selectedMood = MoodMeterMood(row: row, column: column, label: mood)
+        }
+    }
+
+    private func dotSize(for mood: MoodMeterMood, baseSize: CGFloat) -> CGFloat {
+        guard let selectedMood else {
+            return baseSize
+        }
+
+        let rowDistance = CGFloat(mood.row - selectedMood.row)
+        let columnDistance = CGFloat(mood.column - selectedMood.column)
+        let distance = sqrt(rowDistance * rowDistance + columnDistance * columnDistance)
+        let influence = max(0, 1 - (distance / 4))
+        return baseSize + (baseSize * 1.25 * influence)
+    }
+
+    private func gridSize(for size: CGSize) -> CGFloat {
+        let horizontalSpace = size.width - (AppTheme.Metrics.screenPadding * 2)
+        let reservedVerticalSpace: CGFloat = 218
+        let verticalSpace = size.height - reservedVerticalSpace
+        return max(240, min(horizontalSpace, verticalSpace))
+    }
+
     private func fillColor(for quadrant: MoodMeterQuadrant) -> Color {
         switch quadrant {
         case .red:
@@ -195,15 +281,6 @@ struct MoodMeterView: View {
             return Color(red: 0.24, green: 0.72, blue: 0.24)
         }
     }
-
-    private func textColor(for quadrant: MoodMeterQuadrant) -> Color {
-        switch quadrant {
-        case .yellow, .green:
-            return Color(red: 0.08, green: 0.12, blue: 0.11)
-        case .red, .blue:
-            return .white
-        }
-    }
 }
 
 private enum MoodMeterQuadrant {
@@ -214,6 +291,9 @@ private enum MoodMeterQuadrant {
 }
 
 private struct MoodMeterMood: Identifiable, Hashable {
+    static let rowCount = 10
+    static let columnCount = 10
+
     let row: Int
     let column: Int
     let label: String
@@ -252,6 +332,7 @@ private struct MoodMeterMood: Identifiable, Hashable {
         }
     }
 }
+
 
 #Preview {
     MoodMeterView()
