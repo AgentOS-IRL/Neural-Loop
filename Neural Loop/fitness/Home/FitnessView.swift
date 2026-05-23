@@ -13,7 +13,9 @@ final class FitnessNavigationModel: ObservableObject {
     @Published var selectedSection: FitnessSection = .home
 
     func select(_ section: FitnessSection) {
-        selectedSection = section
+        withAnimation(.easeInOut(duration: 0.2)) {
+            selectedSection = section
+        }
     }
 }
 
@@ -37,14 +39,24 @@ struct FitnessView: View {
                 AppTheme.backgroundGradient
                     .ignoresSafeArea()
 
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
-                        sectionContent
+                TabView(selection: $navigationModel.selectedSection) {
+                    ScrollView(showsIndicators: false) {
+                        homeContent
+                            .padding(.horizontal, AppTheme.Metrics.screenPadding)
+                            .padding(.top, 16)
+                            .padding(.bottom, bottomInsetHeight + 20)
                     }
-                    .padding(.horizontal, AppTheme.Metrics.screenPadding)
-                    .padding(.top, 16)
-                    .padding(.bottom, bottomInsetHeight + 20)
+                    .tag(FitnessSection.home)
+
+                    ScrollView(showsIndicators: false) {
+                        workoutTabContent
+                            .padding(.horizontal, AppTheme.Metrics.screenPadding)
+                            .padding(.top, 16)
+                            .padding(.bottom, bottomInsetHeight + 20)
+                    }
+                    .tag(FitnessSection.workout)
                 }
+                .tabViewStyle(.page(indexDisplayMode: .never))
             }
             .navigationTitle("Fitness")
             .navigationBarTitleDisplayMode(.inline)
@@ -134,30 +146,30 @@ struct FitnessView: View {
     }
 
     @ViewBuilder
-    private var sectionContent: some View {
-        switch navigationModel.selectedSection {
-        case .home:
-            VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
-                fitnessHomeHero
-                FitnessActivityCalendarCard(sessions: viewModel.sessions)
-                FitnessActivitySummaryCard(sessions: viewModel.sessions)
-                StrengthVolumeCard(
-                    summary: viewModel.analysisSummary,
-                    isLoading: viewModel.isLoading
-                )
-                StrengthProgressionCard(
-                    summary: viewModel.analysisSummary,
-                    isLoading: viewModel.isLoading,
-                    errorMessage: viewModel.templates.isEmpty && viewModel.sessions.isEmpty ? viewModel.errorMessage : nil
-                )
-                routineHeader
-                routineContent
-            }
-        case .workout:
-            VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
-                workoutHeader
-                workoutContent
-            }
+    private var homeContent: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
+            fitnessHomeHero
+            FitnessActivityCalendarCard(sessions: viewModel.sessions)
+            FitnessActivitySummaryCard(sessions: viewModel.sessions)
+            StrengthVolumeCard(
+                summary: viewModel.analysisSummary,
+                isLoading: viewModel.isLoading
+            )
+            StrengthProgressionCard(
+                summary: viewModel.analysisSummary,
+                isLoading: viewModel.isLoading,
+                errorMessage: viewModel.templates.isEmpty && viewModel.sessions.isEmpty ? viewModel.errorMessage : nil
+            )
+            routineHeader
+            routineContent
+        }
+    }
+
+    @ViewBuilder
+    private var workoutTabContent: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
+            workoutHeader
+            workoutContent
         }
     }
 
