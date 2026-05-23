@@ -277,6 +277,8 @@ final class AIModeCodexCoordinator: ObservableObject {
             try await handleCreateShoppingList(arguments: arguments)
         case "notes":
             await handleCreateNote(arguments: arguments)
+        case "make_task_deadline":
+            await handleMakeTaskDeadline(arguments: arguments)
         default:
             appendError("Unknown Codex tool call: \(name)")
         }
@@ -611,6 +613,54 @@ final class AIModeCodexCoordinator: ObservableObject {
         case .invalid:
             appendError("Codex provided an unknown note source.")
         }
+    }
+
+    private func handleMakeTaskDeadline(arguments: [String: Any]) async {
+        guard let taskIDRaw = arguments["task_id"] else {
+            appendError("Codex did not provide a task ID.")
+            return
+        }
+        
+        let taskID: Int64
+        if let idInt = taskIDRaw as? Int {
+            taskID = Int64(idInt)
+        } else if let idDouble = taskIDRaw as? Double {
+            taskID = Int64(idDouble)
+        } else if let idString = taskIDRaw as? String, let parsed = Int64(idString) {
+            taskID = parsed
+        } else {
+            appendError("Codex provided an invalid task ID format.")
+            return
+        }
+
+        guard let existingTask = model.getTask(by: taskID) else {
+            appendError("Task with ID \(taskID) not found.")
+            return
+        }
+
+        let updatedTask = Tasks(
+            id: existingTask.id,
+            title: existingTask.title,
+            description: existingTask.description,
+            priority: existingTask.priority,
+            goal_id: existingTask.goal_id,
+            lifearea_id: existingTask.lifearea_id,
+            is_completed: existingTask.is_completed,
+            is_deadline: true,
+            completed_at: existingTask.completed_at,
+            recursion_rule: existingTask.recursion_rule,
+            start_date: existingTask.start_date,
+            duration: existingTask.duration,
+            created_at: existingTask.created_at,
+            updated_at: existingTask.updated_at
+        )
+
+        guard await model.saveTask(updatedTask) != nil else {
+            appendError("Failed to update task \(taskID).")
+            return
+        }
+
+        appendToolResult("Task (id: \(taskID)) marked as a deadline.", kind: .taskUpdated)
     }
 
     private func resolvedCodexClient() async -> (any AIModeCodexExecuting)? {

@@ -46,6 +46,7 @@ enum AIToolResultKind: Equatable {
     case personalNoteCreated
     case workNoteCreated
     case taskCreated
+    case taskUpdated
 
     var badgeText: String? {
         switch self {
@@ -53,7 +54,7 @@ enum AIToolResultKind: Equatable {
             return "Personal"
         case .workNoteCreated:
             return "Work"
-        case .taskCreated:
+        case .taskCreated, .taskUpdated:
             return nil
         }
     }
@@ -66,6 +67,8 @@ enum AIToolResultKind: Equatable {
             return "briefcase.fill"
         case .taskCreated:
             return "checkmark.seal.fill"
+        case .taskUpdated:
+            return "exclamationmark.circle.fill"
         }
     }
 }

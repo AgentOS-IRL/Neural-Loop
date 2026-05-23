@@ -11,6 +11,7 @@ public enum NeuralLoopCodexIntents {
         - Watch for dates, times, and dayparts. Calculate the `start_date` as a normalized ISO-8601 string based on the CURRENT DATE AND TIME.
         - If the user specifies a date but no exact time, default the time to 15:00:00 (3:00 PM) local time and mention this assumption in the `description`.
         - If the user specifies a duration (e.g., "for half an hour"), calculate the `duration` in seconds (e.g., 1800).
+        - If the user wants to mark a task as a deadline (e.g., "make it a deadline", "set that as a deadline"), use the make_task_deadline tool. Pass the task_id of the task they are referring to, which can usually be inferred from recent tool results in the conversation.
 
         Note source rules:
         - The Notes tool accepts a `source` argument with values `personal` or `work`.
@@ -121,6 +122,22 @@ public enum NeuralLoopCodexIntents {
                 ]),
                 "required": .array([
                     .string("content")
+                ])
+            ])
+        ),
+        CodexTool(
+            name: "make_task_deadline",
+            description: "Mark an existing task as a deadline. Use this when the user asks to make a task a deadline. You must provide the task_id of the task.",
+            parameters: .object([
+                "type": .string("object"),
+                "properties": .object([
+                    "task_id": .object([
+                        "type": .string("number"),
+                        "description": .string("The numeric ID of the task to mark as a deadline.")
+                    ])
+                ]),
+                "required": .array([
+                    .string("task_id")
                 ])
             ])
         )
