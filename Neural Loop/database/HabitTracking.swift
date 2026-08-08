@@ -8,6 +8,15 @@
 import Foundation
 import Supabase
 
+enum HabitTimestampCoding {
+    static func string(from date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        return formatter.string(from: date)
+    }
+}
+
 struct HabitTracking: Codable, Identifiable {
     // MARK: - Properties
     var id: Int64?
@@ -79,9 +88,9 @@ extension DBManager {
         let params = AddHabitEntryParams(
             p_habit_id: habitId,
             p_value: value,
-            p_entry_date: WorkoutDateCoding.string(from: date),
-            p_window_start: windowStart != nil ? WorkoutDateCoding.string(from: windowStart!) : nil,
-            p_window_end: windowEnd != nil ? WorkoutDateCoding.string(from: windowEnd!) : nil
+            p_entry_date: HabitTimestampCoding.string(from: date),
+            p_window_start: windowStart.map { HabitTimestampCoding.string(from: $0) },
+            p_window_end: windowEnd.map { HabitTimestampCoding.string(from: $0) }
         )
 
         let result: HabitEntryWithSummary = try await customsupabase
