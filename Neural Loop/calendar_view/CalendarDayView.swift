@@ -6,11 +6,13 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct CalendarDayView: View {
     @State private var date: Date = .now
     @State private var events: [SimpleEvent] = []
 
+    @Environment(\.modelContext) private var context
     @EnvironmentObject var model: UnifiedDataModel
 
     var body: some View {
@@ -55,7 +57,10 @@ struct CalendarDayView: View {
     private func reloadEvents(for targetDate: Date) {
         reloadTask?.cancel()
         reloadTask = Task {
-            let fetchedEvents = await model.getCalendarEvents(for: targetDate)
+            let fetchedEvents = await model.getCalendarEvents(
+                for: targetDate,
+                context: context
+            )
             if !Task.isCancelled && date == targetDate {
                 events = fetchedEvents
             }

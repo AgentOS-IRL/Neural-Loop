@@ -107,6 +107,7 @@ struct TodoView: View {
     @ObservedObject private var deepLink = DeepLinkManager.shared
     @Environment(\.modelContext) private var context
     @EnvironmentObject var model: UnifiedDataModel
+    @Query private var recurringCompletions: [CompletedRecurringTask]
 
     private let todoBackSwipeStartThreshold: CGFloat = 32
     private let todoBackSwipeMinimumDistance: CGFloat = 72
@@ -138,7 +139,14 @@ struct TodoView: View {
                     }
 
                     ForEach(bucket.tasks, id: \.id) { task in
-                        taskView(task: task)
+                        taskView(
+                            task: task,
+                            occurrenceStart: recurringTaskOccurrenceStart(
+                                for: task,
+                                between: bucket.start,
+                                and: bucket.end.addingTimeInterval(1)
+                            )
+                        )
                     }
                 }
                 Divider()
@@ -147,22 +155,42 @@ struct TodoView: View {
     }
     
     @ViewBuilder
-    private func taskView(task: Tasks, checkIfCompleted: Bool = false) -> some View {
-        let strikeThrough =
-        (checkIfCompleted &&
-         completedTasks(on: .now, context: context).contains(task.id!)) || task.is_completed
+    private func taskView(task: Tasks, occurrenceStart: Date? = nil) -> some View {
+        let isRecurring = task.recursion_rule?.isEmpty == false
+        let resolvedOccurrenceStart = occurrenceStart ?? (
+            isRecurring ? recurringTaskOccurrenceStart(for: task, on: .now) : nil
+        )
+        let recurringOccurrenceIsCompleted = task.id.flatMap { taskId in
+            resolvedOccurrenceStart.map {
+                isRecurringTaskCompleted(
+                    taskId: taskId,
+                    occurrenceStart: $0,
+                    completions: recurringCompletions
+                )
+            }
+        } ?? false
+        let strikeThrough = isRecurring ? recurringOccurrenceIsCompleted : task.is_completed
         
         taskRowView(task: task, strikeThrough: strikeThrough)
             .onTapGesture {
                 vm.selectedTaskForViewer = task
             }
             .contextMenu {
-                Button {
-                    Task {
-                        await model.updateTaskCompletedStatus(task: task, context: context)
+                if !isRecurring || resolvedOccurrenceStart != nil {
+                    Button {
+                        Task {
+                            await model.updateTaskCompletedStatus(
+                                task: task,
+                                occurrenceStart: resolvedOccurrenceStart,
+                                context: context
+                            )
+                        }
+                    } label: {
+                        Label(
+                            strikeThrough ? "Uncomplete" : "Complete",
+                            systemImage: "checkmark"
+                        )
                     }
-                } label: {
-                    Label(task.is_completed ?"UnComplete" : "Complete", systemImage: "checkmark")
                 }
                 
                 Button(role: .confirm){
@@ -194,7 +222,7 @@ struct TodoView: View {
                     guard let task = vm.selectedTaskForDelete else { return }
 
                     Task {
-                        await model.deleteTask(task: task)
+                        await model.deleteTask(task: task, context: context)
                         vm.selectedTaskForDelete = nil
                     }
                 }
@@ -294,7 +322,7 @@ struct TodoView: View {
             }
 
             ForEach(tasks, id: \.id) { task in
-                taskView(task: task, checkIfCompleted: true)
+                taskView(task: task)
             }
             Divider()
         }

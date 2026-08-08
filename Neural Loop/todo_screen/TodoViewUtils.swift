@@ -95,6 +95,9 @@ func rebuildDateBuckets(tasks: [Tasks]) -> [DateBucket] {
 
         }
         else {
+            if recurringTaskOccurrenceStart(for: task, on: .now, calendar: calendar) != nil {
+                today_bucket.appendTask(task)
+            }
             _dateBuckets = attachTaskToBuckets(task: task, buckets: _dateBuckets)
         }
     }

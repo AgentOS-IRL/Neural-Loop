@@ -85,7 +85,7 @@ extension  UnifiedDataModel {
         
     }
     
-    func deleteTask(task: Tasks) async {
+    func deleteTask(task: Tasks, context: ModelContext) async {
         guard let id = task.id else { return }
         do {
             try await manager.deleteTask(id: id)
@@ -95,6 +95,12 @@ extension  UnifiedDataModel {
             }
 
             await notificationScheduler.clearTaskNotifications(taskId: id)
+
+            do {
+                try deleteRecurringTaskCompletions(taskId: id, context: context)
+            } catch {
+                print("Error deleting local recurring task completions", error)
+            }
             
         } catch {
             print("Error deleting task", error)
@@ -218,25 +224,31 @@ extension  UnifiedDataModel {
     }
 
 
-    func updateTaskCompletedStatus(task: Tasks, context: ModelContext) async {
-        var modified_task = task
-        modified_task.is_completed.toggle()
+    func updateTaskCompletedStatus(
+        task: Tasks,
+        occurrenceStart: Date? = nil,
+        context: ModelContext
+    ) async {
         do {
-            if modified_task.recursion_rule != "" && modified_task.recursion_rule != nil {
-                if _shortTermTasksDataBucket.firstIndex(where: { $0.type == .today }) != nil {
-                    if modified_task.is_completed {
-                        print("Marking recurring task as completed")
-                        markRecurringTaskCompleted(taskId: modified_task.id!, date: .now, context: context)
-                    } else {
-                        try deleteCompletion(taskId: modified_task.id!, on: .now, context: context)
-                    }
+            if let rule = task.recursion_rule, !rule.isEmpty {
+                guard
+                    let taskId = task.id,
+                    let occurrenceStart = occurrenceStart ?? recurringTaskOccurrenceStart(for: task, on: .now)
+                else {
+                    return
                 }
-                await notificationScheduler.scheduleTask(modified_task)
+
+                _ = try toggleRecurringTaskCompleted(
+                    taskId: taskId,
+                    occurrenceStart: occurrenceStart,
+                    context: context
+                )
+                await notificationScheduler.scheduleTask(task)
             } else {
-                guard let taskId = modified_task.id else { return }
+                guard let taskId = task.id else { return }
                 _ = await setTaskCompleted(
                     taskId: taskId,
-                    completed: modified_task.is_completed
+                    completed: !task.is_completed
                 )
             }
         } catch {

@@ -18,7 +18,7 @@ struct CalendarEventBlockView: View {
                     .font(.system(.caption, design: .rounded))
                     .fontWeight(.semibold)
                     .lineLimit(2)
-                    .strikethrough(isDeclined)
+                    .strikethrough(isDeclined || event.isCompleted)
             }
 
             Text(timeRangeText)
@@ -75,6 +75,10 @@ struct CalendarEventBlockView: View {
     }
 
     private var statusIcon: String? {
+        if event.isCompleted {
+            return "checkmark.circle.fill"
+        }
+
         switch event.acceptanceStatus {
         case .accepted: return "checkmark.circle.fill"
         case .tentative: return "questionmark.circle"
@@ -85,6 +89,10 @@ struct CalendarEventBlockView: View {
     }
 
     private var statusLabel: String? {
+        if event.isCompleted {
+            return "Completed"
+        }
+
         switch event.acceptanceStatus {
         case .accepted: return "Accepted"
         case .tentative: return "Tentative"
@@ -95,6 +103,10 @@ struct CalendarEventBlockView: View {
     }
 
     private var backgroundColors: [Color] {
+        if event.isCompleted {
+            return [AppTheme.successTint.opacity(0.8), AppTheme.successTint.opacity(0.55)]
+        }
+
         switch event.acceptanceStatus {
         case .accepted:
             return AppTheme.workEventGradientColors

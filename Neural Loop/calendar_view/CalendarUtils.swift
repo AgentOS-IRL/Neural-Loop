@@ -33,4 +33,21 @@ struct SimpleEvent {
     let end: Date
     let acceptanceStatus: EKParticipantStatus?
     let event_type: CalendarEventType
+    let isCompleted: Bool
+
+    init(
+        title: String,
+        start: Date,
+        end: Date,
+        acceptanceStatus: EKParticipantStatus?,
+        event_type: CalendarEventType,
+        isCompleted: Bool = false
+    ) {
+        self.title = title
+        self.start = start
+        self.end = end
+        self.acceptanceStatus = acceptanceStatus
+        self.event_type = event_type
+        self.isCompleted = isCompleted
+    }
 }
