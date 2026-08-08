@@ -9,6 +9,42 @@ DEVICE_UDID="72D40F6B-9625-5561-932B-E71F4E30E3BF"
 EXPORT_PATH="./build"
 LOG_DIR="${EXPORT_PATH}/logs"
 TIMESTAMP="$(date +"%Y%m%d-%H%M%S")"
+DEPLOY_AFTER_BUILD=true
+
+usage() {
+    cat <<EOF
+Usage: $0 [--build-only | --install]
+
+Options:
+  --build-only  Build the archive, then stop without installing or launching.
+  --install     Build, install on the configured device, and launch the app.
+                This is the default behavior.
+  -h, --help    Show this help message.
+EOF
+}
+
+if [ "$#" -gt 1 ]; then
+    usage >&2
+    exit 2
+fi
+
+case "${1:-}" in
+    ""|--install)
+        DEPLOY_AFTER_BUILD=true
+        ;;
+    --build-only)
+        DEPLOY_AFTER_BUILD=false
+        ;;
+    -h|--help)
+        usage
+        exit 0
+        ;;
+    *)
+        echo "❌ Unknown option: $1" >&2
+        usage >&2
+        exit 2
+        ;;
+esac
 
 mkdir -p "${LOG_DIR}"
 
@@ -71,6 +107,11 @@ APP_BUNDLE_PATH="${EXPORT_PATH}/${PROJECT_NAME}.xcarchive/Products/Applications/
 if [ ! -d "${APP_BUNDLE_PATH}" ]; then
     echo "❌ Expected app bundle not found at ${APP_BUNDLE_PATH}. Skipping deployment."
     exit 1
+fi
+
+if [ "${DEPLOY_AFTER_BUILD}" = false ]; then
+    echo "✅ Build-only mode complete. Archive: ${EXPORT_PATH}/${PROJECT_NAME}.xcarchive"
+    exit 0
 fi
 
 # --- DEVICE AVAILABILITY CHECK ---
