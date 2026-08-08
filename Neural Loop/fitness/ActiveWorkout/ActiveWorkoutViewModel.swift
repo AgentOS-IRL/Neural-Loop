@@ -156,21 +156,37 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         isLoading = false
     }
     
-    func addSet(to exerciseID: Int64, id: UUID? = nil) {
-        guard let index = draft.exercises.firstIndex(where: { $0.id == exerciseID }) else { return }
-        let workingSets = draft.exercises[index].sets.filter { $0.setType == .working }
-        let nextSetNumber = (workingSets.map(\.setNumber).max() ?? 0) + 1
-        let lastSet = workingSets.last
-        
-        let newSet = WorkoutSetDraft(
-            id: id ?? UUID(),
+    func copySet(exerciseID: Int64, sourceSetID: UUID) {
+        guard let exerciseIndex = draft.exercises.firstIndex(where: { $0.id == exerciseID }),
+              let sourceIndex = draft.exercises[exerciseIndex].sets.firstIndex(where: { $0.id == sourceSetID }) else {
+            return
+        }
+
+        let sourceSet = draft.exercises[exerciseIndex].sets[sourceIndex]
+        let lastWorkingSet = draft.exercises[exerciseIndex].sets.last(where: { $0.setType == .working })
+        guard sourceSet.setType == .working,
+              sourceSet.isCompleted,
+              sourceSet.id == lastWorkingSet?.id else {
+            return
+        }
+
+        let nextSetNumber = (draft.exercises[exerciseIndex].sets
+            .filter { $0.setType == .working }
+            .map(\.setNumber)
+            .max() ?? 0) + 1
+        let copiedSet = WorkoutSetDraft(
             setNumber: nextSetNumber,
+            weightText: sourceSet.weightText,
+            repsText: sourceSet.repsText,
+            durationText: sourceSet.durationText,
+            distanceText: sourceSet.distanceText,
+            caloriesText: sourceSet.caloriesText,
+            isCompleted: false,
+            superset_group_id: sourceSet.superset_group_id,
             setType: .working,
-            previousValues: lastSet?.previousValues,
-            suggestedValues: lastSet?.suggestedValues,
-            suggestionReason: lastSet?.suggestionReason
+            routineExerciseID: sourceSet.routineExerciseID
         )
-        draft.exercises[index].sets.append(newSet)
+        draft.exercises[exerciseIndex].sets.insert(copiedSet, at: sourceIndex + 1)
         persistDraft()
     }
 

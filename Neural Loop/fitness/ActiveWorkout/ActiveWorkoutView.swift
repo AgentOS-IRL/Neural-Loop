@@ -100,8 +100,8 @@ struct ActiveWorkoutView: View {
         WorkoutExerciseCard(
             card: state,
             dataManager: viewModel.db,
-            onAddSet: {
-                viewModel.addSet(to: state.id)
+            onCopySet: { setID in
+                viewModel.copySet(exerciseID: state.id, sourceSetID: setID)
             },
             onWeightChange: { setID, weight in
                 viewModel.updateWeight(for: state.id, setID: setID, weightText: weight)

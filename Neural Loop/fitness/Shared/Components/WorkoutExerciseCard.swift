@@ -3,7 +3,7 @@ import SwiftUI
 struct WorkoutExerciseCard: View {
     let card: WorkoutExerciseCardState
     let dataManager: any ExerciseProgressionReading
-    let onAddSet: () -> Void
+    let onCopySet: (WorkoutSetDraft.ID) -> Void
     let onWeightChange: (WorkoutSetDraft.ID, String) -> Void
     let onRepsChange: (WorkoutSetDraft.ID, String) -> Void
     let onDurationChange: (WorkoutSetDraft.ID, String) -> Void
@@ -209,6 +209,10 @@ struct WorkoutExerciseCard: View {
                     suggestionRow(for: set)
                 }
 
+                if isCopyableFinalWorkingSet(set) {
+                    copySetRow(for: set)
+                }
+
                 if set.id != card.sets.last?.id {
                     Divider()
                         .overlay(AppTheme.textSecondary.opacity(0.18))
@@ -243,12 +247,6 @@ struct WorkoutExerciseCard: View {
                     .foregroundStyle(AppTheme.accentColor)
             }
 
-            Button(action: onAddSet) {
-                Label("Add Set", systemImage: "plus")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(AppTheme.accentColor)
         }
         .padding(.top, 2)
     }
@@ -267,6 +265,27 @@ struct WorkoutExerciseCard: View {
         card.exercise.isRepBased ? set.hasRequiredStrengthValues : set.hasRequiredCardioValues
     }
 
+    private func isCopyableFinalWorkingSet(_ set: WorkoutSetDraft) -> Bool {
+        set.setType == .working &&
+            set.isCompleted &&
+            set.id == card.sets.last(where: { $0.setType == .working })?.id
+    }
+
+    private func copySetRow(for set: WorkoutSetDraft) -> some View {
+        Button {
+            onCopySet(set.id)
+        } label: {
+            Label("Copy set", systemImage: "arrow.down")
+                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(AppTheme.accentColor)
+        .padding(.leading, setColumnWidth + 10)
+        .padding(.bottom, 6)
+        .accessibilityLabel("Copy completed set \(set.setNumber)")
+    }
+
     private func suggestionRow(for set: WorkoutSetDraft) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -278,10 +297,11 @@ struct WorkoutExerciseCard: View {
                 if let suggested = set.suggestedValues {
                     Text("Suggested: \(valuesText(suggested))")
                         .foregroundStyle(AppTheme.accentColor)
-                    Button("Use") { onUseSuggestion(set.id) }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .disabled(set.isCompleted)
+                    if !set.isCompleted {
+                        Button("Use") { onUseSuggestion(set.id) }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                    }
                 }
             }
             .font(.system(.caption, design: .rounded, weight: .semibold))
