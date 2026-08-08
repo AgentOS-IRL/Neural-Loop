@@ -130,6 +130,28 @@ extension  UnifiedDataModel {
             print("Error updating task", error)
         }
     }
+
+    func setTaskCompleted(taskId: Int64, completed: Bool) async -> Tasks? {
+        do {
+            let savedTask = try await manager.markTaskCompleted(
+                taskId: taskId,
+                completed: completed
+            )
+
+            if let index = tasks.firstIndex(where: { $0.id == taskId }) {
+                tasks[index] = savedTask
+            } else {
+                tasks.append(savedTask)
+            }
+
+            await refreshTaskNotifications(for: savedTask)
+            return savedTask
+        }
+        catch {
+            print("Error updating task completion", error)
+            return nil
+        }
+    }
     
     func filterTasks(searchText: String) -> [Tasks] {
         guard !searchText.isEmpty else { return tasks }
@@ -211,10 +233,11 @@ extension  UnifiedDataModel {
                 }
                 await notificationScheduler.scheduleTask(modified_task)
             } else {
-                await updateTask(task: task, modified_task: modified_task)
-                if modified_task.is_completed {
-                    await notificationScheduler.clearTaskNotifications(taskId: modified_task.id!)
-                }
+                guard let taskId = modified_task.id else { return }
+                _ = await setTaskCompleted(
+                    taskId: taskId,
+                    completed: modified_task.is_completed
+                )
             }
         } catch {
             print("Error toggling completed status of task", error)
