@@ -13,12 +13,17 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
     @Published var restEndsAt: Date?
     @Published var availableExercises: [ExerciseLibraryItem] = []
     @Published var isLoadingCatalog = false
+    @Published private(set) var recommendations: [WorkoutExerciseRecommendation] = []
+    @Published private(set) var isLoadingRecommendations = false
+    @Published private(set) var recommendationSourceDate: Date?
     
     let db: any WorkoutCatalogReading & WorkoutLaunchHistoryReading & WorkoutFinalizationPersisting & ExerciseProgressionReading
     var onDraftChange: ((ActiveWorkoutDraft) -> Void)?
     var onFinish: (() -> Void)?
+    private let recommendationReader: (any WorkoutRecommendationReading)?
     private let runtime: any WorkoutSessionRuntimeCoordinating
     private var timerCancellable: AnyCancellable?
+    private var hasLoadedRecommendations = false
     
     init(
         draft: ActiveWorkoutDraft,
@@ -26,12 +31,14 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         persistenceManager: WorkoutDraftPersistenceManager = WorkoutDraftPersistenceManager(),
         connectivityProvider: WorkoutConnectivityProviding? = nil,
         finalizer: WorkoutSessionFinalizing? = nil,
+        recommendationReader: (any WorkoutRecommendationReading)? = nil,
         runtime: (any WorkoutSessionRuntimeCoordinating)? = nil,
         onDraftChange: ((ActiveWorkoutDraft) -> Void)? = nil,
         onFinish: (() -> Void)? = nil
     ) {
         self.draft = draft
         self.db = db
+        self.recommendationReader = recommendationReader
         let resolvedFinalizer = finalizer ?? WorkoutSessionFinalizer(
             db: db,
             persistenceManager: persistenceManager
@@ -298,6 +305,65 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         }
     }
 
+    func loadRecommendationsIfNeeded() async {
+        guard !hasLoadedRecommendations,
+              !isLoadingRecommendations,
+              let recommendationReader else {
+            return
+        }
+
+        isLoadingRecommendations = true
+        defer { isLoadingRecommendations = false }
+
+        do {
+            let response = try await recommendationReader.fetchActiveWorkoutRecommendations(
+                routineID: draft.routineID
+            )
+            recommendations = Self.makeRecommendations(from: response)
+                .filter { !currentExerciseIDs.contains($0.exercise.id) }
+            recommendationSourceDate = recommendations.first?.sourceDate
+            hasLoadedRecommendations = true
+        } catch {
+            recommendations = []
+            recommendationSourceDate = nil
+            hasLoadedRecommendations = true
+        }
+    }
+
+    @discardableResult
+    func addRecommendation(id recommendationID: Int64) -> Int64? {
+        guard let recommendation = recommendations.first(where: { $0.id == recommendationID }),
+              !currentExerciseIDs.contains(recommendation.exercise.id) else {
+            return nil
+        }
+
+        let state = Self.makeExerciseState(from: recommendation)
+        draft.exercises.append(state)
+        recommendations.removeAll { $0.id == recommendationID }
+        if recommendations.isEmpty {
+            recommendationSourceDate = nil
+        }
+        persistDraft()
+        return state.id
+    }
+
+    @discardableResult
+    func addAllRecommendations() -> [Int64] {
+        let existingIDs = currentExerciseIDs
+        let available = recommendations.filter { !existingIDs.contains($0.exercise.id) }
+        guard !available.isEmpty else { return [] }
+
+        let states = available.map { Self.makeExerciseState(from: $0) }
+        draft.exercises.append(contentsOf: states)
+        let addedRecommendationIDs = Set(available.map(\.id))
+        recommendations.removeAll { addedRecommendationIDs.contains($0.id) }
+        if recommendations.isEmpty {
+            recommendationSourceDate = nil
+        }
+        persistDraft()
+        return states.map(\.id)
+    }
+
     func addExercises(from selections: [ExerciseLibraryItem]) async {
         let existingIDs = currentExerciseIDs
         let newItems = selections.filter { !existingIDs.contains($0.id) }
@@ -321,7 +387,105 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         let loader = WorkoutSessionLoader(db: db)
         let statesWithHistory = await loader.loadHistory(for: addedStates, routineID: nil)
         draft.exercises.append(contentsOf: statesWithHistory)
+        let addedExerciseIDs = Set(newItems.map(\.id))
+        recommendations.removeAll { addedExerciseIDs.contains($0.id) }
+        if recommendations.isEmpty {
+            recommendationSourceDate = nil
+        }
         persistDraft()
+    }
+
+    private static func makeRecommendations(
+        from response: WorkoutRecommendationResponse
+    ) -> [WorkoutExerciseRecommendation] {
+        guard let sourceSessionID = response.source_session_id,
+              let sourceDateText = response.source_date,
+              let sourceDate = WorkoutDateCoding.date(from: sourceDateText) else {
+            return []
+        }
+
+        return response.recommendations.map { record in
+            let exercise = ExerciseLibraryItem(
+                id: record.exercise_id,
+                name: record.exercise_name,
+                type: record.exercise_type,
+                equipmentID: record.equipment_id,
+                equipmentName: record.equipment_name,
+                muscles: record.muscles.map {
+                    MuscleMetadata(
+                        muscleID: $0.muscle_id,
+                        muscleName: $0.muscle_name,
+                        isPrimary: $0.is_primary
+                    )
+                }
+            )
+
+            let sets: [WorkoutSetDraft]
+            if exercise.isRepBased {
+                sets = record.strength_sets.map { historicalSet in
+                    let values = WorkoutDraftValues(
+                        weight: historicalSet.weight,
+                        reps: historicalSet.reps
+                    )
+                    return WorkoutSetDraft(
+                        setNumber: historicalSet.set_number,
+                        setType: historicalSet.set_type,
+                        previousValues: values,
+                        suggestedValues: values,
+                        suggestionReason: historicalSet.set_type == .warmup ? .warmupRepeat : nil
+                    )
+                }
+            } else {
+                sets = record.cardio_logs.map { historicalLog in
+                    let values = WorkoutDraftValues(
+                        durationMinutes: historicalLog.duration_minutes,
+                        distanceKilometers: historicalLog.distance_meters.map { $0 / 1000 },
+                        calories: historicalLog.calories
+                    )
+                    return WorkoutSetDraft(
+                        setNumber: historicalLog.set_number,
+                        previousValues: values,
+                        suggestedValues: values,
+                        suggestionReason: .cardioRepeat
+                    )
+                }
+            }
+
+            return WorkoutExerciseRecommendation(
+                sourceSessionID: sourceSessionID,
+                sourceDate: sourceDate,
+                exercise: exercise,
+                sets: sets.isEmpty ? [WorkoutSetDraft(setNumber: 1)] : sets
+            )
+        }
+    }
+
+    private static func makeExerciseState(
+        from recommendation: WorkoutExerciseRecommendation
+    ) -> WorkoutExerciseCardState {
+        let sets = recommendation.sets.map { source in
+            WorkoutSetDraft(
+                setNumber: source.setNumber,
+                setType: source.setType,
+                previousValues: source.previousValues,
+                suggestedValues: source.suggestedValues,
+                suggestionReason: source.suggestionReason
+            )
+        }
+
+        return WorkoutExerciseCardState(
+            id: -recommendation.exercise.id,
+            exercise: recommendation.exercise,
+            sets: sets,
+            targetSets: sets.filter { $0.setType == .working }.count,
+            warmupSets: sets.filter { $0.setType == .warmup }.count,
+            historicalHint: "Previously added",
+            historySource: WorkoutHistorySource(
+                scope: .sameRoutine,
+                date: recommendation.sourceDate,
+                sessionID: recommendation.sourceSessionID
+            )
+        )
     }
 
     func useSuggestion(exerciseID: Int64, setID: UUID) {
@@ -333,7 +497,7 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         persistDraft()
     }
 
-    func applyAllSuggestions(exerciseID: Int64) {
+    func useAllSuggestions(exerciseID: Int64) {
         guard let exerciseIndex = draft.exercises.firstIndex(where: { $0.id == exerciseID }) else { return }
         for setIndex in draft.exercises[exerciseIndex].sets.indices {
             guard !draft.exercises[exerciseIndex].sets[setIndex].isCompleted,

@@ -320,6 +320,29 @@ struct WorkoutLaunchHistorySnapshot: Codable, Equatable, Sendable {
     let cardio_logs: [WorkoutLaunchHistoryCardioLog]
 }
 
+struct WorkoutRecommendationMuscle: Codable, Equatable, Sendable {
+    let muscle_id: Int64
+    let muscle_name: String
+    let is_primary: Bool
+}
+
+struct WorkoutRecommendationExerciseRecord: Codable, Equatable, Sendable {
+    let exercise_id: Int64
+    let exercise_name: String
+    let exercise_type: ExerciseType
+    let equipment_id: Int64?
+    let equipment_name: String
+    let muscles: [WorkoutRecommendationMuscle]
+    let strength_sets: [WorkoutLaunchHistoryStrengthSet]
+    let cardio_logs: [WorkoutLaunchHistoryCardioLog]
+}
+
+struct WorkoutRecommendationResponse: Codable, Equatable, Sendable {
+    let source_session_id: Int64?
+    let source_date: String?
+    let recommendations: [WorkoutRecommendationExerciseRecord]
+}
+
 struct FinalizeWorkoutSessionPayload: Codable, Equatable, Sendable {
     let date: String
     let start_time: String?
@@ -388,5 +411,4 @@ struct UpdateCardioLogRequest: Codable, Equatable {
         try container.encode(set_number, forKey: .set_number)
     }
 }
-
 

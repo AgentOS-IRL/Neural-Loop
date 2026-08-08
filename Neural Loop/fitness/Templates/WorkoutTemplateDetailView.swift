@@ -49,6 +49,7 @@ struct WorkoutTemplateDetailView: View {
                 ActiveWorkoutView(viewModel: ActiveWorkoutViewModel(
                     draft: draft,
                     db: viewModel.dataManager,
+                    recommendationReader: viewModel.dataManager as? any WorkoutRecommendationReading,
                     runtime: viewModel.runtime,
                     onDraftChange: { updatedDraft in
                         viewModel.activeDraft = updatedDraft

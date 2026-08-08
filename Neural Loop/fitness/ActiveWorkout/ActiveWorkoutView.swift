@@ -7,6 +7,8 @@ struct ActiveWorkoutView: View {
     @State private var isShowingFinishConfirmation = false
     @State private var isLibraryPresented = false
     @State private var previewGallery: ExerciseMediaGallery?
+    @State private var expandedExerciseID: Int64?
+    @State private var highlightedExerciseID: Int64?
     
     var body: some View {
         NavigationView {
@@ -16,23 +18,30 @@ struct ActiveWorkoutView: View {
                 VStack(spacing: 0) {
                     headerView
                     
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            ForEach(Array(viewModel.draft.exercises.enumerated()), id: \.element.id) { index, state in
-                                let isLastInGroup = index == viewModel.draft.exercises.count - 1 ||
-                                                   viewModel.draft.exercises[index + 1].supersetGroupID != state.supersetGroupID ||
-                                                   state.supersetGroupID == nil
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(spacing: 0) {
+                                ForEach(Array(viewModel.draft.exercises.enumerated()), id: \.element.id) { index, state in
+                                    let isLastInGroup = index == viewModel.draft.exercises.count - 1 ||
+                                                       viewModel.draft.exercises[index + 1].supersetGroupID != state.supersetGroupID ||
+                                                       state.supersetGroupID == nil
 
-                                exerciseCard(for: state)
-                                .padding(.horizontal)
-                                .padding(.bottom, isLastInGroup ? 20 : 8)
+                                    exerciseCard(for: state, proxy: proxy)
+                                        .id(state.id)
+                                        .padding(.horizontal)
+                                        .padding(.bottom, isLastInGroup ? 16 : 8)
+                                }
+
+                                recommendationContent(proxy: proxy)
+                                    .padding(.horizontal)
+                                    .padding(.bottom, 16)
+
+                                addExerciseButton
+                                    .padding(.horizontal)
+                                    .padding(.bottom, 20)
                             }
-
-                            addExerciseButton
-                                .padding(.horizontal)
-                                .padding(.bottom, 20)
+                            .padding(.vertical)
                         }
-                        .padding(.vertical)
                     }
 
                     if viewModel.isTimerRunning {
@@ -93,44 +102,122 @@ struct ActiveWorkoutView: View {
         }
         .task {
             await viewModel.loadExerciseCatalog()
+            await viewModel.loadRecommendationsIfNeeded()
         }
     }
 
-    private func exerciseCard(for state: WorkoutExerciseCardState) -> some View {
-        WorkoutExerciseCard(
-            card: state,
-            dataManager: viewModel.db,
-            onCopySet: { setID in
-                viewModel.copySet(exerciseID: state.id, sourceSetID: setID)
-            },
-            onWeightChange: { setID, weight in
-                viewModel.updateWeight(for: state.id, setID: setID, weightText: weight)
-            },
-            onRepsChange: { setID, reps in
-                viewModel.updateReps(for: state.id, setID: setID, repsText: reps)
-            },
-            onDurationChange: { setID, duration in
-                viewModel.updateDuration(for: state.id, setID: setID, durationText: duration)
-            },
-            onDistanceChange: { setID, distance in
-                viewModel.updateDistance(for: state.id, setID: setID, distanceText: distance)
-            },
-            onCaloriesChange: { setID, calories in
-                viewModel.updateCalories(for: state.id, setID: setID, caloriesText: calories)
-            },
-            onToggleComplete: { setID in
-                viewModel.toggleSetCompletion(exerciseID: state.id, setID: setID)
-            },
-            onUseSuggestion: { setID in
-                viewModel.useSuggestion(exerciseID: state.id, setID: setID)
-            },
-            onApplyAllSuggestions: {
-                viewModel.applyAllSuggestions(exerciseID: state.id)
-            },
-            onPreviewRequested: { gallery in
-                previewGallery = gallery
+    @ViewBuilder
+    private func exerciseCard(for state: WorkoutExerciseCardState, proxy: ScrollViewProxy) -> some View {
+        if expandedExerciseID == state.id {
+            ExpandedWorkoutExerciseCard(
+                card: state,
+                dataManager: viewModel.db,
+                onCopySet: { setID in
+                    viewModel.copySet(exerciseID: state.id, sourceSetID: setID)
+                },
+                onWeightChange: { setID, weight in
+                    viewModel.updateWeight(for: state.id, setID: setID, weightText: weight)
+                },
+                onRepsChange: { setID, reps in
+                    viewModel.updateReps(for: state.id, setID: setID, repsText: reps)
+                },
+                onDurationChange: { setID, duration in
+                    viewModel.updateDuration(for: state.id, setID: setID, durationText: duration)
+                },
+                onDistanceChange: { setID, distance in
+                    viewModel.updateDistance(for: state.id, setID: setID, distanceText: distance)
+                },
+                onCaloriesChange: { setID, calories in
+                    viewModel.updateCalories(for: state.id, setID: setID, caloriesText: calories)
+                },
+                onToggleComplete: { setID in
+                    viewModel.toggleSetCompletion(exerciseID: state.id, setID: setID)
+                },
+                onUseSuggestion: { setID in
+                    viewModel.useSuggestion(exerciseID: state.id, setID: setID)
+                },
+                onUseAllSuggestions: {
+                    viewModel.useAllSuggestions(exerciseID: state.id)
+                },
+                onCollapse: {
+                    withAnimation(cardAnimation) {
+                        expandedExerciseID = nil
+                    }
+                },
+                onPreviewRequested: { gallery in
+                    previewGallery = gallery
+                }
+            )
+            .transition(.opacity.combined(with: .scale(scale: 0.985, anchor: .top)))
+        } else {
+            CompactWorkoutExerciseCard(
+                card: state,
+                isHighlighted: highlightedExerciseID == state.id,
+                onExpand: {
+                    expandExercise(state.id, proxy: proxy)
+                }
+            )
+            .transition(.opacity)
+        }
+    }
+
+    @ViewBuilder
+    private func recommendationContent(proxy: ScrollViewProxy) -> some View {
+        if viewModel.isLoadingRecommendations {
+            WorkoutRecommendationLoadingCard()
+        } else if let sourceDate = viewModel.recommendationSourceDate,
+                  !viewModel.recommendations.isEmpty {
+            WorkoutRecommendationSection(
+                routineName: viewModel.draft.session.session_type,
+                sourceDate: sourceDate,
+                recommendations: viewModel.recommendations,
+                onAdd: { recommendationID in
+                    guard let exerciseID = viewModel.addRecommendation(id: recommendationID) else { return }
+                    expandExercise(exerciseID, proxy: proxy)
+                },
+                onAddAll: {
+                    let addedExerciseIDs = viewModel.addAllRecommendations()
+                    guard let firstID = addedExerciseIDs.first else { return }
+                    withAnimation(cardAnimation) {
+                        expandedExerciseID = nil
+                        highlightedExerciseID = firstID
+                    }
+                    scrollToExercise(firstID, proxy: proxy)
+                    clearHighlight(after: 1.2, exerciseID: firstID)
+                }
+            )
+        }
+    }
+
+    private var cardAnimation: Animation? {
+        reduceMotion ? nil : .easeInOut(duration: 0.24)
+    }
+
+    private func expandExercise(_ exerciseID: Int64, proxy: ScrollViewProxy) {
+        withAnimation(cardAnimation) {
+            expandedExerciseID = exerciseID
+            highlightedExerciseID = nil
+        }
+        scrollToExercise(exerciseID, proxy: proxy)
+    }
+
+    private func scrollToExercise(_ exerciseID: Int64, proxy: ScrollViewProxy) {
+        Task { @MainActor in
+            await Task.yield()
+            withAnimation(cardAnimation) {
+                proxy.scrollTo(exerciseID, anchor: .top)
             }
-        )
+        }
+    }
+
+    private func clearHighlight(after seconds: Double, exerciseID: Int64) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            guard highlightedExerciseID == exerciseID else { return }
+            withAnimation(cardAnimation) {
+                highlightedExerciseID = nil
+            }
+        }
     }
     
     private var headerView: some View {

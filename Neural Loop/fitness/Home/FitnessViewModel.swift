@@ -83,6 +83,7 @@ final class FitnessViewModel: ObservableObject {
             ActiveWorkoutViewModel(
                 draft: draft,
                 db: dm,
+                recommendationReader: dm as? any WorkoutRecommendationReading,
                 runtime: runtime
             )
         }

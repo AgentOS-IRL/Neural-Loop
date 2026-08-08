@@ -337,6 +337,20 @@ extension DBManager {
             .value
     }
 
+    nonisolated struct FetchActiveWorkoutRecommendationsParams: Codable, Sendable {
+        let routine_id: Int64
+    }
+
+    func fetchActiveWorkoutRecommendations(routineID: Int64) async throws -> WorkoutRecommendationResponse {
+        try await customsupabase
+            .rpc(
+                "nl_get_active_workout_recommendations",
+                params: FetchActiveWorkoutRecommendationsParams(routine_id: routineID)
+            )
+            .execute()
+            .value
+    }
+
     nonisolated struct FinalizeWorkoutParams: Codable, Sendable {
         let payload: FinalizeWorkoutPayload
     }
@@ -362,4 +376,3 @@ extension DBManager {
             .value
     }
 }
-

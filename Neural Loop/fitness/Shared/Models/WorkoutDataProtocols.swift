@@ -32,6 +32,10 @@ protocol WorkoutLaunchHistoryReading {
     ) async throws -> [WorkoutLaunchHistorySnapshot]
 }
 
+protocol WorkoutRecommendationReading {
+    func fetchActiveWorkoutRecommendations(routineID: Int64) async throws -> WorkoutRecommendationResponse
+}
+
 protocol WorkoutFinalizationPersisting {
     func finalizeWorkout(_ payload: FinalizeWorkoutPayload) async throws -> FinalizeWorkoutResponse
 }
@@ -56,7 +60,7 @@ extension DBManager: WorkoutRoutineReading {}
 extension DBManager: WorkoutRoutineWriting {}
 extension DBManager: FitnessHomeReading {}
 extension DBManager: WorkoutLaunchHistoryReading {}
+extension DBManager: WorkoutRecommendationReading {}
 extension DBManager: WorkoutFinalizationPersisting {}
 extension DBManager: WorkoutSessionDetailManaging {}
 extension DBManager: ExerciseProgressionReading {}
-

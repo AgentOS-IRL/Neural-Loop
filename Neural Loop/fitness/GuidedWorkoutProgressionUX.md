@@ -2,7 +2,7 @@
 
 ## Experience goal
 
-The active workout behaves like an explainable training copilot. It keeps the routine target, previous performance, suggested progression, and today's entered values separate. A suggestion never becomes today's value until the user explicitly chooses **Use**, **Apply All**, or types a value themselves.
+The active workout behaves like an explainable training copilot. It keeps the routine target, previous performance, suggested progression, and today's entered values separate. A suggestion never becomes today's value until the user explicitly chooses **Use**, **Use All**, or types a value themselves.
 
 ## End-to-end workout flow
 
@@ -26,7 +26,7 @@ flowchart TD
 
     M --> N{"Choose how to fill a set"}
     N -- "Use" --> O["Copy one suggestion into today's fields"]
-    N -- "Apply All" --> P["Copy all available suggestions for this exercise"]
+    N -- "Use All" --> P["Copy all available suggestions for this exercise"]
     N -- "Type values" --> Q["Keep the user's values"]
     O --> R["Complete the set"]
     P --> R
@@ -50,7 +50,7 @@ flowchart LR
         B["History context<br/>Same routine or global<br/>Source workout date"]
         C["Per-set context<br/>Previous: 60 kg × 12<br/>Suggested: 62.5 kg × 8<br/>Reason: range ceiling reached"]
         D["Today's values<br/>Empty until accepted or entered"]
-        E["Actions<br/>Use · Apply All · Add Set · Done"]
+        E["Actions<br/>Use · Use All · Copy completed set · Done"]
         A --> B --> C --> D --> E
     end
 ```

@@ -53,6 +53,28 @@ struct WorkoutHistorySource: Equatable, Codable {
     }
 }
 
+struct WorkoutExerciseRecommendation: Identifiable, Equatable {
+    let sourceSessionID: Int64
+    let sourceDate: Date
+    let exercise: ExerciseLibraryItem
+    let sets: [WorkoutSetDraft]
+
+    var id: Int64 { exercise.id }
+
+    var setPatternText: String {
+        let warmups = sets.filter { $0.setType == .warmup }.count
+        let working = sets.filter { $0.setType == .working }.count
+        var parts: [String] = []
+        if warmups > 0 {
+            parts.append("\(warmups) warm-up\(warmups == 1 ? "" : "s")")
+        }
+        if working > 0 {
+            parts.append("\(working) working set\(working == 1 ? "" : "s")")
+        }
+        return parts.isEmpty ? "1 working set" : parts.joined(separator: " • ")
+    }
+}
+
 struct WorkoutExerciseCardState: Identifiable, Equatable, Codable {
     let id: Int64
     var exercise: ExerciseLibraryItem
@@ -361,5 +383,4 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
         return Int64(stringID)
     }
 }
-
 
