@@ -164,7 +164,7 @@ struct SetGoalTracking: View {
 
         if let trackingId = existingTracking?.id {
             if existingTracking?.type != type {
-                let didClearRecords = await model.deleteGoalsTrackingRecords(forTracking: trackingId)
+                let didClearRecords = await model.deleteAllGoalProgressRecords(forTracking: trackingId)
                 guard didClearRecords else {
                     errorMessage = "Could not clear old progress records. Please try again."
                     return

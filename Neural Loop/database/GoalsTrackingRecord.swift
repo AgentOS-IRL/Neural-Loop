@@ -53,6 +53,19 @@ extension DBManager {
             .eq("goals_tracking_id", value: Int(trackingId))
             .execute()
     }
+
+    // Delete one record, scoped to its parent tracking entry for data safety.
+    func deleteGoalsTrackingRecord(
+        id recordId: Int64,
+        forTracking trackingId: Int64
+    ) async throws {
+        try await customsupabase
+            .from(goalsTrackingRecordsTableName)
+            .delete()
+            .eq("id", value: Int(recordId))
+            .eq("goals_tracking_id", value: Int(trackingId))
+            .execute()
+    }
     
     // Fetch records by trackingId + type
     func fetchGoalsTrackingRecords(

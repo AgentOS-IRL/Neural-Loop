@@ -207,14 +207,21 @@ extension  UnifiedDataModel {
         type: GoalTrackingType
     ) async -> [GoalsTrackingRecord] {
         do {
-            return try await manager.fetchGoalsTrackingRecords(
-                forTracking: trackingId,
-                type: type
-            )
+            return try await loadGoalProgressHistory(forTracking: trackingId, type: type)
         } catch {
             print("Failed to get tracking records: \(error)")
             return []
         }
+    }
+
+    func loadGoalProgressHistory(
+        forTracking trackingId: Int64,
+        type: GoalTrackingType
+    ) async throws -> [GoalsTrackingRecord] {
+        try await manager.fetchGoalsTrackingRecords(
+            forTracking: trackingId,
+            type: type
+        )
     }
 
     func createGoalsTrackingRecord(record: GoalsTrackingRecord)
@@ -287,13 +294,30 @@ extension  UnifiedDataModel {
         }
     }
 
-    func deleteGoalsTrackingRecords(forTracking trackingId: Int64) async -> Bool {
+    func deleteGoalProgressRecord(
+        recordId: Int64,
+        forTracking trackingId: Int64
+    ) async -> Bool {
+        do {
+            try await manager.deleteGoalsTrackingRecord(
+                id: recordId,
+                forTracking: trackingId
+            )
+            return true
+        }
+        catch {
+            print("Failed to delete goal progress record: \(error)")
+            return false
+        }
+    }
+
+    func deleteAllGoalProgressRecords(forTracking trackingId: Int64) async -> Bool {
         do {
             try await manager.deleteGoalsTrackingRecords(forTracking: trackingId)
             return true
         }
         catch {
-            print("Failed to delete goal tracking records: \(error)")
+            print("Failed to delete all goal progress records: \(error)")
             return false
         }
     }

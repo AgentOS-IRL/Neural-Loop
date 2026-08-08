@@ -96,9 +96,11 @@ struct AddGoalProgressView: View {
                 }
             }
             .sheet(isPresented: $showProgressHistory) {
-                ProgressHistoryView(
-                    habitId: goalTracking.id!,
-                    label: unitLabel
+                GoalProgressHistoryView(
+                    goalsTrackingId: goalTracking.id!,
+                    type: goalTracking.type,
+                    label: unitLabel,
+                    onChanged: handleHistoryChange
                 )
             }
         }
@@ -126,6 +128,16 @@ struct AddGoalProgressView: View {
         let total = recordsForDate.reduce(0.0) { $0 + $1.value }
         latestTotal = total
         inputValueText = ""
+    }
+
+    private func handleHistoryChange(_ records: [GoalsTrackingRecord]) {
+        let calendar = Calendar.current
+        recordsForDate = records.filter {
+            guard let createdAt = $0.created_at else { return false }
+            return calendar.isDate(createdAt, inSameDayAs: selectedDate)
+        }
+        loadLatestTotal()
+        onSaved(GoalTrackingBundle(tracking: goalTracking, records: records))
     }
 
     private func save() async {
