@@ -6,14 +6,14 @@ class ExerciseProgressionViewModel: ObservableObject {
     let exerciseId: Int64
     let exerciseName: String
     let exerciseType: ExerciseType
-    private let dataManager: WorkoutDataManaging
+    private let dataManager: any ExerciseProgressionReading
 
     @Published var dataPoints: [ProgressionDataPoint] = []
     @Published var selectedMetric: ProgressionMetric = .weight
     @Published var isLoading = false
     @Published var availableMetrics: [ProgressionMetric] = []
 
-    init(exerciseId: Int64, exerciseName: String, exerciseType: ExerciseType, dataManager: WorkoutDataManaging) {
+    init(exerciseId: Int64, exerciseName: String, exerciseType: ExerciseType, dataManager: any ExerciseProgressionReading) {
         self.exerciseId = exerciseId
         self.exerciseName = exerciseName
         self.exerciseType = exerciseType

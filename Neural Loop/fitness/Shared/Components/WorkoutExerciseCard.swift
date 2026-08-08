@@ -2,7 +2,7 @@ import SwiftUI
 
 struct WorkoutExerciseCard: View {
     let card: WorkoutExerciseCardState
-    let dataManager: WorkoutDataManaging
+    let dataManager: any ExerciseProgressionReading
     let onAddSet: () -> Void
     let onWeightChange: (WorkoutSetDraft.ID, String) -> Void
     let onRepsChange: (WorkoutSetDraft.ID, String) -> Void
@@ -10,6 +10,8 @@ struct WorkoutExerciseCard: View {
     let onDistanceChange: (WorkoutSetDraft.ID, String) -> Void
     let onCaloriesChange: (WorkoutSetDraft.ID, String) -> Void
     let onToggleComplete: (WorkoutSetDraft.ID) -> Void
+    let onUseSuggestion: (WorkoutSetDraft.ID) -> Void
+    let onApplyAllSuggestions: () -> Void
     var onPreviewRequested: ((ExerciseMediaGallery) -> Void)? = nil
 
     @State private var showingProgression = false
@@ -19,19 +21,24 @@ struct WorkoutExerciseCard: View {
         VStack(alignment: .leading, spacing: 14) {
             header
 
-            HStack {
+            HStack(alignment: .top) {
                 Text(card.exercise.equipmentName)
                     .font(.system(.subheadline, design: .rounded, weight: .medium))
                     .foregroundStyle(AppTheme.textSecondary)
                     .lineLimit(1)
                 
-                if let hint = card.historicalHint {
-                    Spacer()
-                    Text(hint)
-                        .font(.system(.caption, design: .rounded, weight: .semibold))
-                        .foregroundStyle(AppTheme.accentColor)
-                        .lineLimit(1)
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(targetText)
+                    if card.historyUnavailable == true {
+                        Text("History unavailable")
+                            .foregroundStyle(AppTheme.textSecondary)
+                    } else if let source = card.historySource {
+                        Text(source.label)
+                    }
                 }
+                .font(.system(.caption, design: .rounded, weight: .semibold))
+                .foregroundStyle(AppTheme.accentColor)
             }
 
             setTable
@@ -123,7 +130,7 @@ struct WorkoutExerciseCard: View {
 
             ForEach(card.sets) { set in
                 HStack(spacing: 10) {
-                    Text("\(set.setNumber)")
+                    Text(set.setType == .warmup ? "W\(set.setNumber)" : "\(set.setNumber)")
                         .font(.system(.body, design: .rounded, weight: .semibold))
                         .foregroundStyle(set.isCompleted ? AppTheme.textSecondary : AppTheme.textPrimary)
                         .frame(width: setColumnWidth, height: 44, alignment: .leading)
@@ -192,10 +199,15 @@ struct WorkoutExerciseCard: View {
                             .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
+                    .disabled(!set.isCompleted && !canComplete(set))
                     .accessibilityLabel("Toggle completion for set \(set.setNumber)")
                 }
                 .padding(.vertical, 6)
                 .opacity(set.isCompleted ? 0.6 : 1.0)
+
+                if set.previousValues != nil || set.suggestedValues != nil {
+                    suggestionRow(for: set)
+                }
 
                 if set.id != card.sets.last?.id {
                     Divider()
@@ -224,6 +236,13 @@ struct WorkoutExerciseCard: View {
 
             Spacer(minLength: 8)
 
+            if card.sets.contains(where: { $0.suggestedValues != nil && !$0.isCompleted }) {
+                Button("Apply All", action: onApplyAllSuggestions)
+                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(AppTheme.accentColor)
+            }
+
             Button(action: onAddSet) {
                 Label("Add Set", systemImage: "plus")
                     .font(.system(.subheadline, design: .rounded, weight: .semibold))
@@ -232,6 +251,65 @@ struct WorkoutExerciseCard: View {
             .foregroundStyle(AppTheme.accentColor)
         }
         .padding(.top, 2)
+    }
+
+    private var targetText: String {
+        if let range = card.effectiveTargetRepRange {
+            return "Target \(range.minimum)–\(range.maximum) reps"
+        }
+        if let duration = card.targetDuration {
+            return "Target \(NumericFormatter.format(duration)) min"
+        }
+        return "History"
+    }
+
+    private func canComplete(_ set: WorkoutSetDraft) -> Bool {
+        card.exercise.isRepBased ? set.hasRequiredStrengthValues : set.hasRequiredCardioValues
+    }
+
+    private func suggestionRow(for set: WorkoutSetDraft) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                if let previous = set.previousValues {
+                    Text("Previous: \(valuesText(previous))")
+                        .foregroundStyle(AppTheme.textSecondary)
+                }
+                Spacer(minLength: 4)
+                if let suggested = set.suggestedValues {
+                    Text("Suggested: \(valuesText(suggested))")
+                        .foregroundStyle(AppTheme.accentColor)
+                    Button("Use") { onUseSuggestion(set.id) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(set.isCompleted)
+                }
+            }
+            .font(.system(.caption, design: .rounded, weight: .semibold))
+
+            if let reason = set.suggestionReason {
+                Text(reason.rawValue)
+                    .font(.system(.caption2, design: .rounded, weight: .medium))
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+        }
+        .padding(.leading, setColumnWidth + 10)
+        .padding(.bottom, 6)
+    }
+
+    private func valuesText(_ values: WorkoutDraftValues) -> String {
+        if card.exercise.isRepBased {
+            let reps = values.reps.map { "\($0) reps" } ?? "— reps"
+            guard let weight = values.weight else { return reps }
+            return "\(NumericFormatter.format(weight)) kg × \(reps)"
+        }
+
+        return [
+            values.durationMinutes.map { "\(NumericFormatter.format($0)) min" },
+            values.distanceKilometers.map { "\(NumericFormatter.format($0)) km" },
+            values.calories.map { "\(NumericFormatter.format($0)) kcal" }
+        ]
+        .compactMap { $0 }
+        .joined(separator: " • ")
     }
 
     private func tableHeader(_ title: String) -> some View {

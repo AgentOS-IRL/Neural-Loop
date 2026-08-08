@@ -9,14 +9,15 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var activeDraft: ActiveWorkoutDraft?
 
-    let dataManager: any WorkoutTemplateEditingDataManaging & WorkoutDataManaging
+    let dataManager: any WorkoutCatalogReading & WorkoutRoutineReading & WorkoutRoutineWriting & WorkoutLaunchHistoryReading & WorkoutFinalizationPersisting & ExerciseProgressionReading
     let launchCoordinator: WorkoutSessionLaunching
-    let persistenceManager: WorkoutDraftPersistenceManager
+    let runtime: any WorkoutSessionRuntimeCoordinating
+    var persistenceManager: WorkoutDraftPersistenceManager { runtime.persistenceManager }
     private var hasLoaded = false
 
     init(
         summary: WorkoutTemplateSummary,
-        dataManager: (any WorkoutTemplateEditingDataManaging & WorkoutDataManaging)? = nil,
+        dataManager: (any WorkoutCatalogReading & WorkoutRoutineReading & WorkoutRoutineWriting & WorkoutLaunchHistoryReading & WorkoutFinalizationPersisting & ExerciseProgressionReading)? = nil,
         launchCoordinator: WorkoutSessionLaunching? = nil,
         persistenceManager: WorkoutDraftPersistenceManager? = nil,
         connectivityManager: (any WorkoutConnectivityProviding)? = nil
@@ -25,9 +26,19 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
         let dm = dataManager ?? DBManager.newInstance()
         let pm = persistenceManager ?? WorkoutDraftPersistenceManager()
         let cm = connectivityManager ?? ConnectivityManager.shared
+        let runtime = WorkoutSessionRuntimeCoordinator(
+            persistenceManager: pm,
+            connectivityProvider: cm,
+            finalizer: WorkoutSessionFinalizer(db: dm, persistenceManager: pm)
+        )
         self.dataManager = dm
-        self.persistenceManager = pm
-        self.launchCoordinator = launchCoordinator ?? WorkoutSessionLaunchCoordinator(db: dm, persistenceManager: pm, connectivityProvider: cm)
+        self.runtime = runtime
+        self.launchCoordinator = launchCoordinator ?? WorkoutSessionLaunchCoordinator(
+            db: dm,
+            persistenceManager: pm,
+            connectivityProvider: cm,
+            runtime: runtime
+        )
     }
 
     func loadIfNeeded() async {
@@ -118,7 +129,7 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
                         id: routineExercise.id ?? (routineExercise.exercise_id &* 1_000 &+ Int64(routineExercise.order_index)),
                         exerciseName: exerciseName,
                         equipmentName: equipmentName,
-                        setCount: routineExercise.target_sets ?? 1,
+                        setCount: (routineExercise.target_sets ?? 1) + routineExercise.warmup_sets,
                         orderIndex: routineExercise.order_index
                     )
                 }
@@ -135,7 +146,7 @@ final class WorkoutTemplateDetailViewModel: ObservableObject {
     ) -> WorkoutTemplateSummary {
         let exerciseCount = routineExercises.count
         let setCount = routineExercises.reduce(0) { partialResult, routineExercise in
-            partialResult + (routineExercise.target_sets ?? 1)
+            partialResult + (routineExercise.target_sets ?? 1) + routineExercise.warmup_sets
         }
 
         return WorkoutTemplateSummary(

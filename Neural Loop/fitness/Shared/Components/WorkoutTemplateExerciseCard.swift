@@ -7,8 +7,11 @@ struct WorkoutTemplateExerciseCard: View {
     let onMoveUp: () -> Void
     let onMoveDown: () -> Void
     let onRemove: () -> Void
-    let onTargetSetsChange: (String) -> Void
-    let onTargetRepsChange: (String) -> Void
+    let onWorkingSetsChange: (String) -> Void
+    let onWarmupSetsChange: (String) -> Void
+    let onTargetRepsMinChange: (String) -> Void
+    let onTargetRepsMaxChange: (String) -> Void
+    let onLoadIncrementChange: (String) -> Void
     let onDurationChange: (String) -> Void
     let onRestSecondsChange: (String) -> Void
     let onPreviewRequested: ((ExerciseMediaGallery) -> Void)?
@@ -20,8 +23,11 @@ struct WorkoutTemplateExerciseCard: View {
         onMoveUp: @escaping () -> Void,
         onMoveDown: @escaping () -> Void,
         onRemove: @escaping () -> Void,
-        onTargetSetsChange: @escaping (String) -> Void,
-        onTargetRepsChange: @escaping (String) -> Void,
+        onWorkingSetsChange: @escaping (String) -> Void,
+        onWarmupSetsChange: @escaping (String) -> Void,
+        onTargetRepsMinChange: @escaping (String) -> Void,
+        onTargetRepsMaxChange: @escaping (String) -> Void,
+        onLoadIncrementChange: @escaping (String) -> Void,
         onDurationChange: @escaping (String) -> Void,
         onRestSecondsChange: @escaping (String) -> Void,
         onPreviewRequested: ((ExerciseMediaGallery) -> Void)? = nil
@@ -32,8 +38,11 @@ struct WorkoutTemplateExerciseCard: View {
         self.onMoveUp = onMoveUp
         self.onMoveDown = onMoveDown
         self.onRemove = onRemove
-        self.onTargetSetsChange = onTargetSetsChange
-        self.onTargetRepsChange = onTargetRepsChange
+        self.onWorkingSetsChange = onWorkingSetsChange
+        self.onWarmupSetsChange = onWarmupSetsChange
+        self.onTargetRepsMinChange = onTargetRepsMinChange
+        self.onTargetRepsMaxChange = onTargetRepsMaxChange
+        self.onLoadIncrementChange = onLoadIncrementChange
         self.onDurationChange = onDurationChange
         self.onRestSecondsChange = onRestSecondsChange
         self.onPreviewRequested = onPreviewRequested
@@ -130,61 +139,44 @@ struct WorkoutTemplateExerciseCard: View {
     }
 
     private var targetTable: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                tableHeader("SETS")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                tableHeader(targetHeaderLabel)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                tableHeader("REST (S)")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.bottom, 6)
-
-            HStack(spacing: 10) {
-                numericField(
-                    text: Binding(
-                        get: { draft.targetSetsText },
-                        set: onTargetSetsChange
-                    ),
-                    placeholder: "1",
-                    keyboardType: .numberPad,
-                    accessibilityLabel: "\(draft.exercise.name) target sets"
-                )
-
+                editorField("WORK SETS", value: draft.workingSetsText, placeholder: "1", keyboardType: .numberPad, onChange: onWorkingSetsChange)
                 if draft.exercise.isRepBased {
-                    numericField(
-                        text: Binding(
-                            get: { draft.targetRepsText },
-                            set: onTargetRepsChange
-                        ),
-                        placeholder: "0",
-                        keyboardType: .numberPad,
-                        accessibilityLabel: "\(draft.exercise.name) target reps"
-                    )
-                } else if draft.exercise.isDurationBased {
-                    numericField(
-                        text: Binding(
-                            get: { draft.durationText },
-                            set: onDurationChange
-                        ),
-                        placeholder: "0",
-                        keyboardType: .decimalPad,
-                        accessibilityLabel: "\(draft.exercise.name) duration"
-                    )
+                    editorField("WARM-UPS", value: draft.warmupSetsText, placeholder: "0", keyboardType: .numberPad, onChange: onWarmupSetsChange)
                 }
+                editorField("REST (S)", value: draft.restSecondsText, placeholder: "0", keyboardType: .numberPad, onChange: onRestSecondsChange)
+            }
 
-                numericField(
-                    text: Binding(
-                        get: { draft.restSecondsText },
-                        set: onRestSecondsChange
-                    ),
-                    placeholder: "0",
-                    keyboardType: .numberPad,
-                    accessibilityLabel: "\(draft.exercise.name) rest seconds"
-                )
+            if draft.exercise.isRepBased {
+                HStack(spacing: 10) {
+                    editorField("REP MIN", value: draft.targetRepsMinText, placeholder: "8", keyboardType: .numberPad, onChange: onTargetRepsMinChange)
+                    editorField("REP MAX", value: draft.targetRepsMaxText, placeholder: "12", keyboardType: .numberPad, onChange: onTargetRepsMaxChange)
+                    editorField("ADD KG", value: draft.loadIncrementKgText, placeholder: "2.5", keyboardType: .decimalPad, onChange: onLoadIncrementChange)
+                }
+            } else {
+                editorField("DURATION (MIN)", value: draft.durationText, placeholder: "0", keyboardType: .decimalPad, onChange: onDurationChange)
             }
         }
+    }
+
+    private func editorField(
+        _ label: String,
+        value: String,
+        placeholder: String,
+        keyboardType: UIKeyboardType,
+        onChange: @escaping (String) -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            tableHeader(label)
+            numericField(
+                text: Binding(get: { value }, set: onChange),
+                placeholder: placeholder,
+                keyboardType: keyboardType,
+                accessibilityLabel: "\(draft.exercise.name) \(label.lowercased())"
+            )
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private var orderPill: some View {
@@ -198,10 +190,6 @@ struct WorkoutTemplateExerciseCard: View {
                     .fill(AppTheme.sectionGradient)
             }
             .accessibilityLabel("Order \(draft.orderIndex)")
-    }
-
-    private var targetHeaderLabel: String {
-        draft.exercise.isRepBased ? "REPS" : "DURATION"
     }
 
     private func muscleChip(_ muscle: MuscleMetadata) -> some View {

@@ -177,7 +177,8 @@ final class WorkoutTemplateDetailViewModelTests: XCTestCase {
             exercise_id: exerciseID,
             order_index: orderIndex,
             target_sets: targetSets,
-            target_reps: nil,
+            target_reps_min: nil,
+            target_reps_max: nil,
             rest_seconds: nil,
             superset_group_id: nil,
             duration: nil
@@ -201,7 +202,7 @@ final class WorkoutTemplateDetailViewModelTests: XCTestCase {
     }
 }
 
-private final class FakeWorkoutTemplateDetailDataManager: WorkoutTemplateEditingDataManaging, WorkoutDataManaging {
+private final class FakeWorkoutTemplateDetailDataManager: WorkoutCatalogReading, WorkoutRoutineReading, WorkoutRoutineWriting, WorkoutLaunchHistoryReading, WorkoutFinalizationPersisting {
     var equipment: [Equipment]
     var exercises: [ExerciseWithMuscles]
     var routinesByID: [Int64: Routine] = [:]
@@ -279,7 +280,10 @@ private final class FakeWorkoutTemplateDetailDataManager: WorkoutTemplateEditing
             exercise_id: request.exercise_id,
             order_index: request.order_index,
             target_sets: request.target_sets,
-            target_reps: request.target_reps,
+            target_reps_min: request.target_reps_min,
+            target_reps_max: request.target_reps_max,
+            warmup_sets: request.warmup_sets,
+            load_increment_kg: request.load_increment_kg,
             rest_seconds: request.rest_seconds,
             superset_group_id: request.superset_group_id,
             duration: request.duration
@@ -344,5 +348,16 @@ private enum FakeWorkoutTemplateDetailError: LocalizedError {
         case .unableToLoadWorkoutDetails:
             return "Unable to load template details."
         }
+    }
+}
+
+private extension FakeWorkoutTemplateDetailDataManager {
+    func fetchWorkoutLaunchHistory(
+        routineID: Int64?,
+        lookupItems: [WorkoutLaunchHistoryLookupItem]
+    ) async throws -> [WorkoutLaunchHistorySnapshot] { [] }
+
+    func finalizeWorkout(_ payload: FinalizeWorkoutPayload) async throws -> FinalizeWorkoutResponse {
+        FinalizeWorkoutResponse(session_id: 1)
     }
 }

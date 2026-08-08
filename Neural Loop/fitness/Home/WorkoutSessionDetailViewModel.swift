@@ -27,9 +27,9 @@ class WorkoutSessionDetailViewModel: ObservableObject {
     private var deletedCardioLogIds: [Int64] = []
 
     let sessionId: Int64
-    private let dataManager: WorkoutDataManaging
+    private let dataManager: any WorkoutSessionDetailManaging
 
-    init(sessionId: Int64, dataManager: WorkoutDataManaging) {
+    init(sessionId: Int64, dataManager: any WorkoutSessionDetailManaging) {
         self.sessionId = sessionId
         self.dataManager = dataManager
     }
@@ -58,18 +58,21 @@ class WorkoutSessionDetailViewModel: ObservableObject {
                         weightText: set.weight != nil ? NumericFormatter.format(set.weight!) : "",
                         repsText: "\(set.reps)",
                         isCompleted: true,
-                        superset_group_id: set.superset_group_id
+                        superset_group_id: set.superset_group_id,
+                        setType: set.set_type,
+                        routineExerciseID: set.routine_exercise_id
                     )
                 }
             } else {
                 sets = exerciseDetail.cardioLogs.enumerated().map { index, log in
                     WorkoutSetDraft(
                         dbId: log.id,
-                        setNumber: index + 1,
+                        setNumber: log.set_number,
                         durationText: log.duration_minutes != nil ? NumericFormatter.format(log.duration_minutes!) : "",
                         distanceText: log.distance_meters != nil ? NumericFormatter.format(log.distance_meters!) : "",
                         caloriesText: log.calories != nil ? NumericFormatter.format(log.calories!) : "",
-                        isCompleted: true
+                        isCompleted: true,
+                        routineExerciseID: log.routine_exercise_id
                     )
                 }
             }
@@ -113,9 +116,14 @@ class WorkoutSessionDetailViewModel: ObservableObject {
             }
         }
         
-        // Re-index sets
-        for i in 0..<draftExercises[exerciseIndex].sets.count {
-            draftExercises[exerciseIndex].sets[i].setNumber = i + 1
+        // Re-index warm-up and working sets independently.
+        for setType in WorkoutSetType.allCases {
+            let indices = draftExercises[exerciseIndex].sets.indices.filter {
+                draftExercises[exerciseIndex].sets[$0].setType == setType
+            }
+            for (offset, setIndex) in indices.enumerated() {
+                draftExercises[exerciseIndex].sets[setIndex].setNumber = offset + 1
+            }
         }
     }
 
@@ -152,7 +160,9 @@ class WorkoutSessionDetailViewModel: ObservableObject {
                                 set_number: draftSet.setNumber,
                                 reps: reps,
                                 weight: weight,
-                                superset_group_id: draftSet.superset_group_id
+                                superset_group_id: draftSet.superset_group_id,
+                                routine_exercise_id: draftSet.routineExerciseID,
+                                set_type: draftSet.setType
                             )
                             _ = try await dataManager.updateWorkoutSet(updatedSet)
                         } else {
@@ -162,7 +172,9 @@ class WorkoutSessionDetailViewModel: ObservableObject {
                                 set_number: draftSet.setNumber,
                                 reps: reps,
                                 weight: weight,
-                                superset_group_id: draftSet.superset_group_id
+                                superset_group_id: draftSet.superset_group_id,
+                                routine_exercise_id: draftSet.routineExerciseID,
+                                set_type: draftSet.setType
                             )
                             _ = try await dataManager.createWorkoutSet(request)
                         }
@@ -178,7 +190,9 @@ class WorkoutSessionDetailViewModel: ObservableObject {
                                 exercise_id: exerciseDraft.exerciseId,
                                 distance_meters: distance,
                                 duration_minutes: duration,
-                                calories: calories
+                                calories: calories,
+                                routine_exercise_id: draftSet.routineExerciseID,
+                                set_number: draftSet.setNumber
                             )
                             _ = try await dataManager.updateCardioLog(updatedLog)
                         } else {
@@ -187,7 +201,9 @@ class WorkoutSessionDetailViewModel: ObservableObject {
                                 exercise_id: exerciseDraft.exerciseId,
                                 distance_meters: distance,
                                 duration_minutes: duration,
-                                calories: calories
+                                calories: calories,
+                                routine_exercise_id: draftSet.routineExerciseID,
+                                set_number: draftSet.setNumber
                             )
                             _ = try await dataManager.createCardioLog(request)
                         }

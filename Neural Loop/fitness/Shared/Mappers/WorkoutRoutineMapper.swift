@@ -16,7 +16,8 @@ struct WorkoutRoutineMapper {
             start_time: WorkoutTimeCoding.string(from: now),
             end_time: nil,
             session_type: routine.name,
-            notes: routine.notes
+            notes: routine.notes,
+            routine_id: routine.id
         )
 
         // 2. Sort routine exercises by order_index
@@ -49,30 +50,36 @@ struct WorkoutRoutineMapper {
             )
 
             let targetSets = max(1, re.target_sets ?? 1)
-            
-            // For duration-based exercises, repsText might be empty or formatted differently
-            // but the plan says "Carry over metadata: target_sets, target_reps, rest_seconds, duration"
-            // and "Distinguish between rep-based and duration (cardio) exercises"
-            
-            let weightText = ""
-            let repsText = exercise.isRepBased ? (re.target_reps.map { String($0) } ?? "") : ""
-            let durationText = exercise.isDurationBased ? (re.duration.map { String(describing: $0) } ?? "") : ""
+            let warmupSets = exercise.isRepBased ? max(0, re.warmup_sets) : 0
 
-            let setDrafts = (1...targetSets).map { setNumber in
+            let warmupDrafts = warmupSets == 0 ? [] : (1...warmupSets).map { setNumber in
                 WorkoutSetDraft(
                     setNumber: setNumber,
-                    weightText: weightText,
-                    repsText: repsText,
-                    durationText: durationText
+                    setType: .warmup
                 )
+            }
+
+            let workingDrafts = (1...targetSets).map { setNumber in
+                WorkoutSetDraft(setNumber: setNumber, setType: .working)
+            }
+
+            let repRange: WorkoutRepRange?
+            if exercise.isRepBased,
+               let minimum = re.target_reps_min,
+               let maximum = re.target_reps_max {
+                repRange = WorkoutRepRange(minimum: minimum, maximum: maximum)
+            } else {
+                repRange = nil
             }
 
             return WorkoutExerciseCardState(
                 id: re.id ?? 0,
                 exercise: libraryItem,
-                sets: setDrafts,
+                sets: warmupDrafts + workingDrafts,
                 targetSets: re.target_sets,
-                targetReps: re.target_reps,
+                targetRepRange: repRange,
+                warmupSets: re.warmup_sets,
+                loadIncrementKg: re.load_increment_kg,
                 restSeconds: re.rest_seconds,
                 targetDuration: re.duration,
                 supersetGroupID: re.superset_group_id

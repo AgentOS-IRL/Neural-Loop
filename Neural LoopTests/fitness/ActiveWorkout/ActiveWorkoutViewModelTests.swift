@@ -313,7 +313,7 @@ final class ActiveWorkoutViewModelTests: XCTestCase {
     }
 }
 
-class FakeWorkoutDataManager: WorkoutDataManaging {
+class FakeWorkoutDataManager: WorkoutCatalogReading, WorkoutLaunchHistoryReading, WorkoutFinalizationPersisting {
     var shouldFail = false
     var capturedSessionRequest: CreateWorkoutSessionRequest?
     var capturedSetRequests: [CreateWorkoutSetRequest] = []
@@ -367,4 +367,51 @@ class FakeWorkoutDataManager: WorkoutDataManaging {
     func deleteWorkoutSet(id: Int64) async throws {}
     func updateCardioLog(_ log: CardioLog) async throws -> CardioLog { log }
     func deleteCardioLog(id: Int64) async throws {}
+}
+
+extension FakeWorkoutDataManager {
+    func fetchWorkoutLaunchHistory(
+        routineID: Int64?,
+        lookupItems: [WorkoutLaunchHistoryLookupItem]
+    ) async throws -> [WorkoutLaunchHistorySnapshot] {
+        []
+    }
+
+    func finalizeWorkout(_ payload: FinalizeWorkoutPayload) async throws -> FinalizeWorkoutResponse {
+        if shouldFail {
+            throw NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed"])
+        }
+        capturedSessionRequest = CreateWorkoutSessionRequest(
+            date: WorkoutDateCoding.date(from: payload.session.date),
+            start_time: payload.session.start_time,
+            end_time: payload.session.end_time,
+            session_type: payload.session.session_type,
+            notes: payload.session.notes,
+            routine_id: payload.routine_id
+        )
+        capturedSetRequests = payload.sets.map {
+            CreateWorkoutSetRequest(
+                workout_session_id: 123,
+                exercise_id: $0.exercise_id,
+                set_number: $0.set_number,
+                reps: $0.reps,
+                weight: $0.weight,
+                superset_group_id: $0.superset_group_id,
+                routine_exercise_id: $0.routine_exercise_id,
+                set_type: $0.set_type
+            )
+        }
+        capturedCardioRequests = payload.cardio_logs.map {
+            CreateCardioLogRequest(
+                workout_session_id: 123,
+                exercise_id: $0.exercise_id,
+                distance_meters: $0.distance_meters,
+                duration_minutes: $0.duration_minutes,
+                calories: $0.calories,
+                routine_exercise_id: $0.routine_exercise_id,
+                set_number: $0.set_number
+            )
+        }
+        return FinalizeWorkoutResponse(session_id: 123)
+    }
 }

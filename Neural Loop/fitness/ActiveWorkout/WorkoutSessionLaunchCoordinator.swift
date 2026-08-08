@@ -14,24 +14,28 @@ enum WorkoutLaunchError: LocalizedError {
     }
 }
 
+@MainActor
 protocol WorkoutSessionLaunching {
     func launchSession(for routineID: Int64) async throws -> ActiveWorkoutDraft
 }
 
-actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
-    private let db: WorkoutTemplateReadingDataManaging & WorkoutDataManaging
-    private let persistenceManager: WorkoutDraftPersistenceManager
-    private let connectivityProvider: WorkoutConnectivityProviding
+@MainActor
+final class WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
+    private let db: any WorkoutRoutineReading & WorkoutCatalogReading & WorkoutLaunchHistoryReading
+    private let runtime: any WorkoutSessionRuntimeCoordinating
     private var isLaunching = false
 
     init(
-        db: WorkoutTemplateReadingDataManaging & WorkoutDataManaging,
+        db: any WorkoutRoutineReading & WorkoutCatalogReading & WorkoutLaunchHistoryReading,
         persistenceManager: WorkoutDraftPersistenceManager = WorkoutDraftPersistenceManager(),
-        connectivityProvider: WorkoutConnectivityProviding = ConnectivityManager.shared
+        connectivityProvider: WorkoutConnectivityProviding = ConnectivityManager.shared,
+        runtime: (any WorkoutSessionRuntimeCoordinating)? = nil
     ) {
         self.db = db
-        self.persistenceManager = persistenceManager
-        self.connectivityProvider = connectivityProvider
+        self.runtime = runtime ?? WorkoutSessionRuntimeCoordinator(
+            persistenceManager: persistenceManager,
+            connectivityProvider: connectivityProvider
+        )
     }
 
     func launchSession(for routineID: Int64) async throws -> ActiveWorkoutDraft {
@@ -42,14 +46,8 @@ actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
         isLaunching = true
         defer { isLaunching = false }
 
-        if let draft = persistenceManager.load(routineID: routineID) {
-            persistenceManager.saveActiveSessionPointer(draft.watchSessionPointer)
-            let snapshot = draft.watchSnapshot()
-            connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
-            // Start Live Activity for resumed session
-            await MainActor.run {
-                WorkoutLiveActivityManager.shared.startActivity(snapshot: snapshot)
-            }
+        if let draft = runtime.persistenceManager.load(routineID: routineID) {
+            runtime.start(draft)
             return draft
         }
 
@@ -75,23 +73,12 @@ actor WorkoutSessionLaunchCoordinator: WorkoutSessionLaunching {
             allEquipment: allEquipment
         )
 
-        // 3. Prefill historical weights
+        // 3. Load history and explicit suggestions without changing today's entries.
         let loader = WorkoutSessionLoader(db: db)
-        let prefilledExercises = await loader.prefillHistoricalWeights(for: draft.exercises)
-        draft.exercises = prefilledExercises
+        draft.exercises = await loader.loadHistory(for: draft.exercises, routineID: routineID)
 
         // 4. Immediate Save
-        persistenceManager.save(draft: draft)
-        persistenceManager.saveActiveSessionPointer(draft.watchSessionPointer)
-        
-        // 5. Sync to Watch (side effect)
-        let snapshot = draft.watchSnapshot()
-        connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
-
-        // 6. Start Live Activity for new session
-        await MainActor.run {
-            WorkoutLiveActivityManager.shared.startActivity(snapshot: snapshot)
-        }
+        runtime.start(draft)
 
         return draft
     }

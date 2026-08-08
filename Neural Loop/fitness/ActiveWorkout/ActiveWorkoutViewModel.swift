@@ -14,28 +14,33 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
     @Published var availableExercises: [ExerciseLibraryItem] = []
     @Published var isLoadingCatalog = false
     
-    let db: WorkoutDataManaging
+    let db: any WorkoutCatalogReading & WorkoutLaunchHistoryReading & WorkoutFinalizationPersisting & ExerciseProgressionReading
     var onDraftChange: ((ActiveWorkoutDraft) -> Void)?
     var onFinish: (() -> Void)?
-    private let persistenceManager: WorkoutDraftPersistenceManager
-    private let connectivityProvider: WorkoutConnectivityProviding?
-    private let finalizer: WorkoutSessionFinalizing
+    private let runtime: any WorkoutSessionRuntimeCoordinating
     private var timerCancellable: AnyCancellable?
     
     init(
         draft: ActiveWorkoutDraft,
-        db: WorkoutDataManaging,
+        db: any WorkoutCatalogReading & WorkoutLaunchHistoryReading & WorkoutFinalizationPersisting & ExerciseProgressionReading,
         persistenceManager: WorkoutDraftPersistenceManager = WorkoutDraftPersistenceManager(),
         connectivityProvider: WorkoutConnectivityProviding? = nil,
         finalizer: WorkoutSessionFinalizing? = nil,
+        runtime: (any WorkoutSessionRuntimeCoordinating)? = nil,
         onDraftChange: ((ActiveWorkoutDraft) -> Void)? = nil,
         onFinish: (() -> Void)? = nil
     ) {
         self.draft = draft
         self.db = db
-        self.persistenceManager = persistenceManager
-        self.connectivityProvider = connectivityProvider
-        self.finalizer = finalizer ?? WorkoutSessionFinalizer(db: db, persistenceManager: persistenceManager)
+        let resolvedFinalizer = finalizer ?? WorkoutSessionFinalizer(
+            db: db,
+            persistenceManager: persistenceManager
+        )
+        self.runtime = runtime ?? WorkoutSessionRuntimeCoordinator(
+            persistenceManager: persistenceManager,
+            connectivityProvider: connectivityProvider ?? NoopWorkoutConnectivityProvider.shared,
+            finalizer: resolvedFinalizer
+        )
         self.onDraftChange = onDraftChange
         self.onFinish = onFinish
         
@@ -52,42 +57,18 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
     }
     
     func clearDraft() {
-        persistenceManager.clear(routineID: draft.routineID)
+        runtime.persistenceManager.clear(routineID: draft.routineID)
     }
 
-    private func persistDraft() {
+    private func persistDraft(acknowledging actionID: UUID? = nil) {
         draft.updatedAt = Date()
         draft.revision += 1
-        persistenceManager.save(draft: draft)
+        runtime.publish(draft, acknowledging: actionID)
         onDraftChange?(draft)
-        sendSnapshotToWatch()
-        updateLiveActivity()
     }
 
     func sendSnapshotToWatch() {
-        let restEnd = isTimerRunning ? restEndsAt : nil
-        let restTotal = isTimerRunning ? restTimerSeconds : nil
-        let snapshot = draft.watchSnapshot(
-            lastProcessedActionID: nil,
-            restEndDate: restEnd,
-            restTotalSeconds: restTotal
-        )
-        connectivityProvider?.sendWorkoutSnapshot(snapshot, completion: nil)
-    }
-
-    private func updateLiveActivity() {
-        let restEnd = isTimerRunning ? restEndsAt : nil
-        let restTotal = isTimerRunning ? restTimerSeconds : nil
-        let snapshot = draft.watchSnapshot(
-            lastProcessedActionID: nil,
-            restEndDate: restEnd,
-            restTotalSeconds: restTotal
-        )
-        WorkoutLiveActivityManager.shared.updateActivity(
-            snapshot: snapshot,
-            restEndDate: restEnd,
-            restTotalSeconds: restTotal
-        )
+        runtime.publish(draft, acknowledging: nil)
     }
 
     func apply(watchAction action: WorkoutWatchAction) async {
@@ -113,43 +94,37 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
             
         case .toggleSetCompletion(let completionAction):
             draft.apply(watchAction: action)
-            persistDraft()
-            
+
             if completionAction.isCompleted {
                 if let exerciseID = resolveExerciseID(completionAction.reference.exerciseID, routineExerciseID: completionAction.reference.routineExerciseID),
                    let exercise = draft.exercises.first(where: { $0.id == exerciseID }),
+                   let setID = UUID(uuidString: completionAction.reference.setID),
+                   exercise.sets.first(where: { $0.id == setID })?.isCompleted == true,
                    let restSeconds = exercise.restSeconds, restSeconds > 0 {
-                    startTimer(seconds: restSeconds)
+                    startTimer(seconds: restSeconds, acknowledging: action.id)
+                } else {
+                    persistDraft(acknowledging: action.id)
                 }
             } else {
-                stopTimer()
+                stopTimer(acknowledging: action.id)
             }
 
         case .cancelRestTimer:
-            draft.apply(watchAction: action) 
-            stopTimer()
+            draft.apply(watchAction: action)
+            stopTimer(acknowledging: action.id)
 
         case .finishWorkout:
             do {
-                try await finalizer.finalize(draft: draft)
-                
                 draft.markProcessed(action: action)
-                connectivityProvider?.clearWorkoutSnapshot(sessionID: draft.watchSessionPointer.id, reason: .finalized)
-                
-                let result = WorkoutFinalizedResult(sessionID: draft.watchSessionPointer.id, success: true)
-                connectivityProvider?.sendWorkoutFinalizedResult(result, completion: nil)
-                // End Live Activity on watch-initiated finish
-                let finalSnapshot = draft.watchSnapshot()
-                WorkoutLiveActivityManager.shared.endActivity(finalSnapshot: finalSnapshot)
+                try await runtime.finish(draft)
                 onFinish?()
             } catch {
-                let result = WorkoutFinalizedResult(sessionID: draft.watchSessionPointer.id, success: false, errorMessage: error.localizedDescription)
-                connectivityProvider?.sendWorkoutFinalizedResult(result, completion: nil)
+                errorMessage = error.localizedDescription
             }
 
         default:
             draft.apply(watchAction: action)
-            persistDraft()
+            persistDraft(acknowledging: action.id)
         }
     }
 
@@ -172,20 +147,10 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         errorMessage = nil
         
         do {
-            try await finalizer.finalize(draft: draft)
-            connectivityProvider?.clearWorkoutSnapshot(sessionID: draft.watchSessionPointer.id, reason: .finalized)
-            // Send finalization success to watch
-            let result = WorkoutFinalizedResult(sessionID: draft.watchSessionPointer.id, success: true)
-            connectivityProvider?.sendWorkoutFinalizedResult(result, completion: nil)
-            // End Live Activity
-            let finalSnapshot = draft.watchSnapshot()
-            WorkoutLiveActivityManager.shared.endActivity(finalSnapshot: finalSnapshot)
+            try await runtime.finish(draft)
             onFinish?()
         } catch {
             errorMessage = error.localizedDescription
-            // Send finalization failure to watch
-            let result = WorkoutFinalizedResult(sessionID: draft.watchSessionPointer.id, success: false, errorMessage: error.localizedDescription)
-            connectivityProvider?.sendWorkoutFinalizedResult(result, completion: nil)
         }
         
         isLoading = false
@@ -193,21 +158,17 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
     
     func addSet(to exerciseID: Int64, id: UUID? = nil) {
         guard let index = draft.exercises.firstIndex(where: { $0.id == exerciseID }) else { return }
-        let nextSetNumber = (draft.exercises[index].sets.map(\.setNumber).max() ?? 0) + 1
-        let lastReps = draft.exercises[index].sets.last?.repsText ?? ""
-        let lastWeight = draft.exercises[index].sets.last?.weightText ?? ""
-        let lastDuration = draft.exercises[index].sets.last?.durationText ?? ""
-        let lastDistance = draft.exercises[index].sets.last?.distanceText ?? ""
-        let lastCalories = draft.exercises[index].sets.last?.caloriesText ?? ""
+        let workingSets = draft.exercises[index].sets.filter { $0.setType == .working }
+        let nextSetNumber = (workingSets.map(\.setNumber).max() ?? 0) + 1
+        let lastSet = workingSets.last
         
         let newSet = WorkoutSetDraft(
             id: id ?? UUID(),
             setNumber: nextSetNumber,
-            weightText: lastWeight,
-            repsText: lastReps,
-            durationText: lastDuration,
-            distanceText: lastDistance,
-            caloriesText: lastCalories
+            setType: .working,
+            previousValues: lastSet?.previousValues,
+            suggestedValues: lastSet?.suggestedValues,
+            suggestionReason: lastSet?.suggestionReason
         )
         draft.exercises[index].sets.append(newSet)
         persistDraft()
@@ -215,6 +176,18 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
 
     func completeExercise(exerciseID: Int64, isCompleted: Bool) {
         guard let index = draft.exercises.firstIndex(where: { $0.id == exerciseID }) else { return }
+        if isCompleted {
+            let exercise = draft.exercises[index]
+            let allEntered = exercise.sets.allSatisfy { set in
+                exercise.exercise.isRepBased
+                    ? set.hasRequiredStrengthValues
+                    : set.hasRequiredCardioValues
+            }
+            guard allEntered else {
+                errorMessage = "Enter values or use suggestions for every set first."
+                return
+            }
+        }
         for i in 0..<draft.exercises[index].sets.count {
             draft.exercises[index].sets[i].isCompleted = isCompleted
         }
@@ -260,6 +233,17 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         guard let exerciseIndex = draft.exercises.firstIndex(where: { $0.id == exerciseID }),
               let setIndex = draft.exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setID }) else { return }
         
+        let set = draft.exercises[exerciseIndex].sets[setIndex]
+        if !set.isCompleted {
+            let canComplete = draft.exercises[exerciseIndex].exercise.isRepBased
+                ? set.hasRequiredStrengthValues
+                : set.hasRequiredCardioValues
+            guard canComplete else {
+                errorMessage = "Enter values or use the suggestion before completing this set."
+                return
+            }
+        }
+
         draft.exercises[exerciseIndex].sets[setIndex].isCompleted.toggle()
         persistDraft()
         
@@ -298,11 +282,12 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         }
     }
 
-    func addExercises(from selections: [ExerciseLibraryItem]) {
+    func addExercises(from selections: [ExerciseLibraryItem]) async {
         let existingIDs = currentExerciseIDs
         let newItems = selections.filter { !existingIDs.contains($0.id) }
         guard !newItems.isEmpty else { return }
 
+        var addedStates: [WorkoutExerciseCardState] = []
         for item in newItems {
             // Use a negative ID to avoid collisions with real routine_exercise IDs.
             // Each new ad-hoc exercise gets a unique negative ID based on exercise ID.
@@ -314,12 +299,45 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
                 exercise: item,
                 sets: [defaultSet]
             )
-            draft.exercises.append(cardState)
+            addedStates.append(cardState)
+        }
+
+        let loader = WorkoutSessionLoader(db: db)
+        let statesWithHistory = await loader.loadHistory(for: addedStates, routineID: nil)
+        draft.exercises.append(contentsOf: statesWithHistory)
+        persistDraft()
+    }
+
+    func useSuggestion(exerciseID: Int64, setID: UUID) {
+        guard let exerciseIndex = draft.exercises.firstIndex(where: { $0.id == exerciseID }),
+              let setIndex = draft.exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setID }),
+              let values = draft.exercises[exerciseIndex].sets[setIndex].suggestedValues else { return }
+
+        apply(values: values, to: &draft.exercises[exerciseIndex].sets[setIndex])
+        persistDraft()
+    }
+
+    func applyAllSuggestions(exerciseID: Int64) {
+        guard let exerciseIndex = draft.exercises.firstIndex(where: { $0.id == exerciseID }) else { return }
+        for setIndex in draft.exercises[exerciseIndex].sets.indices {
+            guard !draft.exercises[exerciseIndex].sets[setIndex].isCompleted,
+                  let values = draft.exercises[exerciseIndex].sets[setIndex].suggestedValues else { continue }
+            apply(values: values, to: &draft.exercises[exerciseIndex].sets[setIndex])
         }
         persistDraft()
     }
 
-    private func startTimer(seconds: Int) {
+    private func apply(values: WorkoutDraftValues, to set: inout WorkoutSetDraft) {
+        if let reps = values.reps {
+            set.repsText = String(reps)
+            set.weightText = values.weight.map(NumericFormatter.format) ?? ""
+        }
+        if let duration = values.durationMinutes { set.durationText = NumericFormatter.format(duration) }
+        if let distance = values.distanceKilometers { set.distanceText = NumericFormatter.format(distance) }
+        if let calories = values.calories { set.caloriesText = NumericFormatter.format(calories) }
+    }
+
+    private func startTimer(seconds: Int, acknowledging actionID: UUID? = nil) {
         timerCancellable?.cancel()
         restTimerSeconds = seconds
         isTimerRunning = true
@@ -328,11 +346,7 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         // Sync to draft for persistence
         draft.restEndDate = restEndsAt
         draft.restTotalSeconds = seconds
-        persistDraft()
-
-        // Push rest state to Live Activity and Watch immediately
-        updateLiveActivity()
-        sendSnapshotToWatch()
+        persistDraft(acknowledging: actionID)
         
         timerCancellable = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
@@ -350,7 +364,7 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
             }
     }
 
-    func stopTimer() {
+    func stopTimer(acknowledging actionID: UUID? = nil) {
         timerCancellable?.cancel()
         isTimerRunning = false
         restTimerSeconds = 0
@@ -359,10 +373,6 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         // Sync to draft for persistence
         draft.restEndDate = nil
         draft.restTotalSeconds = nil
-        persistDraft()
-        
-        // Push updated state (rest ended) to Live Activity and Watch
-        updateLiveActivity()
-        sendSnapshotToWatch()
+        persistDraft(acknowledging: actionID)
     }
 }

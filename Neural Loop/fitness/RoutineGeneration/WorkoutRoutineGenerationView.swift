@@ -9,7 +9,7 @@ struct WorkoutRoutineGenerationView: View {
 
     init(
         model: UnifiedDataModel,
-        dataManager: any WorkoutTemplateReadingDataManaging,
+        dataManager: any WorkoutCatalogReading,
         onGenerated: @escaping (WorkoutRoutineGenerationPayload) -> Void
     ) {
         _coordinator = StateObject(

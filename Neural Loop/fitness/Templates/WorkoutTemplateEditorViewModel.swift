@@ -18,13 +18,13 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
 
     let mode: WorkoutTemplateEditorMode
 
-    private let dataManager: any WorkoutTemplateEditingDataManaging
+    private let dataManager: any WorkoutCatalogReading & WorkoutRoutineReading & WorkoutRoutineWriting
     private let generatedRoutine: WorkoutRoutineGenerationPayload?
     private var hasLoaded = false
 
     init(
         mode: WorkoutTemplateEditorMode,
-        dataManager: any WorkoutTemplateEditingDataManaging,
+        dataManager: any WorkoutCatalogReading & WorkoutRoutineReading & WorkoutRoutineWriting,
         generatedRoutine: WorkoutRoutineGenerationPayload? = nil
     ) {
         self.mode = mode
@@ -43,7 +43,9 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
 
     var subtitleText: String {
         let setCount = exerciseDrafts.reduce(0) { partialResult, draft in
-            partialResult + max(parsedSetCount(from: draft.targetSetsText) ?? 1, 1)
+            partialResult
+                + max(parsedSetCount(from: draft.workingSetsText) ?? 1, 1)
+                + max(parsedInteger(from: draft.warmupSetsText) ?? 0, 0)
         }
         return "\(exerciseDrafts.count) exercises, \(setCount) sets"
     }
@@ -104,13 +106,31 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
 
     func updateTargetSets(id: UUID, value: String) {
         updateDraft(id: id) { draft in
-            draft.targetSetsText = value
+            draft.workingSetsText = value
         }
     }
 
-    func updateTargetReps(id: UUID, value: String) {
+    func updateWarmupSets(id: UUID, value: String) {
         updateDraft(id: id) { draft in
-            draft.targetRepsText = value
+            draft.warmupSetsText = value
+        }
+    }
+
+    func updateTargetRepsMin(id: UUID, value: String) {
+        updateDraft(id: id) { draft in
+            draft.targetRepsMinText = value
+        }
+    }
+
+    func updateTargetRepsMax(id: UUID, value: String) {
+        updateDraft(id: id) { draft in
+            draft.targetRepsMaxText = value
+        }
+    }
+
+    func updateLoadIncrement(id: UUID, value: String) {
+        updateDraft(id: id) { draft in
+            draft.loadIncrementKgText = value
         }
     }
 
@@ -348,13 +368,22 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
         }
 
         for draft in exerciseDrafts {
-            guard let setCount = parsedSetCount(from: draft.targetSetsText), setCount > 0 else {
+            guard let setCount = parsedSetCount(from: draft.workingSetsText), setCount > 0 else {
                 return .invalidSetCount(exerciseName: draft.exercise.name)
             }
 
+            guard let warmupCount = parsedInteger(from: draft.warmupSetsText), warmupCount >= 0 else {
+                return .invalidWarmupCount(exerciseName: draft.exercise.name)
+            }
+
             if draft.exercise.isRepBased {
-                guard let reps = parsedInteger(from: draft.targetRepsText), reps > 0 else {
+                guard let minimum = parsedInteger(from: draft.targetRepsMinText), minimum > 0,
+                      let maximum = parsedInteger(from: draft.targetRepsMaxText), maximum >= minimum else {
                     return .invalidReps(exerciseName: draft.exercise.name)
+                }
+
+                guard let increment = parsedDecimal(from: draft.loadIncrementKgText), increment > 0 else {
+                    return .invalidLoadIncrement(exerciseName: draft.exercise.name)
                 }
             } else if draft.exercise.isDurationBased {
                 guard let duration = parsedDecimal(from: draft.durationText), duration > 0 else {
@@ -407,8 +436,11 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
             routine_id: routineID,
             exercise_id: draft.exercise.id,
             order_index: orderIndex,
-            target_sets: parsedSetCount(from: draft.targetSetsText),
-            target_reps: draft.exercise.isRepBased ? parsedInteger(from: draft.targetRepsText) : nil,
+            target_sets: parsedSetCount(from: draft.workingSetsText),
+            target_reps_min: draft.exercise.isRepBased ? parsedInteger(from: draft.targetRepsMinText) : nil,
+            target_reps_max: draft.exercise.isRepBased ? parsedInteger(from: draft.targetRepsMaxText) : nil,
+            warmup_sets: draft.exercise.isRepBased ? (parsedInteger(from: draft.warmupSetsText) ?? 0) : 0,
+            load_increment_kg: draft.exercise.isRepBased ? (parsedDecimal(from: draft.loadIncrementKgText) ?? 2.5) : 2.5,
             rest_seconds: parsedInteger(from: draft.restSecondsText),
             superset_group_id: draft.supersetGroupID,
             duration: draft.exercise.isDurationBased ? parsedDecimal(from: draft.durationText) : nil
@@ -425,8 +457,11 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
             routine_id: routineID,
             exercise_id: draft.exercise.id,
             order_index: orderIndex,
-            target_sets: parsedSetCount(from: draft.targetSetsText),
-            target_reps: draft.exercise.isRepBased ? parsedInteger(from: draft.targetRepsText) : nil,
+            target_sets: parsedSetCount(from: draft.workingSetsText),
+            target_reps_min: draft.exercise.isRepBased ? parsedInteger(from: draft.targetRepsMinText) : nil,
+            target_reps_max: draft.exercise.isRepBased ? parsedInteger(from: draft.targetRepsMaxText) : nil,
+            warmup_sets: draft.exercise.isRepBased ? (parsedInteger(from: draft.warmupSetsText) ?? 0) : 0,
+            load_increment_kg: draft.exercise.isRepBased ? (parsedDecimal(from: draft.loadIncrementKgText) ?? 2.5) : 2.5,
             rest_seconds: parsedInteger(from: draft.restSecondsText),
             superset_group_id: draft.supersetGroupID,
             duration: draft.exercise.isDurationBased ? parsedDecimal(from: draft.durationText) : nil
@@ -450,8 +485,11 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
                 routineExerciseID: routineExercise.id,
                 exercise: exercise,
                 orderIndex: index + 1,
-                targetSetsText: String(routineExercise.target_sets ?? 1),
-                targetRepsText: routineExercise.target_reps.map(String.init) ?? "",
+                workingSetsText: String(routineExercise.target_sets ?? 1),
+                warmupSetsText: String(routineExercise.warmup_sets),
+                targetRepsMinText: routineExercise.target_reps_min.map(String.init) ?? "",
+                targetRepsMaxText: routineExercise.target_reps_max.map(String.init) ?? "",
+                loadIncrementKgText: NumericFormatter.format(routineExercise.load_increment_kg),
                 durationText: routineExercise.duration.map { NSDecimalNumber(decimal: $0).stringValue } ?? "",
                 restSecondsText: routineExercise.rest_seconds.map(String.init) ?? "",
                 supersetGroupID: routineExercise.superset_group_id
@@ -463,8 +501,11 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
         WorkoutTemplateExerciseDraft(
             exercise: item,
             orderIndex: orderIndex,
-            targetSetsText: "1",
-            targetRepsText: item.isRepBased ? "" : "",
+            workingSetsText: "1",
+            warmupSetsText: "0",
+            targetRepsMinText: "",
+            targetRepsMaxText: "",
+            loadIncrementKgText: "2.5",
             durationText: "",
             restSecondsText: ""
         )
@@ -505,7 +546,10 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
                     exercise_id: row.exercise_id,
                     order_index: -10_000 - index,
                     target_sets: row.target_sets,
-                    target_reps: row.target_reps,
+                    target_reps_min: row.target_reps_min,
+                    target_reps_max: row.target_reps_max,
+                    warmup_sets: row.warmup_sets,
+                    load_increment_kg: row.load_increment_kg,
                     rest_seconds: row.rest_seconds,
                     superset_group_id: row.superset_group_id,
                     duration: row.duration
@@ -520,7 +564,10 @@ final class WorkoutTemplateEditorViewModel: ObservableObject {
                     exercise_id: row.exercise_id,
                     order_index: row.order_index,
                     target_sets: row.target_sets,
-                    target_reps: row.target_reps,
+                    target_reps_min: row.target_reps_min,
+                    target_reps_max: row.target_reps_max,
+                    warmup_sets: row.warmup_sets,
+                    load_increment_kg: row.load_increment_kg,
                     rest_seconds: row.rest_seconds,
                     superset_group_id: row.superset_group_id,
                     duration: row.duration
@@ -555,7 +602,9 @@ private enum WorkoutTemplateEditorValidationError: LocalizedError {
     case missingName
     case missingExercises
     case invalidSetCount(exerciseName: String)
+    case invalidWarmupCount(exerciseName: String)
     case invalidReps(exerciseName: String)
+    case invalidLoadIncrement(exerciseName: String)
     case invalidDuration(exerciseName: String)
     case invalidRestSeconds(exerciseName: String)
 
@@ -567,8 +616,12 @@ private enum WorkoutTemplateEditorValidationError: LocalizedError {
             return "Add at least one exercise."
         case .invalidSetCount(let exerciseName):
             return "Enter a valid set count for \(exerciseName)."
+        case .invalidWarmupCount(let exerciseName):
+            return "Enter a valid warm-up set count for \(exerciseName)."
         case .invalidReps(let exerciseName):
-            return "Enter valid reps for \(exerciseName)."
+            return "Enter a valid minimum and maximum rep range for \(exerciseName)."
+        case .invalidLoadIncrement(let exerciseName):
+            return "Enter a positive load increment for \(exerciseName)."
         case .invalidDuration(let exerciseName):
             return "Enter a valid duration for \(exerciseName)."
         case .invalidRestSeconds(let exerciseName):

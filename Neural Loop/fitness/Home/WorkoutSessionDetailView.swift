@@ -250,7 +250,7 @@ struct WorkoutSessionDetailView: View {
             if exercise.exerciseType.isRepBased {
                 ForEach(exercise.sets) { set in
                     HStack {
-                        Text("Set \(set.set_number)")
+                        Text(set.set_type == .warmup ? "Warm-up \(set.set_number)" : "Set \(set.set_number)")
                             .font(.subheadline)
                             .foregroundColor(AppTheme.textSecondary)
                         Spacer()
@@ -324,7 +324,7 @@ struct WorkoutSessionDetailView: View {
                             .foregroundColor(AppTheme.errorTint)
                     }
 
-                    Text("\(set.setNumber)")
+                    Text(set.setType == .warmup ? "W\(set.setNumber)" : "\(set.setNumber)")
                         .font(.subheadline.bold())
                         .frame(width: 24)
 

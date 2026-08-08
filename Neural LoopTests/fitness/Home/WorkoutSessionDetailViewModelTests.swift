@@ -316,7 +316,7 @@ final class WorkoutSessionDetailViewModelTests: XCTestCase {
     }
 }
 
-private final class FakeWorkoutSessionDetailDataManager: WorkoutDataManaging {
+private final class FakeWorkoutSessionDetailDataManager: WorkoutSessionDetailManaging {
     var detail: WorkoutSessionDetail
     
     var updateWorkoutSessionCalled = false

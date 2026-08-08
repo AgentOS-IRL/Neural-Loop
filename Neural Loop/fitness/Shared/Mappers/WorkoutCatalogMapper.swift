@@ -75,8 +75,11 @@ enum WorkoutCatalogMapper {
             return WorkoutTemplateExerciseDraft(
                 exercise: exercise,
                 orderIndex: offset + 1,
-                targetSetsText: "1",
-                targetRepsText: exercise.isRepBased ? "" : "",
+                workingSetsText: "1",
+                warmupSetsText: "0",
+                targetRepsMinText: "",
+                targetRepsMaxText: "",
+                loadIncrementKgText: "2.5",
                 durationText: "",
                 restSecondsText: ""
             )

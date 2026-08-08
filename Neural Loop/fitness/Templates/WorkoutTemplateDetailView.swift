@@ -10,7 +10,7 @@ struct WorkoutTemplateDetailView: View {
 
     init(
         template: WorkoutTemplateSummary,
-        dataManager: (any WorkoutDataManaging & WorkoutTemplateEditingDataManaging)? = nil,
+        dataManager: (any WorkoutCatalogReading & WorkoutRoutineReading & WorkoutRoutineWriting & WorkoutLaunchHistoryReading & WorkoutFinalizationPersisting & ExerciseProgressionReading)? = nil,
         onSaved: @escaping () -> Void = {}
     ) {
         self._viewModel = StateObject(
@@ -46,19 +46,17 @@ struct WorkoutTemplateDetailView: View {
                 bottomActionBar
             }
             .fullScreenCover(item: $viewModel.activeDraft) { draft in
-                if let db = viewModel.dataManager as? WorkoutDataManaging {
-                    ActiveWorkoutView(viewModel: ActiveWorkoutViewModel(
-                        draft: draft,
-                        db: db,
-                        persistenceManager: viewModel.persistenceManager,
-                        onDraftChange: { updatedDraft in
-                            viewModel.activeDraft = updatedDraft
-                        },
-                        onFinish: {
-                            viewModel.clearActiveDraft()
-                        }
-                    ))
-                }
+                ActiveWorkoutView(viewModel: ActiveWorkoutViewModel(
+                    draft: draft,
+                    db: viewModel.dataManager,
+                    runtime: viewModel.runtime,
+                    onDraftChange: { updatedDraft in
+                        viewModel.activeDraft = updatedDraft
+                    },
+                    onFinish: {
+                        viewModel.clearActiveDraft()
+                    }
+                ))
             }
             .sheet(item: $previewGallery) { gallery in
 

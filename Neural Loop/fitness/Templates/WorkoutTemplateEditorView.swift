@@ -10,7 +10,7 @@ struct WorkoutTemplateEditorView: View {
 
     init(
         mode: WorkoutTemplateEditorMode,
-        dataManager: (any WorkoutTemplateEditingDataManaging)? = nil,
+        dataManager: (any WorkoutCatalogReading & WorkoutRoutineReading & WorkoutRoutineWriting)? = nil,
         generatedRoutine: WorkoutRoutineGenerationPayload? = nil,
         onSaved: @escaping () -> Void = {}
     ) {
@@ -177,11 +177,20 @@ struct WorkoutTemplateEditorView: View {
                         onRemove: {
                             viewModel.removeExercise(id: draft.id)
                         },
-                        onTargetSetsChange: { value in
+                        onWorkingSetsChange: { value in
                             viewModel.updateTargetSets(id: draft.id, value: value)
                         },
-                        onTargetRepsChange: { value in
-                            viewModel.updateTargetReps(id: draft.id, value: value)
+                        onWarmupSetsChange: { value in
+                            viewModel.updateWarmupSets(id: draft.id, value: value)
+                        },
+                        onTargetRepsMinChange: { value in
+                            viewModel.updateTargetRepsMin(id: draft.id, value: value)
+                        },
+                        onTargetRepsMaxChange: { value in
+                            viewModel.updateTargetRepsMax(id: draft.id, value: value)
+                        },
+                        onLoadIncrementChange: { value in
+                            viewModel.updateLoadIncrement(id: draft.id, value: value)
                         },
                         onDurationChange: { value in
                             viewModel.updateDuration(id: draft.id, value: value)

@@ -44,6 +44,7 @@ private extension WorkoutExerciseCardState {
             sourceExerciseID: exercise.id,
             routineExerciseID: id,  // WorkoutExerciseCardState.id — the routine exercise ID
             name: exercise.name,
+            isDurationBased: exercise.isDurationBased,
             orderIndex: orderIndex,
             restDurationSeconds: watchRestDurationSeconds,
             isCompleted: watchIsCompleted,
@@ -79,9 +80,28 @@ private extension WorkoutSetDraft {
             setNumber: setNumber,
             values: WorkoutSetValuesSnapshot(
                 kg: NumericFormatter.parse(weightText),
-                reps: repsText.watchRepsValue
+                reps: repsText.watchRepsValue,
+                durationMinutes: NumericFormatter.parse(durationText),
+                distanceKilometers: NumericFormatter.parse(distanceText),
+                calories: NumericFormatter.parse(caloriesText)
             ),
-            isCompleted: isCompleted
+            isCompleted: isCompleted,
+            setType: setType,
+            previousValues: previousValues?.watchSnapshot,
+            suggestedValues: suggestedValues?.watchSnapshot,
+            suggestionReason: suggestionReason
+        )
+    }
+}
+
+private extension WorkoutDraftValues {
+    var watchSnapshot: WorkoutSetValuesSnapshot {
+        WorkoutSetValuesSnapshot(
+            kg: weight,
+            reps: reps,
+            durationMinutes: durationMinutes,
+            distanceKilometers: distanceKilometers,
+            calories: calories
         )
     }
 }
@@ -94,4 +114,3 @@ private extension String {
         return Int(trimmed)
     }
 }
-

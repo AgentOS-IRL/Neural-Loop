@@ -77,7 +77,7 @@ class ExerciseProgressionViewModelTests: XCTestCase {
     }
 }
 
-class MockWorkoutDataManager: WorkoutDataManaging {
+class MockWorkoutDataManager: ExerciseProgressionReading {
     var progressionResults: [ExerciseProgressionResult] = []
     
     func fetchExerciseProgression(exerciseId: Int64) async throws -> [ExerciseProgressionResult] {

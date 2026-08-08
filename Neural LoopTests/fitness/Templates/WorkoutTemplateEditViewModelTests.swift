@@ -47,7 +47,7 @@ final class WorkoutTemplateEditViewModelTests: XCTestCase {
     }
 }
 
-private final class FakeWorkoutTemplateEditDataManager: FitnessTemplateDataManaging {
+private final class FakeWorkoutTemplateEditDataManager: WorkoutRoutineReading, WorkoutRoutineWriting {
     var routineByID: [Int64: Routine]
     var updatedRoutine: Routine?
     var createWorkoutSessionCallCount = 0

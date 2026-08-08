@@ -1,7 +1,6 @@
 import Foundation
 import Combine
 import SwiftUI
-import WidgetKit
 
 /// Coordination payload set by WatchSetEntryView after a set is completed,
 /// observed by WatchExerciseDetailView to present the rest timer.
@@ -52,18 +51,29 @@ final class WatchWorkoutStore: ObservableObject {
     // MARK: - Queue Visibility (Plan 529)
     @Published var pendingActionCount: Int = 0
     
-    private var actionQueue: [WorkoutWatchAction] = []
-    private(set) var isFlushing = false
+    var isFlushing: Bool { actionQueue.isFlushing }
     private var cancellables = Set<AnyCancellable>()
-    private let storageKey = "com.neuralloop.watch.activeWorkoutSnapshot"
-    private let queueKey = "com.neuralloop.watch.actionQueue"
+    private let persistence: WatchWorkoutPersistence
+    private let actionQueue: WatchWorkoutActionQueue
+    private let displayStateWriter: WatchWorkoutDisplayStateWriter
     let connectivityManager: ConnectivityManager
     
-    init(connectivityManager: ConnectivityManager = .shared) {
+    init(
+        connectivityManager: ConnectivityManager = .shared,
+        persistence: WatchWorkoutPersistence = WatchWorkoutPersistence(),
+        displayStateWriter: WatchWorkoutDisplayStateWriter = WatchWorkoutDisplayStateWriter()
+    ) {
         self.connectivityManager = connectivityManager
-        loadFromPersistence()
-        loadQueue()
-        pendingActionCount = actionQueue.count
+        self.persistence = persistence
+        self.actionQueue = WatchWorkoutActionQueue(persistence: persistence)
+        self.displayStateWriter = displayStateWriter
+        self.currentSnapshot = persistence.loadSnapshot()
+        self.pendingActionCount = actionQueue.actions.count
+        self.actionQueue.onChange = { [weak self] in
+            guard let self else { return }
+            self.pendingActionCount = self.actionQueue.actions.count
+            self.objectWillChange.send()
+        }
         connectivityManager.checkApplicationContext()
         
         connectivityManager.$lastSnapshot
@@ -118,11 +128,25 @@ final class WatchWorkoutStore: ObservableObject {
     
     // MARK: - Actions
     
-    func updateSetValues(exerciseID: String, setID: String, kg: Decimal?, reps: Int?) {
+    func updateSetValues(
+        exerciseID: String,
+        setID: String,
+        kg: Decimal? = nil,
+        reps: Int? = nil,
+        durationMinutes: Decimal? = nil,
+        distanceKilometers: Decimal? = nil,
+        calories: Decimal? = nil
+    ) {
         guard let session = currentSnapshot?.session else { return }
         let routineID = currentSnapshot?.exercises.first(where: { $0.id == exerciseID })?.routineExerciseID
         let reference = WorkoutWatchSetReference(session: session, exerciseID: exerciseID, routineExerciseID: routineID, setID: setID)
-        let values = WorkoutSetValuesSnapshot(kg: kg, reps: reps)
+        let values = WorkoutSetValuesSnapshot(
+            kg: kg,
+            reps: reps,
+            durationMinutes: durationMinutes,
+            distanceKilometers: distanceKilometers,
+            calories: calories
+        )
         let payload = WorkoutWatchActionPayload.updateSetValues(WorkoutWatchSetValuesAction(reference: reference, values: values))
         enqueueAction(payload: payload)
     }
@@ -185,197 +209,53 @@ final class WatchWorkoutStore: ObservableObject {
         enqueueAction(payload: payload)
     }
 
-    private var lastGeneratedSequence: Int {
-        return actionQueue.map(\.sequence).max() ?? (currentSnapshot?.lastProcessedWatchSequence ?? 0)
-    }
-
     private func enqueueAction(payload: WorkoutWatchActionPayload) {
-        let sequence = lastGeneratedSequence + 1
-        let action = WorkoutWatchAction(id: UUID(), timestamp: Date(), sequence: sequence, payload: payload)
+        let action = actionQueue.enqueue(
+            payload: payload,
+            currentSequence: currentSnapshot?.lastProcessedWatchSequence ?? 0
+        )
         applyOptimisticAction(action)
-        actionQueue.append(action)
-        pendingActionCount = actionQueue.count
-        saveQueue()
         flushQueue()
     }
 
     private func applyOptimisticAction(_ action: WorkoutWatchAction) {
-        guard var snapshot = currentSnapshot else { return }
-        reconcileApply(action, to: &snapshot)
-        self.currentSnapshot = snapshot
-        saveToPersistence()
-        persistDisplayStateAndReloadWidgets()
+        guard let snapshot = currentSnapshot else { return }
+        currentSnapshot = WatchWorkoutSnapshotReducer.applying(action, to: snapshot)
+        persistCurrentSnapshot()
     }
 
     private func reconcile(with authoritativeSnapshot: ActiveWorkoutSnapshot) {
-        // Session replacement check
-        if let current = currentSnapshot,
-           current.session.id != authoritativeSnapshot.session.id {
-            actionQueue.removeAll()
-            saveQueue()
-            pendingActionCount = 0
-            self.currentSnapshot = authoritativeSnapshot
-            saveToPersistence()
-            persistDisplayStateAndReloadWidgets(
-                restEndDate: authoritativeSnapshot.restEndDate,
-                restTotalSeconds: authoritativeSnapshot.restTotalSeconds
-            )
+        switch WatchWorkoutSnapshotReducer.reconcile(
+            current: currentSnapshot,
+            authoritative: authoritativeSnapshot,
+            pendingActions: actionQueue.actions
+        ) {
+        case .ignored:
             return
-        }
-        
-        // Revision check
-        if let current = currentSnapshot, authoritativeSnapshot.revision < current.revision {
-            return
-        }
-        
-        // Remove acknowledged actions from queue using sequence number
-        actionQueue.removeAll { $0.sequence <= authoritativeSnapshot.lastProcessedWatchSequence }
-        
-        pendingActionCount = actionQueue.count
-        
-        var reconciledSnapshot = authoritativeSnapshot
-        
-        // Re-apply remaining actions in FIFO order
-        for action in actionQueue {
-            reconcileApply(action, to: &reconciledSnapshot)
-        }
-        
-        self.currentSnapshot = reconciledSnapshot
-        saveToPersistence()
-        persistDisplayStateAndReloadWidgets(
-            restEndDate: reconciledSnapshot.restEndDate,
-            restTotalSeconds: reconciledSnapshot.restTotalSeconds
-        )
-    }
-
-    private func reconcileApply(_ action: WorkoutWatchAction, to snapshot: inout ActiveWorkoutSnapshot) {
-        switch action.payload {
-        case .updateSetValues(let action):
-            if let exerciseIndex = snapshot.exercises.firstIndex(where: { $0.id == action.reference.exerciseID }),
-               let setIndex = snapshot.exercises[exerciseIndex].sets.firstIndex(where: { $0.id == action.reference.setID }) {
-                if let kg = action.values.kg {
-                    snapshot.exercises[exerciseIndex].sets[setIndex].values.kg = kg
-                }
-                if let reps = action.values.reps {
-                    snapshot.exercises[exerciseIndex].sets[setIndex].values.reps = reps
-                }
-            }
-        case .toggleSetCompletion(let action):
-            if let exerciseIndex = snapshot.exercises.firstIndex(where: { $0.id == action.reference.exerciseID }),
-               let setIndex = snapshot.exercises[exerciseIndex].sets.firstIndex(where: { $0.id == action.reference.setID }) {
-                snapshot.exercises[exerciseIndex].sets[setIndex].isCompleted = action.isCompleted
-            }
-        case .addSet(let reference):
-            if let exerciseIndex = snapshot.exercises.firstIndex(where: { $0.id == reference.exerciseID }) {
-                let newSet = SetSnapshot(
-                    id: action.id.uuidString, // Use action ID as temp set ID
-                    setNumber: snapshot.exercises[exerciseIndex].sets.count + 1,
-                    values: WorkoutSetValuesSnapshot(),
-                    isCompleted: false
-                )
-                snapshot.exercises[exerciseIndex].sets.append(newSet)
-            }
-        case .updateExerciseCompletion(let action):
-            if let exerciseIndex = snapshot.exercises.firstIndex(where: { $0.id == action.reference.exerciseID }) {
-                snapshot.exercises[exerciseIndex].isCompleted = action.isCompleted
-                for i in 0..<snapshot.exercises[exerciseIndex].sets.count {
-                    snapshot.exercises[exerciseIndex].sets[i].isCompleted = action.isCompleted
-                }
-            }
-        case .cancelRestTimer:
-            snapshot.restEndDate = nil
-            snapshot.restTotalSeconds = nil
-        default:
-            break
+        case .accepted(let snapshot, let pendingActions):
+            actionQueue.replace(with: pendingActions)
+            currentSnapshot = snapshot
+            persistCurrentSnapshot()
         }
     }
 
     func flushQueue() {
-        guard !isFlushing, !actionQueue.isEmpty, connectivityManager.isReachable else { return }
-        isFlushing = true
-        
-        sendNextPending(after: nil)
+        actionQueue.flush(using: connectivityManager)
     }
 
-    private func sendNextPending(after lastID: UUID?) {
-        let remaining = actionQueue
-        let startIndex: Int
-        if let lastID = lastID, let index = remaining.firstIndex(where: { $0.id == lastID }) {
-            startIndex = index + 1
-        } else {
-            startIndex = 0
-        }
-        
-        guard startIndex < remaining.count, connectivityManager.isReachable else {
-            isFlushing = false
-            return
-        }
-        
-        let action = remaining[startIndex]
-        connectivityManager.sendWorkoutAction(action) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                if case .success = result {
-                    self.sendNextPending(after: action.id)
-                } else {
-                    self.isFlushing = false
-                }
-            }
-        }
-    }
-    
-    // MARK: - Persistence
-    
-    private func saveQueue() {
-        do {
-            let data = try JSONEncoder().encode(actionQueue)
-            UserDefaults.standard.set(data, forKey: queueKey)
-        } catch {
-            print("Failed to save action queue: \(error)")
-        }
-    }
-
-    private func loadQueue() {
-        guard let data = UserDefaults.standard.data(forKey: queueKey) else { return }
-        do {
-            self.actionQueue = try JSONDecoder().decode([WorkoutWatchAction].self, from: data)
-        } catch {
-            print("Failed to load action queue: \(error)")
-        }
-    }
-    
-    private func saveToPersistence() {
-        guard let currentSnapshot = currentSnapshot else {
-            UserDefaults.standard.removeObject(forKey: storageKey)
-            return
-        }
-        do {
-            let data = try JSONEncoder().encode(currentSnapshot)
-            UserDefaults.standard.set(data, forKey: storageKey)
-        } catch {
-            print("Failed to save snapshot to persistence: \(error)")
-        }
-    }
-    
-    private func loadFromPersistence() {
-        guard let data = UserDefaults.standard.data(forKey: storageKey) else { return }
-        do {
-            let snapshot = try JSONDecoder().decode(ActiveWorkoutSnapshot.self, from: data)
-            self.currentSnapshot = snapshot
-        } catch {
-            print("Failed to load snapshot from persistence: \(error)")
-        }
+    private func persistCurrentSnapshot() {
+        persistence.saveSnapshot(currentSnapshot)
+        displayStateWriter.write(snapshot: currentSnapshot)
     }
     
     func clearStore() {
         self.currentSnapshot = nil
-        self.actionQueue.removeAll()
+        self.actionQueue.clear()
         self.pendingActionCount = 0
         self.isFinishing = false
         self.finishError = nil
-        UserDefaults.standard.removeObject(forKey: storageKey)
-        UserDefaults.standard.removeObject(forKey: queueKey)
-        clearDisplayStateAndReloadWidgets()
+        persistence.clear()
+        displayStateWriter.clear()
     }
     
     // MARK: - Stale Draft Detection (Plan 529)
@@ -397,40 +277,4 @@ final class WatchWorkoutStore: ObservableObject {
         clearStore()
     }
 
-    // MARK: - Complication Display State Persistence (Tasks 8 + 9)
-
-    private static let complicationWidgetKind = "WorkoutComplicationWidget"
-
-    /// Shared App Group suite defaults so the watch widget extension can read the same data.
-    private static let suiteDefaults = UserDefaults(suiteName: WorkoutDisplayState.appGroupSuite)
-
-    /// Persists the current snapshot as a `WorkoutDisplayState` for the complication widget
-    /// and triggers a timeline reload.
-    /// - Parameters:
-    ///   - restEndDate: The rest timer end date (if resting).
-    ///   - restTotalSeconds: Total rest duration in seconds (if resting).
-    func persistDisplayStateAndReloadWidgets(restEndDate: Date? = nil, restTotalSeconds: Int? = nil) {
-        guard let snapshot = currentSnapshot else {
-            clearDisplayStateAndReloadWidgets()
-            return
-        }
-        let displayState = snapshot.displayState(restEndDate: restEndDate, restTotalSeconds: restTotalSeconds)
-        guard let defaults = Self.suiteDefaults else {
-            print("WatchWorkoutStore: App Group suite defaults unavailable")
-            return
-        }
-        do {
-            let data = try JSONEncoder().encode(displayState)
-            defaults.set(data, forKey: WorkoutDisplayState.userDefaultsKey)
-        } catch {
-            print("WatchWorkoutStore: Failed to persist display state: \(error)")
-        }
-        WidgetCenter.shared.reloadTimelines(ofKind: Self.complicationWidgetKind)
-    }
-
-    /// Clears persisted display state and reloads widget timelines.
-    private func clearDisplayStateAndReloadWidgets() {
-        Self.suiteDefaults?.removeObject(forKey: WorkoutDisplayState.userDefaultsKey)
-        WidgetCenter.shared.reloadTimelines(ofKind: Self.complicationWidgetKind)
-    }
 }

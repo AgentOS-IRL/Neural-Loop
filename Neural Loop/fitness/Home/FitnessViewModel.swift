@@ -1,5 +1,4 @@
 import Combine
-import ActivityKit
 import Foundation
 
 struct FitnessMuscleVolume: Identifiable, Equatable {
@@ -55,16 +54,16 @@ final class FitnessViewModel: ObservableObject {
     @Published var activeViewModel: ActiveWorkoutViewModel?
     @Published var errorMessage: String?
 
-    private let dataManager: FitnessTemplateDataManaging & WorkoutDataManaging
+    private let dataManager: any FitnessHomeReading
     let launchCoordinator: WorkoutSessionLaunching
-    let persistenceManager: WorkoutDraftPersistenceManager
-    private let connectivityProvider: WorkoutConnectivityProviding
-    private let finalizer: WorkoutSessionFinalizing
+    private let runtime: any WorkoutSessionRuntimeCoordinating
+    private let activeViewModelFactory: (ActiveWorkoutDraft) -> ActiveWorkoutViewModel
+    var persistenceManager: WorkoutDraftPersistenceManager { runtime.persistenceManager }
     private var hasLoaded = false
     private var stateRevision: UInt64 = 0
 
     init(
-        dataManager: (any FitnessTemplateDataManaging & WorkoutDataManaging)? = nil,
+        dataManager: (any FitnessHomeReading & WorkoutRoutineReading & WorkoutCatalogReading & WorkoutLaunchHistoryReading & WorkoutFinalizationPersisting & ExerciseProgressionReading)? = nil,
         launchCoordinator: WorkoutSessionLaunching? = nil,
         persistenceManager: WorkoutDraftPersistenceManager? = nil,
         connectivityManager: (any WorkoutConnectivityProviding)? = nil
@@ -72,11 +71,27 @@ final class FitnessViewModel: ObservableObject {
         let dm = dataManager ?? DBManager.newInstance()
         let pm = persistenceManager ?? WorkoutDraftPersistenceManager()
         let cm = connectivityManager ?? ConnectivityManager.shared
+        let finalizer = WorkoutSessionFinalizer(db: dm, persistenceManager: pm)
+        let runtime = WorkoutSessionRuntimeCoordinator(
+            persistenceManager: pm,
+            connectivityProvider: cm,
+            finalizer: finalizer
+        )
         self.dataManager = dm
-        self.persistenceManager = pm
-        self.connectivityProvider = cm
-        self.launchCoordinator = launchCoordinator ?? WorkoutSessionLaunchCoordinator(db: dm, persistenceManager: pm, connectivityProvider: cm)
-        self.finalizer = WorkoutSessionFinalizer(db: dm, persistenceManager: pm)
+        self.runtime = runtime
+        self.activeViewModelFactory = { draft in
+            ActiveWorkoutViewModel(
+                draft: draft,
+                db: dm,
+                runtime: runtime
+            )
+        }
+        self.launchCoordinator = launchCoordinator ?? WorkoutSessionLaunchCoordinator(
+            db: dm,
+            persistenceManager: pm,
+            connectivityProvider: cm,
+            runtime: runtime
+        )
         
         if let connectivityManager = cm as? ConnectivityManager {
             connectivityManager.actionHandler = { [weak self] action in
@@ -91,109 +106,14 @@ final class FitnessViewModel: ObservableObject {
                activeVM.draft.watchSessionPointer.id == action.payload.session.id {
                 await activeVM.apply(watchAction: action)
             } else {
-                // Fallback: handle actions when no active view model is mounted
-                switch action.payload {
-                case .requestSnapshot:
-                    if let routineID = action.payload.session.routineID,
-                       var draft = persistenceManager.load(routineID: routineID),
-                       draft.watchSessionPointer.id == action.payload.session.id {
-                        draft.markProcessed(action: action)
-                        persistenceManager.save(draft: draft)
-                        let snapshot = draft.watchSnapshot(lastProcessedActionID: action.id)
-                        connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
+                do {
+                    let outcome = try await runtime.handleBackground(action: action)
+                    if case .finalized = outcome {
+                        await reload()
                     }
-                case .finishWorkout:
-                    if let routineID = action.payload.session.routineID,
-                       var draft = persistenceManager.load(routineID: routineID),
-                       draft.watchSessionPointer.id == action.payload.session.id {
-                        do {
-                            draft.markProcessed(action: action)
-                            let finalSnapshot = draft.watchSnapshot()
-                            try await finalizer.finalize(draft: draft)
-                            connectivityProvider.clearWorkoutSnapshot(sessionID: action.payload.session.id, reason: .finalized)
-                            let result = WorkoutFinalizedResult(sessionID: action.payload.session.id, success: true)
-                            connectivityProvider.sendWorkoutFinalizedResult(result, completion: nil)
-                            // End the Live Activity that was started by the launch coordinator
-                            WorkoutLiveActivityManager.shared.endActivity(finalSnapshot: finalSnapshot)
-                            await reload()
-                        } catch {
-                            print("Workout finalization failed: \(error)")
-                            errorMessage = error.localizedDescription
-                            let result = WorkoutFinalizedResult(sessionID: action.payload.session.id, success: false, errorMessage: error.localizedDescription)
-                            connectivityProvider.sendWorkoutFinalizedResult(result, completion: nil)
-                        }
-                    } else {
-                        // Draft not found on iPhone — it was likely already finalized.
-                        // Send success to watch so it clears its stale state.
-                        connectivityProvider.clearWorkoutSnapshot(sessionID: action.payload.session.id, reason: .finalized)
-                        let result = WorkoutFinalizedResult(sessionID: action.payload.session.id, success: true)
-                        connectivityProvider.sendWorkoutFinalizedResult(result, completion: nil)
-                        // Clean up any lingering Live Activity
-                        WorkoutLiveActivityManager.shared.endActivity()
-                    }
-                case .toggleSetCompletion(let completionAction):
-                    if var draft = persistenceManager.apply(action: action) {
-                        if completionAction.isCompleted {
-                            // Extract exercise rest duration to show timer on Live Activity
-                            if let exerciseID = ActiveWorkoutDraft.resolveExerciseID(completionAction.reference.exerciseID, routineExerciseID: completionAction.reference.routineExerciseID),
-                               let exercise = draft.exercises.first(where: { $0.id == exerciseID }),
-                               let restSeconds = exercise.restSeconds, restSeconds > 0 {
-                                
-                                let restEndDate = Date().addingTimeInterval(TimeInterval(restSeconds))
-                                draft.restEndDate = restEndDate
-                                draft.restTotalSeconds = restSeconds
-                                persistenceManager.save(draft: draft)
-                                
-                                let snapshot = draft.watchSnapshot(
-                                    lastProcessedActionID: action.id,
-                                    restEndDate: restEndDate,
-                                    restTotalSeconds: restSeconds
-                                )
-                                WorkoutLiveActivityManager.shared.updateActivity(
-                                    snapshot: snapshot,
-                                    restEndDate: restEndDate,
-                                    restTotalSeconds: restSeconds
-                                )
-                                
-                                // Resync watch so it also sees the timer we just started on phone
-                                connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
-                            } else {
-                                // No rest timer, just update Live Activity with current progress
-                                let snapshot = draft.watchSnapshot(lastProcessedActionID: action.id)
-                                WorkoutLiveActivityManager.shared.updateActivity(snapshot: snapshot)
-                                connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
-                            }
-                        } else {
-                            // Set was uncompleted, clear timer
-                            draft.restEndDate = nil
-                            draft.restTotalSeconds = nil
-                            persistenceManager.save(draft: draft)
-                            
-                            let snapshot = draft.watchSnapshot(lastProcessedActionID: action.id)
-                            WorkoutLiveActivityManager.shared.updateActivity(snapshot: snapshot)
-                            connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
-                        }
-                    }
-
-                case .cancelRestTimer:
-                    if let routineID = action.payload.session.routineID,
-                       var draft = persistenceManager.load(routineID: routineID),
-                       draft.watchSessionPointer.id == action.payload.session.id {
-                        draft.apply(watchAction: action) // Now handles clearing rest and marking processed
-                        persistenceManager.save(draft: draft)
-                        
-                        let snapshot = draft.watchSnapshot(lastProcessedActionID: action.id)
-                        WorkoutLiveActivityManager.shared.updateActivity(snapshot: snapshot)
-                        connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
-                    }
-
-                default:
-                    if let draft = persistenceManager.apply(action: action) {
-                        // Resync state and update Live Activity for general actions
-                        let snapshot = draft.watchSnapshot(lastProcessedActionID: action.id)
-                        WorkoutLiveActivityManager.shared.updateActivity(snapshot: snapshot)
-                        connectivityProvider.sendWorkoutSnapshot(snapshot, completion: nil)
-                    }
+                } catch {
+                    print("Workout action handling failed: \(error)")
+                    errorMessage = error.localizedDescription
                 }
             }
 
@@ -209,18 +129,7 @@ final class FitnessViewModel: ObservableObject {
         do {
             let draft = try await launchCoordinator.launchSession(for: routineID)
             activeDraftSummary = draft.summary
-            activeViewModel = ActiveWorkoutViewModel(
-                draft: draft,
-                db: dataManager,
-                persistenceManager: persistenceManager,
-                connectivityProvider: connectivityProvider,
-                onFinish: { [weak self] in
-                    self?.activeViewModel = nil
-                    Task { [weak self] in
-                        await self?.reload()
-                    }
-                }
-            )
+            activeViewModel = makeActiveViewModel(draft: draft)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -252,12 +161,9 @@ final class FitnessViewModel: ObservableObject {
             return false
         }
 
-        let sessionPointerID = draft.watchSessionPointer.id
         let wasMounted = activeViewModel?.draft.routineID == routineID
 
-        persistenceManager.clear(routineID: routineID)
-        connectivityProvider.clearWorkoutSnapshot(sessionID: sessionPointerID, reason: .finalized)
-        WorkoutLiveActivityManager.shared.endActivity(dismissalPolicy: .immediate)
+        runtime.discard(draft, reason: .cancelledOnPhone)
 
         if wasMounted {
             activeViewModel = nil
@@ -285,18 +191,7 @@ final class FitnessViewModel: ObservableObject {
         }
 
         activeDraftSummary = draft.summary
-        activeViewModel = ActiveWorkoutViewModel(
-            draft: draft,
-            db: dataManager,
-            persistenceManager: persistenceManager,
-            connectivityProvider: connectivityProvider,
-            onFinish: { [weak self] in
-                self?.activeViewModel = nil
-                Task { [weak self] in
-                    await self?.reload()
-                }
-            }
-        )
+        activeViewModel = makeActiveViewModel(draft: draft)
     }
 
     func deleteSession(id: Int64) async -> Bool {
@@ -369,6 +264,17 @@ final class FitnessViewModel: ObservableObject {
         }
 
         return draft.summary
+    }
+
+    private func makeActiveViewModel(draft: ActiveWorkoutDraft) -> ActiveWorkoutViewModel {
+        let viewModel = activeViewModelFactory(draft)
+        viewModel.onFinish = { [weak self] in
+            self?.activeViewModel = nil
+            Task { [weak self] in
+                await self?.reload()
+            }
+        }
+        return viewModel
     }
 
     private static func makeAnalysisSummary(

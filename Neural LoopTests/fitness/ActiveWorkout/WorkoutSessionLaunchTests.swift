@@ -16,8 +16,8 @@ final class WorkoutSessionLaunchTests: XCTestCase {
             Equipment(id: 101, name: "Barbell")
         ]
         let routineExercises = [
-            RoutineExercise(id: 1000, routine_id: routineID, exercise_id: 10, order_index: 0, target_sets: 3, target_reps: 10, rest_seconds: 60, superset_group_id: nil, duration: nil),
-            RoutineExercise(id: 1001, routine_id: routineID, exercise_id: 11, order_index: 1, target_sets: 4, target_reps: 8, rest_seconds: 90, superset_group_id: nil, duration: nil)
+            RoutineExercise(id: 1000, routine_id: routineID, exercise_id: 10, order_index: 0, target_sets: 3, target_reps_min: 10, target_reps_max: 10, rest_seconds: 60, superset_group_id: nil, duration: nil),
+            RoutineExercise(id: 1001, routine_id: routineID, exercise_id: 11, order_index: 1, target_sets: 4, target_reps_min: 8, target_reps_max: 8, rest_seconds: 90, superset_group_id: nil, duration: nil)
         ]
         
         let db = FakeLaunchDataManager()
@@ -140,8 +140,8 @@ final class WorkoutSessionLaunchTests: XCTestCase {
         let routineID: Int64 = 1
         let routine = Routine(id: routineID, name: "Test", notes: nil)
         let routineExercises = [
-            RoutineExercise(id: 1000, routine_id: routineID, exercise_id: 10, order_index: 0, target_sets: 0, target_reps: 10, rest_seconds: 60, superset_group_id: nil, duration: nil),
-            RoutineExercise(id: 1001, routine_id: routineID, exercise_id: 11, order_index: 1, target_sets: -5, target_reps: 8, rest_seconds: 90, superset_group_id: nil, duration: nil)
+            RoutineExercise(id: 1000, routine_id: routineID, exercise_id: 10, order_index: 0, target_sets: 0, target_reps_min: 10, target_reps_max: 10, rest_seconds: 60, superset_group_id: nil, duration: nil),
+            RoutineExercise(id: 1001, routine_id: routineID, exercise_id: 11, order_index: 1, target_sets: -5, target_reps_min: 8, target_reps_max: 8, rest_seconds: 90, superset_group_id: nil, duration: nil)
         ]
         
         let db = FakeLaunchDataManager()
@@ -321,7 +321,7 @@ private struct LegacyWorkoutDraftPayload: Codable {
     var exercises: [WorkoutExerciseCardState]
 }
 
-class FakeLaunchDataManager: WorkoutTemplateReadingDataManaging, WorkoutDataManaging {
+class FakeLaunchDataManager: WorkoutRoutineReading, WorkoutCatalogReading, WorkoutLaunchHistoryReading {
     var stubRoutine: Routine?
     var stubExercises: [Exercise] = []
     var stubExercisesWithMuscles: [ExerciseWithMuscles] = []
@@ -445,4 +445,11 @@ class MockConnectivityProvider: WorkoutConnectivityProviding {
     }
     
     func clearWorkoutSnapshot(sessionID: String, reason: ClearReason) {}
+}
+
+extension FakeLaunchDataManager {
+    func fetchWorkoutLaunchHistory(
+        routineID: Int64?,
+        lookupItems: [WorkoutLaunchHistoryLookupItem]
+    ) async throws -> [WorkoutLaunchHistorySnapshot] { [] }
 }

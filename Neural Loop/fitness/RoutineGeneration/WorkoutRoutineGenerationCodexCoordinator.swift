@@ -26,12 +26,12 @@ final class WorkoutRoutineGenerationCodexCoordinator: ObservableObject {
     @Published private(set) var errorMessage: String?
 
     private let model: any WorkoutRoutineGenerationCodexModel
-    private let dataManager: any WorkoutTemplateReadingDataManaging
+    private let dataManager: any WorkoutCatalogReading
     private let codexClient: (any WorkoutRoutineGenerationCodexExecuting)?
 
     init(
         model: any WorkoutRoutineGenerationCodexModel,
-        dataManager: any WorkoutTemplateReadingDataManaging,
+        dataManager: any WorkoutCatalogReading,
         codexClient: (any WorkoutRoutineGenerationCodexExecuting)? = nil
     ) {
         self.model = model

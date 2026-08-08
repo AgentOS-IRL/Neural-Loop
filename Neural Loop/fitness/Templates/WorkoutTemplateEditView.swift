@@ -7,7 +7,7 @@ struct WorkoutTemplateEditView: View {
 
     init(
         template: WorkoutTemplateSummary,
-        dataManager: any FitnessTemplateDataManaging,
+        dataManager: any WorkoutRoutineReading & WorkoutRoutineWriting,
         onSaved: @escaping () -> Void = {}
     ) {
         self._viewModel = StateObject(

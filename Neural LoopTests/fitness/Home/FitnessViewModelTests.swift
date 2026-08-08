@@ -282,7 +282,8 @@ final class FitnessViewModelTests: XCTestCase {
             exercise_id: id,
             order_index: orderIndex,
             target_sets: targetSets,
-            target_reps: nil,
+            target_reps_min: nil,
+            target_reps_max: nil,
             rest_seconds: nil,
             superset_group_id: nil,
             duration: nil
@@ -306,7 +307,7 @@ final class FitnessViewModelTests: XCTestCase {
     }
 }
 
-private final class FakeFitnessTemplateDataManager: FitnessTemplateDataManaging, WorkoutDataManaging {
+private final class FakeFitnessTemplateDataManager: FitnessHomeReading, WorkoutRoutineReading, WorkoutCatalogReading, WorkoutLaunchHistoryReading, WorkoutFinalizationPersisting {
     var routines: [Routine]
     var exercisesByRoutineID: [Int64: [RoutineExercise]]
     var sessions: [WorkoutSession]
@@ -429,5 +430,16 @@ private enum FakeFitnessTemplateError: LocalizedError {
         case .unableToDeleteSession:
             return "Unable to delete session."
         }
+    }
+}
+
+private extension FakeFitnessTemplateDataManager {
+    func fetchWorkoutLaunchHistory(
+        routineID: Int64?,
+        lookupItems: [WorkoutLaunchHistoryLookupItem]
+    ) async throws -> [WorkoutLaunchHistorySnapshot] { [] }
+
+    func finalizeWorkout(_ payload: FinalizeWorkoutPayload) async throws -> FinalizeWorkoutResponse {
+        FinalizeWorkoutResponse(session_id: 1)
     }
 }

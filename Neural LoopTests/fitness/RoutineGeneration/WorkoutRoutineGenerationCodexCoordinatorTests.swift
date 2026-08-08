@@ -192,7 +192,7 @@ private final class FakeWorkoutRoutineGenerationCodexClient: WorkoutRoutineGener
     }
 }
 
-private final class FakeWorkoutRoutineGenerationDataManager: WorkoutTemplateReadingDataManaging {
+private final class FakeWorkoutRoutineGenerationDataManager: WorkoutCatalogReading {
     let equipment: [Equipment]
     let exercises: [ExerciseWithMuscles]
 

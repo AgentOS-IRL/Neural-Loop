@@ -23,34 +23,7 @@ struct ActiveWorkoutView: View {
                                                    viewModel.draft.exercises[index + 1].supersetGroupID != state.supersetGroupID ||
                                                    state.supersetGroupID == nil
 
-                                WorkoutExerciseCard(
-                                    card: state,
-                                    dataManager: viewModel.db,
-                                    onAddSet: {
-                                        viewModel.addSet(to: state.id)
-                                    },
-                                    onWeightChange: { setID, weight in
-                                        viewModel.updateWeight(for: state.id, setID: setID, weightText: weight)
-                                    },
-                                    onRepsChange: { setID, reps in
-                                        viewModel.updateReps(for: state.id, setID: setID, repsText: reps)
-                                    },
-                                    onDurationChange: { setID, duration in
-                                        viewModel.updateDuration(for: state.id, setID: setID, durationText: duration)
-                                    },
-                                    onDistanceChange: { setID, distance in
-                                        viewModel.updateDistance(for: state.id, setID: setID, distanceText: distance)
-                                    },
-                                    onCaloriesChange: { setID, calories in
-                                        viewModel.updateCalories(for: state.id, setID: setID, caloriesText: calories)
-                                    },
-                                    onToggleComplete: { setID in
-                                        viewModel.toggleSetCompletion(exerciseID: state.id, setID: setID)
-                                    },
-                                    onPreviewRequested: { gallery in
-                                        previewGallery = gallery
-                                    }
-                                )
+                                exerciseCard(for: state)
                                 .padding(.horizontal)
                                 .padding(.bottom, isLastInGroup ? 20 : 8)
                             }
@@ -102,7 +75,9 @@ struct ActiveWorkoutView: View {
                     items: viewModel.availableExercises,
                     initiallySelectedExerciseIDs: viewModel.currentExerciseIDs,
                     onAdd: { selections in
-                        viewModel.addExercises(from: selections)
+                        Task {
+                            await viewModel.addExercises(from: selections)
+                        }
                     }
                 )
             }
@@ -119,6 +94,43 @@ struct ActiveWorkoutView: View {
         .task {
             await viewModel.loadExerciseCatalog()
         }
+    }
+
+    private func exerciseCard(for state: WorkoutExerciseCardState) -> some View {
+        WorkoutExerciseCard(
+            card: state,
+            dataManager: viewModel.db,
+            onAddSet: {
+                viewModel.addSet(to: state.id)
+            },
+            onWeightChange: { setID, weight in
+                viewModel.updateWeight(for: state.id, setID: setID, weightText: weight)
+            },
+            onRepsChange: { setID, reps in
+                viewModel.updateReps(for: state.id, setID: setID, repsText: reps)
+            },
+            onDurationChange: { setID, duration in
+                viewModel.updateDuration(for: state.id, setID: setID, durationText: duration)
+            },
+            onDistanceChange: { setID, distance in
+                viewModel.updateDistance(for: state.id, setID: setID, distanceText: distance)
+            },
+            onCaloriesChange: { setID, calories in
+                viewModel.updateCalories(for: state.id, setID: setID, caloriesText: calories)
+            },
+            onToggleComplete: { setID in
+                viewModel.toggleSetCompletion(exerciseID: state.id, setID: setID)
+            },
+            onUseSuggestion: { setID in
+                viewModel.useSuggestion(exerciseID: state.id, setID: setID)
+            },
+            onApplyAllSuggestions: {
+                viewModel.applyAllSuggestions(exerciseID: state.id)
+            },
+            onPreviewRequested: { gallery in
+                previewGallery = gallery
+            }
+        )
     }
     
     private var headerView: some View {

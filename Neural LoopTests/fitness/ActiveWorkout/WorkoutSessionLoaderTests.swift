@@ -2,204 +2,141 @@ import XCTest
 @testable import Neural_Loop
 
 final class WorkoutSessionLoaderTests: XCTestCase {
-    
-    private var db: MockWorkoutSessionLoaderDataManager!
-    private var loader: WorkoutSessionLoader!
-    
-    override func setUp() {
-        super.setUp()
-        db = MockWorkoutSessionLoaderDataManager()
-        loader = WorkoutSessionLoader(db: db)
-    }
-    
-    func testNoPriorSets() async {
-        let exerciseId: Int64 = 101
-        let exercise = ExerciseLibraryItem(id: exerciseId, name: "Squat", type: .repBased, equipmentID: nil, equipmentName: "None")
-        let initialSets = [WorkoutSetDraft(setNumber: 1, weightText: "", repsText: "")]
-        let exerciseState = WorkoutExerciseCardState(id: 1, exercise: exercise, sets: initialSets)
-        
-        db.stubHistory[exerciseId] = []
-        
-        let results = await loader.prefillHistoricalWeights(for: [exerciseState])
-        
-        XCTAssertEqual(results[0].sets[0].weightText, "")
-    }
-    
-    func testOnePriorSet() async {
-        let exerciseId: Int64 = 101
-        let exercise = ExerciseLibraryItem(id: exerciseId, name: "Squat", type: .repBased, equipmentID: nil, equipmentName: "None")
-        let initialSets = [WorkoutSetDraft(setNumber: 1, weightText: "", repsText: "")]
-        let exerciseState = WorkoutExerciseCardState(id: 1, exercise: exercise, sets: initialSets)
-        
-        db.stubHistory[exerciseId] = [
-            WorkoutSet(id: 1, workout_session_id: 1, exercise_id: exerciseId, set_number: 1, reps: 10, weight: 100, superset_group_id: nil)
-        ]
-        
-        let results = await loader.prefillHistoricalWeights(for: [exerciseState])
-        
-        XCTAssertEqual(results[0].sets[0].weightText, NumericFormatter.format(100))
-    }
-    
-    func testMultiplePriorSetsRecentWins() async {
-        let exerciseId: Int64 = 101
-        let exercise = ExerciseLibraryItem(id: exerciseId, name: "Squat", type: .repBased, equipmentID: nil, equipmentName: "None")
-        let initialSets = [
-            WorkoutSetDraft(setNumber: 1, weightText: "", repsText: ""),
-            WorkoutSetDraft(setNumber: 2, weightText: "", repsText: "")
-        ]
-        let exerciseState = WorkoutExerciseCardState(id: 1, exercise: exercise, sets: initialSets)
-        
-        // Session 1: 120.5kg x 10 (Highest weight)
-        // Session 2 (Latest): 110kg x 5 (Latest session, but lower weight)
-        db.stubHistory[exerciseId] = [
-            WorkoutSet(id: 1, workout_session_id: 1, exercise_id: exerciseId, set_number: 1, reps: 10, weight: 80, superset_group_id: nil),
-            WorkoutSet(id: 2, workout_session_id: 1, exercise_id: exerciseId, set_number: 2, reps: 10, weight: 120.5, superset_group_id: nil),
-            WorkoutSet(id: 3, workout_session_id: 2, exercise_id: exerciseId, set_number: 1, reps: 5, weight: 110, superset_group_id: nil)
-        ]
-        
-        let results = await loader.prefillHistoricalWeights(for: [exerciseState])
-        
-        // Should use Session 2's set 1 for both current sets (due to fallback for the second set)
-        XCTAssertEqual(results[0].sets[0].weightText, NumericFormatter.format(110))
-        XCTAssertEqual(results[0].sets[0].repsText, "5")
-        XCTAssertEqual(results[0].sets[1].weightText, NumericFormatter.format(110))
-        XCTAssertEqual(results[0].sets[1].repsText, "5")
-        
-        XCTAssertEqual(results[0].historicalHint, "Last: \(NumericFormatter.format(110))kg x 5")
-    }
-    
-    func testFallbackToLastSet() async {
-        let exerciseId: Int64 = 101
-        let exercise = ExerciseLibraryItem(id: exerciseId, name: "Squat", type: .repBased, equipmentID: nil, equipmentName: "None")
-        let initialSets = [
-            WorkoutSetDraft(setNumber: 1, weightText: "", repsText: ""),
-            WorkoutSetDraft(setNumber: 2, weightText: "", repsText: ""),
-            WorkoutSetDraft(setNumber: 3, weightText: "", repsText: "")
-        ]
-        let exerciseState = WorkoutExerciseCardState(id: 1, exercise: exercise, sets: initialSets)
-        
-        db.stubHistory[exerciseId] = [
-            WorkoutSet(id: 1, workout_session_id: 1, exercise_id: exerciseId, set_number: 1, reps: 10, weight: 100, superset_group_id: nil),
-            WorkoutSet(id: 2, workout_session_id: 1, exercise_id: exerciseId, set_number: 2, reps: 8, weight: 110, superset_group_id: nil)
-        ]
-        
-        let results = await loader.prefillHistoricalWeights(for: [exerciseState])
-        
-        XCTAssertEqual(results[0].sets[0].weightText, NumericFormatter.format(100))
-        XCTAssertEqual(results[0].sets[1].weightText, NumericFormatter.format(110))
-        XCTAssertEqual(results[0].sets[2].weightText, NumericFormatter.format(110), "Should fallback to last set of history")
+    func testNoHistoryLeavesDraftValuesUntouched() async {
+        let dataManager = MockWorkoutSessionLoaderDataManager()
+        let loader = WorkoutSessionLoader(db: dataManager)
+        let exercise = makeExerciseState()
+
+        let result = await loader.loadHistory(for: [exercise], routineID: 7)
+
+        XCTAssertEqual(result[0].sets[0].weightText, "")
+        XCTAssertEqual(result[0].sets[0].repsText, "")
+        XCTAssertNil(result[0].sets[0].previousValues)
+        XCTAssertNil(result[0].sets[0].suggestedValues)
     }
 
-    func testHistoricalHintPicksBestSetOfLatestSession() async {
-        let exerciseId: Int64 = 101
-        let exercise = ExerciseLibraryItem(id: exerciseId, name: "Squat", type: .repBased, equipmentID: nil, equipmentName: "None")
-        let exerciseState = WorkoutExerciseCardState(id: 1, exercise: exercise, sets: [])
-        
-        db.stubHistory[exerciseId] = [
-            WorkoutSet(id: 1, workout_session_id: 1, exercise_id: exerciseId, set_number: 1, reps: 10, weight: 100, superset_group_id: nil),
-            WorkoutSet(id: 2, workout_session_id: 1, exercise_id: exerciseId, set_number: 2, reps: 2, weight: 200, superset_group_id: nil) // 400 volume
+    func testStrengthHistoryProducesExplicitProgressionSuggestion() async {
+        let dataManager = MockWorkoutSessionLoaderDataManager()
+        dataManager.snapshots = [
+            WorkoutLaunchHistorySnapshot(
+                routine_exercise_id: 11,
+                exercise_id: 101,
+                source_scope: .sameRoutine,
+                source_date: "2026-08-01",
+                source_session_id: 42,
+                strength_sets: [
+                    WorkoutLaunchHistoryStrengthSet(
+                        routine_exercise_id: 11,
+                        set_type: .working,
+                        set_number: 1,
+                        reps: 12,
+                        weight: 100
+                    )
+                ],
+                cardio_logs: []
+            )
         ]
-        
-        let results = await loader.prefillHistoricalWeights(for: [exerciseState])
-        
-        // 100 * 10 = 1000 volume, so 100kg x 10 is better than 200kg x 2
-        XCTAssertEqual(results[0].historicalHint, "Last: \(NumericFormatter.format(100))kg x 10")
+        let loader = WorkoutSessionLoader(db: dataManager)
+
+        let result = await loader.loadHistory(for: [makeExerciseState()], routineID: 7)
+        let set = result[0].sets[0]
+
+        XCTAssertEqual(set.weightText, "")
+        XCTAssertEqual(set.repsText, "")
+        XCTAssertEqual(set.previousValues, WorkoutDraftValues(weight: 100, reps: 12))
+        XCTAssertEqual(set.suggestedValues, WorkoutDraftValues(weight: 102.5, reps: 8))
+        XCTAssertEqual(set.suggestionReason, .rangeCeilingLoadIncrease)
+        XCTAssertEqual(result[0].historySource?.scope, .sameRoutine)
     }
 
-    func testHistoricalHintForBodyweightExercise() async {
-        let exerciseId: Int64 = 101
-        let exercise = ExerciseLibraryItem(id: exerciseId, name: "Pushup", type: .repBased, equipmentID: nil, equipmentName: "None")
-        let exerciseState = WorkoutExerciseCardState(id: 1, exercise: exercise, sets: [])
-        
-        db.stubHistory[exerciseId] = [
-            WorkoutSet(id: 1, workout_session_id: 1, exercise_id: exerciseId, set_number: 1, reps: 20, weight: nil, superset_group_id: nil)
+    func testCardioHistoryRepeatsPreviousValuesAsSuggestion() async {
+        let dataManager = MockWorkoutSessionLoaderDataManager()
+        dataManager.snapshots = [
+            WorkoutLaunchHistorySnapshot(
+                routine_exercise_id: 21,
+                exercise_id: 202,
+                source_scope: .global,
+                source_date: "2026-08-02",
+                source_session_id: 43,
+                strength_sets: [],
+                cardio_logs: [
+                    WorkoutLaunchHistoryCardioLog(
+                        routine_exercise_id: 21,
+                        set_number: 1,
+                        duration_minutes: 30,
+                        distance_meters: 5_000,
+                        calories: 250
+                    )
+                ]
+            )
         ]
-        
-        let results = await loader.prefillHistoricalWeights(for: [exerciseState])
-        
-        XCTAssertEqual(results[0].historicalHint, "Last: 20 reps")
+        let cardio = WorkoutExerciseCardState(
+            id: 21,
+            exercise: ExerciseLibraryItem(
+                id: 202,
+                name: "Run",
+                type: .duration,
+                equipmentID: nil,
+                equipmentName: "Treadmill"
+            ),
+            sets: [WorkoutSetDraft(setNumber: 1)]
+        )
+
+        let result = await WorkoutSessionLoader(db: dataManager)
+            .loadHistory(for: [cardio], routineID: nil)
+
+        XCTAssertEqual(result[0].sets[0].previousValues?.durationMinutes, 30)
+        XCTAssertEqual(result[0].sets[0].suggestedValues?.distanceKilometers, 5)
+        XCTAssertEqual(result[0].sets[0].suggestionReason, .cardioRepeat)
+        XCTAssertEqual(result[0].sets[0].durationText, "")
     }
-    
-    func testMixedNilNonNilWeights() async {
-        let exerciseId: Int64 = 101
-        let exercise = ExerciseLibraryItem(id: exerciseId, name: "Squat", type: .repBased, equipmentID: nil, equipmentName: "None")
-        let initialSets = [
-            WorkoutSetDraft(setNumber: 1, weightText: "", repsText: ""),
-            WorkoutSetDraft(setNumber: 2, weightText: "", repsText: "")
-        ]
-        let exerciseState = WorkoutExerciseCardState(id: 1, exercise: exercise, sets: initialSets)
-        
-        db.stubHistory[exerciseId] = [
-            WorkoutSet(id: 1, workout_session_id: 1, exercise_id: exerciseId, set_number: 1, reps: 10, weight: nil, superset_group_id: nil),
-            WorkoutSet(id: 2, workout_session_id: 1, exercise_id: exerciseId, set_number: 2, reps: 12, weight: 50, superset_group_id: nil)
-        ]
-        
-        let results = await loader.prefillHistoricalWeights(for: [exerciseState])
-        
-        XCTAssertEqual(results[0].sets[0].weightText, "")
-        XCTAssertEqual(results[0].sets[0].repsText, "10")
-        XCTAssertEqual(results[0].sets[1].weightText, NumericFormatter.format(50))
-        XCTAssertEqual(results[0].sets[1].repsText, "12")
+
+    func testHistoryFailureKeepsWorkoutUsable() async {
+        let dataManager = MockWorkoutSessionLoaderDataManager()
+        dataManager.error = MockWorkoutSessionLoaderError.failed
+
+        let result = await WorkoutSessionLoader(db: dataManager)
+            .loadHistory(for: [makeExerciseState()], routineID: 7)
+
+        XCTAssertEqual(result.count, 1)
+        XCTAssertEqual(result[0].historyUnavailable, true)
+        XCTAssertEqual(result[0].historicalHint, "History unavailable")
     }
-    
-    func testCardioUntouched() async {
-        let exerciseId: Int64 = 101
-        let exercise = ExerciseLibraryItem(id: exerciseId, name: "Run", type: .duration, equipmentID: nil, equipmentName: "Treadmill")
-        let initialSets = [WorkoutSetDraft(setNumber: 1, weightText: "", repsText: "")]
-        let exerciseState = WorkoutExerciseCardState(id: 1, exercise: exercise, sets: initialSets)
-        
-        // Even if there's history (unlikely for duration via WorkoutSet, but just in case)
-        db.stubHistory[exerciseId] = [
-            WorkoutSet(id: 1, workout_session_id: 1, exercise_id: exerciseId, set_number: 1, reps: 0, weight: 100, superset_group_id: nil)
-        ]
-        
-        let results = await loader.prefillHistoricalWeights(for: [exerciseState])
-        
-        XCTAssertEqual(results[0].sets[0].weightText, "")
+
+    private func makeExerciseState() -> WorkoutExerciseCardState {
+        WorkoutExerciseCardState(
+            id: 11,
+            exercise: ExerciseLibraryItem(
+                id: 101,
+                name: "Squat",
+                type: .repBased,
+                equipmentID: nil,
+                equipmentName: "None"
+            ),
+            sets: [WorkoutSetDraft(setNumber: 1)],
+            targetSets: 1,
+            targetRepRange: WorkoutRepRange(minimum: 8, maximum: 12),
+            loadIncrementKg: 2.5
+        )
     }
 }
 
-class MockWorkoutSessionLoaderDataManager: WorkoutDataManaging {
-    var stubHistory: [Int64: [WorkoutSet]] = [:]
-    
-    func fetchWorkoutSets(exerciseId: Int64) async throws -> [WorkoutSet] {
-        stubHistory[exerciseId] ?? []
-    }
-    
-    // Unused by WorkoutSessionLoader
-    func fetchAllEquipment() async throws -> [Equipment] { [] }
-    func fetchAllExercises() async throws -> [Exercise] { [] }
-    func fetchAllExercisesWithMuscles() async throws -> [ExerciseWithMuscles] { [] }
-    func createWorkoutSession(_ request: CreateWorkoutSessionRequest) async throws -> WorkoutSession {
-        fatalError("Not used")
-    }
-    func createWorkoutSet(_ request: CreateWorkoutSetRequest) async throws -> WorkoutSet {
-        fatalError("Not used")
-    }
-    func createCardioLog(_ request: CreateCardioLogRequest) async throws -> CardioLog {
-        fatalError("Not used")
-    }
-    func deleteWorkoutSession(id: Int64) async throws {}
-    func fetchWorkoutSessions() async throws -> [WorkoutSession] {
-        []
-    }
+private final class MockWorkoutSessionLoaderDataManager: WorkoutLaunchHistoryReading {
+    var snapshots: [WorkoutLaunchHistorySnapshot] = []
+    var error: Error?
 
-    func fetchWorkoutSessionDetail(sessionId: Int64) async throws -> WorkoutSessionDetail {
-        throw WorkoutDatabaseError.missingIdentifier
+    func fetchWorkoutLaunchHistory(
+        routineID: Int64?,
+        lookupItems: [WorkoutLaunchHistoryLookupItem]
+    ) async throws -> [WorkoutLaunchHistorySnapshot] {
+        if let error {
+            throw error
+        }
+        return snapshots
     }
-
-    func fetchExerciseProgression(exerciseId: Int64) async throws -> [ExerciseProgressionResult] {
-        return []
-    }
-
-    func fetchFitnessHomeBundle(daysBack: Int) async throws -> FitnessHomeBundle { fatalError("Not implemented") }
-    func fetchFitnessAnalysisSummary(daysBack: Int) async throws -> FitnessAnalysisSummaryResponse { fatalError("Not implemented") }
-    func fetchWorkoutRoutinesSummary() async throws -> [WorkoutTemplateSummary] { [] }
-    func fetchLatestExerciseHistory(exerciseIds: [Int64]) async throws -> [WorkoutSet] { [] }
-
-    func updateWorkoutSession(_ session: WorkoutSession) async throws -> WorkoutSession { session }
-    func updateWorkoutSet(_ set: WorkoutSet) async throws -> WorkoutSet { set }
-    func deleteWorkoutSet(id: Int64) async throws {}
-    func updateCardioLog(_ log: CardioLog) async throws -> CardioLog { log }
-    func deleteCardioLog(id: Int64) async throws {}
 }
+
+private enum MockWorkoutSessionLoaderError: Error {
+    case failed
+}
+

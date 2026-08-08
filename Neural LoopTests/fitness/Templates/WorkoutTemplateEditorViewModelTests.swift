@@ -36,7 +36,7 @@ final class WorkoutTemplateEditorViewModelTests: XCTestCase {
         XCTAssertEqual(dataManager.createdRoutineExercises.map(\.exercise_id), [10, 20])
         XCTAssertEqual(dataManager.createdRoutineExercises.map(\.order_index), [1, 2])
         XCTAssertEqual(dataManager.createdRoutineExercises.map(\.target_sets), [3, 4])
-        XCTAssertEqual(dataManager.createdRoutineExercises.map(\.target_reps), [8, 10])
+        XCTAssertEqual(dataManager.createdRoutineExercises.map(\.target_reps_min), [8, 10])
         XCTAssertTrue(dataManager.deletedRoutineIDs.isEmpty)
     }
 
@@ -189,7 +189,7 @@ final class WorkoutTemplateEditorViewModelTests: XCTestCase {
         XCTAssertEqual(remainingRows.count, 2)
         XCTAssertEqual(remainingRows.sorted { $0.order_index < $1.order_index }.map(\.exercise_id), [10, 30])
         XCTAssertEqual(remainingRows.sorted { $0.order_index < $1.order_index }.map(\.target_sets), [5, 4])
-        XCTAssertEqual(remainingRows.sorted { $0.order_index < $1.order_index }.map(\.target_reps), [12, 10])
+        XCTAssertEqual(remainingRows.sorted { $0.order_index < $1.order_index }.map(\.target_reps_min), [12, 10])
     }
 
     func testEditTemplateRollsBackRoutineExerciseStateWhenFinalUpdateFails() async {
@@ -237,7 +237,7 @@ final class WorkoutTemplateEditorViewModelTests: XCTestCase {
         XCTAssertEqual(restoredRows.count, 2)
         XCTAssertEqual(restoredRows.sorted { $0.order_index < $1.order_index }.map(\.exercise_id), [10, 20])
         XCTAssertEqual(restoredRows.sorted { $0.order_index < $1.order_index }.map(\.target_sets), [3, 2])
-        XCTAssertEqual(restoredRows.sorted { $0.order_index < $1.order_index }.map(\.target_reps), [10, 15])
+        XCTAssertEqual(restoredRows.sorted { $0.order_index < $1.order_index }.map(\.target_reps_min), [10, 15])
         XCTAssertTrue(restoredRows.allSatisfy { $0.order_index == 1 || $0.order_index == 2 })
         XCTAssertFalse(restoredRows.contains { $0.exercise_id == 30 })
         XCTAssertEqual(dataManager.deletedRoutineExerciseIDs, [2, 1000])
@@ -614,7 +614,8 @@ final class WorkoutTemplateEditorViewModelTests: XCTestCase {
             exercise_id: exerciseID,
             order_index: orderIndex,
             target_sets: targetSets,
-            target_reps: targetReps,
+            target_reps_min: targetReps,
+            target_reps_max: targetReps,
             rest_seconds: restSeconds,
             superset_group_id: supersetGroupID,
             duration: nil
@@ -622,7 +623,7 @@ final class WorkoutTemplateEditorViewModelTests: XCTestCase {
     }
 }
 
-private final class FakeWorkoutTemplateEditorDataManager: WorkoutTemplateEditingDataManaging {
+private final class FakeWorkoutTemplateEditorDataManager: WorkoutCatalogReading, WorkoutRoutineReading, WorkoutRoutineWriting {
     var equipment: [Equipment]
     var exercises: [ExerciseWithMuscles]
     var routinesByID: [Int64: Routine]
@@ -717,7 +718,10 @@ private final class FakeWorkoutTemplateEditorDataManager: WorkoutTemplateEditing
             exercise_id: request.exercise_id,
             order_index: request.order_index,
             target_sets: request.target_sets,
-            target_reps: request.target_reps,
+            target_reps_min: request.target_reps_min,
+            target_reps_max: request.target_reps_max,
+            warmup_sets: request.warmup_sets,
+            load_increment_kg: request.load_increment_kg,
             rest_seconds: request.rest_seconds,
             superset_group_id: request.superset_group_id,
             duration: request.duration

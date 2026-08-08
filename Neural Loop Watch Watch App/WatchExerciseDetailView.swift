@@ -24,7 +24,7 @@ struct WatchExerciseDetailView: View {
                     Section {
                         ForEach(exercise.sets) { set in
                             NavigationLink(value: set) {
-                                WatchSetRow(set: set)
+                                WatchSetRow(set: set, isCardio: exercise.isDurationBased == true)
                             }
                             .disabled(exercise.isCompleted)
                         }
@@ -65,6 +65,7 @@ struct WatchExerciseDetailView: View {
                     .buttonStyle(.bordered)
                     .tint(exercise.isCompleted ? .orange : .green)
                     .controlSize(.large)
+                    .disabled(!exercise.isCompleted && !canComplete(exercise))
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                 }
@@ -111,33 +112,60 @@ struct WatchExerciseDetailView: View {
             }
         }
     }
+
+    private func canComplete(_ exercise: ExerciseSnapshot) -> Bool {
+        exercise.sets.allSatisfy { set in
+            if exercise.isDurationBased == true {
+                return (set.values.durationMinutes ?? 0) > 0
+                    || (set.values.distanceKilometers ?? 0) > 0
+                    || (set.values.calories ?? 0) > 0
+            }
+            return (set.values.reps ?? 0) > 0
+        }
+    }
 }
 
 struct WatchSetRow: View {
     let set: SetSnapshot
+    let isCardio: Bool
     
     var body: some View {
         HStack {
-            Text("\(set.setNumber)")
+            Text(set.setType == .warmup ? "W\(set.setNumber)" : "\(set.setNumber)")
                 .font(.headline)
                 .foregroundColor(.secondary)
                 .frame(width: 24, alignment: .leading)
             
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    Image(systemName: "scalemass")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    Text(set.values.kg?.description ?? "--")
-                        .font(.body)
-                }
-                HStack(spacing: 4) {
-                    Image(systemName: "repeat")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    Text(set.values.reps?.description ?? "--")
+                if isCardio {
+                    Text(cardioText(set.values))
                         .font(.caption)
                         .foregroundColor(.secondary)
+                } else {
+                    HStack(spacing: 4) {
+                        Image(systemName: "scalemass")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Text(set.values.kg?.description ?? "--")
+                            .font(.body)
+                    }
+                }
+
+                if let suggestion = set.suggestedValues {
+                    Text("Try \(suggestionText(suggestion))")
+                        .font(.caption2)
+                        .foregroundColor(.blue)
+                        .lineLimit(1)
+                }
+                if !isCardio {
+                    HStack(spacing: 4) {
+                        Image(systemName: "repeat")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Text(set.values.reps?.description ?? "--")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
             
@@ -150,5 +178,20 @@ struct WatchSetRow: View {
         }
         .padding(.vertical, 4)
         .opacity(set.isCompleted ? 0.6 : 1.0)
+    }
+
+    private func suggestionText(_ values: WorkoutSetValuesSnapshot) -> String {
+        if isCardio { return cardioText(values) }
+        let reps = values.reps.map(String.init) ?? "—"
+        guard let kg = values.kg else { return "\(reps) reps" }
+        return "\(kg) kg × \(reps)"
+    }
+
+    private func cardioText(_ values: WorkoutSetValuesSnapshot) -> String {
+        [
+            values.durationMinutes.map { "\($0)m" },
+            values.distanceKilometers.map { "\($0)km" },
+            values.calories.map { "\($0)kcal" }
+        ].compactMap { $0 }.joined(separator: " • ")
     }
 }

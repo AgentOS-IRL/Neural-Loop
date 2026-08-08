@@ -25,6 +25,34 @@ struct ExerciseLibrarySection: Identifiable, Equatable {
     var items: [ExerciseLibraryItem]
 }
 
+struct WorkoutDraftValues: Equatable, Codable {
+    var weight: Decimal?
+    var reps: Int?
+    var durationMinutes: Decimal?
+    var distanceKilometers: Decimal?
+    var calories: Decimal?
+
+    var isEmpty: Bool {
+        weight == nil && reps == nil && durationMinutes == nil && distanceKilometers == nil && calories == nil
+    }
+}
+
+struct WorkoutHistorySource: Equatable, Codable {
+    enum Scope: String, Codable, Sendable {
+        case sameRoutine = "same_routine"
+        case global
+    }
+
+    var scope: Scope
+    var date: Date
+    var sessionID: Int64
+
+    var label: String {
+        let prefix = scope == .sameRoutine ? "This routine" : "Latest use"
+        return "\(prefix) • \(date.formatted(date: .abbreviated, time: .omitted))"
+    }
+}
+
 struct WorkoutExerciseCardState: Identifiable, Equatable, Codable {
     let id: Int64
     var exercise: ExerciseLibraryItem
@@ -32,14 +60,24 @@ struct WorkoutExerciseCardState: Identifiable, Equatable, Codable {
     
     // Metadata from RoutineExercise
     var targetSets: Int?
+    var targetRepRange: WorkoutRepRange?
+    // Decode-only compatibility for drafts saved before rep ranges were introduced.
     var targetReps: Int?
+    var warmupSets: Int?
+    var loadIncrementKg: Decimal?
     var restSeconds: Int?
     var targetDuration: Decimal?
     var supersetGroupID: Int?
     var historicalHint: String?
+    var historySource: WorkoutHistorySource?
+    var historyUnavailable: Bool?
 
     var supersetLabel: String? {
         supersetGroupID?.supersetLabel
+    }
+
+    var effectiveTargetRepRange: WorkoutRepRange? {
+        targetRepRange ?? targetReps.map { WorkoutRepRange(minimum: $0, maximum: $0) }
     }
 
     var columnHeaders: [String] {
@@ -62,6 +100,11 @@ struct WorkoutSetDraft: Identifiable, Equatable, Codable {
     var caloriesText: String
     var isCompleted: Bool
     var superset_group_id: Int?
+    var setType: WorkoutSetType
+    var previousValues: WorkoutDraftValues?
+    var suggestedValues: WorkoutDraftValues?
+    var suggestionReason: WorkoutSuggestionReason?
+    var routineExerciseID: Int64?
 
     init(
         id: UUID = UUID(),
@@ -73,7 +116,12 @@ struct WorkoutSetDraft: Identifiable, Equatable, Codable {
         distanceText: String = "",
         caloriesText: String = "",
         isCompleted: Bool = false,
-        superset_group_id: Int? = nil
+        superset_group_id: Int? = nil,
+        setType: WorkoutSetType = .working,
+        previousValues: WorkoutDraftValues? = nil,
+        suggestedValues: WorkoutDraftValues? = nil,
+        suggestionReason: WorkoutSuggestionReason? = nil,
+        routineExerciseID: Int64? = nil
     ) {
         self.id = id
         self.dbId = dbId
@@ -85,6 +133,65 @@ struct WorkoutSetDraft: Identifiable, Equatable, Codable {
         self.caloriesText = caloriesText
         self.isCompleted = isCompleted
         self.superset_group_id = superset_group_id
+        self.setType = setType
+        self.previousValues = previousValues
+        self.suggestedValues = suggestedValues
+        self.suggestionReason = suggestionReason
+        self.routineExerciseID = routineExerciseID
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, dbId, setNumber, weightText, repsText, durationText, distanceText, caloriesText
+        case isCompleted, superset_group_id, setType, previousValues, suggestedValues, suggestionReason, routineExerciseID
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        dbId = try container.decodeIfPresent(Int64.self, forKey: .dbId)
+        setNumber = try container.decode(Int.self, forKey: .setNumber)
+        weightText = try container.decodeIfPresent(String.self, forKey: .weightText) ?? ""
+        repsText = try container.decodeIfPresent(String.self, forKey: .repsText) ?? ""
+        durationText = try container.decodeIfPresent(String.self, forKey: .durationText) ?? ""
+        distanceText = try container.decodeIfPresent(String.self, forKey: .distanceText) ?? ""
+        caloriesText = try container.decodeIfPresent(String.self, forKey: .caloriesText) ?? ""
+        isCompleted = try container.decodeIfPresent(Bool.self, forKey: .isCompleted) ?? false
+        superset_group_id = try container.decodeIfPresent(Int.self, forKey: .superset_group_id)
+        setType = try container.decodeIfPresent(WorkoutSetType.self, forKey: .setType) ?? .working
+        previousValues = try container.decodeIfPresent(WorkoutDraftValues.self, forKey: .previousValues)
+        suggestedValues = try container.decodeIfPresent(WorkoutDraftValues.self, forKey: .suggestedValues)
+        suggestionReason = try container.decodeIfPresent(WorkoutSuggestionReason.self, forKey: .suggestionReason)
+        routineExerciseID = try container.decodeIfPresent(Int64.self, forKey: .routineExerciseID)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(dbId, forKey: .dbId)
+        try container.encode(setNumber, forKey: .setNumber)
+        try container.encode(weightText, forKey: .weightText)
+        try container.encode(repsText, forKey: .repsText)
+        try container.encode(durationText, forKey: .durationText)
+        try container.encode(distanceText, forKey: .distanceText)
+        try container.encode(caloriesText, forKey: .caloriesText)
+        try container.encode(isCompleted, forKey: .isCompleted)
+        try container.encodeIfPresent(superset_group_id, forKey: .superset_group_id)
+        try container.encode(setType, forKey: .setType)
+        try container.encodeIfPresent(previousValues, forKey: .previousValues)
+        try container.encodeIfPresent(suggestedValues, forKey: .suggestedValues)
+        try container.encodeIfPresent(suggestionReason, forKey: .suggestionReason)
+        try container.encodeIfPresent(routineExerciseID, forKey: .routineExerciseID)
+    }
+
+    var hasRequiredStrengthValues: Bool {
+        guard let reps = Int(repsText.trimmingCharacters(in: .whitespacesAndNewlines)) else { return false }
+        return reps > 0
+    }
+
+    var hasRequiredCardioValues: Bool {
+        (NumericFormatter.parse(durationText) ?? 0) > 0
+            || (NumericFormatter.parse(distanceText) ?? 0) > 0
+            || (NumericFormatter.parse(caloriesText) ?? 0) > 0
     }
 
     func weightAccessibilityLabel(exerciseName: String) -> String {
@@ -164,6 +271,15 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
                 if let reps = payload.values.reps {
                     exercises[exerciseIndex].sets[setIndex].repsText = "\(reps)"
                 }
+                if let duration = payload.values.durationMinutes {
+                    exercises[exerciseIndex].sets[setIndex].durationText = NumericFormatter.format(duration)
+                }
+                if let distance = payload.values.distanceKilometers {
+                    exercises[exerciseIndex].sets[setIndex].distanceText = NumericFormatter.format(distance)
+                }
+                if let calories = payload.values.calories {
+                    exercises[exerciseIndex].sets[setIndex].caloriesText = NumericFormatter.format(calories)
+                }
                 updatedAt = Date()
             }
             
@@ -173,6 +289,13 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
             
             if let exerciseIndex = exercises.firstIndex(where: { $0.id == exerciseID }),
                let setIndex = exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setUUID }) {
+                if payload.isCompleted {
+                    let set = exercises[exerciseIndex].sets[setIndex]
+                    let canComplete = exercises[exerciseIndex].exercise.isRepBased
+                        ? set.hasRequiredStrengthValues
+                        : set.hasRequiredCardioValues
+                    guard canComplete else { return }
+                }
                 exercises[exerciseIndex].sets[setIndex].isCompleted = payload.isCompleted
                 updatedAt = Date()
             }
@@ -181,13 +304,15 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
             guard let exerciseID = Self.resolveExerciseID(reference.exerciseID, routineExerciseID: reference.routineExerciseID) else { return }
             
             if let exerciseIndex = exercises.firstIndex(where: { $0.id == exerciseID }) {
-                let lastSet = exercises[exerciseIndex].sets.last
+                let lastWorkingSet = exercises[exerciseIndex].sets.last(where: { $0.setType == .working })
                 let newSet = WorkoutSetDraft(
                     id: action.id, // Use action ID for the new set
-                    setNumber: (lastSet?.setNumber ?? 0) + 1,
-                    weightText: lastSet?.weightText ?? "",
-                    repsText: lastSet?.repsText ?? "",
-                    isCompleted: false
+                    setNumber: (lastWorkingSet?.setNumber ?? 0) + 1,
+                    isCompleted: false,
+                    setType: .working,
+                    previousValues: lastWorkingSet?.previousValues,
+                    suggestedValues: lastWorkingSet?.suggestedValues,
+                    suggestionReason: lastWorkingSet?.suggestionReason
                 )
                 exercises[exerciseIndex].sets.append(newSet)
                 updatedAt = Date()
@@ -197,6 +322,15 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
             guard let exerciseID = Self.resolveExerciseID(payload.reference.exerciseID, routineExerciseID: payload.reference.routineExerciseID) else { return }
             
             if let exerciseIndex = exercises.firstIndex(where: { $0.id == exerciseID }) {
+                if payload.isCompleted {
+                    let exercise = exercises[exerciseIndex]
+                    let allEntered = exercise.sets.allSatisfy { set in
+                        exercise.exercise.isRepBased
+                            ? set.hasRequiredStrengthValues
+                            : set.hasRequiredCardioValues
+                    }
+                    guard allEntered else { return }
+                }
                 for i in 0..<exercises[exerciseIndex].sets.count {
                     exercises[exerciseIndex].sets[i].isCompleted = payload.isCompleted
                 }
@@ -228,254 +362,4 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
     }
 }
 
-struct WorkoutTemplateSummary: Identifiable, Equatable, Codable {
-    let id: Int64
-    var title: String
-    var exerciseCount: Int
-    var setCount: Int
 
-    var countText: String {
-        let exerciseLabel = exerciseCount == 1 ? "exercise" : "exercises"
-        let setLabel = setCount == 1 ? "set" : "sets"
-        return "\(exerciseCount) \(exerciseLabel), \(setCount) \(setLabel)"
-    }
-}
-
-struct WorkoutTemplateExerciseRow: Identifiable, Equatable {
-    let id: Int64
-    var exerciseName: String
-    var equipmentName: String
-    var setCount: Int
-    var orderIndex: Int
-
-    var setText: String {
-        setCount == 1 ? "1 set" : "\(setCount) sets"
-    }
-}
-
-struct WorkoutTemplateExerciseDraft: Identifiable, Equatable {
-    let id: UUID
-    var routineExerciseID: Int64?
-    var exercise: ExerciseLibraryItem
-    var orderIndex: Int
-    var targetSetsText: String
-    var targetRepsText: String
-    var durationText: String
-    var restSecondsText: String
-    var supersetGroupID: Int?
-
-    var supersetLabel: String? {
-        supersetGroupID?.supersetLabel
-    }
-
-    init(
-        id: UUID = UUID(),
-        routineExerciseID: Int64? = nil,
-        exercise: ExerciseLibraryItem,
-        orderIndex: Int,
-        targetSetsText: String,
-        targetRepsText: String,
-        durationText: String,
-        restSecondsText: String,
-        supersetGroupID: Int? = nil
-    ) {
-        self.id = id
-        self.routineExerciseID = routineExerciseID
-        self.exercise = exercise
-        self.orderIndex = orderIndex
-        self.targetSetsText = targetSetsText
-        self.targetRepsText = targetRepsText
-        self.durationText = durationText
-        self.restSecondsText = restSecondsText
-        self.supersetGroupID = supersetGroupID
-    }
-}
-
-extension Int {
-    var supersetLabel: String? {
-        guard self > 0 else { return nil }
-        let letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        let index = (self - 1) % letters.count
-        let letter = letters[letters.index(letters.startIndex, offsetBy: index)]
-        return "Superset \(letter)"
-    }
-}
-
-struct WorkoutSessionSummary: Identifiable, Equatable {
-    let id: Int64
-    let date: Date
-    let title: String
-    let notes: String?
-    let startTime: String?
-    let endTime: String?
-
-    init(
-        id: Int64,
-        date: Date,
-        title: String,
-        notes: String?,
-        startTime: String? = nil,
-        endTime: String? = nil
-    ) {
-        self.id = id
-        self.date = date
-        self.title = title
-        self.notes = notes
-        self.startTime = startTime
-        self.endTime = endTime
-    }
-
-    var durationMinutes: Int? {
-        guard let startSeconds = Self.seconds(from: startTime),
-              let endSeconds = Self.seconds(from: endTime) else {
-            return nil
-        }
-
-        let secondsInDay = 24 * 60 * 60
-        let elapsedSeconds = endSeconds >= startSeconds
-            ? endSeconds - startSeconds
-            : (secondsInDay - startSeconds) + endSeconds
-
-        return Int((Double(elapsedSeconds) / 60).rounded())
-    }
-
-    private static func seconds(from time: String?) -> Int? {
-        guard let time, !time.isEmpty else { return nil }
-        let parts = time.split(separator: ":").compactMap { Int(String($0)) }
-        guard parts.count >= 2 else { return nil }
-
-        let hours = parts[0]
-        let minutes = parts[1]
-        let seconds = parts.count >= 3 ? parts[2] : 0
-
-        return (hours * 60 * 60) + (minutes * 60) + seconds
-    }
-}
-
-struct WorkoutDraftSummary: Identifiable, Equatable {
-    let id: Int64
-    let routineID: Int64
-    let sessionPointerID: String
-    let title: String
-    let sessionDate: Date
-    let startTime: String?
-    let notes: String?
-    let exerciseCount: Int
-    let setCount: Int
-    let completedSetCount: Int
-    let updatedAt: Date
-
-    var progressText: String {
-        "\(completedSetCount)/\(setCount) sets complete"
-    }
-
-    var metadataText: String {
-        let exerciseLabel = exerciseCount == 1 ? "exercise" : "exercises"
-        let setLabel = setCount == 1 ? "set" : "sets"
-        return "\(exerciseCount) \(exerciseLabel) • \(setCount) \(setLabel)"
-    }
-
-    var subtitleText: String {
-        if let startTime, !startTime.isEmpty {
-            return "Started \(sessionDate.formatted(date: .abbreviated, time: .omitted)) at \(startTime)"
-        }
-
-        return "Started \(sessionDate.formatted(date: .abbreviated, time: .omitted))"
-    }
-}
-
-struct FitnessAnalysisSummaryResponse: Codable, Equatable {
-    struct DailyVolume: Codable, Equatable {
-        let date: String
-        let volume: Double
-    }
-    struct ExerciseVolume: Codable, Equatable {
-        let exercise_id: Int64
-        let equipment_id: Int64?
-        let volume: Double
-        let primary_muscles: [String]
-    }
-    
-    let daily_volumes: [DailyVolume]
-    let exercise_volumes: [ExerciseVolume]
-}
-
-struct FitnessHomeBundle: Codable, Equatable {
-    let routines: [WorkoutTemplateSummary]
-    let sessions: [WorkoutSession]
-    let analysis: FitnessAnalysisSummaryResponse
-}
-
-extension ActiveWorkoutDraft {
-    var summary: WorkoutDraftSummary {
-        let totalSets = exercises.reduce(0) { partialResult, exercise in
-            partialResult + exercise.sets.count
-        }
-        let completedSets = exercises.reduce(0) { partialResult, exercise in
-            partialResult + exercise.sets.filter(\.isCompleted).count
-        }
-
-        return WorkoutDraftSummary(
-            id: routineID,
-            routineID: routineID,
-            sessionPointerID: watchSessionPointer.id,
-            title: session.session_type,
-            sessionDate: session.date,
-            startTime: session.start_time,
-            notes: session.notes,
-            exerciseCount: exercises.count,
-            setCount: totalSets,
-            completedSetCount: completedSets,
-            updatedAt: updatedAt
-        )
-    }
-}
-
-protocol WorkoutDataManaging {
-    func fetchAllEquipment() async throws -> [Equipment]
-    func fetchAllExercises() async throws -> [Exercise]
-    func fetchAllExercisesWithMuscles() async throws -> [ExerciseWithMuscles]
-    func createWorkoutSession(_ request: CreateWorkoutSessionRequest) async throws -> WorkoutSession
-    func createWorkoutSet(_ request: CreateWorkoutSetRequest) async throws -> WorkoutSet
-    func createCardioLog(_ request: CreateCardioLogRequest) async throws -> CardioLog
-    func deleteWorkoutSession(id: Int64) async throws
-    func fetchWorkoutSets(exerciseId: Int64) async throws -> [WorkoutSet]
-    func fetchFitnessHomeBundle(daysBack: Int) async throws -> FitnessHomeBundle
-    func fetchWorkoutSessions() async throws -> [WorkoutSession]
-    func fetchWorkoutSessionDetail(sessionId: Int64) async throws -> WorkoutSessionDetail
-    func fetchExerciseProgression(exerciseId: Int64) async throws -> [ExerciseProgressionResult]
-    func fetchFitnessAnalysisSummary(daysBack: Int) async throws -> FitnessAnalysisSummaryResponse
-    func fetchWorkoutRoutinesSummary() async throws -> [WorkoutTemplateSummary]
-    func fetchLatestExerciseHistory(exerciseIds: [Int64]) async throws -> [WorkoutSet]
-    func updateWorkoutSession(_ session: WorkoutSession) async throws -> WorkoutSession
-    func updateWorkoutSet(_ set: WorkoutSet) async throws -> WorkoutSet
-    func deleteWorkoutSet(id: Int64) async throws
-    func updateCardioLog(_ log: CardioLog) async throws -> CardioLog
-    func deleteCardioLog(id: Int64) async throws
-}
-
-protocol WorkoutTemplateReadingDataManaging {
-    func fetchAllEquipment() async throws -> [Equipment]
-    func fetchAllExercises() async throws -> [Exercise]
-    func fetchAllExercisesWithMuscles() async throws -> [ExerciseWithMuscles]
-    func fetchRoutine(by id: Int64) async throws -> Routine?
-    func fetchAllRoutines() async throws -> [Routine]
-    func fetchRoutineExercises(routineId: Int64) async throws -> [RoutineExercise]
-}
-
-protocol FitnessTemplateDataManaging: WorkoutTemplateReadingDataManaging {
-    func updateRoutine(_ routine: Routine) async throws -> Routine
-}
-
-protocol WorkoutTemplateEditingDataManaging: FitnessTemplateDataManaging {
-    func createRoutine(_ request: CreateRoutineRequest) async throws -> Routine
-    func deleteRoutine(id: Int64) async throws
-    func addRoutineExercise(_ request: CreateRoutineExerciseRequest) async throws -> RoutineExercise
-    func updateRoutineExercise(_ routineExercise: RoutineExercise) async throws -> RoutineExercise
-    func deleteRoutineExercise(id: Int64) async throws
-}
-
-extension DBManager: WorkoutDataManaging {}
-extension DBManager: FitnessTemplateDataManaging {}
-extension DBManager: WorkoutTemplateReadingDataManaging {}
-extension DBManager: WorkoutTemplateEditingDataManaging {}

@@ -166,7 +166,7 @@ final class FitnessViewModelWatchActionTests: XCTestCase {
     }
 }
 
-class FakeFitnessViewModelDataManager: FitnessTemplateDataManaging, WorkoutDataManaging {
+class FakeFitnessViewModelDataManager: FitnessHomeReading, WorkoutRoutineReading, WorkoutCatalogReading, WorkoutLaunchHistoryReading, WorkoutFinalizationPersisting {
     func updateRoutine(_ routine: Routine) async throws -> Routine { routine }
     func fetchRoutine(by id: Int64) async throws -> Routine? { nil }
     func fetchAllRoutines() async throws -> [Routine] { [] }
@@ -201,4 +201,15 @@ class FakeFitnessViewModelDataManager: FitnessTemplateDataManaging, WorkoutDataM
     func deleteWorkoutSet(id: Int64) async throws {}
     func updateCardioLog(_ log: CardioLog) async throws -> CardioLog { log }
     func deleteCardioLog(id: Int64) async throws {}
+}
+
+extension FakeFitnessViewModelDataManager {
+    func fetchWorkoutLaunchHistory(
+        routineID: Int64?,
+        lookupItems: [WorkoutLaunchHistoryLookupItem]
+    ) async throws -> [WorkoutLaunchHistorySnapshot] { [] }
+
+    func finalizeWorkout(_ payload: FinalizeWorkoutPayload) async throws -> FinalizeWorkoutResponse {
+        FinalizeWorkoutResponse(session_id: 1)
+    }
 }

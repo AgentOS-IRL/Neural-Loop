@@ -11,12 +11,12 @@ final class WorkoutTemplateEditViewModel: ObservableObject {
 
     let summary: WorkoutTemplateSummary
 
-    private let dataManager: any FitnessTemplateDataManaging
+    private let dataManager: any WorkoutRoutineReading & WorkoutRoutineWriting
     private var hasLoaded = false
 
     init(
         summary: WorkoutTemplateSummary,
-        dataManager: any FitnessTemplateDataManaging
+        dataManager: any WorkoutRoutineReading & WorkoutRoutineWriting
     ) {
         self.summary = summary
         self.dataManager = dataManager
