@@ -20,12 +20,14 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
 
     @Published public var receivedMessage: String = "No message yet"
     @Published public var lastSnapshot: ActiveWorkoutSnapshot?
+    @Published public private(set) var lastDailyLoopSnapshot: DailyLoopWatchSnapshot?
     @Published public private(set) var lastClearedWorkout: ClearedWorkoutSnapshot?
     @Published public var lastAction: WorkoutWatchAction?
     @Published public var isReachable: Bool = WCSession.isSupported() ? WCSession.default.isReachable : false
 
     // Closure hooks for non-UI components
     public var snapshotHandler: ((ActiveWorkoutSnapshot) -> Void)?
+    public var dailyLoopSnapshotHandler: ((DailyLoopWatchSnapshot) -> Void)?
     public var clearedWorkoutHandler: ((ClearedWorkoutSnapshot) -> Void)?
     public var actionHandler: ((WorkoutWatchAction) -> Void)?
     public var finalizationHandler: ((WorkoutFinalizedResult) -> Void)?
@@ -42,12 +44,15 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
         case workoutAction = "workoutAction"
         case workoutFinalized = "workoutFinalized"
         case workoutSyncPayload = "workoutSyncPayload"
+        case dailyLoopSnapshot = "dailyLoopSnapshot"
         case deepLinkRequest = "deepLinkRequest"
     }
 
     private struct MessageKey {
         static let type = "msgType"
         static let payload = "payload"
+        static let workoutContext = "com.neuralloop.watch.context.workout"
+        static let dailyLoopContext = "com.neuralloop.watch.context.dailyLoop"
     }
 
     public override init() {
@@ -117,11 +122,39 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
     }
 
     private func handleIncomingMessage(_ message: [String: Any]) {
+        let hasKeyedWorkout = message[MessageKey.workoutContext] is Data
+        let hasKeyedDailyLoop = message[MessageKey.dailyLoopContext] is Data
+
+        if let workoutData = message[MessageKey.workoutContext] as? Data {
+            handleTypedMessage(type: .workoutSyncPayload, payload: workoutData)
+        }
+
+        if let dailyLoopData = message[MessageKey.dailyLoopContext] as? Data {
+            handleTypedMessage(type: .dailyLoopSnapshot, payload: dailyLoopData)
+        }
+
         let typeString = message[MessageKey.type] as? String
         let type = typeString.flatMap { MessageType(rawValue: $0) }
 
         if let type {
-            handleTypedMessage(type: type, payload: message[MessageKey.payload])
+            // During migration a context can contain a new Daily Loop key and
+            // the former typed workout envelope. Decode that legacy workout if
+            // the keyed equivalent is absent, without applying duplicates.
+            let alreadyHandled: Bool
+            switch type {
+            case .workoutSnapshot, .workoutSyncPayload:
+                alreadyHandled = hasKeyedWorkout
+            case .dailyLoopSnapshot:
+                alreadyHandled = hasKeyedDailyLoop
+            default:
+                alreadyHandled = false
+            }
+
+            if !alreadyHandled {
+                handleTypedMessage(type: type, payload: message[MessageKey.payload])
+            }
+        } else if hasKeyedWorkout || hasKeyedDailyLoop {
+            return
         } else if let text = message["text"] as? String {
             // Legacy/Generic text message
             DispatchQueue.main.async {
@@ -175,6 +208,12 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
                         self.clearedWorkoutHandler?(cleared)
                     }
                 }
+            case .dailyLoopSnapshot:
+                let snapshot = try decoder.decode(DailyLoopWatchSnapshot.self, from: data)
+                DispatchQueue.main.async {
+                    self.lastDailyLoopSnapshot = snapshot
+                    self.dailyLoopSnapshotHandler?(snapshot)
+                }
             case .deepLinkRequest:
                 let deepLink = try decoder.decode(NeuralLoopDeepLink.self, from: data)
                 DispatchQueue.main.async {
@@ -199,10 +238,10 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
 
         do {
             let encodedPayload = try encoder.encode(payload)
-            try WCSession.default.updateApplicationContext([
-                MessageKey.type: MessageType.workoutSyncPayload.rawValue,
-                MessageKey.payload: encodedPayload
-            ])
+            try updateApplicationContextPayload(
+                encodedPayload,
+                forKey: MessageKey.workoutContext
+            )
         } catch {
             print("ConnectivityManager: Error updating application context with snapshot: \(error)")
         }
@@ -249,6 +288,30 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
         sendEncodable(type: .workoutFinalized, payload: result, completion: completion)
     }
 
+    /// Publishes the latest iPhone-authored Daily Loop state. This uses its own
+    /// application-context key so workout and Daily Loop refreshes cannot evict
+    /// one another while either device is disconnected.
+    open func sendDailyLoopSnapshot(_ snapshot: DailyLoopWatchSnapshot) {
+        guard WCSession.isSupported() else { return }
+
+        do {
+            let encodedPayload = try encoder.encode(snapshot)
+            try updateApplicationContextPayload(
+                encodedPayload,
+                forKey: MessageKey.dailyLoopContext
+            )
+
+            if WCSession.default.isReachable {
+                sendEncodable(type: .dailyLoopSnapshot, payload: snapshot)
+            }
+        } catch {
+            print("ConnectivityManager: Error publishing Daily Loop snapshot: \(error)")
+            DispatchQueue.main.async {
+                self.errorHandler?(error)
+            }
+        }
+    }
+
     /// Signals the watch that there is no active workout. The watch store
     /// subscribes to $lastSnapshot and clears itself when it becomes nil.
     open func clearWorkoutSnapshot(sessionID: String, reason: ClearReason) {
@@ -260,10 +323,10 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
         
         do {
             let encodedPayload = try encoder.encode(payload)
-            try WCSession.default.updateApplicationContext([
-                MessageKey.type: MessageType.workoutSyncPayload.rawValue,
-                MessageKey.payload: encodedPayload
-            ])
+            try updateApplicationContextPayload(
+                encodedPayload,
+                forKey: MessageKey.workoutContext
+            )
         } catch {
             print("ConnectivityManager: Error updating application context with cleared payload: \(error)")
         }
@@ -304,6 +367,21 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
                 completion?(.failure(error))
             }
         }
+    }
+
+    private func updateApplicationContextPayload(_ payload: Data, forKey key: String) throws {
+        guard WCSession.isSupported() else { return }
+
+        let session = WCSession.default
+        var context = session.applicationContext
+        context[key] = payload
+
+        // Remove the legacy single-envelope representation when migrating to
+        // keyed context. Leaving it beside the new keys would decode the same
+        // workout twice on older outgoing state.
+        context.removeValue(forKey: MessageKey.type)
+        context.removeValue(forKey: MessageKey.payload)
+        try session.updateApplicationContext(context)
     }
 
     open func sendDeepLinkRequest(_ destination: NeuralLoopDeepLink) {

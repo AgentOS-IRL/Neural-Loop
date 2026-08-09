@@ -10,11 +10,13 @@ import SwiftUI
 @main
 struct Neural_Loop_Watch_Watch_AppApp: App {
     @StateObject private var workoutStore = WatchWorkoutStore()
+    @StateObject private var dailyLoopStore = WatchDailyLoopStore()
     
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(workoutStore)
+                .environmentObject(dailyLoopStore)
         }
     }
 }

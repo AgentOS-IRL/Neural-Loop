@@ -2,14 +2,25 @@ import Foundation
 import WidgetKit
 
 extension UnifiedDataModel {
+    func updateDailyLoopRecurringCompletions(_ completions: [CompletedRecurringTask]) {
+        dailyLoopRecurringCompletions = completions
+        refreshWidgetSnapshot()
+    }
+
     func refreshWidgetSnapshot() {
         let snapshot = NeuralLoopWidgetSnapshot(
             tasks: widgetTasks(),
             habits: widgetHabits()
         )
 
+        let dailyLoopSnapshot = DailyLoopWatchSnapshot(
+            tasks: dailyLoopWatchTasks(),
+            habits: dailyLoopWatchHabits()
+        )
+
         NeuralLoopWidgetSnapshotStore.save(snapshot)
         WidgetCenter.shared.reloadTimelines(ofKind: NeuralLoopWidgetSnapshot.widgetKind)
+        ConnectivityManager.shared.sendDailyLoopSnapshot(dailyLoopSnapshot)
     }
 
     private func widgetTasks() -> [NeuralLoopWidgetTask] {
@@ -86,5 +97,102 @@ extension UnifiedDataModel {
             }
             .prefix(8)
             .map { $0 }
+    }
+
+    private func dailyLoopWatchTasks(now: Date = .now) -> [DailyLoopWatchTaskSummary] {
+        let calendar = Calendar.neuralLoopDisplay
+        let todayEnd = calendar.endOfDay(now)
+
+        return tasks.compactMap { task -> DailyLoopWatchTaskSummary? in
+            guard !task.is_completed, let taskID = task.id else { return nil }
+
+            let isRecurring = task.recursion_rule?.isEmpty == false
+            let occurrenceStart: Date?
+            let displayStart: Date?
+
+            if isRecurring {
+                guard let resolvedOccurrence = recurringTaskOccurrenceStart(
+                    for: task,
+                    on: now,
+                    calendar: calendar
+                ) else {
+                    return nil
+                }
+                occurrenceStart = resolvedOccurrence
+                displayStart = resolvedOccurrence
+            } else {
+                guard task.start_date.map({ $0 <= todayEnd }) ?? true else { return nil }
+                occurrenceStart = nil
+                displayStart = task.start_date
+            }
+
+            return DailyLoopWatchTaskSummary(
+                identity: DailyLoopTaskIdentity(
+                    taskID: taskID,
+                    occurrenceStart: occurrenceStart
+                ),
+                title: task.title,
+                startDate: displayStart,
+                duration: task.duration,
+                priority: task.priority,
+                recurrenceRule: task.recursion_rule,
+                isCompleted: occurrenceStart.map {
+                    isRecurringTaskCompleted(
+                        taskId: taskID,
+                        occurrenceStart: $0,
+                        completions: dailyLoopRecurringCompletions
+                    )
+                } ?? task.is_completed
+            )
+        }
+        .sorted { lhs, rhs in
+            switch (lhs.startDate, rhs.startDate) {
+            case let (lhsDate?, rhsDate?) where lhsDate != rhsDate:
+                return lhsDate < rhsDate
+            case (nil, _?):
+                return false
+            case (_?, nil):
+                return true
+            default:
+                if lhs.priority != rhs.priority {
+                    return lhs.priority > rhs.priority
+                }
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+        }
+    }
+
+    private func dailyLoopWatchHabits(now: Date = .now) -> [DailyLoopWatchHabitSummary] {
+        habits.compactMap { habit -> DailyLoopWatchHabitSummary? in
+            guard
+                let habitID = habit.id,
+                HabitWindow.isOccurring(on: now, habit: habit),
+                let progress = currentHabitProgressMap[habitID]
+            else {
+                return nil
+            }
+
+            return DailyLoopWatchHabitSummary(
+                id: habitID,
+                title: habit.title,
+                current: progress.current,
+                target: max(progress.target, 1),
+                label: progress.targetLabel.isEmpty ? habit.label : progress.targetLabel,
+                priority: habit.priority,
+                isSkipped: HabitSkipPersistenceManager.shared.isHabitSkippedToday(habitId: habitID)
+            )
+        }
+        .sorted { lhs, rhs in
+            if lhs.isSkipped != rhs.isSkipped {
+                return !lhs.isSkipped
+            }
+            if lhs.isComplete != rhs.isComplete {
+                return !lhs.isComplete
+            }
+            if lhs.priority != rhs.priority {
+                return lhs.priority > rhs.priority
+            }
+            return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+        }
     }
 }

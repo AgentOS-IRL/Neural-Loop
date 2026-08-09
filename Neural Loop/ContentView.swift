@@ -8,18 +8,21 @@
 
 import SwiftUI
 import OSLog
+import SwiftData
 
 let logger = Logger(subsystem: "NeuralLoop", category: "App")
 
 struct ContentView: View {
     @EnvironmentObject private var model: UnifiedDataModel
     @ObservedObject private var deepLink = DeepLinkManager.shared
+    @Query private var recurringCompletions: [CompletedRecurringTask]
     @State private var selectedTab: AppTab = .tasks
     @State private var isMoodMeterPresented = false
 
     var body: some View {
         manualShell
         .onAppear {
+            model.updateDailyLoopRecurringCompletions(recurringCompletions)
             if !isRunningUnderTests() {
                 Task {
                     _ = await NotificationManager.shared.requestPermission()
@@ -32,9 +35,29 @@ struct ContentView: View {
             guard newValue != nil else { return }
             handlePendingDeepLink()
         }
+        .onChange(of: recurringCompletionWatchKeys) { _, _ in
+            model.updateDailyLoopRecurringCompletions(recurringCompletions)
+        }
         .sheet(isPresented: $isMoodMeterPresented) {
             MoodMeterView()
                 .environmentObject(model)
+        }
+    }
+
+    private var recurringCompletionWatchKeys: [RecurringCompletionWatchKey] {
+        recurringCompletions.map {
+            RecurringCompletionWatchKey(
+                taskID: $0.taskId,
+                occurrenceStart: $0.occurrenceStart,
+                completedAt: $0.completedAt
+            )
+        }
+        .sorted { lhs, rhs in
+            if lhs.taskID != rhs.taskID { return lhs.taskID < rhs.taskID }
+            if lhs.occurrenceStart != rhs.occurrenceStart {
+                return (lhs.occurrenceStart ?? .distantPast) < (rhs.occurrenceStart ?? .distantPast)
+            }
+            return lhs.completedAt < rhs.completedAt
         }
     }
 
@@ -95,6 +118,12 @@ struct ContentView: View {
                 .padding(.bottom, -20)
         }
     }
+}
+
+private struct RecurringCompletionWatchKey: Hashable {
+    let taskID: Int64
+    let occurrenceStart: Date?
+    let completedAt: Date
 }
 
 struct ContentView_Previews: PreviewProvider {

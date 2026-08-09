@@ -32,6 +32,9 @@
 		B10000000000000000000022 /* WorkoutDisplayState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* WorkoutDisplayState.swift */; };
 		B10000000000000000000023 /* WorkoutDisplayState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* WorkoutDisplayState.swift */; };
 		B10000000000000000000024 /* WorkoutDisplayState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* WorkoutDisplayState.swift */; };
+		D10000000000000000000012 /* DailyLoopWatchModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* DailyLoopWatchModels.swift */; };
+		D10000000000000000000013 /* DailyLoopWatchModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* DailyLoopWatchModels.swift */; };
+		D10000000000000000000014 /* DailyLoopWatchModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* DailyLoopWatchModels.swift */; };
 		34B5B1792F1E7A8D00D44FEF /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 34B5B1782F1E7A8D00D44FEF /* GRDB */; };
 		34EB1E5F2F0FFD5400F5B247 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 34EB1E5E2F0FFD5400F5B247 /* Auth */; };
 		34EB1E612F0FFD5400F5B247 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 34EB1E602F0FFD5400F5B247 /* Functions */; };
@@ -135,6 +138,7 @@
 		349D25EE2F24039F0001589F /* WorkoutWatchSyncModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutWatchSyncModels.swift; sourceTree = "<group>"; };
 		B10000000000000000000001 /* WorkoutWatchActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutWatchActions.swift; sourceTree = "<group>"; };
 		B10000000000000000000002 /* WorkoutDisplayState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDisplayState.swift; sourceTree = "<group>"; };
+		D10000000000000000000001 /* DailyLoopWatchModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyLoopWatchModels.swift; sourceTree = "<group>"; };
 		34B495962F138D78000FAD6D /* Neural LoopTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Neural LoopTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -287,6 +291,7 @@
 				349D25EE2F24039F0001589F /* WorkoutWatchSyncModels.swift */,
 				B10000000000000000000001 /* WorkoutWatchActions.swift */,
 				B10000000000000000000002 /* WorkoutDisplayState.swift */,
+				D10000000000000000000001 /* DailyLoopWatchModels.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -543,6 +548,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D10000000000000000000012 /* DailyLoopWatchModels.swift in Sources */,
 				262A90522FA1D0B600C1A47F /* WorkoutWatchSyncModels.swift in Sources */,
 				B10000000000000000000012 /* WorkoutWatchActions.swift in Sources */,
 				B10000000000000000000022 /* WorkoutDisplayState.swift in Sources */,
@@ -553,6 +559,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D10000000000000000000013 /* DailyLoopWatchModels.swift in Sources */,
 				349D25EA2F24039E0001589F /* ConnectivityManager.swift in Sources */,
 				26A100022FA7B00000A10001 /* NeuralLoopWidgetSnapshot.swift in Sources */,
 				349D25EC2F24039F0001589F /* WorkoutWatchSyncModels.swift in Sources */,
@@ -565,6 +572,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D10000000000000000000014 /* DailyLoopWatchModels.swift in Sources */,
 				349D25EB2F24039E0001589F /* ConnectivityManager.swift in Sources */,
 				349D25ED2F24039F0001589F /* WorkoutWatchSyncModels.swift in Sources */,
 				B10000000000000000000014 /* WorkoutWatchActions.swift in Sources */,

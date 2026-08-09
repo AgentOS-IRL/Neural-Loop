@@ -96,6 +96,10 @@ final class UnifiedDataModel: ObservableObject {
             refreshWidgetSnapshot()
         }
     }
+    /// Read-only mirror supplied by the SwiftData environment for watch
+    /// snapshot generation. Recurring-task mutations remain owned by the
+    /// existing SwiftData helpers.
+    var dailyLoopRecurringCompletions: [CompletedRecurringTask] = []
     @Published var secrets: [Secrets] = []
     @Published private(set) var secretsLoaded = false
     @Published private(set) var llmOverrideEnabled: Bool
