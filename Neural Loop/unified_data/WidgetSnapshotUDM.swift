@@ -13,14 +13,18 @@ extension UnifiedDataModel {
             habits: widgetHabits()
         )
 
-        let dailyLoopSnapshot = DailyLoopWatchSnapshot(
-            tasks: dailyLoopWatchTasks(),
-            habits: dailyLoopWatchHabits()
-        )
+        let dailyLoopSnapshot = makeDailyLoopWatchSnapshot()
 
         NeuralLoopWidgetSnapshotStore.save(snapshot)
         WidgetCenter.shared.reloadTimelines(ofKind: NeuralLoopWidgetSnapshot.widgetKind)
         ConnectivityManager.shared.sendDailyLoopSnapshot(dailyLoopSnapshot)
+    }
+
+    func makeDailyLoopWatchSnapshot(now: Date = .now) -> DailyLoopWatchSnapshot {
+        DailyLoopWatchSnapshot(
+            tasks: dailyLoopWatchTasks(now: now),
+            habits: dailyLoopWatchHabits(now: now)
+        )
     }
 
     private func widgetTasks() -> [NeuralLoopWidgetTask] {
@@ -104,7 +108,7 @@ extension UnifiedDataModel {
         let todayEnd = calendar.endOfDay(now)
 
         return tasks.compactMap { task -> DailyLoopWatchTaskSummary? in
-            guard !task.is_completed, let taskID = task.id else { return nil }
+            guard let taskID = task.id else { return nil }
 
             let isRecurring = task.recursion_rule?.isEmpty == false
             let occurrenceStart: Date?
@@ -121,7 +125,13 @@ extension UnifiedDataModel {
                 occurrenceStart = resolvedOccurrence
                 displayStart = resolvedOccurrence
             } else {
-                guard task.start_date.map({ $0 <= todayEnd }) ?? true else { return nil }
+                if task.is_completed {
+                    guard task.completed_at.map({ calendar.isDate($0, inSameDayAs: now) }) == true else {
+                        return nil
+                    }
+                } else {
+                    guard task.start_date.map({ $0 <= todayEnd }) ?? true else { return nil }
+                }
                 occurrenceStart = nil
                 displayStart = task.start_date
             }

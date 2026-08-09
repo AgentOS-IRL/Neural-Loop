@@ -12,10 +12,29 @@ struct FleetingNote: Codable, Identifiable, Equatable {
     let id: Int64
     let created_at: Date
     let note: String
+    let watch_action_id: UUID?
+
+    init(
+        id: Int64,
+        created_at: Date,
+        note: String,
+        watch_action_id: UUID? = nil
+    ) {
+        self.id = id
+        self.created_at = created_at
+        self.note = note
+        self.watch_action_id = watch_action_id
+    }
 }
 
 struct CreateFleetingNoteRequest: Codable, Equatable {
     let note: String
+    let watch_action_id: UUID?
+
+    init(note: String, watch_action_id: UUID? = nil) {
+        self.note = note
+        self.watch_action_id = watch_action_id
+    }
 }
 
 struct UpdateFleetingNoteRequest: Codable, Equatable {
@@ -54,7 +73,7 @@ extension DBManager {
     func fetchFleetingNotes() async throws -> [FleetingNote] {
         let rows: [FleetingNote] = try await customsupabase
             .from(FleetingNote.tableName)
-            .select("id, created_at, note")
+            .select("id, created_at, note, watch_action_id")
             .order("created_at", ascending: false)
             .execute()
             .value
@@ -66,7 +85,7 @@ extension DBManager {
         let inserted: [FleetingNote] = try await customsupabase
             .from(FleetingNote.tableName)
             .insert(request)
-            .select("id, created_at, note")
+            .select("id, created_at, note, watch_action_id")
             .execute()
             .value
 
@@ -77,12 +96,30 @@ extension DBManager {
         return note
     }
 
+    /// Creates a note idempotently for a watch action. The database continues
+    /// to generate the note's ordinary numeric ID; the nullable action UUID is
+    /// used only as the conflict target for exactly-once watch retries.
+    func createFleetingNoteFromWatch(text: String, actionID: UUID) async throws -> FleetingNote {
+        let request = CreateFleetingNoteRequest(
+            note: text,
+            watch_action_id: actionID
+        )
+
+        return try await customsupabase
+            .from(FleetingNote.tableName)
+            .upsert(request, onConflict: "watch_action_id")
+            .select("id, created_at, note, watch_action_id")
+            .single()
+            .execute()
+            .value
+    }
+
     func updateFleetingNote(id: Int64, request: UpdateFleetingNoteRequest) async throws -> FleetingNote {
         let updated: [FleetingNote] = try await customsupabase
             .from(FleetingNote.tableName)
             .update(request)
             .eq("id", value: Int(id))
-            .select("id, created_at, note")
+            .select("id, created_at, note, watch_action_id")
             .execute()
             .value
 

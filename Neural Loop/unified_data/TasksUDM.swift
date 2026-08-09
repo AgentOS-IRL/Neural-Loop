@@ -158,6 +158,50 @@ extension  UnifiedDataModel {
             return nil
         }
     }
+
+    func setTaskCompletedFromWatch(taskId: Int64, completed: Bool) async throws {
+        guard let task = tasks.first(where: { $0.id == taskId }) else {
+            throw DailyLoopWatchMutationError.taskNotFound
+        }
+        guard task.recursion_rule?.isEmpty != false else {
+            throw DailyLoopWatchMutationError.missingOccurrence
+        }
+
+        let savedTask = try await manager.markTaskCompleted(
+            taskId: taskId,
+            completed: completed
+        )
+
+        if let index = tasks.firstIndex(where: { $0.id == taskId }) {
+            tasks[index] = savedTask
+        } else {
+            tasks.append(savedTask)
+        }
+
+        await refreshTaskNotifications(for: savedTask)
+    }
+
+    func setRecurringTaskCompletedFromWatch(
+        taskId: Int64,
+        occurrenceStart: Date,
+        completed: Bool,
+        context: ModelContext
+    ) async throws {
+        guard let task = tasks.first(where: { $0.id == taskId }) else {
+            throw DailyLoopWatchMutationError.taskNotFound
+        }
+        guard task.recursion_rule?.isEmpty == false else {
+            throw DailyLoopWatchMutationError.unexpectedOccurrence
+        }
+
+        try setRecurringTaskCompleted(
+            taskId: taskId,
+            occurrenceStart: occurrenceStart,
+            completed: completed,
+            context: context
+        )
+        await notificationScheduler.scheduleTask(task)
+    }
     
     func filterTasks(searchText: String) -> [Tasks] {
         guard !searchText.isEmpty else { return tasks }

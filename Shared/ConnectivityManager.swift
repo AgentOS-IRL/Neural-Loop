@@ -21,6 +21,8 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
     @Published public var receivedMessage: String = "No message yet"
     @Published public var lastSnapshot: ActiveWorkoutSnapshot?
     @Published public private(set) var lastDailyLoopSnapshot: DailyLoopWatchSnapshot?
+    @Published public private(set) var lastDailyLoopAction: DailyLoopWatchAction?
+    @Published public private(set) var lastDailyLoopActionResult: DailyLoopWatchActionResult?
     @Published public private(set) var lastClearedWorkout: ClearedWorkoutSnapshot?
     @Published public var lastAction: WorkoutWatchAction?
     @Published public var isReachable: Bool = WCSession.isSupported() ? WCSession.default.isReachable : false
@@ -28,6 +30,8 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
     // Closure hooks for non-UI components
     public var snapshotHandler: ((ActiveWorkoutSnapshot) -> Void)?
     public var dailyLoopSnapshotHandler: ((DailyLoopWatchSnapshot) -> Void)?
+    public var dailyLoopActionHandler: ((DailyLoopWatchAction) -> Void)?
+    public var dailyLoopActionResultHandler: ((DailyLoopWatchActionResult) -> Void)?
     public var clearedWorkoutHandler: ((ClearedWorkoutSnapshot) -> Void)?
     public var actionHandler: ((WorkoutWatchAction) -> Void)?
     public var finalizationHandler: ((WorkoutFinalizedResult) -> Void)?
@@ -45,6 +49,8 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
         case workoutFinalized = "workoutFinalized"
         case workoutSyncPayload = "workoutSyncPayload"
         case dailyLoopSnapshot = "dailyLoopSnapshot"
+        case dailyLoopAction = "dailyLoopAction"
+        case dailyLoopActionResult = "dailyLoopActionResult"
         case deepLinkRequest = "deepLinkRequest"
     }
 
@@ -214,6 +220,18 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
                     self.lastDailyLoopSnapshot = snapshot
                     self.dailyLoopSnapshotHandler?(snapshot)
                 }
+            case .dailyLoopAction:
+                let action = try decoder.decode(DailyLoopWatchAction.self, from: data)
+                DispatchQueue.main.async {
+                    self.lastDailyLoopAction = action
+                    self.dailyLoopActionHandler?(action)
+                }
+            case .dailyLoopActionResult:
+                let result = try decoder.decode(DailyLoopWatchActionResult.self, from: data)
+                DispatchQueue.main.async {
+                    self.lastDailyLoopActionResult = result
+                    self.dailyLoopActionResultHandler?(result)
+                }
             case .deepLinkRequest:
                 let deepLink = try decoder.decode(NeuralLoopDeepLink.self, from: data)
                 DispatchQueue.main.async {
@@ -310,6 +328,26 @@ open class ConnectivityManager: NSObject, ObservableObject, WCSessionDelegate, W
                 self.errorHandler?(error)
             }
         }
+    }
+
+    /// Sends one watch-authored action. Daily Loop queue ownership remains on
+    /// the watch; delivery acknowledgement is not an authoritative mutation
+    /// acknowledgement and therefore never removes the action from that queue.
+    open func sendDailyLoopAction(
+        _ action: DailyLoopWatchAction,
+        completion: ((Result<Void, Error>) -> Void)? = nil
+    ) {
+        sendEncodable(type: .dailyLoopAction, payload: action, completion: completion)
+    }
+
+    /// Returns the iPhone-authored result for a Daily Loop action. Every result
+    /// carries the latest authoritative snapshot so the watch can reconcile its
+    /// optimistic state before advancing its strictly sequential queue.
+    open func sendDailyLoopActionResult(
+        _ result: DailyLoopWatchActionResult,
+        completion: ((Result<Void, Error>) -> Void)? = nil
+    ) {
+        sendEncodable(type: .dailyLoopActionResult, payload: result, completion: completion)
     }
 
     /// Signals the watch that there is no active workout. The watch store

@@ -36,7 +36,7 @@ struct WatchDashboardView: View {
             }
 
             NavigationLink {
-                WatchDailyLoopView(snapshot: snapshot)
+                WatchDailyLoopView()
             } label: {
                 dashboardRoute(
                     title: "Daily Loop",
@@ -57,12 +57,12 @@ struct WatchDashboardView: View {
                 )
             }
 
-            Button {
-                ConnectivityManager.shared.sendDeepLinkRequest(.addNote)
+            NavigationLink {
+                WatchCaptureView()
             } label: {
                 dashboardRoute(
                     title: "Capture",
-                    subtitle: "Open note editor",
+                    subtitle: "Type or dictate",
                     symbol: "square.and.pencil",
                     color: .orange
                 )

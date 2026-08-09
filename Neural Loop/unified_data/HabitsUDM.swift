@@ -40,33 +40,57 @@ extension  UnifiedDataModel {
     
     
     func incrementHabit(_ habit: Habits, value: Int = 1, date: Date = Date()) async {
-        guard let id = habit.id else { return }
         do {
-            HabitSkipPersistenceManager.shared.unskipHabitToday(habitId: id)
-
-            let window = HabitWindow.window(for: habit, reference: date)
-            let result = try await manager.addHabitEntryWithSummary(
-                habitId: id,
-                value: value,
-                date: date,
-                windowStart: window.start,
-                windowEnd: window.end
-            )
-            
-            var entries = habitTrackingEntriesMap[id, default: []]
-            entries.insert(result.entry, at: 0)
-            habitTrackingEntriesMap[id] = entries.latestFirst()
-
-            await notificationScheduler.scheduleHabit(
-                habit,
-                progress: currentHabitProgressMap[id]
-            )
-
-            await addWaterToHealthKitIfNeeded(for: habit, value: value, date: date)
-            
+            try await incrementHabitAuthoritatively(habit, value: value, date: date)
         } catch {
-            print("Error adding entry for habit: \(habit.id!)")
+            print("Error adding entry for habit: \(habit.id ?? -1)")
         }
+    }
+
+    /// Applies the watch's optimistic target as an idempotent lower bound.
+    /// The action ledger prevents duplicated mutations after a lost reply, and
+    /// this lower-bound check also makes replay safe against newer iPhone data.
+    func setHabitProgressAtLeastFromWatch(habitID: Int64, minimumValue: Int) async throws {
+        guard let habit = habits.first(where: { $0.id == habitID }) else {
+            throw DailyLoopWatchMutationError.habitNotFound
+        }
+
+        let current = currentHabitProgressMap[habitID]?.current ?? 0
+        let delta = max(0, minimumValue - current)
+        guard delta > 0 else { return }
+        try await incrementHabitAuthoritatively(habit, value: delta, date: .now)
+    }
+
+    private func incrementHabitAuthoritatively(
+        _ habit: Habits,
+        value: Int,
+        date: Date
+    ) async throws {
+        guard let id = habit.id else {
+            throw DailyLoopWatchMutationError.habitNotFound
+        }
+
+        HabitSkipPersistenceManager.shared.unskipHabitToday(habitId: id)
+
+        let window = HabitWindow.window(for: habit, reference: date)
+        let result = try await manager.addHabitEntryWithSummary(
+            habitId: id,
+            value: value,
+            date: date,
+            windowStart: window.start,
+            windowEnd: window.end
+        )
+
+        var entries = habitTrackingEntriesMap[id, default: []]
+        entries.insert(result.entry, at: 0)
+        habitTrackingEntriesMap[id] = entries.latestFirst()
+
+        await notificationScheduler.scheduleHabit(
+            habit,
+            progress: currentHabitProgressMap[id]
+        )
+
+        await addWaterToHealthKitIfNeeded(for: habit, value: value, date: date)
     }
 
     private func addWaterToHealthKitIfNeeded(for habit: Habits, value: Int, date: Date) async {

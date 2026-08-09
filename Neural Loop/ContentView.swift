@@ -14,6 +14,7 @@ let logger = Logger(subsystem: "NeuralLoop", category: "App")
 
 struct ContentView: View {
     @EnvironmentObject private var model: UnifiedDataModel
+    @Environment(\.modelContext) private var modelContext
     @ObservedObject private var deepLink = DeepLinkManager.shared
     @Query private var recurringCompletions: [CompletedRecurringTask]
     @State private var selectedTab: AppTab = .tasks
@@ -22,6 +23,10 @@ struct ContentView: View {
     var body: some View {
         manualShell
         .onAppear {
+            DailyLoopWatchActionProcessor.shared.configure(
+                model: model,
+                modelContext: modelContext
+            )
             model.updateDailyLoopRecurringCompletions(recurringCompletions)
             if !isRunningUnderTests() {
                 Task {
