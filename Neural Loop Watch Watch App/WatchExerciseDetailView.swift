@@ -16,7 +16,9 @@ struct WatchExerciseDetailView: View {
                 List {
                     Section {
                         ForEach(exercise.sets) { set in
-                            NavigationLink(value: set) {
+                            NavigationLink {
+                                WatchSetEntryView(exerciseID: exerciseID, setID: set.id)
+                            } label: {
                                 WatchSetRow(set: set, isCardio: exercise.isDurationBased == true)
                             }
                             .disabled(exercise.isCompleted)
@@ -69,9 +71,6 @@ struct WatchExerciseDetailView: View {
                     )
                 }
                 .navigationTitle(exercise.name)
-                .navigationDestination(for: SetSnapshot.self) { set in
-                    WatchSetEntryView(exerciseID: exerciseID, setID: set.id)
-                }
             } else {
                 ContentUnavailableView(
                     "Exercise Unavailable",

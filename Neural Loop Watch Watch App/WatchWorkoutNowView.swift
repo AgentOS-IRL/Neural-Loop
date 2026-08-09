@@ -68,8 +68,10 @@ struct WatchWorkoutNowView: View {
     let snapshot: ActiveWorkoutSnapshot
 
     @EnvironmentObject private var store: WatchWorkoutStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @FocusState private var crownFocused: Bool
+    @AppStorage("watchWorkoutHasUsedFocusCrown") private var hasUsedFocusCrown = false
 
     @State private var activeMetric: WatchWorkoutMetric = .weight
     @State private var loadedTargetID: String?
@@ -102,128 +104,123 @@ struct WatchWorkoutNowView: View {
             loadCurrentTarget(force: true)
             focusCrown()
         }
+        .onChange(of: activeMetric) { _, _ in
+            commitPendingValues()
+            validationMessage = nil
+            focusCrown()
+        }
         .onDisappear {
             commitPendingValues()
         }
     }
 
     private func cockpit(_ target: WatchWorkoutNowTarget) -> some View {
-        VStack(spacing: 10) {
-            currentSetHeader(target)
+        GeometryReader { geometry in
+            let availableMetrics = metrics(for: target)
+            let showsSuggestion = target.set.suggestedValues != nil && validationMessage == nil
+            let showsMetricPicker = availableMetrics.count > 1 && !showsSuggestion
+            let showsCrownHint = !hasUsedFocusCrown && !showsSuggestion && validationMessage == nil
+            let valueControlHeight = focusControlHeight(
+                availableHeight: geometry.size.height,
+                showsMetricPicker: showsMetricPicker,
+                showsSuggestion: showsSuggestion,
+                showsCrownHint: showsCrownHint,
+                showsValidation: validationMessage != nil
+            )
 
-            metricPicker(for: target)
+            VStack(spacing: 4) {
+                currentSetHeader(target)
 
-            metricDial
-                .focusable()
-                .focused($crownFocused)
-                .digitalCrownRotation(
-                    detent: crownValue,
-                    from: 0,
-                    through: activeMetric.maximum,
-                    by: activeMetric.step,
-                    sensitivity: .low,
-                    isContinuous: false,
-                    isHapticFeedbackEnabled: true,
-                    onIdle: {
-                        commitPendingValues()
-                    }
+                if showsMetricPicker {
+                    metricPicker(for: target)
+                }
+
+                Spacer(minLength: 0)
+
+                metricValueControl(
+                    activeMetric,
+                    height: valueControlHeight,
+                    availableWidth: geometry.size.width,
+                    target: target
                 )
+                    .focusable()
+                    .focusEffectDisabled()
+                    .focused($crownFocused)
+                    .digitalCrownRotation(
+                        detent: crownValue,
+                        from: 0,
+                        through: activeMetric.maximum,
+                        by: activeMetric.step,
+                        sensitivity: .low,
+                        isContinuous: false,
+                        isHapticFeedbackEnabled: true,
+                        onIdle: {
+                            commitPendingValues()
+                        }
+                    )
+                    .digitalCrownAccessory(.hidden)
 
-            if let suggestion = target.set.suggestedValues {
-                suggestionCard(target: target, suggestion: suggestion)
-            }
-
-            if let validationMessage {
-                Text(validationMessage)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .multilineTextAlignment(.center)
-            }
-
-            Button {
-                complete(target)
-            } label: {
-                Label("Complete Set", systemImage: "checkmark.circle.fill")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(.green)
-            .handGestureShortcut(.primaryAction)
-            .accessibilityHint("Saves these values and advances to the next incomplete set")
-
-            HStack(spacing: 8) {
-                NavigationLink {
-                    WatchSetEntryView(exerciseID: target.exercise.id, setID: target.set.id)
-                } label: {
-                    Label("Details", systemImage: "slider.horizontal.3")
-                        .frame(maxWidth: .infinity)
+                if let validationMessage {
+                    Text(validationMessage)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                } else if showsSuggestion, let suggestion = target.set.suggestedValues {
+                    suggestionRow(target: target, suggestion: suggestion)
+                } else if showsCrownHint {
+                    Text("Turn the Digital Crown")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .transition(.opacity)
                 }
-                .accessibilityHint("Opens all editable values for this set")
 
-                NavigationLink {
-                    List {
-                        WatchExerciseListView(snapshot: snapshot)
-                    }
-                    .navigationTitle("Exercises")
-                } label: {
-                    Label("Exercises", systemImage: "list.bullet")
-                        .frame(maxWidth: .infinity)
-                }
-                .accessibilityHint("Shows every exercise and set")
+                Spacer(minLength: 0)
+
+                completeSetButton(target)
             }
-            .buttonStyle(.bordered)
-            .font(.caption)
+            .frame(
+                width: geometry.size.width,
+                height: geometry.size.height,
+                alignment: .top
+            )
         }
-        .padding(10)
-        .background(
-            Color.secondary.opacity(reduceTransparency ? 0.26 : 0.12),
-            in: RoundedRectangle(cornerRadius: 16)
-        )
+        .padding(.horizontal, 6)
+        .padding(.bottom, 2)
         .accessibilityAction(named: "Complete Set") {
             complete(target)
         }
     }
 
     private func currentSetHeader(_ target: WatchWorkoutNowTarget) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("NOW")
-                    .font(.caption.bold())
-                    .foregroundStyle(.green)
-                Spacer()
-                Text(setLabel(target.set))
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
-
-            Text(target.exercise.name)
-                .font(.title3.bold())
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Current exercise, \(target.exercise.name), \(setLabel(target.set))")
+        Text(target.exercise.name)
+            .font(.headline)
+            .lineLimit(2)
+            .minimumScaleFactor(0.72)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity)
+            .accessibilityLabel("Current exercise, \(target.exercise.name), \(setLabel(target.set))")
     }
 
     private func metricPicker(for target: WatchWorkoutNowTarget) -> some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 12) {
             ForEach(metrics(for: target), id: \.self) { metric in
                 Button {
                     commitPendingValues()
-                    activeMetric = metric
+                    setActiveMetric(metric)
                     validationMessage = nil
-                    focusCrown()
                 } label: {
                     Text(metric.shortLabel)
                         .font(.caption.bold())
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 5)
-                        .background(
-                            activeMetric == metric ? metric.tint.opacity(0.28) : Color.clear,
-                            in: Capsule()
-                        )
+                        .padding(.vertical, 3)
+                        .overlay(alignment: .bottom) {
+                            Capsule()
+                                .fill(activeMetric == metric ? metric.tint : Color.clear)
+                                .frame(height: 2)
+                        }
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(activeMetric == metric ? metric.tint : .secondary)
@@ -233,81 +230,96 @@ struct WatchWorkoutNowView: View {
         }
     }
 
-    private var metricDial: some View {
-        VStack(spacing: 3) {
-            Text(formattedActiveValue)
-                .font(.largeTitle.bold().monospacedDigit())
-                .foregroundStyle(activeMetric.tint)
-                .minimumScaleFactor(0.65)
-                .lineLimit(1)
-
-            Text(activeMetric.shortLabel)
-                .font(.caption.bold())
-                .foregroundStyle(.secondary)
-
-            Text("Turn the Digital Crown")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 5)
+    private func metricValueControl(
+        _ metric: WatchWorkoutMetric,
+        height: CGFloat,
+        availableWidth: CGFloat,
+        target: WatchWorkoutNowTarget
+    ) -> some View {
+        Text(formattedValue(for: metric))
+            .font(.system(.largeTitle, design: .rounded, weight: .bold))
+            .monospacedDigit()
+            .foregroundStyle(metric.tint)
+            .minimumScaleFactor(0.58)
+            .lineLimit(1)
+            .frame(
+                width: min(132, availableWidth * 0.72),
+                height: height
+            )
+            .background(
+                Color.secondary.opacity(reduceTransparency ? 0.24 : 0.08),
+                in: RoundedRectangle(cornerRadius: 14)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(metric.tint.opacity(0.78), lineWidth: 2)
+            }
         .contentShape(Rectangle())
+        .gesture(metricSwipeGesture(for: target))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(activeMetric.accessibilityLabel)
-        .accessibilityValue("\(formattedActiveValue) \(activeMetric.shortLabel)")
-        .accessibilityHint("Turn the Digital Crown to adjust")
+        .accessibilityLabel(metric.accessibilityLabel)
+        .accessibilityValue("\(formattedValue(for: metric)) \(metric.shortLabel)")
+        .accessibilityHint("Turn the Digital Crown to adjust. Swipe horizontally to change metric")
         .accessibilityAdjustableAction { direction in
             switch direction {
             case .increment:
-                setActiveValue(activeValue + activeMetric.step)
+                setActiveValue(activeValue + metric.step)
             case .decrement:
-                setActiveValue(activeValue - activeMetric.step)
+                setActiveValue(activeValue - metric.step)
             @unknown default:
                 return
             }
-            dirtyMetrics.insert(activeMetric)
+            hasUsedFocusCrown = true
+            dirtyMetrics.insert(metric)
             validationMessage = nil
         }
     }
 
-    private func suggestionCard(
+    private func completeSetButton(_ target: WatchWorkoutNowTarget) -> some View {
+        Button {
+            complete(target)
+        } label: {
+            Label("Complete Set", systemImage: "checkmark.circle.fill")
+                .font(.headline)
+                .minimumScaleFactor(0.78)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, minHeight: 44, maxHeight: 44)
+                .foregroundStyle(.white)
+                .background(.green, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .contentShape(Capsule())
+        .handGestureShortcut(.primaryAction)
+        .accessibilityHint("Saves these values and advances to the next incomplete set")
+    }
+
+    private func suggestionRow(
         target: WatchWorkoutNowTarget,
         suggestion: WorkoutSetValuesSnapshot
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top, spacing: 6) {
-                VStack(alignment: .leading, spacing: 2) {
-                    if let previous = target.set.previousValues {
-                        Text("Previous: \(valuesText(previous, cardio: target.isCardio))")
-                            .foregroundStyle(.secondary)
-                    }
-                    Text("Try: \(valuesText(suggestion, cardio: target.isCardio))")
-                        .foregroundStyle(.blue)
-                }
+        HStack(spacing: 6) {
+            Text("Try \(valuesText(suggestion, cardio: target.isCardio))")
                 .font(.caption)
-                .lineLimit(2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
 
-                Spacer(minLength: 2)
+            Spacer(minLength: 2)
 
-                Button("Apply") {
-                    apply(suggestion, to: target)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .accessibilityLabel("Apply suggested set values")
+            Button("Apply") {
+                apply(suggestion, to: target)
             }
-
-            if let reason = target.set.suggestionReason {
-                Text(reason.rawValue)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .tint(.blue)
+            .accessibilityLabel("Apply suggested set values")
         }
-        .padding(8)
+        .padding(.leading, 8)
+        .padding(.trailing, 4)
+        .padding(.vertical, 3)
         .background(
-            Color.blue.opacity(reduceTransparency ? 0.24 : 0.1),
-            in: RoundedRectangle(cornerRadius: 10)
+            Color.blue.opacity(reduceTransparency ? 0.22 : 0.08),
+            in: Capsule()
         )
         .accessibilityElement(children: .contain)
     }
@@ -377,7 +389,33 @@ struct WatchWorkoutNowView: View {
     }
 
     private func metrics(for target: WatchWorkoutNowTarget) -> [WatchWorkoutMetric] {
-        target.isCardio ? [.duration, .distance, .calories] : [.weight, .reps]
+        if target.isCardio {
+            let supportedMetrics: [WatchWorkoutMetric] = [.duration, .distance, .calories]
+            let applicableMetrics = supportedMetrics.filter { metric in
+                hasValue(for: metric, in: target.set.values)
+                    || target.set.previousValues.map { hasValue(for: metric, in: $0) } == true
+                    || target.set.suggestedValues.map { hasValue(for: metric, in: $0) } == true
+            }
+            return applicableMetrics.isEmpty ? [.duration] : applicableMetrics
+        }
+
+        let usesWeight = hasValue(for: .weight, in: target.set.values)
+            || target.set.previousValues.map { hasValue(for: .weight, in: $0) } == true
+            || target.set.suggestedValues.map { hasValue(for: .weight, in: $0) } == true
+        return usesWeight ? [.weight, .reps] : [.reps]
+    }
+
+    private func hasValue(
+        for metric: WatchWorkoutMetric,
+        in values: WorkoutSetValuesSnapshot
+    ) -> Bool {
+        switch metric {
+        case .weight: return values.kg != nil
+        case .reps: return values.reps != nil
+        case .duration: return values.durationMinutes != nil
+        case .distance: return values.distanceKilometers != nil
+        case .calories: return values.calories != nil
+        }
     }
 
     private var crownValue: Binding<Double> {
@@ -387,6 +425,7 @@ struct WatchWorkoutNowView: View {
                 setActiveValue(newValue)
                 validationMessage = nil
                 dirtyMetrics.insert(activeMetric)
+                hasUsedFocusCrown = true
             }
         )
     }
@@ -401,12 +440,13 @@ struct WatchWorkoutNowView: View {
         }
     }
 
-    private var formattedActiveValue: String {
-        switch activeMetric {
+    private func formattedValue(for metric: WatchWorkoutMetric) -> String {
+        switch metric {
         case .weight: return String(format: "%.1f", weight)
         case .distance: return String(format: "%.1f", distance)
         case .reps: return String(Int(reps.rounded()))
-        case .duration, .calories: return String(Int(activeValue.rounded()))
+        case .duration: return String(Int(duration.rounded()))
+        case .calories: return String(Int(calories.rounded()))
         }
     }
 
@@ -441,14 +481,10 @@ struct WatchWorkoutNowView: View {
         dirtyMetrics.removeAll()
         validationMessage = nil
 
-        if target.isCardio {
-            if target.set.values.durationMinutes != nil { activeMetric = .duration }
-            else if target.set.values.distanceKilometers != nil { activeMetric = .distance }
-            else if target.set.values.calories != nil { activeMetric = .calories }
-            else { activeMetric = .duration }
-        } else {
-            activeMetric = target.set.values.kg != nil ? .weight : .reps
-        }
+        let availableMetrics = metrics(for: target)
+        activeMetric = availableMetrics.first(where: {
+            hasValue(for: $0, in: target.set.values)
+        }) ?? availableMetrics.first ?? (target.isCardio ? .duration : .reps)
     }
 
     private func apply(
@@ -523,6 +559,50 @@ struct WatchWorkoutNowView: View {
         Task { @MainActor in
             await Task.yield()
             crownFocused = true
+        }
+    }
+
+    private func focusControlHeight(
+        availableHeight: CGFloat,
+        showsMetricPicker: Bool,
+        showsSuggestion: Bool,
+        showsCrownHint: Bool,
+        showsValidation: Bool
+    ) -> CGFloat {
+        // Reserve the real Ultra 2 vertical budget for the exercise title and
+        // the 44-point primary action before allowing the value field to expand.
+        var reservedHeight: CGFloat = 100
+        if showsMetricPicker { reservedHeight += 24 }
+        if showsSuggestion { reservedHeight += 30 }
+        if showsCrownHint { reservedHeight += 20 }
+        if showsValidation { reservedHeight += 20 }
+        return min(72, max(48, availableHeight - reservedHeight))
+    }
+
+    private func metricSwipeGesture(for target: WatchWorkoutNowTarget) -> some Gesture {
+        DragGesture(minimumDistance: 24)
+            .onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                let availableMetrics = metrics(for: target)
+                guard availableMetrics.count > 1,
+                      let currentIndex = availableMetrics.firstIndex(of: activeMetric) else { return }
+
+                let offset = value.translation.width < 0 ? 1 : -1
+                let nextIndex = min(max(currentIndex + offset, 0), availableMetrics.count - 1)
+                guard nextIndex != currentIndex else { return }
+
+                commitPendingValues()
+                setActiveMetric(availableMetrics[nextIndex])
+            }
+    }
+
+    private func setActiveMetric(_ metric: WatchWorkoutMetric) {
+        if reduceMotion {
+            activeMetric = metric
+        } else {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                activeMetric = metric
+            }
         }
     }
 

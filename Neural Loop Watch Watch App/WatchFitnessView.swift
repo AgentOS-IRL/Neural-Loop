@@ -12,7 +12,29 @@ struct WatchFitnessView: View {
                 EmptyFitnessView()
             }
         }
-        .navigationTitle("Fitness")
+        .navigationTitle(navigationTitle)
+    }
+
+    private var navigationTitle: String {
+        guard let snapshot = store.currentSnapshot else { return "Fitness" }
+        if store.isSnapshotStale { return "Saved Workout" }
+        if snapshot.restEndDate != nil { return "Rest" }
+
+        let totalSets = snapshot.exercises.reduce(0) { $0 + $1.sets.count }
+        let completedSets = snapshot.exercises.reduce(0) { $0 + $1.completedSetsCount }
+        let orderedExercises = snapshot.exercises.sorted { lhs, rhs in
+            if lhs.orderIndex == rhs.orderIndex { return lhs.id < rhs.id }
+            return lhs.orderIndex < rhs.orderIndex
+        }
+
+        for exercise in orderedExercises where !exercise.isCompleted {
+            if let set = exercise.sets.first(where: { !$0.isCompleted }) {
+                let setName = set.setType == .warmup ? "Warm-up \(set.setNumber)" : "Set \(set.setNumber)"
+                return "\(setName) · \(completedSets)/\(totalSets)"
+            }
+        }
+
+        return totalSets > 0 ? "Complete · \(completedSets)/\(totalSets)" : "Fitness"
     }
 }
 
@@ -34,10 +56,6 @@ struct ActiveWorkoutView: View {
                     workoutContent
                 }
             }
-            .navigationDestination(for: ExerciseSnapshot.self) { exercise in
-                WatchExerciseDetailView(exerciseID: exercise.id)
-            }
-
             if store.isFinishing {
                 Color.black.opacity(reduceTransparency ? 0.92 : 0.6)
                     .ignoresSafeArea()
@@ -55,46 +73,64 @@ struct ActiveWorkoutView: View {
             reduceMotion ? nil : .easeInOut(duration: 0.2),
             value: snapshot.restEndDate != nil
         )
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                workoutActionsLink
+            }
+        }
     }
 
     private var workoutContent: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                workoutHeader
-
-                if store.syncStatus.shouldDisplay {
-                    WatchSyncStatusView(status: store.syncStatus)
-                }
-
-                if let error = store.finishError {
-                    finishErrorCard(error)
-                }
-
-                WatchWorkoutNowView(snapshot: snapshot)
-
-                NavigationLink {
-                    WatchFinishReviewView()
-                } label: {
-                    Label("End Workout", systemImage: "xmark.circle")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .tint(.red)
-                .disabled(store.isFinishing)
-                .accessibilityHint("Opens a review before saving the workout")
-
-                Button {
-                    connectivity.sendDeepLinkRequest(.fitnessActiveWorkout)
-                } label: {
-                    Label("Open on iPhone", systemImage: "iphone")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .accessibilityHint("Continues this workout in Neural Loop on iPhone")
+        VStack(spacing: 6) {
+            if let error = store.finishError {
+                finishErrorCard(error)
+            } else if store.syncStatus.shouldDisplay {
+                WatchSyncStatusView(status: store.syncStatus)
             }
-            .padding(.horizontal, 6)
-            .padding(.bottom, 12)
+
+            WatchWorkoutNowView(snapshot: snapshot)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .padding(.horizontal, 6)
+        .padding(.bottom, 4)
+    }
+
+    private var workoutActionsLink: some View {
+        NavigationLink {
+            workoutActionsList
+        } label: {
+            Image(systemName: "ellipsis")
+        }
+        .disabled(store.isFinishing)
+        .accessibilityLabel("Workout actions")
+        .accessibilityHint("Opens exercises, iPhone, and end workout actions")
+    }
+
+    private var workoutActionsList: some View {
+        List {
+            NavigationLink {
+                List {
+                    WatchExerciseListView(snapshot: snapshot)
+                }
+                .navigationTitle("Exercises")
+            } label: {
+                Label("Exercises", systemImage: "list.bullet")
+            }
+
+            Button {
+                connectivity.sendDeepLinkRequest(.fitnessActiveWorkout)
+            } label: {
+                Label("Open on iPhone", systemImage: "iphone")
+            }
+
+            NavigationLink {
+                WatchFinishReviewView()
+            } label: {
+                Label("End Workout", systemImage: "xmark.circle")
+                    .foregroundStyle(.red)
+            }
+        }
+        .navigationTitle("Actions")
     }
 
     private var activeRestContent: some View {

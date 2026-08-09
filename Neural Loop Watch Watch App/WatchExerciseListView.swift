@@ -14,7 +14,9 @@ struct WatchExerciseListView: View {
             }
         } else {
             ForEach(snapshot.exercises) { exercise in
-                NavigationLink(value: exercise) {
+                NavigationLink {
+                    WatchExerciseDetailView(exerciseID: exercise.id)
+                } label: {
                     ExerciseRowView(exercise: exercise)
                 }
                 .buttonStyle(.plain)
