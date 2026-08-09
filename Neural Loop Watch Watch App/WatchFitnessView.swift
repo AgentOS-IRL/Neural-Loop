@@ -20,92 +20,58 @@ struct ActiveWorkoutView: View {
     let snapshot: ActiveWorkoutSnapshot
     let connectivity: ConnectivityManager
     @EnvironmentObject var store: WatchWorkoutStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         ZStack {
-            List {
-                // MARK: - Header
-                Section {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(snapshot.title)
-                            .font(.headline)
-                        if let startTime = snapshot.startedAt {
-                            Text("Started \(startTime, style: .time)")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                    }
+            Group {
+                if store.isSnapshotStale {
+                    staleWorkoutContent
+                } else if snapshot.restEndDate != nil {
+                    activeRestContent
+                } else {
+                    workoutContent
+                }
+            }
+            .navigationDestination(for: ExerciseSnapshot.self) { exercise in
+                WatchExerciseDetailView(exerciseID: exercise.id)
+            }
 
-                    // Sync status indicator (Plan 529)
+            if store.isFinishing {
+                Color.black.opacity(reduceTransparency ? 0.92 : 0.6)
+                    .ignoresSafeArea()
+                VStack(spacing: 8) {
+                    ProgressView()
+                    Text("Finishing…")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Finishing workout")
+            }
+        }
+        .animation(
+            reduceMotion ? nil : .easeInOut(duration: 0.2),
+            value: snapshot.restEndDate != nil
+        )
+    }
+
+    private var workoutContent: some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                workoutHeader
+
+                if store.syncStatus.shouldDisplay {
                     WatchSyncStatusView(status: store.syncStatus)
                 }
-                
-                // MARK: - Stale Draft Banner (Plan 529)
-                if store.isSnapshotStale {
-                    Section {
-                        VStack(spacing: 8) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.yellow)
-                            Text("Started \(store.staleSnapshotAge ?? "a while ago")")
-                                .font(.caption2)
-                                .multilineTextAlignment(.center)
-                            HStack {
-                                Button("Resume") {}
-                                    .buttonStyle(.bordered)
-                                    .controlSize(.small)
-                                Button("Discard") {
-                                    store.discardStaleWorkout()
-                                }
-                                .buttonStyle(.bordered)
-                                .tint(.red)
-                                .controlSize(.small)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                }
-                
-                // MARK: - Finish Error Banner
+
                 if let error = store.finishError {
-                    Section {
-                        VStack(spacing: 6) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.red)
-                                Text(error)
-                                    .font(.caption2)
-                                    .foregroundColor(.red)
-                            }
-                            Button("Retry") {
-                                store.retryFinish()
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(.red)
-                            .controlSize(.small)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
+                    finishErrorCard(error)
                 }
 
-                // MARK: - Exercises
-                WatchExerciseListView(snapshot: snapshot)
+                WatchWorkoutNowView(snapshot: snapshot)
 
-                // MARK: - All Done Badge (Plan 529)
-                if !snapshot.exercises.isEmpty, snapshot.exercises.allSatisfy(\.isCompleted) {
-                    Section {
-                        VStack(spacing: 4) {
-                            Image(systemName: "trophy.fill")
-                                .font(.title3)
-                                .foregroundColor(.yellow)
-                            Text("All exercises done!")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                }
-                
-                // MARK: - End Workout Button (Plan 528)
                 NavigationLink {
                     WatchFinishReviewView()
                 } label: {
@@ -114,12 +80,9 @@ struct ActiveWorkoutView: View {
                 }
                 .buttonStyle(.bordered)
                 .tint(.red)
-                .controlSize(.large)
                 .disabled(store.isFinishing)
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
+                .accessibilityHint("Opens a review before saving the workout")
 
-                // MARK: - Open on iPhone (Plan 529)
                 Button {
                     connectivity.sendDeepLinkRequest(.fitnessActiveWorkout)
                 } label: {
@@ -127,26 +90,140 @@ struct ActiveWorkoutView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
-                .controlSize(.large)
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
+                .accessibilityHint("Continues this workout in Neural Loop on iPhone")
             }
-            .navigationDestination(for: ExerciseSnapshot.self) { exercise in
-                WatchExerciseDetailView(exerciseID: exercise.id)
+            .padding(.horizontal, 6)
+            .padding(.bottom, 12)
+        }
+    }
+
+    private var activeRestContent: some View {
+        VStack(spacing: 6) {
+            if store.syncStatus.shouldDisplay {
+                WatchSyncStatusView(status: store.syncStatus)
+                    .padding(.horizontal, 6)
             }
-            
-            // MARK: - Finishing Overlay (Plan 528)
-            if store.isFinishing {
-                Color.black.opacity(0.6)
-                    .ignoresSafeArea()
-                VStack(spacing: 8) {
-                    ProgressView()
-                    Text("Finishing…")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+
+            WatchRestTimerView(
+                exerciseID: restContextExerciseID,
+                store: store
+            )
+            .environmentObject(store)
+        }
+        .transition(.opacity)
+    }
+
+    private var staleWorkoutContent: some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                workoutHeader
+
+                if store.syncStatus.shouldDisplay {
+                    WatchSyncStatusView(status: store.syncStatus)
                 }
+
+                staleWorkoutCard
+            }
+            .padding(.horizontal, 6)
+            .padding(.bottom, 12)
+        }
+    }
+
+    private var workoutHeader: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(snapshot.title)
+                .font(.headline)
+                .lineLimit(1)
+
+            HStack {
+                if let startTime = snapshot.startedAt {
+                    Text("Started \(startTime, style: .time)")
+                }
+                Spacer()
+                Text("\(completedSetCount) of \(totalSetCount) sets")
+                    .monospacedDigit()
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var staleWorkoutCard: some View {
+        VStack(spacing: 8) {
+            Label(
+                "Started \(store.staleSnapshotAge ?? "a while ago")",
+                systemImage: "exclamationmark.triangle.fill"
+            )
+            .font(.caption)
+            .foregroundStyle(.yellow)
+            .multilineTextAlignment(.center)
+
+            Text("Continue to refresh this workout, or discard only the saved watch copy.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            HStack(spacing: 8) {
+                Button("Continue") {
+                    store.continueStaleWorkout()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+                .accessibilityHint("Keeps this workout and requests the latest state from iPhone")
+
+                Button("Discard", role: .destructive) {
+                    store.discardStaleWorkout()
+                }
+                .buttonStyle(.bordered)
+                .accessibilityHint("Removes only this saved workout from Apple Watch")
             }
         }
+        .frame(maxWidth: .infinity)
+        .padding(10)
+        .background(cardBackground(.yellow), in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .contain)
+    }
+
+    private func finishErrorCard(_ error: String) -> some View {
+        VStack(spacing: 8) {
+            Label(error, systemImage: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.red)
+                .multilineTextAlignment(.center)
+
+            Button("Retry") {
+                store.retryFinish()
+            }
+            .buttonStyle(.bordered)
+            .tint(.red)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(10)
+        .background(cardBackground(.red), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var completedSetCount: Int {
+        snapshot.exercises.reduce(0) { $0 + $1.completedSetsCount }
+    }
+
+    private var totalSetCount: Int {
+        snapshot.exercises.reduce(0) { $0 + $1.sets.count }
+    }
+
+    private var restContextExerciseID: String {
+        let ordered = snapshot.exercises.sorted { lhs, rhs in
+            if lhs.orderIndex == rhs.orderIndex { return lhs.id < rhs.id }
+            return lhs.orderIndex < rhs.orderIndex
+        }
+        return ordered.first(where: { exercise in
+            !exercise.isCompleted && exercise.sets.contains(where: { !$0.isCompleted })
+        })?.id ?? ordered.first?.id ?? ""
+    }
+
+    private func cardBackground(_ color: Color) -> Color {
+        color.opacity(reduceTransparency ? 0.28 : 0.12)
     }
 }
 
@@ -155,15 +232,15 @@ struct EmptyFitnessView: View {
         VStack(spacing: 12) {
             Image(systemName: "figure.run")
                 .font(.largeTitle)
-                .foregroundColor(.blue)
-            
+                .foregroundStyle(.blue)
+
             Text("No Active Workout")
                 .font(.headline)
-            
-            
-            Text("Start on iPhone")
+
+            Text("Start a workout on iPhone, then control it here.")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
 
             Button {
                 ConnectivityManager.shared.sendDeepLinkRequest(.fitnessActiveWorkout)
@@ -171,8 +248,8 @@ struct EmptyFitnessView: View {
                 Label("Open Fitness", systemImage: "iphone")
             }
             .buttonStyle(.bordered)
-            .controlSize(.small)
         }
+        .padding(.horizontal)
     }
 }
 

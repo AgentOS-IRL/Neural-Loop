@@ -4,6 +4,7 @@ struct WatchWorkoutPersistence {
     private let defaults: UserDefaults
     private let snapshotKey = "com.neuralloop.watch.activeWorkoutSnapshot"
     private let queueKey = "com.neuralloop.watch.actionQueue"
+    private let acknowledgedStaleSessionKey = "com.neuralloop.watch.acknowledgedStaleSession"
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
@@ -52,8 +53,21 @@ struct WatchWorkoutPersistence {
         }
     }
 
+    func loadAcknowledgedStaleSessionID() -> String? {
+        defaults.string(forKey: acknowledgedStaleSessionKey)
+    }
+
+    func saveAcknowledgedStaleSessionID(_ sessionID: String?) {
+        guard let sessionID else {
+            defaults.removeObject(forKey: acknowledgedStaleSessionKey)
+            return
+        }
+        defaults.set(sessionID, forKey: acknowledgedStaleSessionKey)
+    }
+
     func clear() {
         defaults.removeObject(forKey: snapshotKey)
         defaults.removeObject(forKey: queueKey)
+        defaults.removeObject(forKey: acknowledgedStaleSessionKey)
     }
 }

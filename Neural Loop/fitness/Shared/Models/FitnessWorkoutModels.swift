@@ -366,7 +366,47 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
             restEndDate = nil
             restTotalSeconds = nil
             updatedAt = Date()
+
+        case .adjustRestTimer(let adjustment):
+            adjustRestTimer(
+                by: adjustment.signedSeconds,
+                at: action.timestamp
+            )
         }
+    }
+
+    private mutating func adjustRestTimer(by signedSeconds: Int, at actionDate: Date) {
+        guard signedSeconds != 0,
+              let restEndDate,
+              let restTotalSeconds else { return }
+
+        let remainingAtAction = Self.clampedRestSeconds(
+            restEndDate.timeIntervalSince(actionDate).rounded(.up)
+        )
+        let adjustedRemaining = Self.clampedRestSeconds(
+            Double(remainingAtAction) + Double(signedSeconds)
+        )
+        let adjustedEndDate = actionDate.addingTimeInterval(
+            TimeInterval(adjustedRemaining)
+        )
+
+        guard adjustedRemaining > 0, adjustedEndDate > Date() else {
+            self.restEndDate = nil
+            self.restTotalSeconds = nil
+            updatedAt = Date()
+            return
+        }
+
+        let adjustedTotal = Self.clampedRestSeconds(
+            Double(restTotalSeconds) + Double(signedSeconds)
+        )
+        self.restEndDate = adjustedEndDate
+        self.restTotalSeconds = max(adjustedRemaining, adjustedTotal)
+        updatedAt = Date()
+    }
+
+    private static func clampedRestSeconds(_ value: Double) -> Int {
+        Int(min(900, max(0, value)))
     }
 
     mutating func markProcessed(action: WorkoutWatchAction) {
@@ -383,4 +423,3 @@ nonisolated struct ActiveWorkoutDraft: Codable, Equatable, Identifiable {
         return Int64(stringID)
     }
 }
-

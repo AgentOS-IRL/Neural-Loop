@@ -18,6 +18,7 @@ struct WatchExerciseListView: View {
                     ExerciseRowView(exercise: exercise)
                 }
                 .buttonStyle(.plain)
+                .accessibilityHint("Opens sets for \(exercise.name)")
             }
         }
     }
@@ -44,7 +45,7 @@ struct ExerciseRowView: View {
                     .tint(exercise.isCompleted ? .green : .blue)
                     
                     Text("\(exercise.completedSetsCount)/\(exercise.sets.count)")
-                        .font(.caption2)
+                        .font(.caption)
                         .monospacedDigit()
                         .foregroundColor(.secondary)
                 }
@@ -58,7 +59,7 @@ struct ExerciseRowView: View {
                     .font(.caption)
             } else {
                 Image(systemName: "chevron.right")
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundColor(.secondary)
             }
         }
@@ -66,6 +67,11 @@ struct ExerciseRowView: View {
         .padding(.horizontal, 4)
         .contentShape(Rectangle())
         .opacity(exercise.isCompleted ? 0.6 : 1.0)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(exercise.name)
+        .accessibilityValue(
+            "\(exercise.isCompleted ? "Complete" : "Incomplete"), \(exercise.completedSetsCount) of \(exercise.sets.count) sets"
+        )
     }
 }
 

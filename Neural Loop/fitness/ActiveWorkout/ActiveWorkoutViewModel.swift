@@ -120,6 +120,10 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
             draft.apply(watchAction: action)
             stopTimer(acknowledging: action.id)
 
+        case .adjustRestTimer:
+            draft.apply(watchAction: action)
+            synchronizeRestTimerFromDraft(acknowledging: action.id)
+
         case .finishWorkout:
             do {
                 draft.markProcessed(action: action)
@@ -527,7 +531,44 @@ class ActiveWorkoutViewModel: ObservableObject, Identifiable {
         draft.restEndDate = restEndsAt
         draft.restTotalSeconds = seconds
         persistDraft(acknowledging: actionID)
-        
+
+        scheduleRestTimerTicks()
+    }
+
+    private func synchronizeRestTimerFromDraft(acknowledging actionID: UUID) {
+        timerCancellable?.cancel()
+
+        guard let restEndDate = draft.restEndDate,
+              draft.restTotalSeconds != nil else {
+            isTimerRunning = false
+            restTimerSeconds = 0
+            restEndsAt = nil
+            persistDraft(acknowledging: actionID)
+            return
+        }
+
+        let remaining = max(
+            0,
+            Int(restEndDate.timeIntervalSince(Date()).rounded(.up))
+        )
+        guard remaining > 0 else {
+            isTimerRunning = false
+            restTimerSeconds = 0
+            restEndsAt = nil
+            draft.restEndDate = nil
+            draft.restTotalSeconds = nil
+            persistDraft(acknowledging: actionID)
+            return
+        }
+
+        restTimerSeconds = remaining
+        isTimerRunning = true
+        restEndsAt = restEndDate
+        persistDraft(acknowledging: actionID)
+        scheduleRestTimerTicks()
+    }
+
+    private func scheduleRestTimerTicks() {
         timerCancellable = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in

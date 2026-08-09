@@ -5,6 +5,8 @@ struct WatchSetEntryView: View {
     let setID: String
     @EnvironmentObject var store: WatchWorkoutStore
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     
     @StateObject private var viewModel: WatchSetEntryViewModel
     @FocusState private var isCrownFocused: Bool
@@ -88,7 +90,7 @@ struct WatchSetEntryView: View {
             currentStep = isCardio ? .duration : .weight
             isCrownFocused = true
         }
-        .onChange(of: currentStep) { _ in
+        .onChange(of: currentStep) { _, _ in
             if currentStep != .summary {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     isCrownFocused = true
@@ -112,13 +114,13 @@ struct WatchSetEntryView: View {
             )
             
             Text("Rotate Crown to adjust")
-                .font(.system(size: 11))
+                .font(.caption)
                 .foregroundColor(.secondary)
             
             Spacer(minLength: 8)
             
             Button {
-                withAnimation { currentStep = .reps }
+                setStep(.reps)
             } label: {
                 Label("OK", systemImage: "checkmark")
                     .frame(maxWidth: .infinity)
@@ -142,13 +144,13 @@ struct WatchSetEntryView: View {
             )
             
             Text("Rotate Crown to adjust")
-                .font(.system(size: 11))
+                .font(.caption)
                 .foregroundColor(.secondary)
             
             Spacer(minLength: 8)
             
             Button {
-                withAnimation { currentStep = .summary }
+                setStep(.summary)
             } label: {
                 Label("OK", systemImage: "checkmark")
                     .frame(maxWidth: .infinity)
@@ -175,11 +177,11 @@ struct WatchSetEntryView: View {
                 color: color
             )
             Text("Rotate Crown to adjust")
-                .font(.system(size: 11))
+                .font(.caption)
                 .foregroundColor(.secondary)
             Spacer(minLength: 8)
             Button {
-                withAnimation { currentStep = next }
+                setStep(next)
             } label: {
                 Label("OK", systemImage: "checkmark")
                     .frame(maxWidth: .infinity)
@@ -209,7 +211,7 @@ struct WatchSetEntryView: View {
                 }
             }
             .padding(.vertical, 12)
-            .background(Color.white.opacity(0.05))
+            .background(Color.white.opacity(reduceTransparency ? 0.14 : 0.05))
             .cornerRadius(12)
             
             // Action Buttons
@@ -225,6 +227,7 @@ struct WatchSetEntryView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.green)
+                .accessibilityHint("Saves these values and starts rest when configured")
             } else {
                 Button {
                     viewModel.undoComplete()
@@ -258,7 +261,7 @@ struct WatchSetEntryView: View {
         step: EntryStep
     ) -> some View {
         Button {
-            withAnimation { currentStep = step }
+            setStep(step)
         } label: {
             VStack(spacing: 2) {
                 Text(value)
@@ -301,13 +304,16 @@ struct WatchSetEntryView: View {
 
             if let reason = set.suggestionReason {
                 Text(reason.rawValue)
-                    .font(.system(size: 9))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
         }
         .padding(8)
-        .background(Color.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+        .background(
+            Color.blue.opacity(reduceTransparency ? 0.24 : 0.1),
+            in: RoundedRectangle(cornerRadius: 10)
+        )
     }
 
     private func valuesText(_ values: WorkoutSetValuesSnapshot) -> String {
@@ -325,6 +331,14 @@ struct WatchSetEntryView: View {
     
     private func checkRestTimerAndDismiss() {
         dismiss()
+    }
+
+    private func setStep(_ step: EntryStep) {
+        if reduceMotion {
+            currentStep = step
+        } else {
+            withAnimation { currentStep = step }
+        }
     }
     
     private var crownBinding: Binding<Double> {
@@ -380,33 +394,39 @@ struct CircularDial: View {
     let label: String
     let valueFormatted: String
     let color: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     
     var body: some View {
         ZStack {
             // Background ring
             Circle()
-                .stroke(Color.white.opacity(0.15), lineWidth: 6)
+                .stroke(Color.white.opacity(reduceTransparency ? 0.32 : 0.15), lineWidth: 6)
             
             // Progress ring
             Circle()
                 .trim(from: 0, to: min(CGFloat(value / maxValue), 1.0))
                 .stroke(color, style: StrokeStyle(lineWidth: 6, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .animation(.spring(), value: value)
+                .animation(reduceMotion ? nil : .spring(), value: value)
             
             // Inner text
             VStack(spacing: 0) {
                 Text(label)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.caption.weight(.medium))
                     .foregroundColor(.secondary)
                 
                 Text(valueFormatted)
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(.largeTitle.bold())
                     .foregroundColor(color)
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)
             }
         }
         .frame(width: 85, height: 85)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(valueFormatted)
+        .accessibilityHint("Turn the Digital Crown to adjust")
     }
 }

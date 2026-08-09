@@ -91,6 +91,13 @@ enum WatchWorkoutSnapshotReducer {
             snapshot.restEndDate = nil
             snapshot.restTotalSeconds = nil
 
+        case .adjustRestTimer(let adjustment):
+            adjustRestTimer(
+                in: &snapshot,
+                signedSeconds: adjustment.signedSeconds,
+                at: action.timestamp
+            )
+
         default:
             break
         }
@@ -118,5 +125,38 @@ enum WatchWorkoutSnapshotReducer {
             applying(action, to: snapshot)
         }
         return .accepted(snapshot: reconciled, pendingActions: remaining)
+    }
+
+    private static func adjustRestTimer(
+        in snapshot: inout ActiveWorkoutSnapshot,
+        signedSeconds: Int,
+        at actionDate: Date
+    ) {
+        guard signedSeconds != 0,
+              let restEndDate = snapshot.restEndDate,
+              let restTotalSeconds = snapshot.restTotalSeconds else { return }
+
+        let remainingAtAction = clampedSeconds(
+            restEndDate.timeIntervalSince(actionDate).rounded(.up)
+        )
+        let adjustedRemaining = clampedSeconds(
+            Double(remainingAtAction) + Double(signedSeconds)
+        )
+
+        guard adjustedRemaining > 0 else {
+            snapshot.restEndDate = nil
+            snapshot.restTotalSeconds = nil
+            return
+        }
+
+        let adjustedTotal = clampedSeconds(
+            Double(restTotalSeconds) + Double(signedSeconds)
+        )
+        snapshot.restEndDate = actionDate.addingTimeInterval(TimeInterval(adjustedRemaining))
+        snapshot.restTotalSeconds = max(adjustedRemaining, adjustedTotal)
+    }
+
+    private static func clampedSeconds(_ value: Double) -> Int {
+        Int(min(900, max(0, value)))
     }
 }

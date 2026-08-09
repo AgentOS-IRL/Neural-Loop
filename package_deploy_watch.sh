@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # --- CONFIGURATION ---
 PROJECT_NAME="Neural Loop"
 SCHEME_NAME="Neural Loop Watch Watch App"
@@ -8,8 +10,8 @@ APP_NAME="Neural Loop Watch Watch App"
 BUNDLE_ID="com.sanjeevhalyal.Neural-Loop.watchkitapp"
 WATCH_DEVICE_UDID="${WATCH_DEVICE_UDID:-767DB7E0-3FAB-5B93-AEF2-F1BC55072BBF}"
 CONFIGURATION="${CONFIGURATION:-Debug}"
-BUILD_PRODUCTS_PATH="./build/watch-products"
-LOG_DIR="./build/logs"
+BUILD_PRODUCTS_PATH="${SCRIPT_DIR}/build/watch-products"
+LOG_DIR="${SCRIPT_DIR}/build/logs"
 TIMESTAMP="$(date +"%Y%m%d-%H%M%S")"
 
 # --- STATE ---
@@ -162,7 +164,7 @@ echo "🚀 Building ${SCHEME_NAME}..."
 BUILD_LOG="${LOG_DIR}/watch-build-${TIMESTAMP}.log"
 if ! run_quietly "Build watch app" "${BUILD_LOG}" \
   xcodebuild build \
-  -project "${PROJECT_NAME}.xcodeproj" \
+  -project "${SCRIPT_DIR}/${PROJECT_NAME}.xcodeproj" \
   -scheme "${SCHEME_NAME}" \
   -configuration "${CONFIGURATION}" \
   -destination "generic/platform=watchOS" \

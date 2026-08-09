@@ -8,6 +8,17 @@ public nonisolated struct WorkoutWatchSessionAction: Codable, Hashable {
     }
 }
 
+public nonisolated struct WorkoutWatchRestTimerAdjustmentAction: Codable, Hashable {
+    public var session: WorkoutSessionPointer
+    /// A signed number of seconds to add to the remaining rest time.
+    public var signedSeconds: Int
+
+    public init(session: WorkoutSessionPointer, signedSeconds: Int) {
+        self.session = session
+        self.signedSeconds = signedSeconds
+    }
+}
+
 public nonisolated struct WorkoutWatchSetReference: Codable, Hashable {
     public var session: WorkoutSessionPointer
     public var exerciseID: String
@@ -76,6 +87,7 @@ public nonisolated enum WorkoutWatchActionPayload: Codable, Hashable {
     case updateExerciseCompletion(WorkoutWatchExerciseCompletionAction)
     case finishWorkout(WorkoutWatchSessionAction)
     case cancelRestTimer(WorkoutWatchSessionAction)
+    case adjustRestTimer(WorkoutWatchRestTimerAdjustmentAction)
 
     private enum ActionType: String {
         case requestSnapshot
@@ -85,6 +97,7 @@ public nonisolated enum WorkoutWatchActionPayload: Codable, Hashable {
         case updateExerciseCompletion
         case finishWorkout
         case cancelRestTimer
+        case adjustRestTimer
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -93,6 +106,7 @@ public nonisolated enum WorkoutWatchActionPayload: Codable, Hashable {
         case reference
         case values
         case isCompleted
+        case signedSeconds
     }
 
     public init(from decoder: Decoder) throws {
@@ -132,6 +146,15 @@ public nonisolated enum WorkoutWatchActionPayload: Codable, Hashable {
         case .cancelRestTimer:
             let session = try container.decode(WorkoutSessionPointer.self, forKey: .session)
             self = .cancelRestTimer(WorkoutWatchSessionAction(session: session))
+        case .adjustRestTimer:
+            let session = try container.decode(WorkoutSessionPointer.self, forKey: .session)
+            let signedSeconds = try container.decode(Int.self, forKey: .signedSeconds)
+            self = .adjustRestTimer(
+                WorkoutWatchRestTimerAdjustmentAction(
+                    session: session,
+                    signedSeconds: signedSeconds
+                )
+            )
         }
     }
 
@@ -163,6 +186,10 @@ public nonisolated enum WorkoutWatchActionPayload: Codable, Hashable {
         case .cancelRestTimer(let action):
             try container.encode(ActionType.cancelRestTimer.rawValue, forKey: .type)
             try container.encode(action.session, forKey: .session)
+        case .adjustRestTimer(let action):
+            try container.encode(ActionType.adjustRestTimer.rawValue, forKey: .type)
+            try container.encode(action.session, forKey: .session)
+            try container.encode(action.signedSeconds, forKey: .signedSeconds)
         }
     }
 }
@@ -177,6 +204,7 @@ public extension WorkoutWatchActionPayload {
         case .updateExerciseCompletion(let action): return action.reference.session
         case .finishWorkout(let action): return action.session
         case .cancelRestTimer(let action): return action.session
+        case .adjustRestTimer(let action): return action.session
         }
     }
 }
@@ -234,5 +262,4 @@ public enum ClearReason: String, Codable {
     case staleExpired
     case replacedByNewSession
 }
-
 

@@ -228,6 +228,9 @@ final class WorkoutSessionRuntimeCoordinator: WorkoutSessionRuntimeCoordinating 
                 draft.restTotalSeconds = nil
             }
 
+        case .adjustRestTimer:
+            draft.apply(watchAction: action)
+
         default:
             draft.apply(watchAction: action)
         }

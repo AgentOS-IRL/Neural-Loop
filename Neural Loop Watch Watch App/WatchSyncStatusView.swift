@@ -1,64 +1,83 @@
 import SwiftUI
 
-/// Compact sync status indicator for watch workout views.
-/// Shows connectivity state, queue progress, and error conditions.
+/// Compact exception-only sync status for watch workout views.
 enum WatchSyncStatus: Equatable {
     case connected
     case disconnected
     case syncing
     case queued(Int)
     case failed(String)
+
+    var shouldDisplay: Bool {
+        self != .connected
+    }
 }
 
 struct WatchSyncStatusView: View {
     let status: WatchSyncStatus
-    
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
-        HStack(spacing: 6) {
-            statusIcon
-            statusText
+        if status.shouldDisplay {
+            HStack(spacing: 6) {
+                statusIcon
+                statusText
+                Spacer(minLength: 0)
+            }
+            .font(.caption)
+            .foregroundStyle(statusColor)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .background(
+                statusColor.opacity(reduceTransparency ? 0.32 : 0.15),
+                in: RoundedRectangle(cornerRadius: 9)
+            )
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(accessibilityText)
         }
-        .font(.caption2)
-        .foregroundColor(statusColor)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(statusColor.opacity(0.15))
-        .cornerRadius(8)
     }
-    
+
     @ViewBuilder
     private var statusIcon: some View {
         switch status {
         case .connected:
-            Image(systemName: "checkmark.icloud")
+            EmptyView()
         case .disconnected:
             Image(systemName: "iphone.slash")
-        case .syncing:
-            Image(systemName: "arrow.triangle.2.circlepath")
-        case .queued:
+        case .syncing, .queued:
             Image(systemName: "arrow.triangle.2.circlepath")
         case .failed:
             Image(systemName: "exclamationmark.triangle")
         }
     }
-    
+
     @ViewBuilder
     private var statusText: some View {
         switch status {
         case .connected:
-            Text("Connected")
+            EmptyView()
         case .disconnected:
-            Text("Disconnected")
+            Text("Offline — changes will sync later")
         case .syncing:
-            Text("Syncing…")
+            Text("Syncing changes…")
         case .queued(let count):
-            Text("\(count) queued")
+            Text("\(count) change\(count == 1 ? "" : "s") pending")
         case .failed(let message):
             Text(message)
-                .lineLimit(1)
+                .lineLimit(2)
         }
     }
-    
+
+    private var accessibilityText: String {
+        switch status {
+        case .connected: return "Workout is synced"
+        case .disconnected: return "iPhone offline. Changes will sync later"
+        case .syncing: return "Syncing workout changes"
+        case .queued(let count): return "\(count) workout changes pending"
+        case .failed(let message): return "Workout sync failed. \(message)"
+        }
+    }
+
     private var statusColor: Color {
         switch status {
         case .connected: return .green
@@ -69,8 +88,6 @@ struct WatchSyncStatusView: View {
         }
     }
 }
-
-// MARK: - WatchWorkoutStore Sync Status Extension
 
 extension WatchWorkoutStore {
     var syncStatus: WatchSyncStatus {

@@ -3,15 +3,8 @@ import SwiftUI
 struct WatchExerciseDetailView: View {
     let exerciseID: String
     @EnvironmentObject var store: WatchWorkoutStore
-    
-    // MARK: - Rest Timer State (Plan 527)
-    @State private var showRestTimer = false
-    @State private var restTimerSetID: String = ""
-    @State private var restTimerDuration: Int = 0
-    
-    // Auto-navigation to next set after rest timer
-    @State private var autoNavigateSetID: String?
-    @State private var showAutoNavigateSet = false
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     private var exercise: ExerciseSnapshot? {
         store.currentSnapshot?.exercises.first(where: { $0.id == exerciseID })
@@ -34,7 +27,7 @@ struct WatchExerciseDetailView: View {
                             Spacer()
                             // Compact progress (Plan 529)
                             Text("\(exercise.completedSetsCount)/\(exercise.sets.count)")
-                                .font(.caption2)
+                                .font(.caption)
                                 .monospacedDigit()
                                 .foregroundColor(.secondary)
                         }
@@ -51,6 +44,7 @@ struct WatchExerciseDetailView: View {
                         .controlSize(.large)
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
+                        .accessibilityHint("Adds another set to this exercise")
                     }
                     
                     Button(action: {
@@ -68,48 +62,31 @@ struct WatchExerciseDetailView: View {
                     .disabled(!exercise.isCompleted && !canComplete(exercise))
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
+                    .accessibilityHint(
+                        exercise.isCompleted
+                            ? "Marks every set in this exercise incomplete"
+                            : "Marks every set in this exercise complete"
+                    )
                 }
                 .navigationTitle(exercise.name)
                 .navigationDestination(for: SetSnapshot.self) { set in
                     WatchSetEntryView(exerciseID: exerciseID, setID: set.id)
                 }
-                .navigationDestination(isPresented: $showAutoNavigateSet) {
-                    if let setID = autoNavigateSetID {
-                        WatchSetEntryView(exerciseID: exerciseID, setID: setID)
-                    }
-                }
             } else {
-                Text("Exercise not found")
+                ContentUnavailableView(
+                    "Exercise Unavailable",
+                    systemImage: "dumbbell",
+                    description: Text("The workout changed on iPhone. Return to the current set.")
+                )
             }
         }
-        // MARK: - Rest Timer Sheet (iPhone Source of Truth)
-        .sheet(isPresented: $showRestTimer) {
-            WatchRestTimerView(
-                exerciseID: exerciseID,
-                store: store,
-                onComplete: { nextSetID in
-                    if let nextSetID {
-                        autoNavigateSetID = nextSetID
-                        // Delay to let sheet dismiss animation complete
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            showAutoNavigateSet = true
-                        }
-                    }
-                }
-            )
-            .environmentObject(store)
+        .onChange(of: store.currentSnapshot?.restEndDate) { _, restEndDate in
+            guard restEndDate != nil else { return }
+            returnToMainWorkoutForRest()
         }
-        .onChange(of: store.currentSnapshot?.restEndDate) { restEndDate in
-            // Only show timer if we have an end date and we are NOT currently showing it
-            if restEndDate != nil && !showRestTimer {
-                // Short delay to allow set entry view to dismiss if it's currently open
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    showRestTimer = true
-                }
-            } else if restEndDate == nil && showRestTimer {
-                // If rest timer was cleared on iPhone, dismiss here too
-                showRestTimer = false
-            }
+        .onChange(of: store.currentSnapshot?.session.id) { _, sessionID in
+            guard sessionID == nil else { return }
+            dismiss()
         }
     }
 
@@ -121,6 +98,13 @@ struct WatchExerciseDetailView: View {
                     || (set.values.calories ?? 0) > 0
             }
             return (set.values.reps ?? 0) > 0
+        }
+    }
+
+    private func returnToMainWorkoutForRest() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0 : 0.2)) {
+            guard store.currentSnapshot?.restEndDate != nil else { return }
+            dismiss()
         }
     }
 }
@@ -178,6 +162,10 @@ struct WatchSetRow: View {
         }
         .padding(.vertical, 4)
         .opacity(set.isCompleted ? 0.6 : 1.0)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Set \(set.setNumber)")
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint("Opens the detailed set editor")
     }
 
     private func suggestionText(_ values: WorkoutSetValuesSnapshot) -> String {
@@ -193,5 +181,12 @@ struct WatchSetRow: View {
             values.distanceKilometers.map { "\($0)km" },
             values.calories.map { "\($0)kcal" }
         ].compactMap { $0 }.joined(separator: " • ")
+    }
+
+    private var accessibilityValue: String {
+        let values = isCardio
+            ? cardioText(set.values)
+            : "\(set.values.kg?.description ?? "no weight") kilograms, \(set.values.reps?.description ?? "no") repetitions"
+        return "\(set.isCompleted ? "Completed" : "Incomplete"), \(values)"
     }
 }

@@ -5,6 +5,7 @@ import SwiftUI
 struct WatchFinishReviewView: View {
     @EnvironmentObject var store: WatchWorkoutStore
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     
     private var snapshot: ActiveWorkoutSnapshot? {
         store.currentSnapshot
@@ -146,9 +147,13 @@ struct WatchFinishReviewView: View {
         }
         .navigationTitle("Review")
         .navigationBarBackButtonHidden(store.isFinishing)
+        .onChange(of: store.currentSnapshot?.session.id) { _, sessionID in
+            guard sessionID == nil else { return }
+            dismiss()
+        }
         .overlay {
             if store.isFinishing {
-                Color.black.opacity(0.6)
+                Color.black.opacity(reduceTransparency ? 0.92 : 0.6)
                     .ignoresSafeArea()
                 VStack(spacing: 8) {
                     ProgressView()
@@ -156,6 +161,8 @@ struct WatchFinishReviewView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Finishing workout")
             }
         }
     }

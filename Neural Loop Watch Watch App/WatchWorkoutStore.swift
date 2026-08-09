@@ -15,6 +15,7 @@ final class WatchWorkoutStore: ObservableObject {
     static let shared = WatchWorkoutStore()
     
     @Published var currentSnapshot: ActiveWorkoutSnapshot?
+    @Published private(set) var acknowledgedStaleSessionID: String?
     
     // MARK: - Rest Timer State
     // No longer managed locally; driven by currentSnapshot.restEndDate
@@ -59,20 +60,33 @@ final class WatchWorkoutStore: ObservableObject {
     let connectivityManager: ConnectivityManager
     
     init(
-        connectivityManager: ConnectivityManager = .shared,
-        persistence: WatchWorkoutPersistence = WatchWorkoutPersistence(),
-        displayStateWriter: WatchWorkoutDisplayStateWriter = WatchWorkoutDisplayStateWriter()
+        connectivityManager: ConnectivityManager? = nil,
+        persistence: WatchWorkoutPersistence? = nil,
+        displayStateWriter: WatchWorkoutDisplayStateWriter? = nil
     ) {
+        let connectivityManager = connectivityManager ?? .shared
+        let persistence = persistence ?? WatchWorkoutPersistence()
+        let displayStateWriter = displayStateWriter ?? WatchWorkoutDisplayStateWriter()
         self.connectivityManager = connectivityManager
         self.persistence = persistence
         self.actionQueue = WatchWorkoutActionQueue(persistence: persistence)
         self.displayStateWriter = displayStateWriter
         self.currentSnapshot = persistence.loadSnapshot()
+        self.acknowledgedStaleSessionID = persistence.loadAcknowledgedStaleSessionID()
+        if currentSnapshot?.session.id != acknowledgedStaleSessionID {
+            acknowledgedStaleSessionID = nil
+            persistence.saveAcknowledgedStaleSessionID(nil)
+        }
         self.pendingActionCount = actionQueue.actions.count
         self.actionQueue.onChange = { [weak self] in
             guard let self else { return }
             self.pendingActionCount = self.actionQueue.actions.count
             self.objectWillChange.send()
+        }
+        self.actionQueue.onFlushFailure = { [weak self] _ in
+            guard let self, self.isFinishing else { return }
+            self.isFinishing = false
+            self.finishError = "Couldn’t sync workout. Try again."
         }
         connectivityManager.checkApplicationContext()
         
@@ -82,9 +96,6 @@ final class WatchWorkoutStore: ObservableObject {
                 guard let self else { return }
                 if let snapshot {
                     self.reconcile(with: snapshot)
-                } else if self.currentSnapshot != nil {
-                    // This fallback handles if the iPhone cleared the active workout
-                    self.clearStore()
                 }
             }
             .store(in: &cancellables)
@@ -180,9 +191,13 @@ final class WatchWorkoutStore: ObservableObject {
         guard !isFinishing else { return }
         isFinishing = true
         finishError = nil
-        
-        let payload = WorkoutWatchActionPayload.finishWorkout(WorkoutWatchSessionAction(session: session))
-        enqueueAction(payload: payload)
+
+        if actionQueue.hasPendingFinish(for: session.id) {
+            flushQueue()
+        } else {
+            let payload = WorkoutWatchActionPayload.finishWorkout(WorkoutWatchSessionAction(session: session))
+            enqueueAction(payload: payload)
+        }
         
         if !connectivityManager.isReachable {
             finishError = "Workout finish queued. Open iPhone to sync."
@@ -191,11 +206,17 @@ final class WatchWorkoutStore: ObservableObject {
     }
     
     func retryFinish() {
-        guard !isFinishing else { return }
+        guard let session = currentSnapshot?.session, !isFinishing else { return }
         isFinishing = true
         finishError = nil
-        // A finish action is likely already in the queue, just try flushing again.
-        flushQueue()
+
+        if actionQueue.hasPendingFinish(for: session.id) {
+            flushQueue()
+        } else {
+            enqueueAction(
+                payload: .finishWorkout(WorkoutWatchSessionAction(session: session))
+            )
+        }
         
         if !connectivityManager.isReachable {
             finishError = "Workout finish queued. Open iPhone to sync."
@@ -206,6 +227,20 @@ final class WatchWorkoutStore: ObservableObject {
     func cancelRestTimer() {
         guard let session = currentSnapshot?.session else { return }
         let payload = WorkoutWatchActionPayload.cancelRestTimer(WorkoutWatchSessionAction(session: session))
+        enqueueAction(payload: payload)
+    }
+
+    func adjustRestTimer(by signedSeconds: Int) {
+        guard signedSeconds != 0,
+              currentSnapshot?.restEndDate != nil,
+              let session = currentSnapshot?.session else { return }
+
+        let payload = WorkoutWatchActionPayload.adjustRestTimer(
+            WorkoutWatchRestTimerAdjustmentAction(
+                session: session,
+                signedSeconds: signedSeconds
+            )
+        )
         enqueueAction(payload: payload)
     }
 
@@ -225,6 +260,7 @@ final class WatchWorkoutStore: ObservableObject {
     }
 
     private func reconcile(with authoritativeSnapshot: ActiveWorkoutSnapshot) {
+        let previousSessionID = currentSnapshot?.session.id
         switch WatchWorkoutSnapshotReducer.reconcile(
             current: currentSnapshot,
             authoritative: authoritativeSnapshot,
@@ -233,6 +269,9 @@ final class WatchWorkoutStore: ObservableObject {
         case .ignored:
             return
         case .accepted(let snapshot, let pendingActions):
+            if previousSessionID != snapshot.session.id {
+                resetStaleAcknowledgement()
+            }
             actionQueue.replace(with: pendingActions)
             currentSnapshot = snapshot
             persistCurrentSnapshot()
@@ -254,6 +293,7 @@ final class WatchWorkoutStore: ObservableObject {
         self.pendingActionCount = 0
         self.isFinishing = false
         self.finishError = nil
+        self.acknowledgedStaleSessionID = nil
         persistence.clear()
         displayStateWriter.clear()
     }
@@ -261,8 +301,9 @@ final class WatchWorkoutStore: ObservableObject {
     // MARK: - Stale Draft Detection (Plan 529)
     
     var isSnapshotStale: Bool {
-        guard let startedAt = currentSnapshot?.startedAt else { return false }
-        return Date().timeIntervalSince(startedAt) > 24 * 3600
+        guard let snapshot = currentSnapshot,
+              snapshot.session.id != acknowledgedStaleSessionID else { return false }
+        return isOlderThanStaleThreshold(snapshot)
     }
     
     var staleSnapshotAge: String? {
@@ -275,6 +316,31 @@ final class WatchWorkoutStore: ObservableObject {
     
     func discardStaleWorkout() {
         clearStore()
+    }
+
+    func continueStaleWorkout() {
+        guard let snapshot = currentSnapshot,
+              isOlderThanStaleThreshold(snapshot) else { return }
+
+        acknowledgedStaleSessionID = snapshot.session.id
+        persistence.saveAcknowledgedStaleSessionID(snapshot.session.id)
+
+        // Consume the latest durable context before explicitly asking the
+        // iPhone for its current authoritative snapshot.
+        connectivityManager.checkApplicationContext()
+        enqueueAction(
+            payload: .requestSnapshot(WorkoutWatchSessionAction(session: snapshot.session))
+        )
+    }
+
+    private func resetStaleAcknowledgement() {
+        acknowledgedStaleSessionID = nil
+        persistence.saveAcknowledgedStaleSessionID(nil)
+    }
+
+    private func isOlderThanStaleThreshold(_ snapshot: ActiveWorkoutSnapshot) -> Bool {
+        guard let startedAt = snapshot.startedAt else { return false }
+        return Date().timeIntervalSince(startedAt) > 24 * 3600
     }
 
 }
