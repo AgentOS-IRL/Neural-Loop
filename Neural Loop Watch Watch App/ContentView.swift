@@ -10,9 +10,11 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var store: WatchWorkoutStore
     @EnvironmentObject var dailyLoopStore: WatchDailyLoopStore
+    @EnvironmentObject var launchRouter: WatchLaunchRouter
+    @State private var path: [WatchLaunchRoute] = []
     
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 if store.currentSnapshot != nil {
                     // Active workout: go directly to fitness
@@ -21,6 +23,33 @@ struct ContentView: View {
                     // No workout: compact dashboard
                     WatchDashboardView(snapshot: dailyLoopStore.snapshot)
                 }
+            }
+            .navigationDestination(for: WatchLaunchRoute.self) { route in
+                switch route {
+                case .capture:
+                    WatchCaptureView()
+                case .dailyLoop:
+                    WatchDailyLoopView()
+                case .workout:
+                    WatchFitnessView()
+                }
+            }
+        }
+        .onChange(of: launchRouter.requestedRoute) { _, route in
+            guard let route else { return }
+            defer { launchRouter.didHandleRequestedRoute() }
+
+            // An active workout always owns the root experience. Launcher
+            // routes are deliberately ignored until that workout is finished.
+            guard store.currentSnapshot == nil else {
+                path.removeAll()
+                return
+            }
+            path = [route]
+        }
+        .onChange(of: store.currentSnapshot?.session.id) { _, sessionID in
+            if sessionID != nil {
+                path.removeAll()
             }
         }
     }
@@ -151,4 +180,5 @@ struct WatchDashboardView: View {
     ContentView()
         .environmentObject(WatchWorkoutStore.shared)
         .environmentObject(WatchDailyLoopStore())
+        .environmentObject(WatchLaunchRouter())
 }

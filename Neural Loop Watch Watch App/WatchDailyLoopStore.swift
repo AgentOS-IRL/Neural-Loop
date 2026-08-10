@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import WidgetKit
 
 enum WatchCaptureDeliveryState: String, Codable {
     case queued
@@ -16,6 +17,8 @@ struct WatchCaptureStatus: Codable, Equatable {
 
 struct WatchDailyLoopPersistence {
     private let snapshotKey = "com.neuralloop.watch.dailyLoopSnapshot"
+    private let widgetSnapshotKey = "com.neuralloop.watch.dailyLoopWidgetSnapshot.v1"
+    private let widgetKind = "DailyLoopComplicationWidget"
     private let actionsKey = "com.neuralloop.watch.dailyLoopActions.v1"
     private let sequenceKey = "com.neuralloop.watch.dailyLoopNextSequence.v1"
     private let captureStatusKey = "com.neuralloop.watch.dailyLoopCaptureStatus.v1"
@@ -49,6 +52,9 @@ struct WatchDailyLoopPersistence {
     func saveSnapshot(_ snapshot: DailyLoopWatchSnapshot) {
         guard let data = try? encoder.encode(snapshot) else { return }
         defaults.set(data, forKey: snapshotKey)
+        UserDefaults(suiteName: WorkoutDisplayState.appGroupSuite)?
+            .set(data, forKey: widgetSnapshotKey)
+        WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
     }
 
     func loadActions() -> [DailyLoopWatchAction] {
@@ -125,6 +131,12 @@ final class WatchDailyLoopStore: ObservableObject {
         self.nextSequence = persistence.loadNextSequence(
             fallback: (actions.map(\.sequence).max() ?? 0) + 1
         )
+
+        // The extension receives only the presentation snapshot. Queue and
+        // capture delivery state remain in the watch app's private defaults.
+        if let snapshot {
+            persistence.saveSnapshot(snapshot)
+        }
 
         // Rebuild optimistic state from the durable queue. This also covers a
         // termination after the queue was saved but before its UI snapshot.

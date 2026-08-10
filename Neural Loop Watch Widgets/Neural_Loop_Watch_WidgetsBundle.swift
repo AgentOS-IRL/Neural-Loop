@@ -12,5 +12,9 @@ import SwiftUI
 struct Neural_Loop_Watch_WidgetsBundle: WidgetBundle {
     var body: some Widget {
         WorkoutComplicationWidget()
+        DailyLoopComplicationWidget()
+        CaptureLauncherControl()
+        DailyLoopLauncherControl()
+        WorkoutLauncherControl()
     }
 }
