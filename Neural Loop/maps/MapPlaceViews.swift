@@ -35,8 +35,8 @@ struct AddMapPlaceSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Apple Maps URL") {
-                    TextField("https://maps.apple.com/…", text: $urlText, axis: .vertical)
+                Section("Maps URL") {
+                    TextField("Apple Maps or Google Maps URL", text: $urlText, axis: .vertical)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .lineLimit(2...5)
