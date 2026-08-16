@@ -31,6 +31,7 @@ final class UnifiedDataModel: ObservableObject {
     static let shared = UnifiedDataModel(autoStart: !isRunningUnderTests())
     
     let manager :DBManager
+    let mapsStore: MapsStore
     let workReminderService: GenesysReminderService
     private let secretsFetcher: any SecretsFetching
     private let secretsUpdater: any SecretsUpdating
@@ -156,6 +157,7 @@ final class UnifiedDataModel: ObservableObject {
     ) {
         let resolvedManager = manager ?? DBManager.newInstance()
         self.manager = resolvedManager
+        self.mapsStore = MapsStore(manager: resolvedManager)
         self.workReminderService = workReminderService ?? GenesysReminderService()
         self.secretsFetcher = secretsFetcher ?? resolvedManager
         self.secretsUpdater = secretsUpdater ?? resolvedManager

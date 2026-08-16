@@ -100,6 +100,8 @@ struct ContentView: View {
                 GoalScreenView()
             case .tasks:
                 TaskHubView()
+            case .maps:
+                MapsView(store: model.mapsStore)
             case .ai:
                 AIModeView()
             case .calendar:

@@ -172,6 +172,7 @@ struct LiquidGlassTabBar: View {
             utilityActionMenuButton(title: "Mood Meter", systemImage: "face.smiling") {
                 onMoodMeterRequested()
             }
+            utilityMenuButton(.maps)
             utilityMenuButton(.ai)
             utilityMenuButton(.settings)
         }

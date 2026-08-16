@@ -10,6 +10,7 @@ import SwiftUI
 enum AppTab: String, CaseIterable {
     case goals = "Goals"
     case tasks = "Loop"
+    case maps = "Maps"
     case ai = "AI"
     case calendar = "Calendar"
 //    case insights = "Insights"
@@ -19,6 +20,7 @@ enum AppTab: String, CaseIterable {
     var systemImage: String {
         switch self {
         case .tasks: return "square.grid.2x2"
+        case .maps: return "map"
         case .ai: return "sparkles"
         case .calendar: return "calendar"
         case .goals: return "target"
@@ -32,6 +34,7 @@ enum AppTab: String, CaseIterable {
 enum AppShellDestination: Equatable {
     case goals
     case tasks
+    case maps
     case ai
     case calendar
     case fitness
@@ -47,6 +50,8 @@ extension AppTab {
             return .goals
         case .tasks:
             return .tasks
+        case .maps:
+            return .maps
         case .ai:
             return .ai
         case .calendar:
