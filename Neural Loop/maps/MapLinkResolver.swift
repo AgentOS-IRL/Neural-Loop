@@ -215,7 +215,7 @@ struct AppleMapsLinkResolver: MapLinkResolving {
         }
 
         var request = URLRequest(url: url)
-        request.httpMethod = "HEAD"
+        request.httpMethod = "GET"
         request.timeoutInterval = 15
 
         let (_, response) = try await URLSession.shared.data(for: request)
