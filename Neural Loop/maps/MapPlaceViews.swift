@@ -275,8 +275,14 @@ struct MapPlaceDetailView: View {
         ) {
             if let place {
                 Button("Apple Maps") { open(place, with: .apple) }
+                    .disabled(!MapAppAvailability.isAppleMapsInstalled)
                 Button("Google Maps") { open(place, with: .google) }
+                    .disabled(!MapAppAvailability.isGoogleMapsInstalled)
                 Button("Waze") { open(place, with: .waze) }
+                    .disabled(!MapAppAvailability.isWazeInstalled)
+                if let shareURL = ExternalMapProvider.canonicalAppleURL(for: place) {
+                    ShareLink("Send to Mercedes-Benz", item: shareURL)
+                }
                 Button("Copy Place Details") { copyDetails(for: place) }
             }
             Button("Cancel", role: .cancel) {}
