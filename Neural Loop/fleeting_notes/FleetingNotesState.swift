@@ -39,6 +39,36 @@ struct FleetingNoteCardState: Identifiable, Equatable {
     let relativeTimestamp: String
     let badgeText: String
     let sourceSubtitle: String
+    let linkedTaskID: Int64?
+    let linkedTaskTitle: String?
+
+    init(
+        id: String,
+        source: FleetingNoteSource,
+        rawPersonalID: Int64?,
+        rawWorkID: String?,
+        workNotes: String?,
+        note: String,
+        timestamp: String,
+        relativeTimestamp: String,
+        badgeText: String,
+        sourceSubtitle: String,
+        linkedTaskID: Int64? = nil,
+        linkedTaskTitle: String? = nil
+    ) {
+        self.id = id
+        self.source = source
+        self.rawPersonalID = rawPersonalID
+        self.rawWorkID = rawWorkID
+        self.workNotes = workNotes
+        self.note = note
+        self.timestamp = timestamp
+        self.relativeTimestamp = relativeTimestamp
+        self.badgeText = badgeText
+        self.sourceSubtitle = sourceSubtitle
+        self.linkedTaskID = linkedTaskID
+        self.linkedTaskTitle = linkedTaskTitle
+    }
 }
 
 enum FleetingNoteSource: String, Equatable, CaseIterable {
@@ -94,6 +124,7 @@ enum FleetingNotesStateMapper {
         workReminders: [WorkReminder] = [],
         filter: FleetingNotesFilter = .all,
         workWarning: String? = nil,
+        taskTitles: [Int64: String] = [:],
         now: Date = Date(),
         calendar: Calendar = .current,
         locale: Locale = .autoupdatingCurrent,
@@ -141,7 +172,9 @@ enum FleetingNotesStateMapper {
                     timeZone: timeZone
                 ),
                 badgeText: $0.source.displayName,
-                sourceSubtitle: sourceSubtitle(for: $0)
+                sourceSubtitle: sourceSubtitle(for: $0),
+                linkedTaskID: $0.personalNote?.task_id,
+                linkedTaskTitle: $0.personalNote?.task_id.flatMap { taskTitles[$0] }
             )
         }
 

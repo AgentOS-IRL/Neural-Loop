@@ -307,7 +307,11 @@ struct LifeAreaDetailView: View {
     
     @ViewBuilder
     private func taskView(task: Tasks) -> some View {
-        taskRowView(task: task, strikeThrough: task.is_completed)
+        taskRowView(
+            task: task,
+            strikeThrough: task.is_completed,
+            noteCount: model.taskNoteCount(for: task.id)
+        )
     }
     
 }

@@ -96,6 +96,7 @@ final class UnifiedDataModel: ObservableObject {
             refreshWidgetSnapshot()
         }
     }
+    @Published var taskNoteCounts: [Int64: Int] = [:]
     /// Read-only mirror supplied by the SwiftData environment for watch
     /// snapshot generation. Recurring-task mutations remain owned by the
     /// existing SwiftData helpers.
@@ -182,6 +183,7 @@ final class UnifiedDataModel: ObservableObject {
             self.goalTracking = snapshot.goals_tracking
             self.tags = snapshot.tags
             self.tasks = snapshot.tasks
+            await refreshTaskNoteCounts()
             self.secrets = snapshot.secrets
             self.secretsLoaded = true
             _ = await refreshCodexTokenIfNeeded(force: false)

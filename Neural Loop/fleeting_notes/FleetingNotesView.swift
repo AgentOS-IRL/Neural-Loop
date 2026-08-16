@@ -21,8 +21,8 @@ struct FleetingNotesView: View {
     @State private var screenState: FleetingNotesScreenState = .loading
     @State private var workNotesWarningMessage: String?
     @State private var activeEditorSheet: FleetingNoteEditorSheet?
-    @State private var selectedCardForEdit: FleetingNoteCardState?
     @State private var editNoteAttachments: [ImageAttachment] = []
+    @State private var selectedLinkedTask: Tasks?
     @State private var selectedNoteForDelete: FleetingNoteCardState?
     @State private var showDeleteConfirmation = false
     @State private var mutationErrorMessage: String?
@@ -92,24 +92,36 @@ struct FleetingNotesView: View {
         .sheet(item: $activeEditorSheet) { sheet in
             switch sheet {
             case .create:
-                EditFleetingNoteView(note: nil) { text, attachments in
+                EditFleetingNoteView(note: nil, availableTasks: model.tasks) { text, attachments, taskID in
                     do {
-                        try await createNote(text: text, attachments: attachments)
+                        try await createNote(text: text, attachments: attachments, taskID: taskID)
                     } catch {
                         mutationErrorMessage = error.localizedDescription
                         throw error
                     }
                 }
             case .edit(let card):
-                EditFleetingNoteView(note: card, existingAttachments: editNoteAttachments) { text, attachments in
+                EditFleetingNoteView(
+                    note: card,
+                    existingAttachments: editNoteAttachments,
+                    availableTasks: model.tasks
+                ) { text, attachments, taskID in
                     do {
-                        try await updateNote(card: card, text: text, attachments: attachments)
+                        try await updateNote(
+                            card: card,
+                            text: text,
+                            attachments: attachments,
+                            taskID: taskID
+                        )
                     } catch {
                         mutationErrorMessage = error.localizedDescription
                         throw error
                     }
                 }
             }
+        }
+        .sheet(item: $selectedLinkedTask) { task in
+            IndividualTodoView(task: task)
         }
         .alert(
             "Note action failed",
@@ -178,18 +190,23 @@ struct FleetingNotesView: View {
                     filterControl
 
                     ForEach(content.cards) { card in
-                        FleetingNotesRow(card: card)
+                        FleetingNotesRow(
+                            card: card,
+                            onNoteTap: {
+                                Task {
+                                    await beginEditing(card)
+                                }
+                            },
+                            onTaskTap: card.linkedTaskID == nil ? nil : {
+                                guard let taskID = card.linkedTaskID else { return }
+                                selectedLinkedTask = model.getTask(by: taskID)
+                            }
+                        )
                             .contentShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous))
                             .contextMenu {
                                 Button("Edit Note", systemImage: "pencil") {
                                     Task {
-                                        if card.source == .personal, let noteId = card.rawPersonalID {
-                                            editNoteAttachments = await model.fetchImageAttachments(forFleetingNoteId: noteId)
-                                        } else {
-                                            editNoteAttachments = []
-                                        }
-                                        selectedCardForEdit = card
-                                        activeEditorSheet = .edit(card)
+                                        await beginEditing(card)
                                     }
                                 }
 
@@ -508,7 +525,9 @@ struct FleetingNotesView: View {
                 guard let id = selectedNoteForDelete.rawPersonalID else {
                     throw FleetingNoteMutationError.missingPersonalID
                 }
-                try await manager.deleteFleetingNote(id: id)
+                guard await model.deleteFleetingNote(id: id) else {
+                    throw FleetingNoteMutationError.saveFailed
+                }
                 personalNotes.removeAll { $0.id == id }
             case .work:
                 guard let id = selectedNoteForDelete.rawWorkID else {
@@ -528,7 +547,11 @@ struct FleetingNotesView: View {
     }
 
     @MainActor
-    private func createNote(text: String, attachments: [ImageAttachment]) async throws {
+    private func createNote(
+        text: String,
+        attachments: [ImageAttachment],
+        taskID: Int64?
+    ) async throws {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !trimmedText.isEmpty else {
@@ -544,8 +567,10 @@ struct FleetingNotesView: View {
         isMutatingNote = true
         defer { isMutatingNote = false }
 
-        let request = CreateFleetingNoteRequest(note: trimmedText)
-        let createdNote = try await manager.createFleetingNote(request)
+        let request = CreateFleetingNoteRequest(note: trimmedText, task_id: taskID)
+        guard let createdNote = await model.saveFleetingNote(request) else {
+            throw FleetingNoteMutationError.saveFailed
+        }
         
         if !attachments.isEmpty {
             await model.saveImageAttachments(attachments, forFleetingNoteId: createdNote.id)
@@ -556,7 +581,12 @@ struct FleetingNotesView: View {
     }
 
     @MainActor
-    private func updateNote(card: FleetingNoteCardState, text: String, attachments: [ImageAttachment]) async throws {
+    private func updateNote(
+        card: FleetingNoteCardState,
+        text: String,
+        attachments: [ImageAttachment],
+        taskID: Int64?
+    ) async throws {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !trimmedText.isEmpty else {
@@ -577,10 +607,12 @@ struct FleetingNotesView: View {
             guard let id = card.rawPersonalID else {
                 throw FleetingNoteMutationError.missingPersonalID
             }
-            let updatedNote = try await manager.updateFleetingNote(
+            guard let updatedNote = await model.updateFleetingNote(
                 id: id,
-                request: UpdateFleetingNoteRequest(note: trimmedText)
-            )
+                request: UpdateFleetingNoteRequest(note: trimmedText, task_id: taskID)
+            ) else {
+                throw FleetingNoteMutationError.saveFailed
+            }
             await model.replaceImageAttachments(attachments, forFleetingNoteId: id)
 
             if let index = personalNotes.firstIndex(where: { $0.id == id }) {
@@ -614,8 +646,24 @@ struct FleetingNotesView: View {
             personalNotes: personalNotes,
             workReminders: workReminders,
             filter: selectedFilter,
-            workWarning: workNotesWarningMessage
+            workWarning: workNotesWarningMessage,
+            taskTitles: Dictionary(
+                uniqueKeysWithValues: model.tasks.compactMap { task in
+                    guard let id = task.id else { return nil }
+                    return (id, task.title)
+                }
+            )
         )
+    }
+
+    @MainActor
+    private func beginEditing(_ card: FleetingNoteCardState) async {
+        if card.source == .personal, let noteId = card.rawPersonalID {
+            editNoteAttachments = await model.fetchImageAttachments(forFleetingNoteId: noteId)
+        } else {
+            editNoteAttachments = []
+        }
+        activeEditorSheet = .edit(card)
     }
 }
 
@@ -638,6 +686,7 @@ private enum FleetingNoteMutationError: LocalizedError {
     case mutationInProgress
     case missingPersonalID
     case missingWorkID
+    case saveFailed
 
     var errorDescription: String? {
         switch self {
@@ -649,6 +698,8 @@ private enum FleetingNoteMutationError: LocalizedError {
             return "Personal note id is missing."
         case .missingWorkID:
             return "Work note id is missing."
+        case .saveFailed:
+            return "The note could not be saved. Please try again."
         }
     }
 }

@@ -12,14 +12,24 @@ final class FleetingNotesDBTests: XCTestCase {
         XCTAssertEqual(payload?.count, 1)
     }
 
-    func testUpdateFleetingNoteRequestEncodesOnlyWritableColumns() throws {
+    func testUpdateFleetingNoteRequestEncodesExplicitNullForUnlinking() throws {
         let request = UpdateFleetingNoteRequest(note: "Updated thought")
 
         let data = try JSONEncoder().encode(request)
         let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any]
 
         XCTAssertEqual(payload?["note"] as? String, "Updated thought")
-        XCTAssertEqual(payload?.count, 1)
+        XCTAssertTrue(payload?["task_id"] is NSNull)
+        XCTAssertEqual(payload?.count, 2)
+    }
+
+    func testCreateFleetingNoteRequestEncodesLinkedTaskWhenProvided() throws {
+        let request = CreateFleetingNoteRequest(note: "Task context", task_id: 42)
+
+        let data = try JSONEncoder().encode(request)
+        let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+
+        XCTAssertEqual(payload?["task_id"] as? Int64, 42)
     }
 
     func testFleetingNotesErrorDescriptionsAreUserFacing() {
@@ -39,7 +49,8 @@ final class FleetingNotesDBTests: XCTestCase {
           {
             "id": 42,
             "created_at": "2026-04-15T09:30:00Z",
-            "note": "Ship the notes tab."
+            "note": "Ship the notes tab.",
+            "task_id": 42
           }
         ]
         """.data(using: .utf8)!
@@ -52,6 +63,7 @@ final class FleetingNotesDBTests: XCTestCase {
         XCTAssertEqual(decoded.count, 1)
         XCTAssertEqual(decoded.first?.id, 42)
         XCTAssertEqual(decoded.first?.note, "Ship the notes tab.")
+        XCTAssertEqual(decoded.first?.task_id, 42)
         XCTAssertEqual(decoded.first?.created_at, ISO8601DateFormatter().date(from: "2026-04-15T09:30:00Z"))
     }
 

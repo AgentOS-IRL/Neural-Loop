@@ -12,8 +12,10 @@ import SwiftUI
 @MainActor
 final class IndividualTodoViewModel: ObservableObject {
     @Published var subTasks: [SubTasks] = []
+    @Published var notes: [FleetingNote] = []
     @Published var newSubTaskTitle: String = ""
     @Published private(set) var isLoading: Bool = false
+    @Published private(set) var isLoadingNotes: Bool = false
     @Published var alertMessage: String?
 
     var trimmedNewSubTaskTitle: String {
@@ -22,6 +24,17 @@ final class IndividualTodoViewModel: ObservableObject {
 
     var canAddSubTask: Bool {
         !trimmedNewSubTaskTitle.isEmpty
+    }
+
+    func loadNotes(from model: TaskNoteServicing, taskId: Int64?) async {
+        guard let taskId else {
+            notes = []
+            return
+        }
+
+        isLoadingNotes = true
+        notes = await model.getFleetingNotes(taskId: taskId)
+        isLoadingNotes = false
     }
 
     func loadSubTasks(from model: TodoSubtaskServicing, taskId: Int64?) async {

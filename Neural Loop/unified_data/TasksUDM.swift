@@ -93,6 +93,7 @@ extension  UnifiedDataModel {
             if let index = tasks.firstIndex(where: { $0.id == id }) {
                 tasks.remove(at: index)
             }
+            taskNoteCounts.removeValue(forKey: id)
 
             await notificationScheduler.clearTaskNotifications(taskId: id)
 

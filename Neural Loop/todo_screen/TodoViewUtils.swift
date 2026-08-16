@@ -292,7 +292,7 @@ private func compactDeadlineCountdown(
     return .init(text: text, urgency: urgency)
 }
 
-func taskRowView(task: Tasks, strikeThrough: Bool = false) -> some View {
+func taskRowView(task: Tasks, strikeThrough: Bool = false, noteCount: Int = 0) -> some View {
     let deadlineCountdown = compactDeadlineCountdown(
         targetDate: task.start_date,
         isDeadlineEnabled: task.is_deadline
@@ -311,9 +311,24 @@ func taskRowView(task: Tasks, strikeThrough: Bool = false) -> some View {
                 .strikethrough(strikeThrough)
                 .foregroundColor(AppTheme.textPrimary)
 
-            Text(todoDueDateText(start: task.start_date, duration: task.duration))
-                .font(.system(.caption, design: .rounded, weight: .medium))
-                .foregroundColor(AppTheme.textSecondary)
+            HStack(spacing: 8) {
+                Text(todoDueDateText(start: task.start_date, duration: task.duration))
+                    .font(.system(.caption, design: .rounded, weight: .medium))
+                    .foregroundColor(AppTheme.textSecondary)
+
+                if noteCount > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "note.text")
+                        Text("\(noteCount)")
+                    }
+                    .font(.system(.caption2, design: .rounded, weight: .bold))
+                    .foregroundStyle(AppTheme.accentColor)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(AppTheme.accentColor.opacity(0.12), in: Capsule())
+                    .accessibilityLabel("\(noteCount) linked \(noteCount == 1 ? "note" : "notes")")
+                }
+            }
         }
 
         Spacer()

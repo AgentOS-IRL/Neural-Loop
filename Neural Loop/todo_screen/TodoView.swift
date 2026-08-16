@@ -171,7 +171,11 @@ struct TodoView: View {
         } ?? false
         let strikeThrough = isRecurring ? recurringOccurrenceIsCompleted : task.is_completed
         
-        taskRowView(task: task, strikeThrough: strikeThrough)
+        taskRowView(
+            task: task,
+            strikeThrough: strikeThrough,
+            noteCount: model.taskNoteCount(for: task.id)
+        )
             .onTapGesture {
                 vm.selectedTaskForViewer = task
             }

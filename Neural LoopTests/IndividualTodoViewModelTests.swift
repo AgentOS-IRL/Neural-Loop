@@ -95,6 +95,35 @@ final class IndividualTodoViewModelTests: XCTestCase {
         XCTAssertEqual(service.toggleRequests.first?.1, true)
         XCTAssertEqual(viewModel.subTasks, [updatedSubTask])
     }
+
+    func testLoadNotesRefreshesTaskScopedNotes() async {
+        let service = MockTaskNoteService()
+        let expected = FleetingNote(
+            id: 7,
+            created_at: Date(timeIntervalSince1970: 100),
+            note: "Decision context",
+            task_id: 42
+        )
+        service.notes = [expected]
+
+        let viewModel = IndividualTodoViewModel()
+        await viewModel.loadNotes(from: service, taskId: 42)
+
+        XCTAssertEqual(service.fetchRequests, [42])
+        XCTAssertEqual(viewModel.notes, [expected])
+        XCTAssertFalse(viewModel.isLoadingNotes)
+    }
+}
+
+@MainActor
+private final class MockTaskNoteService: TaskNoteServicing {
+    var fetchRequests: [Int64] = []
+    var notes: [FleetingNote] = []
+
+    func getFleetingNotes(taskId: Int64) async -> [FleetingNote] {
+        fetchRequests.append(taskId)
+        return notes
+    }
 }
 
 @MainActor

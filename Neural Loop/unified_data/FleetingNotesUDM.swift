@@ -7,10 +7,19 @@
 
 import Foundation
 
+@MainActor
+protocol TaskNoteServicing {
+    func getFleetingNotes(taskId: Int64) async -> [FleetingNote]
+}
+
 extension UnifiedDataModel {
     func saveFleetingNote(_ request: CreateFleetingNoteRequest) async -> FleetingNote? {
         do {
-            return try await manager.createFleetingNote(request)
+            let note = try await manager.createFleetingNote(request)
+            if request.task_id != nil {
+                await refreshTaskNoteCounts()
+            }
+            return note
         } catch {
             print("Error saving fleeting note", error)
             return nil
@@ -19,7 +28,9 @@ extension UnifiedDataModel {
 
     func updateFleetingNote(id: Int64, request: UpdateFleetingNoteRequest) async -> FleetingNote? {
         do {
-            return try await manager.updateFleetingNote(id: id, request: request)
+            let note = try await manager.updateFleetingNote(id: id, request: request)
+            await refreshTaskNoteCounts()
+            return note
         } catch {
             print("Error updating fleeting note", error)
             return nil
@@ -29,10 +40,37 @@ extension UnifiedDataModel {
     func deleteFleetingNote(id: Int64) async -> Bool {
         do {
             try await manager.deleteFleetingNote(id: id)
+            await refreshTaskNoteCounts()
             return true
         } catch {
             print("Error deleting fleeting note", error)
             return false
+        }
+    }
+
+    func getFleetingNotes(taskId: Int64) async -> [FleetingNote] {
+        do {
+            return try await manager.fetchFleetingNotes(taskId: taskId)
+        } catch {
+            print("Error fetching task notes", error)
+            return []
+        }
+    }
+
+    func taskNoteCount(for taskId: Int64?) -> Int {
+        guard let taskId else { return 0 }
+        return taskNoteCounts[taskId] ?? 0
+    }
+
+    func refreshTaskNoteCounts() async {
+        do {
+            let rows = try await manager.fetchTaskNoteCounts()
+            taskNoteCounts = Dictionary(
+                uniqueKeysWithValues: rows.map { ($0.task_id, Int($0.note_count)) }
+            )
+        } catch {
+            print("Error loading task note counts", error)
+            taskNoteCounts = [:]
         }
     }
 
@@ -116,3 +154,5 @@ extension UnifiedDataModel {
         }
     }
 }
+
+extension UnifiedDataModel: TaskNoteServicing {}

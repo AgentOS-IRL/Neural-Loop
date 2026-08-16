@@ -11,6 +11,18 @@ struct FleetingNotesRow: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     let card: FleetingNoteCardState
+    let onNoteTap: (() -> Void)?
+    let onTaskTap: (() -> Void)?
+
+    init(
+        card: FleetingNoteCardState,
+        onNoteTap: (() -> Void)? = nil,
+        onTaskTap: (() -> Void)? = nil
+    ) {
+        self.card = card
+        self.onNoteTap = onNoteTap
+        self.onTaskTap = onTaskTap
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -39,6 +51,25 @@ struct FleetingNotesRow: View {
                 .foregroundStyle(AppTheme.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .multilineTextAlignment(.leading)
+
+            if let linkedTaskTitle = card.linkedTaskTitle {
+                Button {
+                    onTaskTap?()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle")
+                        Text(linkedTaskTitle)
+                            .lineLimit(1)
+                    }
+                    .font(.system(.caption, design: .rounded, weight: .semibold))
+                    .foregroundStyle(AppTheme.accentColor)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(AppTheme.accentColor.opacity(0.12), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open linked task \(linkedTaskTitle)")
+            }
         }
         .padding(20)
         .background(backgroundStyle)
@@ -48,6 +79,10 @@ struct FleetingNotesRow: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous))
         .shadow(color: .black.opacity(0.08), radius: 14, y: 10)
+        .contentShape(RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous))
+        .onTapGesture {
+            onNoteTap?()
+        }
     }
 
     private var backgroundStyle: some View {

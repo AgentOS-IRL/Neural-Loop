@@ -46,6 +46,32 @@ final class FleetingNotesStateTests: XCTestCase {
         XCTAssertEqual(summary.title, "No notes yet")
     }
 
+    func testPersonalNoteMapsLinkedTaskChipState() {
+        let now = date("2026-04-15T21:00:00Z")
+        let note = FleetingNote(
+            id: 1,
+            created_at: now,
+            note: "Task context",
+            task_id: 42
+        )
+
+        let state = FleetingNotesStateMapper.makeLoadedState(
+            personalNotes: [note],
+            taskTitles: [42: "Ship task notes"],
+            now: now,
+            calendar: calendarUTC,
+            locale: locale,
+            timeZone: timeZoneUTC
+        )
+
+        guard case .content(let content) = state else {
+            return XCTFail("Expected content state")
+        }
+
+        XCTAssertEqual(content.cards.first?.linkedTaskID, 42)
+        XCTAssertEqual(content.cards.first?.linkedTaskTitle, "Ship task notes")
+    }
+
     func testLoadedStateMergesPersonalAndWorkNotesNewestFirst() {
         let now = date("2026-04-15T21:00:00Z")
         let personal = FleetingNote(id: 1, created_at: now.addingTimeInterval(-7_200), note: "Personal thought")
