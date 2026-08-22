@@ -176,10 +176,11 @@ struct TodoView: View {
         } ?? false
         let strikeThrough = isRecurring ? recurringOccurrenceIsCompleted : task.is_completed
         
-        taskRowView(
+        TodoTaskRowView(
             task: task,
             strikeThrough: strikeThrough,
-            noteCount: model.taskNoteCount(for: task.id)
+            noteCount: model.taskNoteCount(for: task.id),
+            mapsStore: model.mapsStore
         )
             .onTapGesture {
                 vm.selectedTaskForViewer = task
@@ -769,6 +770,9 @@ struct TodoView: View {
                 }
             }
         }
+        .task {
+            await model.mapsStore.loadIfNeeded()
+        }
         .onAppear {
             refreshBucketsFromModel()
             presentAddTaskIfNeeded(deepLink.pendingDeepLink)
@@ -874,5 +878,28 @@ struct TodoView: View {
 
         vm.showAddTask = true
         deepLink.clearPendingNavigation()
+    }
+}
+
+private struct TodoTaskRowView: View {
+    let task: Tasks
+    let strikeThrough: Bool
+    let noteCount: Int
+    @ObservedObject var mapsStore: MapsStore
+
+    private var hasPlaceAttachment: Bool {
+        guard let taskID = task.id else { return false }
+        return mapsStore.taskLinkSummaries.contains { link in
+            link.task_id == taskID && link.place_id != nil
+        }
+    }
+
+    var body: some View {
+        taskRowView(
+            task: task,
+            strikeThrough: strikeThrough,
+            noteCount: noteCount,
+            hasPlaceAttachment: hasPlaceAttachment
+        )
     }
 }

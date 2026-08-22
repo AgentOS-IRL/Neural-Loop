@@ -31,6 +31,7 @@ nonisolated struct MapPlaceRecord: Codable, Identifiable, Equatable, Sendable {
     let longitude: Double
     let address: String?
     let kind: MapPlaceKind
+    let pinned: Bool
     let client_event_id: UUID?
     let parked_at: Date?
     let expires_at: Date?
@@ -40,7 +41,7 @@ nonisolated struct MapPlaceRecord: Codable, Identifiable, Equatable, Sendable {
     let updated_at: Date
 
     static let tableName = "map_places"
-    static let selectedColumns = "id, folder_id, name, latitude, longitude, address, kind, client_event_id, parked_at, expires_at, expired_at, expiry_reason, created_at, updated_at"
+    static let selectedColumns = "id, folder_id, name, latitude, longitude, address, kind, pinned, client_event_id, parked_at, expires_at, expired_at, expiry_reason, created_at, updated_at"
 
     init(
         id: Int64,
@@ -50,6 +51,7 @@ nonisolated struct MapPlaceRecord: Codable, Identifiable, Equatable, Sendable {
         longitude: Double,
         address: String?,
         kind: MapPlaceKind = .saved,
+        pinned: Bool = false,
         client_event_id: UUID? = nil,
         parked_at: Date? = nil,
         expires_at: Date? = nil,
@@ -65,6 +67,7 @@ nonisolated struct MapPlaceRecord: Codable, Identifiable, Equatable, Sendable {
         self.longitude = longitude
         self.address = address
         self.kind = kind
+        self.pinned = pinned
         self.client_event_id = client_event_id
         self.parked_at = parked_at
         self.expires_at = expires_at
@@ -87,10 +90,12 @@ nonisolated struct MapRouteRecord: Codable, Identifiable, Equatable, Sendable {
     let folder_id: Int64
     let name: String
     let transport_mode: MapRouteTransportMode
+    let pinned: Bool
     let created_at: Date
     let updated_at: Date
 
     static let tableName = "map_routes"
+    static let selectedColumns = "id, folder_id, name, transport_mode, pinned, created_at, updated_at"
 }
 
 nonisolated struct MapRouteWaypointRecord: Codable, Identifiable, Equatable, Sendable {
@@ -169,6 +174,10 @@ nonisolated struct UpdateMapPlaceRequest: Codable, Equatable, Sendable {
 
 nonisolated struct MoveMapPlaceRequest: Codable, Equatable, Sendable {
     let folder_id: Int64
+}
+
+nonisolated struct SetMapPinnedRequest: Codable, Equatable, Sendable {
+    let pinned: Bool
 }
 
 nonisolated struct UpsertParkedPlaceParams: Codable, Equatable, Sendable {
@@ -322,6 +331,38 @@ extension DBManager {
         }
 
         return place
+    }
+
+    func setMapPlacePinned(id: Int64, pinned: Bool) async throws -> MapPlaceRecord {
+        let rows: [MapPlaceRecord] = try await customsupabase
+            .from(MapPlaceRecord.tableName)
+            .update(SetMapPinnedRequest(pinned: pinned))
+            .eq("id", value: Int(id))
+            .select(MapPlaceRecord.selectedColumns)
+            .execute()
+            .value
+
+        guard let place = rows.first else {
+            throw MapsDatabaseError.updateReturnedNoRows
+        }
+
+        return place
+    }
+
+    func setMapRoutePinned(id: Int64, pinned: Bool) async throws -> MapRouteRecord {
+        let rows: [MapRouteRecord] = try await customsupabase
+            .from(MapRouteRecord.tableName)
+            .update(SetMapPinnedRequest(pinned: pinned))
+            .eq("id", value: Int(id))
+            .select(MapRouteRecord.selectedColumns)
+            .execute()
+            .value
+
+        guard let route = rows.first else {
+            throw MapsDatabaseError.updateReturnedNoRows
+        }
+
+        return route
     }
 
     func deleteMapPlace(id: Int64) async throws -> MapPlaceRecord {

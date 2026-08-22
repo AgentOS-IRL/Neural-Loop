@@ -301,7 +301,12 @@ private func compactDeadlineCountdown(
     return .init(text: text, urgency: urgency)
 }
 
-func taskRowView(task: Tasks, strikeThrough: Bool = false, noteCount: Int = 0) -> some View {
+func taskRowView(
+    task: Tasks,
+    strikeThrough: Bool = false,
+    noteCount: Int = 0,
+    hasPlaceAttachment: Bool = false
+) -> some View {
     let deadlineCountdown = compactDeadlineCountdown(
         targetDate: task.start_date,
         isDeadlineEnabled: task.is_deadline
@@ -336,6 +341,16 @@ func taskRowView(task: Tasks, strikeThrough: Bool = false, noteCount: Int = 0) -
                     .padding(.vertical, 4)
                     .background(AppTheme.accentColor.opacity(0.12), in: Capsule())
                     .accessibilityLabel("\(noteCount) linked \(noteCount == 1 ? "note" : "notes")")
+                }
+
+                if hasPlaceAttachment {
+                    Image(systemName: "mappin")
+                        .font(.system(.caption2, design: .rounded, weight: .bold))
+                        .foregroundStyle(AppTheme.accentColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(AppTheme.accentColor.opacity(0.12), in: Capsule())
+                        .accessibilityLabel("Place attached")
                 }
             }
         }

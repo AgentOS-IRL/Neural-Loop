@@ -12,8 +12,13 @@ struct MapRouteDetailView: View {
     @State private var routeLegs: [MKRoute] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @State private var actionErrorMessage: String?
     @State private var position: MapCameraPosition
     @State private var selectedTask: Tasks?
+
+    private var currentRoute: MapRouteRecord {
+        store.route(id: route.id) ?? route
+    }
 
     init(
         route: MapRouteRecord,
@@ -101,13 +106,46 @@ struct MapRouteDetailView: View {
                 Spacer()
             }
         }
-        .navigationTitle(route.name)
+        .navigationTitle(currentRoute.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    setPinned(!currentRoute.pinned)
+                } label: {
+                    Image(systemName: currentRoute.pinned ? "pin.slash" : "pin")
+                }
+                .disabled(store.isMutating)
+                .accessibilityLabel(currentRoute.pinned ? "Unpin Route" : "Pin Route")
+            }
+        }
+        .alert(
+            "Maps action failed",
+            isPresented: Binding(
+                get: { actionErrorMessage != nil },
+                set: { if !$0 { actionErrorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(actionErrorMessage ?? "Please try again.")
+        }
         .task(id: route.id) {
             await loadRoutePreview()
         }
         .sheet(item: $selectedTask) { task in
             IndividualTodoView(task: task)
+        }
+    }
+
+    private func setPinned(_ pinned: Bool) {
+        let route = currentRoute
+        Task {
+            do {
+                _ = try await store.setRoutePinned(route, pinned: pinned)
+            } catch {
+                actionErrorMessage = error.localizedDescription
+            }
         }
     }
 

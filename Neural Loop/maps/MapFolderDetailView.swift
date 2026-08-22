@@ -97,7 +97,7 @@ struct MapFolderDetailView: View {
             Text(placeDeleteMessage)
         }
         .alert(
-            "Place action failed",
+            "Maps action failed",
             isPresented: Binding(
                 get: { mutationErrorMessage != nil },
                 set: { if !$0 { mutationErrorMessage = nil } }
@@ -146,6 +146,17 @@ struct MapFolderDetailView: View {
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             if let record = store.remoteRecord(for: place), !place.isSyncPending {
+                                Button {
+                                    setPlacePinned(record, pinned: !record.pinned)
+                                } label: {
+                                    Label(
+                                        record.pinned ? "Unpin" : "Pin",
+                                        systemImage: record.pinned ? "pin.slash" : "pin"
+                                    )
+                                }
+                                .tint(record.pinned ? AppTheme.textSecondary : AppTheme.accentColor)
+                                .disabled(store.isMutating)
+
                                 Button {
                                     placeToMove = record
                                 } label: {
@@ -210,6 +221,18 @@ struct MapFolderDetailView: View {
                                 onSelectTask: selectTask
                             )
                         }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button {
+                                setRoutePinned(route, pinned: !route.pinned)
+                            } label: {
+                                Label(
+                                    route.pinned ? "Unpin" : "Pin",
+                                    systemImage: route.pinned ? "pin.slash" : "pin"
+                                )
+                            }
+                            .tint(route.pinned ? AppTheme.textSecondary : AppTheme.accentColor)
+                            .disabled(store.isMutating)
+                        }
                     }
                 }
             }
@@ -236,19 +259,64 @@ struct MapFolderDetailView: View {
     private func selectTask(_ taskID: Int64) {
         selectedTask = model.getTask(by: taskID)
     }
+
+    private func setPlacePinned(_ place: MapPlaceRecord, pinned: Bool) {
+        Task {
+            do {
+                _ = try await store.setPlacePinned(place, pinned: pinned)
+            } catch {
+                mutationErrorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func setRoutePinned(_ route: MapRouteRecord, pinned: Bool) {
+        Task {
+            do {
+                _ = try await store.setRoutePinned(route, pinned: pinned)
+            } catch {
+                mutationErrorMessage = error.localizedDescription
+            }
+        }
+    }
 }
 
-private struct MapPlaceRow: View {
+struct MapPlaceRow: View {
     let place: MapPlaceItem
     let currentLocation: CLLocation?
     let taskLinks: [TaskMapLinkSummary]
     let onSelectTask: (Int64) -> Void
+    let folderName: String?
+
+    init(
+        place: MapPlaceItem,
+        currentLocation: CLLocation?,
+        taskLinks: [TaskMapLinkSummary] = [],
+        onSelectTask: @escaping (Int64) -> Void = { _ in },
+        folderName: String? = nil
+    ) {
+        self.place = place
+        self.currentLocation = currentLocation
+        self.taskLinks = taskLinks
+        self.onSelectTask = onSelectTask
+        self.folderName = folderName
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(place.name)
-                .font(.system(.headline, design: .rounded, weight: .bold))
-                .foregroundStyle(AppTheme.textPrimary)
+            HStack(spacing: 8) {
+                Text(place.name)
+                    .font(.system(.headline, design: .rounded, weight: .bold))
+                    .foregroundStyle(AppTheme.textPrimary)
+
+                Spacer(minLength: 8)
+
+                if place.pinned {
+                    Image(systemName: "pin.fill")
+                        .foregroundStyle(AppTheme.accentColor)
+                        .accessibilityLabel("Pinned")
+                }
+            }
             Text(
                 MapsLocationTextFormatter.subtitle(
                     latitude: place.latitude,
@@ -262,24 +330,57 @@ private struct MapPlaceRow: View {
             .lineLimit(2)
 
             TaskMapLinkBadge(links: taskLinks, onSelectTask: onSelectTask)
+
+            if let folderName {
+                Label("In \(folderName)", systemImage: "folder")
+                    .font(.system(.caption, design: .rounded, weight: .semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
         }
         .padding(.vertical, 5)
         .accessibilityElement(children: .combine)
     }
 }
 
-private struct MapRouteRow: View {
+struct MapRouteRow: View {
     let route: MapRouteRecord
     let firstWaypoint: MapRouteWaypointRecord?
     let currentLocation: CLLocation?
     let taskLinks: [TaskMapLinkSummary]
     let onSelectTask: (Int64) -> Void
+    let folderName: String?
+
+    init(
+        route: MapRouteRecord,
+        firstWaypoint: MapRouteWaypointRecord?,
+        currentLocation: CLLocation?,
+        taskLinks: [TaskMapLinkSummary] = [],
+        onSelectTask: @escaping (Int64) -> Void = { _ in },
+        folderName: String? = nil
+    ) {
+        self.route = route
+        self.firstWaypoint = firstWaypoint
+        self.currentLocation = currentLocation
+        self.taskLinks = taskLinks
+        self.onSelectTask = onSelectTask
+        self.folderName = folderName
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(route.name)
-                .font(.system(.headline, design: .rounded, weight: .bold))
-                .foregroundStyle(AppTheme.textPrimary)
+            HStack(spacing: 8) {
+                Text(route.name)
+                    .font(.system(.headline, design: .rounded, weight: .bold))
+                    .foregroundStyle(AppTheme.textPrimary)
+
+                Spacer(minLength: 8)
+
+                if route.pinned {
+                    Image(systemName: "pin.fill")
+                        .foregroundStyle(AppTheme.accentColor)
+                        .accessibilityLabel("Pinned")
+                }
+            }
 
             if let firstWaypoint {
                 Text(
@@ -295,6 +396,12 @@ private struct MapRouteRow: View {
             }
 
             TaskMapLinkBadge(links: taskLinks, onSelectTask: onSelectTask)
+
+            if let folderName {
+                Label("In \(folderName)", systemImage: "folder")
+                    .font(.system(.caption, design: .rounded, weight: .semibold))
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
         }
         .padding(.vertical, 5)
         .accessibilityElement(children: .combine)

@@ -162,6 +162,7 @@ struct MapPlaceItem: Identifiable, Equatable, Sendable {
     let longitude: Double
     let address: String?
     let kind: MapPlaceKind
+    let pinned: Bool
     let clientEventID: UUID?
     let parkedAt: Date?
     let expiresAt: Date?
@@ -180,6 +181,7 @@ struct MapPlaceItem: Identifiable, Equatable, Sendable {
         longitude = record.longitude
         address = record.address
         kind = record.kind
+        pinned = record.pinned
         clientEventID = record.client_event_id
         parkedAt = record.parked_at
         expiresAt = record.expires_at
@@ -199,6 +201,7 @@ struct MapPlaceItem: Identifiable, Equatable, Sendable {
         longitude: Double,
         address: String?,
         kind: MapPlaceKind,
+        pinned: Bool = false,
         parkedAt: Date?,
         expiresAt: Date?,
         expiredAt: Date?,
@@ -215,6 +218,7 @@ struct MapPlaceItem: Identifiable, Equatable, Sendable {
         self.longitude = longitude
         self.address = address
         self.kind = kind
+        self.pinned = pinned
         self.clientEventID = clientEventID
         self.parkedAt = parkedAt
         self.expiresAt = expiresAt

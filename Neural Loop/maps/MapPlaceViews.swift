@@ -351,6 +351,22 @@ struct MapPlaceDetailView: View {
         }
         .navigationTitle(place?.name ?? "Place")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if let place,
+                   place.kind == .saved,
+                   !place.isSyncPending,
+                   store.remoteRecord(for: place) != nil {
+                    Button {
+                        setPinned(!place.pinned, for: place)
+                    } label: {
+                        Image(systemName: place.pinned ? "pin.slash" : "pin")
+                    }
+                    .disabled(store.isMutating)
+                    .accessibilityLabel(place.pinned ? "Unpin Place" : "Pin Place")
+                }
+            }
+        }
         .confirmationDialog(
             "Open Place",
             isPresented: $isOpenPlacePresented,
@@ -461,7 +477,7 @@ struct MapPlaceDetailView: View {
             Text("The place will be permanently deleted and removed from \(ownerLink?.task_title ?? "the task").")
         }
         .alert(
-            "Parking action failed",
+            "Maps action failed",
             isPresented: Binding(
                 get: { actionErrorMessage != nil },
                 set: { if !$0 { actionErrorMessage = nil } }
@@ -487,6 +503,17 @@ struct MapPlaceDetailView: View {
                 await coordinator.openEligiblePlace(place, with: provider)
             } else {
                 await coordinator.openDirectly(place, with: provider)
+            }
+        }
+    }
+
+    private func setPinned(_ pinned: Bool, for place: MapPlaceItem) {
+        guard let record = store.remoteRecord(for: place) else { return }
+        Task {
+            do {
+                _ = try await store.setPlacePinned(record, pinned: pinned)
+            } catch {
+                actionErrorMessage = error.localizedDescription
             }
         }
     }

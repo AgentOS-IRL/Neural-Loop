@@ -270,6 +270,75 @@ struct MapsView: View {
                 .listRowBackground(AppTheme.cardGradient)
             }
 
+            let pinnedPlaces = store.pinnedSavedPlaceItems
+            if !pinnedPlaces.isEmpty {
+                Section("Pinned Places") {
+                    ForEach(pinnedPlaces) { place in
+                        NavigationLink {
+                            MapPlaceDetailView(
+                                placeReference: place.id,
+                                store: store,
+                                coordinator: coordinator,
+                                locationService: locationService
+                            )
+                        } label: {
+                            MapPlaceRow(
+                                place: place,
+                                currentLocation: locationService.currentLocation,
+                                folderName: place.folderID.flatMap { store.folder(id: $0)?.name }
+                            )
+                        }
+                        .listRowBackground(AppTheme.cardGradient)
+                        .listRowSeparatorTint(AppTheme.textSecondary.opacity(0.2))
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            if let record = store.remoteRecord(for: place) {
+                                Button {
+                                    setPlacePinned(record, pinned: false)
+                                } label: {
+                                    Label("Unpin", systemImage: "pin.slash")
+                                }
+                                .tint(AppTheme.textSecondary)
+                                .disabled(store.isMutating)
+                            }
+                        }
+                    }
+                }
+            }
+
+            let pinnedRoutes = store.pinnedRoutes
+            if !pinnedRoutes.isEmpty {
+                Section("Pinned Routes") {
+                    ForEach(pinnedRoutes) { route in
+                        NavigationLink {
+                            MapRouteDetailView(
+                                route: route,
+                                waypoints: store.waypoints(for: route.id),
+                                locationService: locationService,
+                                store: store
+                            )
+                        } label: {
+                            MapRouteRow(
+                                route: route,
+                                firstWaypoint: store.waypoints(for: route.id).first,
+                                currentLocation: locationService.currentLocation,
+                                folderName: store.folder(id: route.folder_id)?.name
+                            )
+                        }
+                        .listRowBackground(AppTheme.cardGradient)
+                        .listRowSeparatorTint(AppTheme.textSecondary.opacity(0.2))
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button {
+                                setRoutePinned(route, pinned: false)
+                            } label: {
+                                Label("Unpin", systemImage: "pin.slash")
+                            }
+                            .tint(AppTheme.textSecondary)
+                            .disabled(store.isMutating)
+                        }
+                    }
+                }
+            }
+
             if store.sortedFolders.isEmpty {
                 ContentUnavailableView(
                     "No folders",
@@ -331,6 +400,26 @@ struct MapsView: View {
         .refreshable {
             await store.refresh()
             locationService.requestFreshLocation()
+        }
+    }
+
+    private func setPlacePinned(_ place: MapPlaceRecord, pinned: Bool) {
+        Task {
+            do {
+                _ = try await store.setPlacePinned(place, pinned: pinned)
+            } catch {
+                mutationErrorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func setRoutePinned(_ route: MapRouteRecord, pinned: Bool) {
+        Task {
+            do {
+                _ = try await store.setRoutePinned(route, pinned: pinned)
+            } catch {
+                mutationErrorMessage = error.localizedDescription
+            }
         }
     }
 }

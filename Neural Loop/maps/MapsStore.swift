@@ -102,6 +102,16 @@ final class MapsStore: ObservableObject {
             }
     }
 
+    var pinnedSavedPlaceItems: [MapPlaceItem] {
+        allPlaceItems
+            .filter { $0.kind == .saved && $0.pinned }
+            .sorted { lhs, rhs in
+                let comparison = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
+                if comparison != .orderedSame { return comparison == .orderedAscending }
+                return lhs.id.id < rhs.id.id
+            }
+    }
+
     func remoteRecord(for item: MapPlaceItem) -> MapPlaceRecord? {
         snapshot?.places.first { record in
             record.id == item.remoteID ||
@@ -206,6 +216,19 @@ final class MapsStore: ObservableObject {
                 let comparison = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
                 return comparison == .orderedSame ? lhs.id < rhs.id : comparison == .orderedAscending
             }
+    }
+
+    var pinnedRoutes: [MapRouteRecord] {
+        (snapshot?.routes ?? [])
+            .filter(\.pinned)
+            .sorted { lhs, rhs in
+                let comparison = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
+                return comparison == .orderedSame ? lhs.id < rhs.id : comparison == .orderedAscending
+            }
+    }
+
+    func route(id: Int64) -> MapRouteRecord? {
+        snapshot?.routes.first { $0.id == id }
     }
 
     func waypoints(for routeID: Int64) -> [MapRouteWaypointRecord] {
@@ -332,6 +355,24 @@ final class MapsStore: ObservableObject {
         return moved
     }
 
+    func setPlacePinned(_ place: MapPlaceRecord, pinned: Bool) async throws -> MapPlaceRecord {
+        try beginMutation()
+        defer { isMutating = false }
+
+        let updated = try await manager.setMapPlacePinned(id: place.id, pinned: pinned)
+        replacePlace(updated)
+        return updated
+    }
+
+    func setRoutePinned(_ route: MapRouteRecord, pinned: Bool) async throws -> MapRouteRecord {
+        try beginMutation()
+        defer { isMutating = false }
+
+        let updated = try await manager.setMapRoutePinned(id: route.id, pinned: pinned)
+        replaceRoute(updated)
+        return updated
+    }
+
     func deletePlace(_ place: MapPlaceRecord) async throws {
         try beginMutation()
         defer { isMutating = false }
@@ -428,6 +469,11 @@ final class MapsStore: ObservableObject {
         guard let index = snapshot?.places.firstIndex(where: { $0.id == place.id }) else { return }
         snapshot?.places[index] = place
     }
+
+    private func replaceRoute(_ route: MapRouteRecord) {
+        guard let index = snapshot?.routes.firstIndex(where: { $0.id == route.id }) else { return }
+        snapshot?.routes[index] = route
+    }
 }
 
 private extension MapPlaceRecord {
@@ -440,6 +486,7 @@ private extension MapPlaceRecord {
             longitude: longitude,
             address: address,
             kind: kind,
+            pinned: pinned,
             client_event_id: client_event_id,
             parked_at: parked_at,
             expires_at: expires_at,
@@ -458,6 +505,7 @@ private extension MapRouteRecord {
             folder_id: folderID,
             name: name,
             transport_mode: transport_mode,
+            pinned: pinned,
             created_at: created_at,
             updated_at: updated_at
         )
