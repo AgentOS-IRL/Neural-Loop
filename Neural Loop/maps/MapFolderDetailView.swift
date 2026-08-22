@@ -4,6 +4,7 @@ import SwiftUI
 struct MapFolderDetailView: View {
     let folderID: Int64
     @ObservedObject var store: MapsStore
+    @ObservedObject var coordinator: ParkingDetectionCoordinator
     @ObservedObject var locationService: MapsLocationService
 
     @State private var isAddingPlace = false
@@ -117,7 +118,7 @@ struct MapFolderDetailView: View {
             }
 
             Section {
-                let places = store.places(in: folder.id)
+                let places = store.savedPlaceItems(in: folder.id)
                 if places.isEmpty {
                     Text("No places.")
                         .foregroundStyle(AppTheme.textSecondary)
@@ -125,8 +126,9 @@ struct MapFolderDetailView: View {
                     ForEach(places) { place in
                         NavigationLink {
                             MapPlaceDetailView(
-                                placeID: place.id,
+                                placeReference: place.id,
                                 store: store,
+                                coordinator: coordinator,
                                 locationService: locationService
                             )
                         } label: {
@@ -136,25 +138,29 @@ struct MapFolderDetailView: View {
                             )
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button {
-                                placeToMove = place
-                            } label: {
-                                Label("Move", systemImage: "folder")
-                            }
-                            .tint(.orange)
+                            if let record = store.remoteRecord(for: place), !place.isSyncPending {
+                                Button {
+                                    placeToMove = record
+                                } label: {
+                                    Label("Move", systemImage: "folder")
+                                }
+                                .tint(.orange)
 
-                            Button {
-                                placeToEdit = place
-                            } label: {
-                                Label("Edit", systemImage: "pencil")
+                                Button {
+                                    placeToEdit = record
+                                } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
+                                .tint(AppTheme.accentColor)
                             }
-                            .tint(AppTheme.accentColor)
                         }
                         .contextMenu {
-                            Button(role: .destructive) {
-                                placeToDelete = place
-                            } label: {
-                                Label("Delete Place", systemImage: "trash")
+                            if let record = store.remoteRecord(for: place), !place.isSyncPending {
+                                Button(role: .destructive) {
+                                    placeToDelete = record
+                                } label: {
+                                    Label("Delete Place", systemImage: "trash")
+                                }
                             }
                         }
                     }
@@ -209,7 +215,7 @@ struct MapFolderDetailView: View {
 }
 
 private struct MapPlaceRow: View {
-    let place: MapPlaceRecord
+    let place: MapPlaceItem
     let currentLocation: CLLocation?
 
     var body: some View {

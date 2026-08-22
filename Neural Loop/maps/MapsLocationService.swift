@@ -33,7 +33,7 @@ final class MapsLocationService: NSObject, ObservableObject, CLLocationManagerDe
 
         switch authorizationStatus {
         case .notDetermined:
-            manager.requestWhenInUseAuthorization()
+            break
         case .authorizedAlways, .authorizedWhenInUse:
             requestFreshLocation()
         case .denied, .restricted:

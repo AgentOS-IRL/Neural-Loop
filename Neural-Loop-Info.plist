@@ -27,6 +27,12 @@
 	<string>This app uses the microphone to capture your speech for transcription.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Neural Loop uses your location to show distances and your position in Maps.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Neural Loop uses motion activity after you open directions to detect when your vehicle trip ends and save your parked-car location.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Neural Loop uses the camera to send captured images to Codex for visual understanding.</string>
 	<key>NSHealthUpdateUsageDescription</key>

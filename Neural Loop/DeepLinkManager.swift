@@ -22,6 +22,7 @@ final class DeepLinkManager: ObservableObject {
     /// When set, the app should navigate to the corresponding
     /// destination and then clear this value once handled.
     @Published var pendingDeepLink: AppDeepLink?
+    @Published var pendingParkingClientEventID: UUID?
 
     /// Whether the AI page should start recording
     /// as soon as it appears.
@@ -80,6 +81,18 @@ final class DeepLinkManager: ObservableObject {
         if url.host == "calendar" && normalizedPath == "/" {
             pendingDeepLink = .calendar
             return true
+        }
+
+        // neural-loop://maps/parked/<client-event-id>
+        if url.host == "maps" {
+            let components = normalizedPath.split(separator: "/").map(String.init)
+            if components.count == 2,
+               components[0] == "parked",
+               let clientEventID = UUID(uuidString: components[1]) {
+                pendingParkingClientEventID = clientEventID
+                pendingDeepLink = .maps
+                return true
+            }
         }
 
         // neural-loop://fitness

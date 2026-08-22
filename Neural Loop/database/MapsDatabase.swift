@@ -13,6 +13,16 @@ nonisolated struct MapFolderRecord: Codable, Identifiable, Equatable, Sendable {
     static let selectedColumns = "id, name, description, is_default, created_at, updated_at"
 }
 
+nonisolated enum MapPlaceKind: String, Codable, CaseIterable, Sendable {
+    case saved
+    case parked
+}
+
+nonisolated enum ParkingExpiryReason: String, Codable, CaseIterable, Sendable {
+    case endOfDay = "end_of_day"
+    case newVehicleTrip = "new_vehicle_trip"
+}
+
 nonisolated struct MapPlaceRecord: Codable, Identifiable, Equatable, Sendable {
     let id: Int64
     let folder_id: Int64
@@ -20,11 +30,49 @@ nonisolated struct MapPlaceRecord: Codable, Identifiable, Equatable, Sendable {
     let latitude: Double
     let longitude: Double
     let address: String?
+    let kind: MapPlaceKind
+    let client_event_id: UUID?
+    let parked_at: Date?
+    let expires_at: Date?
+    let expired_at: Date?
+    let expiry_reason: ParkingExpiryReason?
     let created_at: Date
     let updated_at: Date
 
     static let tableName = "map_places"
-    static let selectedColumns = "id, folder_id, name, latitude, longitude, address, created_at, updated_at"
+    static let selectedColumns = "id, folder_id, name, latitude, longitude, address, kind, client_event_id, parked_at, expires_at, expired_at, expiry_reason, created_at, updated_at"
+
+    init(
+        id: Int64,
+        folder_id: Int64,
+        name: String,
+        latitude: Double,
+        longitude: Double,
+        address: String?,
+        kind: MapPlaceKind = .saved,
+        client_event_id: UUID? = nil,
+        parked_at: Date? = nil,
+        expires_at: Date? = nil,
+        expired_at: Date? = nil,
+        expiry_reason: ParkingExpiryReason? = nil,
+        created_at: Date,
+        updated_at: Date
+    ) {
+        self.id = id
+        self.folder_id = folder_id
+        self.name = name
+        self.latitude = latitude
+        self.longitude = longitude
+        self.address = address
+        self.kind = kind
+        self.client_event_id = client_event_id
+        self.parked_at = parked_at
+        self.expires_at = expires_at
+        self.expired_at = expired_at
+        self.expiry_reason = expiry_reason
+        self.created_at = created_at
+        self.updated_at = updated_at
+    }
 }
 
 nonisolated enum MapRouteTransportMode: String, Codable, CaseIterable, Sendable {
@@ -89,6 +137,36 @@ nonisolated struct UpdateMapPlaceRequest: Codable, Equatable, Sendable {
 
 nonisolated struct MoveMapPlaceRequest: Codable, Equatable, Sendable {
     let folder_id: Int64
+}
+
+nonisolated struct UpsertParkedPlaceParams: Codable, Equatable, Sendable {
+    let p_client_event_id: UUID
+    let p_latitude: Double
+    let p_longitude: Double
+    let p_parked_at: Date
+    let p_expires_at: Date
+    let p_expired_at: Date?
+    let p_expiry_reason: String?
+    let p_address: String?
+}
+
+nonisolated struct ExpireParkedPlacesParams: Codable, Equatable, Sendable {
+    let p_expired_at: Date
+    let p_expiry_reason: String
+}
+
+nonisolated struct MaterializeExpiredParkedPlacesParams: Codable, Equatable, Sendable {
+    let p_now: Date
+}
+
+nonisolated struct ConvertParkedPlaceParams: Codable, Equatable, Sendable {
+    let p_client_event_id: UUID
+    let p_folder_id: Int64
+    let p_name: String
+}
+
+nonisolated struct DeleteParkedPlaceParams: Codable, Equatable, Sendable {
+    let p_client_event_id: UUID
 }
 
 nonisolated struct DeleteMapFolderParams: Codable, Equatable, Sendable {
@@ -228,5 +306,77 @@ extension DBManager {
         }
 
         return place
+    }
+
+    func upsertParkedPlace(_ params: UpsertParkedPlaceParams) async throws -> MapPlaceRecord {
+        try await customsupabase
+            .rpc("nl_upsert_parked_place", params: params)
+            .execute()
+            .value
+    }
+
+    func expireActiveParkedPlaces(
+        at date: Date,
+        reason: ParkingExpiryReason
+    ) async throws -> [MapPlaceRecord] {
+        try await customsupabase
+            .rpc(
+                "nl_expire_active_parked_places",
+                params: ExpireParkedPlacesParams(
+                    p_expired_at: date,
+                    p_expiry_reason: reason.rawValue
+                )
+            )
+            .execute()
+            .value
+    }
+
+    func materializeExpiredParkedPlaces(at date: Date) async throws -> [MapPlaceRecord] {
+        try await customsupabase
+            .rpc(
+                "nl_materialize_expired_parked_places",
+                params: MaterializeExpiredParkedPlacesParams(p_now: date)
+            )
+            .execute()
+            .value
+    }
+
+    func convertParkedPlace(
+        clientEventID: UUID,
+        folderID: Int64,
+        name: String
+    ) async throws -> MapPlaceRecord {
+        try await customsupabase
+            .rpc(
+                "nl_convert_parked_place",
+                params: ConvertParkedPlaceParams(
+                    p_client_event_id: clientEventID,
+                    p_folder_id: folderID,
+                    p_name: name
+                )
+            )
+            .execute()
+            .value
+    }
+
+    @discardableResult
+    func deleteParkedPlace(clientEventID: UUID) async throws -> MapPlaceRecord? {
+        try await customsupabase
+            .rpc(
+                "nl_delete_parked_place",
+                params: DeleteParkedPlaceParams(p_client_event_id: clientEventID)
+            )
+            .execute()
+            .value
+    }
+}
+
+nonisolated extension MapPlaceRecord {
+    func isActiveParked(at date: Date = .now) -> Bool {
+        kind == .parked && expired_at == nil && (expires_at.map { $0 > date } ?? false)
+    }
+
+    func isExpiredParked(at date: Date = .now) -> Bool {
+        kind == .parked && (expired_at != nil || (expires_at.map { $0 <= date } ?? false))
     }
 }

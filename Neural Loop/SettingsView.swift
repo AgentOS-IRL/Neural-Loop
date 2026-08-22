@@ -8,6 +8,8 @@
 import SwiftUI
 import Combine
 import UserNotifications
+import CoreLocation
+import CoreMotion
 
 
 
@@ -19,6 +21,7 @@ struct SettingsView: View {
     @AppStorage(llmEnabledOverrideStorageKey) private var llmEnabledOverride = false
     @AppStorage(settingsDebugEnabledStorageKey) private var isDebugEnabled = false
     @State private var isRefreshingSecrets = false
+    @State private var isDisableParkingConfirmationPresented = false
 
     // Mirror the custom tab bar height (78) with extra cushion so list content stays above the overlay.
     private let bottomInsetHeight: CGFloat = 88
@@ -48,6 +51,7 @@ struct SettingsView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
                         llmSection
+                        parkingDetectionSection
                         systemSection
                         if shouldShowSettingsDebugSections(isDebugEnabled: isDebugEnabled) {
                             loadedSecretsSection
@@ -88,6 +92,16 @@ struct SettingsView: View {
             .onChange(of: isDebugEnabled) { _, newValue in
                 guard newValue else { return }
                 Task { await loadPendingNotifications() }
+            }
+            .confirmationDialog(
+                "Stop without saving a parking location?",
+                isPresented: $isDisableParkingConfirmationPresented,
+                titleVisibility: .visible
+            ) {
+                Button("Disable and Stop", role: .destructive) {
+                    Task { await model.parkingCoordinator.setEnabled(false) }
+                }
+                Button("Keep Enabled", role: .cancel) {}
             }
         }
     }
@@ -233,6 +247,107 @@ struct SettingsView: View {
 
                 debugToggleRow
             }
+        }
+    }
+
+    private var parkingDetectionSection: some View {
+        settingsCard(title: "Parking Detection") {
+            VStack(alignment: .leading, spacing: 16) {
+                Toggle(isOn: parkingDetectionBinding) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Automatic Parked Car")
+                            .font(.system(.headline, design: .rounded, weight: .bold))
+                            .foregroundStyle(AppTheme.textPrimary)
+                        Text("Starts only when you open a saved place in Apple Maps, Google Maps, or Waze.")
+                            .font(.system(.subheadline, design: .rounded))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                }
+                .tint(AppTheme.accentColor)
+
+                Divider().background(AppTheme.borderGradient)
+
+                parkingStatusRow(
+                    title: "Location",
+                    value: locationStatusText(model.parkingCoordinator.locationAuthorizationStatus),
+                    isReady: model.parkingCoordinator.locationIsUsable
+                )
+                parkingStatusRow(
+                    title: "Motion",
+                    value: motionStatusText(model.parkingCoordinator.motionAuthorizationStatus),
+                    isReady: model.parkingCoordinator.motionAuthorizationStatus == .authorized
+                )
+                parkingStatusRow(
+                    title: "Detector",
+                    value: model.parkingCoordinator.phase.title,
+                    isReady: model.parkingCoordinator.phase.isActive
+                )
+
+                HStack {
+                    settingsButton(label: "Refresh Status", systemImage: "arrow.clockwise") {
+                        model.parkingCoordinator.refreshPermissionStatuses()
+                    }
+                    settingsButton(label: "Open iOS Settings", systemImage: "gearshape") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            openURL(url)
+                        }
+                    }
+                }
+
+                Text("When enabled, Location uses When-In-Use access and iOS shows the blue background-location indicator during an active trip.")
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+        }
+    }
+
+    private var parkingDetectionBinding: Binding<Bool> {
+        Binding(
+            get: { model.parkingCoordinator.isEnabled },
+            set: { newValue in
+                if !newValue,
+                   model.parkingCoordinator.phase == .driving ||
+                   model.parkingCoordinator.phase == .confirmingParking {
+                    isDisableParkingConfirmationPresented = true
+                } else {
+                    Task { await model.parkingCoordinator.setEnabled(newValue) }
+                }
+            }
+        )
+    }
+
+    private func parkingStatusRow(title: String, value: String, isReady: Bool) -> some View {
+        HStack {
+            Image(systemName: isReady ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(isReady ? Color.green : AppTheme.textSecondary)
+            Text(title)
+                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .foregroundStyle(AppTheme.textPrimary)
+            Spacer()
+            Text(value)
+                .font(.system(.caption, design: .rounded))
+                .foregroundStyle(AppTheme.textSecondary)
+        }
+    }
+
+    private func locationStatusText(_ status: CLAuthorizationStatus) -> String {
+        switch status {
+        case .notDetermined: "Not requested"
+        case .restricted: "Restricted"
+        case .denied: "Denied"
+        case .authorizedAlways: "Always"
+        case .authorizedWhenInUse: "When In Use"
+        @unknown default: "Unknown"
+        }
+    }
+
+    private func motionStatusText(_ status: CMAuthorizationStatus) -> String {
+        switch status {
+        case .notDetermined: "Not requested"
+        case .restricted: "Restricted"
+        case .denied: "Denied"
+        case .authorized: "Authorized"
+        @unknown default: "Unknown"
         }
     }
 

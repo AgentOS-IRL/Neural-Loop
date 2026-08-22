@@ -32,6 +32,7 @@ final class UnifiedDataModel: ObservableObject {
     
     let manager :DBManager
     let mapsStore: MapsStore
+    let parkingCoordinator: ParkingDetectionCoordinator
     let workReminderService: GenesysReminderService
     private let secretsFetcher: any SecretsFetching
     private let secretsUpdater: any SecretsUpdating
@@ -157,7 +158,12 @@ final class UnifiedDataModel: ObservableObject {
     ) {
         let resolvedManager = manager ?? DBManager.newInstance()
         self.manager = resolvedManager
-        self.mapsStore = MapsStore(manager: resolvedManager)
+        let resolvedMapsStore = MapsStore(manager: resolvedManager)
+        self.mapsStore = resolvedMapsStore
+        self.parkingCoordinator = ParkingDetectionCoordinator(
+            manager: resolvedManager,
+            mapsStore: resolvedMapsStore
+        )
         self.workReminderService = workReminderService ?? GenesysReminderService()
         self.secretsFetcher = secretsFetcher ?? resolvedManager
         self.secretsUpdater = secretsUpdater ?? resolvedManager

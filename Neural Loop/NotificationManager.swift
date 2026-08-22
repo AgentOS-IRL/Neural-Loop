@@ -219,6 +219,35 @@ final class NotificationManager: ObservableObject, NotificationScheduling {
         }
     }
 
+    func scheduleImmediateParkingSuccess(clientEventID: UUID) async {
+        await refreshAuthorizationStatus()
+        guard isAuthorized else {
+            log("Skipped parking notification because permission is not already granted.")
+            return
+        }
+
+        let identifier = "parking.success.\(clientEventID.uuidString.lowercased())"
+        let content = UNMutableNotificationContent()
+        content.title = "Parked Car Saved"
+        content.body = "Your parking location is ready in Maps."
+        content.sound = .default
+        content.userInfo = [
+            "deepLink": "neural-loop://maps/parked/\(clientEventID.uuidString.lowercased())"
+        ]
+
+        let request = UNNotificationRequest(
+            identifier: identifier,
+            content: content,
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        )
+        do {
+            try await center.add(request)
+            log("Scheduled parking success notification. ID: \(identifier)")
+        } catch {
+            log("Failed to schedule parking success notification. ID: \(identifier)", error: error)
+        }
+    }
+
     /// Schedule a repeating notification (daily / weekly)
     func scheduleRepeatingNotification(
         id: String,

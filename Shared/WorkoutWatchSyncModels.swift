@@ -15,6 +15,7 @@ public enum NeuralLoopDeepLink: String, Codable {
     case addTask = "tasks/add"
     case addNote = "notes/add"
     case calendar = "calendar"
+    case maps = "maps"
     case fitnessHome = "fitness"
     case fitnessActiveWorkout = "fitness/workout"
 }
@@ -170,5 +171,4 @@ public nonisolated struct WorkoutSetValuesSnapshot: Codable, Hashable {
         self.calories = calories
     }
 }
-
 

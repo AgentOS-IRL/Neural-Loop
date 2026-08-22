@@ -29,6 +29,9 @@ final class MapsStore: ObservableObject {
     @Published private(set) var isRefreshing = false
     @Published private(set) var isMutating = false
     @Published var refreshErrorMessage: String?
+    @Published private(set) var parkingOverlayItems: [MapPlaceItem] = []
+    @Published private(set) var parkingDeletedClientIDs: Set<UUID> = []
+    @Published private(set) var syncedParkingCache: [UUID: MapPlaceItem] = [:]
 
     private let manager: DBManager
 
@@ -57,11 +60,95 @@ final class MapsStore: ObservableObject {
 
     func places(in folderID: Int64) -> [MapPlaceRecord] {
         (snapshot?.places ?? [])
-            .filter { $0.folder_id == folderID }
+            .filter { $0.folder_id == folderID && $0.kind == .saved }
             .sorted { lhs, rhs in
                 let comparison = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
                 return comparison == .orderedSame ? lhs.id < rhs.id : comparison == .orderedAscending
             }
+    }
+
+    func savedPlaceItems(in folderID: Int64) -> [MapPlaceItem] {
+        allPlaceItems
+            .filter { $0.kind == .saved && $0.folderID == folderID }
+            .sorted { lhs, rhs in
+                let comparison = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
+                if comparison != .orderedSame { return comparison == .orderedAscending }
+                return lhs.id.id < rhs.id.id
+            }
+    }
+
+    func remoteRecord(for item: MapPlaceItem) -> MapPlaceRecord? {
+        snapshot?.places.first { record in
+            record.id == item.remoteID ||
+            (item.clientEventID != nil && record.client_event_id == item.clientEventID)
+        }
+    }
+
+    var allPlaceItems: [MapPlaceItem] {
+        var merged: [ParkingPlaceReference: MapPlaceItem] = [:]
+
+        for record in snapshot?.places ?? [] {
+            guard record.client_event_id.map({ !parkingDeletedClientIDs.contains($0) }) ?? true else {
+                continue
+            }
+            let item = MapPlaceItem(record: record)
+            merged[item.id] = item
+        }
+
+        for item in syncedParkingCache.values where
+            item.clientEventID.map({ !parkingDeletedClientIDs.contains($0) }) ?? true {
+            merged[item.id] = item
+        }
+
+        for item in parkingOverlayItems {
+            merged[item.id] = item
+        }
+
+        return Array(merged.values)
+    }
+
+    func activeParkingPlaces(at date: Date = .now) -> [MapPlaceItem] {
+        allPlaceItems
+            .filter { $0.isActiveParked(at: date) }
+            .sorted { ($0.parkedAt ?? $0.createdAt) > ($1.parkedAt ?? $1.createdAt) }
+    }
+
+    func parkingHistory(at date: Date = .now) -> [MapPlaceItem] {
+        allPlaceItems
+            .filter { $0.isExpiredParked(at: date) }
+            .sorted { ($0.parkedAt ?? $0.createdAt) > ($1.parkedAt ?? $1.createdAt) }
+    }
+
+    func place(reference: ParkingPlaceReference) -> MapPlaceItem? {
+        allPlaceItems.first { item in
+            if item.id == reference { return true }
+            if case .remote(let remoteID) = reference { return item.remoteID == remoteID }
+            return false
+        }
+    }
+
+    func setParkingOverlay(items: [MapPlaceItem], deletedClientIDs: Set<UUID>) {
+        parkingOverlayItems = items
+        parkingDeletedClientIDs = deletedClientIDs
+    }
+
+    func applySyncedParkingPlace(_ place: MapPlaceRecord) {
+        if let clientEventID = place.client_event_id {
+            syncedParkingCache[clientEventID] = MapPlaceItem(record: place)
+        }
+        if let index = snapshot?.places.firstIndex(where: {
+            $0.id == place.id ||
+            ($0.client_event_id != nil && $0.client_event_id == place.client_event_id)
+        }) {
+            snapshot?.places[index] = place
+        } else {
+            snapshot?.places.append(place)
+        }
+    }
+
+    func removeParkingPlace(clientEventID: UUID) {
+        syncedParkingCache.removeValue(forKey: clientEventID)
+        snapshot?.places.removeAll { $0.client_event_id == clientEventID }
     }
 
     func routes(in folderID: Int64) -> [MapRouteRecord] {
@@ -151,6 +238,9 @@ final class MapsStore: ObservableObject {
         do {
             let refreshed = try await manager.fetchMapsSnapshot()
             snapshot = refreshed
+            for clientEventID in refreshed.places.compactMap(\.client_event_id) {
+                syncedParkingCache.removeValue(forKey: clientEventID)
+            }
             loadState = .loaded
             refreshErrorMessage = nil
         } catch {
@@ -212,7 +302,11 @@ final class MapsStore: ObservableObject {
         defer { isRefreshing = false }
 
         do {
-            snapshot = try await manager.fetchMapsSnapshot()
+            let fetched = try await manager.fetchMapsSnapshot()
+            snapshot = fetched
+            for clientEventID in fetched.places.compactMap(\.client_event_id) {
+                syncedParkingCache.removeValue(forKey: clientEventID)
+            }
             loadState = .loaded
             refreshErrorMessage = nil
         } catch {
@@ -252,6 +346,12 @@ private extension MapPlaceRecord {
             latitude: latitude,
             longitude: longitude,
             address: address,
+            kind: kind,
+            client_event_id: client_event_id,
+            parked_at: parked_at,
+            expires_at: expires_at,
+            expired_at: expired_at,
+            expiry_reason: expiry_reason,
             created_at: created_at,
             updated_at: updated_at
         )

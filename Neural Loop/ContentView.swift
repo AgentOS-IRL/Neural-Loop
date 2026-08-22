@@ -15,6 +15,7 @@ let logger = Logger(subsystem: "NeuralLoop", category: "App")
 struct ContentView: View {
     @EnvironmentObject private var model: UnifiedDataModel
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var deepLink = DeepLinkManager.shared
     @Query private var recurringCompletions: [CompletedRecurringTask]
     @State private var selectedTab: AppTab = .tasks
@@ -27,6 +28,7 @@ struct ContentView: View {
                 model: model,
                 modelContext: modelContext
             )
+            model.parkingCoordinator.configure(modelContext: modelContext)
             model.updateDailyLoopRecurringCompletions(recurringCompletions)
             if !isRunningUnderTests() {
                 Task {
@@ -42,6 +44,10 @@ struct ContentView: View {
         }
         .onChange(of: recurringCompletionWatchKeys) { _, _ in
             model.updateDailyLoopRecurringCompletions(recurringCompletions)
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+            model.parkingCoordinator.handleAppBecameActive()
         }
         .sheet(isPresented: $isMoodMeterPresented) {
             MoodMeterView()
@@ -83,6 +89,11 @@ struct ContentView: View {
         case .calendar:
             selectedTab = .calendar
             deepLink.clearPendingNavigation()
+        case .maps:
+            selectedTab = .maps
+            model.parkingCoordinator.pendingDeepLinkClientEventID = deepLink.pendingParkingClientEventID
+            deepLink.pendingParkingClientEventID = nil
+            deepLink.clearPendingNavigation()
         case .fitnessHome:
             selectedTab = .fitness
             deepLink.clearPendingNavigation()
@@ -101,7 +112,10 @@ struct ContentView: View {
             case .tasks:
                 TaskHubView()
             case .maps:
-                MapsView(store: model.mapsStore)
+                MapsView(
+                    store: model.mapsStore,
+                    coordinator: model.parkingCoordinator
+                )
             case .ai:
                 AIModeView()
             case .calendar:

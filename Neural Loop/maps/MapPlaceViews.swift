@@ -213,14 +213,19 @@ private struct PlaceImportPreviewMap: View {
 }
 
 struct MapPlaceDetailView: View {
-    let placeID: Int64
+    let placeReference: ParkingPlaceReference
     @ObservedObject var store: MapsStore
+    @ObservedObject var coordinator: ParkingDetectionCoordinator
     @ObservedObject var locationService: MapsLocationService
 
     @State private var isOpenPlacePresented = false
+    @State private var onboardingProvider: ExternalMapProvider?
+    @State private var isSavePermanentlyPresented = false
+    @State private var isDeleteConfirmationPresented = false
+    @State private var actionErrorMessage: String?
 
-    private var place: MapPlaceRecord? {
-        store.snapshot?.places.first { $0.id == placeID }
+    private var place: MapPlaceItem? {
+        store.place(reference: placeReference)
     }
 
     var body: some View {
@@ -245,6 +250,34 @@ struct MapPlaceDetailView: View {
                         .font(.system(.subheadline, design: .rounded))
                         .foregroundStyle(AppTheme.textSecondary)
 
+                        if place.kind == .parked, let parkedAt = place.parkedAt {
+                            Label(
+                                "Parked \(parkedAt.formatted(date: .abbreviated, time: .shortened))",
+                                systemImage: "parkingsign.circle.fill"
+                            )
+                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                            .foregroundStyle(AppTheme.textPrimary)
+                        }
+
+                        if place.kind == .parked, let expiresAt = place.expiresAt {
+                            Text(parkingExpiryText(for: place, expiresAt: expiresAt))
+                                .font(.system(.caption, design: .rounded, weight: .semibold))
+                                .foregroundStyle(place.isExpiredParked() ? AppTheme.textSecondary : AppTheme.warningTint)
+                        }
+
+                        if place.isSyncPending {
+                            HStack {
+                                Label("Sync Pending", systemImage: "arrow.triangle.2.circlepath")
+                                    .font(.system(.caption, design: .rounded, weight: .bold))
+                                    .foregroundStyle(AppTheme.warningTint)
+                                Spacer()
+                                Button("Retry") {
+                                    Task { await coordinator.retryPendingSynchronization(force: true) }
+                                }
+                                .font(.system(.caption, design: .rounded, weight: .bold))
+                            }
+                        }
+
                         Button {
                             isOpenPlacePresented = true
                         } label: {
@@ -253,6 +286,22 @@ struct MapPlaceDetailView: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(AppTheme.accentColor)
+
+                        if place.kind == .parked {
+                            HStack {
+                                Button("Save Permanently") {
+                                    isSavePermanentlyPresented = true
+                                }
+                                .buttonStyle(.bordered)
+
+                                Spacer()
+
+                                Button("Delete", role: .destructive) {
+                                    isDeleteConfirmationPresented = true
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
                     }
                     .padding(18)
                     .padding(.bottom, 84)
@@ -287,14 +336,84 @@ struct MapPlaceDetailView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+
+        .sheet(item: $onboardingProvider) { provider in
+            if let place {
+                ParkingDetectionSetupSheet(
+                    provider: provider,
+                    onEnable: {
+                        let enabled = await coordinator.enableFromUserAction()
+                        if enabled {
+                            await coordinator.openEligiblePlace(place, with: provider)
+                        } else {
+                            await coordinator.openDirectly(place, with: provider)
+                        }
+                    },
+                    onOpenWithoutDetection: {
+                        coordinator.declineOnboarding()
+                        await coordinator.openDirectly(place, with: provider)
+                    }
+                )
+            }
+        }
+        .sheet(isPresented: $isSavePermanentlyPresented) {
+            if let place, let initialFolderID = store.unfiledFolder?.id {
+                SaveParkingPermanentlySheet(
+                    place: place,
+                    folders: store.sortedFolders,
+                    initialFolderID: initialFolderID,
+                    onSave: { folderID, name in
+                        try coordinator.savePermanently(place, folderID: folderID, name: name)
+                    }
+                )
+            }
+        }
+        .confirmationDialog(
+            "Delete this parking location?",
+            isPresented: $isDeleteConfirmationPresented,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                guard let place else { return }
+                do {
+                    try coordinator.deleteParkingPlace(place)
+                } catch {
+                    actionErrorMessage = error.localizedDescription
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("It will be removed locally now and deleted from Supabase when synchronization succeeds.")
+        }
+        .alert(
+            "Parking action failed",
+            isPresented: Binding(
+                get: { actionErrorMessage != nil },
+                set: { if !$0 { actionErrorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(actionErrorMessage ?? "Please try again.")
+        }
     }
 
-    private func open(_ place: MapPlaceRecord, with provider: ExternalMapProvider) {
-        guard let url = provider.url(for: place) else { return }
-        UIApplication.shared.open(url)
+    private func open(_ place: MapPlaceItem, with provider: ExternalMapProvider) {
+        isOpenPlacePresented = false
+        if place.kind == .saved, coordinator.shouldPresentOnboarding {
+            onboardingProvider = provider
+            return
+        }
+        Task {
+            if place.kind == .saved, coordinator.isEnabled {
+                await coordinator.openEligiblePlace(place, with: provider)
+            } else {
+                await coordinator.openDirectly(place, with: provider)
+            }
+        }
     }
 
-    private func copyDetails(for place: MapPlaceRecord) {
+    private func copyDetails(for place: MapPlaceItem) {
         guard let canonicalURL = ExternalMapProvider.canonicalAppleURL(for: place) else { return }
         UIPasteboard.general.string = """
         \(place.name)
@@ -302,14 +421,28 @@ struct MapPlaceDetailView: View {
         \(canonicalURL.absoluteString)
         """
     }
+
+    private func parkingExpiryText(for place: MapPlaceItem, expiresAt: Date) -> String {
+        guard place.isExpiredParked() else {
+            return "Expires \(expiresAt.formatted(date: .omitted, time: .shortened))"
+        }
+        switch place.expiryReason {
+        case .some(.endOfDay):
+            return "Expired at the end of the parking day"
+        case .some(.newVehicleTrip):
+            return "Expired when a new vehicle trip began"
+        case nil:
+            return "Expired"
+        }
+    }
 }
 
 private struct SavedPlaceMap: View {
-    let place: MapPlaceRecord
+    let place: MapPlaceItem
     let showsUserLocation: Bool
     @State private var position: MapCameraPosition
 
-    init(place: MapPlaceRecord, showsUserLocation: Bool) {
+    init(place: MapPlaceItem, showsUserLocation: Bool) {
         self.place = place
         self.showsUserLocation = showsUserLocation
         let coordinate = CLLocationCoordinate2D(latitude: place.latitude, longitude: place.longitude)
@@ -340,45 +473,5 @@ private struct SavedPlaceMap: View {
             MapScaleView()
             MapUserLocationButton()
         }
-    }
-}
-
-private enum ExternalMapProvider {
-    case apple
-    case google
-    case waze
-
-    func url(for place: MapPlaceRecord) -> URL? {
-        var components = URLComponents()
-        components.scheme = switch self {
-        case .apple: "maps"
-        case .google: "comgooglemaps"
-        case .waze: "waze"
-        }
-        components.host = ""
-        components.queryItems = switch self {
-        case .apple:
-            [
-                URLQueryItem(name: "ll", value: "\(place.latitude),\(place.longitude)"),
-                URLQueryItem(name: "q", value: place.name)
-            ]
-        case .google:
-            [URLQueryItem(name: "q", value: "\(place.latitude),\(place.longitude)")]
-        case .waze:
-            [URLQueryItem(name: "ll", value: "\(place.latitude),\(place.longitude)")]
-        }
-        return components.url
-    }
-
-    static func canonicalAppleURL(for place: MapPlaceRecord) -> URL? {
-        var components = URLComponents()
-        components.scheme = "https"
-        components.host = "maps.apple.com"
-        components.path = "/"
-        components.queryItems = [
-            URLQueryItem(name: "ll", value: "\(place.latitude),\(place.longitude)"),
-            URLQueryItem(name: "q", value: place.name)
-        ]
-        return components.url
     }
 }

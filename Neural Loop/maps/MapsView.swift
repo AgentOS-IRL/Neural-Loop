@@ -2,12 +2,15 @@ import SwiftUI
 
 struct MapsView: View {
     @ObservedObject var store: MapsStore
+    @ObservedObject var coordinator: ParkingDetectionCoordinator
     @StateObject private var locationService = MapsLocationService()
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var folderEditor: MapFolderEditorContext?
     @State private var folderToDelete: MapFolderRecord?
     @State private var mutationErrorMessage: String?
+    @State private var isStopConfirmationPresented = false
+    @State private var deepLinkedParkingPlace: ParkingPlaceReference?
 
     var body: some View {
         NavigationStack {
@@ -32,11 +35,22 @@ struct MapsView: View {
             }
             .task {
                 await store.loadIfNeeded()
+                coordinator.handleAppBecameActive()
                 locationService.handleMapsOpen()
+                if let clientEventID = coordinator.pendingDeepLinkClientEventID {
+                    deepLinkedParkingPlace = .client(clientEventID)
+                    coordinator.pendingDeepLinkClientEventID = nil
+                }
             }
             .onChange(of: scenePhase) { _, newPhase in
                 guard newPhase == .active else { return }
                 locationService.requestFreshLocation()
+                coordinator.handleAppBecameActive()
+            }
+            .onChange(of: coordinator.pendingDeepLinkClientEventID) { _, clientEventID in
+                guard let clientEventID else { return }
+                deepLinkedParkingPlace = .client(clientEventID)
+                coordinator.pendingDeepLinkClientEventID = nil
             }
             .sheet(item: $folderEditor) { context in
                 MapFolderEditorSheet(
@@ -97,6 +111,26 @@ struct MapsView: View {
             } message: {
                 Text(mutationErrorMessage ?? "Please try again.")
             }
+            .confirmationDialog(
+                "Stop without saving a parking location?",
+                isPresented: $isStopConfirmationPresented,
+                titleVisibility: .visible
+            ) {
+                Button("Stop Without Saving", role: .destructive) {
+                    coordinator.stopFromUser()
+                }
+                Button("Keep Detecting", role: .cancel) {}
+            }
+            .sheet(item: $deepLinkedParkingPlace) { reference in
+                NavigationStack {
+                    MapPlaceDetailView(
+                        placeReference: reference,
+                        store: store,
+                        coordinator: coordinator,
+                        locationService: locationService
+                    )
+                }
+            }
         }
     }
 
@@ -107,8 +141,12 @@ struct MapsView: View {
             ProgressView("Loading Maps…")
                 .font(.system(.body, design: .rounded, weight: .semibold))
         case .failed(let message):
-            MapsCenteredErrorView(message: message) {
-                Task { await store.refresh() }
+            if store.activeParkingPlaces().isEmpty && store.parkingHistory().isEmpty {
+                MapsCenteredErrorView(message: message) {
+                    Task { await store.refresh() }
+                }
+            } else {
+                folderList
             }
         case .loaded:
             folderList
@@ -117,6 +155,75 @@ struct MapsView: View {
 
     private var folderList: some View {
         List {
+            if coordinator.phase.isActive {
+                ParkingDetectionBanner(phase: coordinator.phase) {
+                    if coordinator.phase == .waitingForDrive || coordinator.phase == .preparing {
+                        coordinator.stopFromUser()
+                    } else {
+                        isStopConfirmationPresented = true
+                    }
+                }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+
+            let activeParkingPlaces = store.activeParkingPlaces()
+            if !activeParkingPlaces.isEmpty {
+                Section("Active Temporary Places") {
+                    ForEach(activeParkingPlaces) { place in
+                        NavigationLink {
+                            MapPlaceDetailView(
+                                placeReference: place.id,
+                                store: store,
+                                coordinator: coordinator,
+                                locationService: locationService
+                            )
+                        } label: {
+                            ParkingPlaceRow(place: place)
+                        }
+                    }
+                }
+            }
+
+            let parkingHistory = store.parkingHistory()
+            if !parkingHistory.isEmpty {
+                NavigationLink {
+                    ParkingHistoryView(
+                        store: store,
+                        coordinator: coordinator,
+                        locationService: locationService
+                    )
+                } label: {
+                    HStack {
+                        Label("Parking History", systemImage: "clock.arrow.circlepath")
+                        Spacer()
+                        Text("\(parkingHistory.count)")
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                }
+            }
+
+            if let outcome = coordinator.latestOutcomeMessage {
+                VStack(alignment: .leading, spacing: 10) {
+                    MapsInlineBanner(
+                        title: "Parking wasn't saved",
+                        message: outcome,
+                        systemImage: "parkingsign.circle"
+                    )
+                    HStack {
+                        if coordinator.latestOutcomeNeedsSettings {
+                            Button("Open Settings") { locationService.openSettings() }
+                                .font(.system(.caption, design: .rounded, weight: .bold))
+                        }
+                        Spacer()
+                        Button("Dismiss") { coordinator.dismissLatestOutcome() }
+                            .font(.system(.caption, design: .rounded, weight: .bold))
+                    }
+                }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+
             if locationService.isDeniedOrRestricted {
                 MapsPermissionBanner(openSettings: locationService.openSettings)
                     .listRowBackground(Color.clear)
@@ -128,6 +235,16 @@ struct MapsView: View {
                     title: "Maps may be out of date",
                     message: refreshErrorMessage,
                     systemImage: "arrow.clockwise.circle"
+                )
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
+
+            if case .failed(let message) = store.loadState {
+                MapsInlineBanner(
+                    title: "Supabase is unavailable",
+                    message: message,
+                    systemImage: "wifi.slash"
                 )
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
@@ -147,6 +264,7 @@ struct MapsView: View {
                         MapFolderDetailView(
                             folderID: folder.id,
                             store: store,
+                            coordinator: coordinator,
                             locationService: locationService
                         )
                     } label: {
