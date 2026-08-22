@@ -43,7 +43,7 @@ enum ViewMode: Equatable {
     case all
     case inbox
     case completed
-    case new
+    case inProcess
 }
 
 
@@ -105,23 +105,32 @@ func rebuildDateBuckets(tasks: [Tasks]) -> [DateBucket] {
     return [inbox_bucket, today_bucket, overdue_bucket, completed_bucket] + _dateBuckets
 }
 
-func buildNewTaskBucket(from tasks: [Tasks]) -> DateBucket {
-    var newBucket = DateBucket(
+func buildInProcessTaskBucket(
+    from tasks: [Tasks],
+    excludingTaskIDs: Set<Int64> = []
+) -> DateBucket {
+    var inProcessBucket = DateBucket(
         title: AnyView(
-            Text("New")
+            Text("In Process")
                 .font(.system(.title3, design: .rounded, weight: .bold))
                 .foregroundColor(AppTheme.textPrimary)
         ),
         start: .distantPast,
         end: .distantFuture,
-        type: .new
+        type: .inProcess
     )
 
+    var seenTaskIDs = excludingTaskIDs
+
     for task in tasks where !task.is_completed {
-        newBucket.appendTask(task)
+        if let taskID = task.id {
+            guard seenTaskIDs.insert(taskID).inserted else { continue }
+        }
+
+        inProcessBucket.appendTask(task)
     }
 
-    return newBucket
+    return inProcessBucket
 }
 
 func addTaskRowView() -> some View {

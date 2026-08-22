@@ -10,7 +10,7 @@ import SwiftUI
 import SwiftData
 
 enum bucketType: String, CaseIterable {
-    case inbox, today, overdue, upcoming, completed, new
+    case inbox, today, overdue, upcoming, completed, inProcess
     
 }
 

@@ -59,8 +59,8 @@ final class TodoViewModel: ObservableObject {
             return buckets.compactMap { $0.type == .inbox ? $0 : nil }
         case .completed:
             return buckets.compactMap { $0.type == .completed ? $0 : nil }
-        case .new:
-            return [buildNewTaskBucket(from: allTasks)]
+        case .inProcess:
+            return [buildInProcessTaskBucket(from: allTasks)]
         case .all:
             var bucket = DateBucket(
                 title: AnyView(
@@ -112,6 +112,7 @@ struct TodoView: View {
     private let todoBackSwipeStartThreshold: CGFloat = 32
     private let todoBackSwipeMinimumDistance: CGFloat = 72
     private let todoBackSwipeVerticalTolerance: CGFloat = 48
+    private let todoScrollTopID = "todo-scroll-top"
 
     init(embeddedInTaskHub: Bool = false) {
         self.embeddedInTaskHub = embeddedInTaskHub
@@ -369,6 +370,12 @@ struct TodoView: View {
                     )
                 )
 
+                sectionView(
+                    title: "In Process",
+                    tasks: landingInProcessTasks,
+                    initialTiming: .init()
+                )
+
                 Button {
                     vm.viewMode = .inbox
                 } label: {
@@ -387,16 +394,6 @@ struct TodoView: View {
                         menuRow(
                             icon: "calendar.circle",
                             title: "Upcoming"
-                        )
-                    }
-
-                    Button {
-                        vm.viewMode = .new
-                    } label: {
-                        menuRow(
-                            icon: "sparkles",
-                            title: "New",
-                            count: model.newTaskBucket.tasks.count
                         )
                     }
 
@@ -427,6 +424,14 @@ struct TodoView: View {
             }
         }
         .padding(.top, 12)
+    }
+
+    private var landingInProcessTasks: [Tasks] {
+        let todayTaskIDs = Set(model.todayTaskBucket.tasks.compactMap(\.id))
+        return buildInProcessTaskBucket(
+            from: model.tasks,
+            excludingTaskIDs: todayTaskIDs
+        ).tasks
     }
 
     @ViewBuilder
@@ -474,8 +479,8 @@ struct TodoView: View {
     }
 
     @ViewBuilder
-    private func newTasksView() -> some View {
-        if let newBucket = vm.bucketsForCurrentViewMode.first(where: { $0.type == .new }) {
+    private func inProcessTasksView() -> some View {
+        if let inProcessBucket = vm.bucketsForCurrentViewMode.first(where: { $0.type == .inProcess }) {
             LazyVStack(alignment: .leading, spacing: 16) {
                 addTaskRowView()
                     .onTapGesture {
@@ -483,7 +488,7 @@ struct TodoView: View {
                         vm.showAddTask = true
                     }
 
-                ForEach(newBucket.tasks, id: \.id) { task in
+                ForEach(inProcessBucket.tasks, id: \.id) { task in
                     taskView(task: task)
                 }
             }
@@ -525,8 +530,8 @@ struct TodoView: View {
             return "Today"
         case .all:
             return "All Tasks"
-        case .new:
-            return "New"
+        case .inProcess:
+            return "In Process"
         }
     }
 
@@ -540,42 +545,48 @@ struct TodoView: View {
             AppTheme.backgroundGradient
                 .ignoresSafeArea()
 
-            ScrollView {
-                LazyVStack(spacing: 20) {
-                    if embeddedInTaskHub {
-                        todoEmbeddedHeader
+            ScrollViewReader { scrollProxy in
+                ScrollView {
+                    LazyVStack(spacing: 20) {
+                        if embeddedInTaskHub {
+                            todoEmbeddedHeader
+                        }
+
+                        searchBar()
+
+                        switch vm.viewMode {
+                        case .menu:
+                            menuView()
+
+                        case .today:
+                            todayTasks()
+
+                        case .upcoming:
+                            upcomingTasks()
+
+                        case .all:
+                            allTasksView()
+
+                        case .inProcess:
+                            inProcessTasksView()
+
+                        case .inbox:
+                            inboxView()
+
+                        case .completed:
+                            completedView()
+                        }
                     }
-
-                    searchBar()
-
-                    switch vm.viewMode {
-                    case .menu:
-                        menuView()
-
-                    case .today:
-                        todayTasks()
-
-                    case .upcoming:
-                        upcomingTasks()
-
-                    case .all:
-                        allTasksView()
-
-                    case .new:
-                        newTasksView()
-
-                    case .inbox:
-                        inboxView()
-
-                    case .completed:
-                        completedView()
-                    }
+                    .id(todoScrollTopID)
+                    .padding(.horizontal)
+                    .padding(.top)
                 }
-                .padding(.horizontal)
-                .padding(.top)
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                Color.clear.frame(height: bottomInsetHeight)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    Color.clear.frame(height: bottomInsetHeight)
+                }
+                .onChange(of: vm.viewMode) { _, _ in
+                    scrollProxy.scrollTo(todoScrollTopID, anchor: .top)
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -608,56 +619,86 @@ struct TodoView: View {
     }
 
     private var todoEmbeddedHeader: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(toolbarTitle(for: vm.viewMode))
-                    .font(.system(.title3, design: .rounded, weight: .bold))
-                    .foregroundStyle(AppTheme.textPrimary)
-                Text("Switch between todo lists and menu views.")
-                    .font(.system(.subheadline, design: .rounded, weight: .medium))
-                    .foregroundStyle(AppTheme.textSecondary)
-            }
-
-            Spacer()
-
-            if vm.viewMode != .menu {
+        ZStack(alignment: .trailing) {
+            if vm.viewMode == .menu {
+                todoHeaderLabel(showsBackIndicator: false)
+            } else {
                 Button {
                     vm.navigateBackToMenu()
                 } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(AppTheme.textSecondary)
-                        .frame(width: 32, height: 32)
-                        .background(
-                            Circle()
-                                .fill(AppTheme.sectionGradient)
-                        )
+                    todoHeaderLabel(showsBackIndicator: true)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Back to menu")
+                .accessibilityLabel("Back to Todo menu")
+                .accessibilityHint("Returns to the Todo landing page")
             }
 
             Button {
                 vm.showAddTask = true
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(AppTheme.textSecondary)
-                    .frame(width: 32, height: 32)
+                    .font(.system(size: 19, weight: .bold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .frame(width: 48, height: 48)
                     .background(
                         Circle()
                             .fill(AppTheme.sectionGradient)
                     )
+                    .overlay {
+                        Circle()
+                            .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
+                    }
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Add task")
+            .padding(.trailing, 12)
         }
-        .padding(20)
         .background(AppTheme.heroGradient)
         .overlay {
             RoundedRectangle(cornerRadius: AppTheme.Metrics.cardCornerRadius, style: .continuous)
                 .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
         }
         .cornerRadius(AppTheme.Metrics.cardCornerRadius)
+    }
+
+    private func todoHeaderLabel(showsBackIndicator: Bool) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(toolbarTitle(for: vm.viewMode))
+                    .font(.system(.title3, design: .rounded, weight: .bold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                Text(
+                    showsBackIndicator
+                        ? "Tap anywhere on this card to go back."
+                        : "Switch between todo lists and menu views."
+                )
+                .font(.system(.subheadline, design: .rounded, weight: .medium))
+                .foregroundStyle(AppTheme.textSecondary)
+            }
+
+            Spacer(minLength: 12)
+
+            if showsBackIndicator {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 19, weight: .bold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .frame(width: 48, height: 48)
+                    .background(
+                        Circle()
+                            .fill(AppTheme.sectionGradient)
+                    )
+                    .overlay {
+                        Circle()
+                            .strokeBorder(AppTheme.borderGradient, lineWidth: 1)
+                    }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, 20)
+        .padding(.trailing, 72)
+        .padding(.vertical, 16)
+        .contentShape(Rectangle())
     }
 
     var body: some View {
