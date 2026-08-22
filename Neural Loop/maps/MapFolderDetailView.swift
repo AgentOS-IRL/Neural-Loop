@@ -6,12 +6,14 @@ struct MapFolderDetailView: View {
     @ObservedObject var store: MapsStore
     @ObservedObject var coordinator: ParkingDetectionCoordinator
     @ObservedObject var locationService: MapsLocationService
+    @EnvironmentObject private var model: UnifiedDataModel
 
     @State private var isAddingPlace = false
     @State private var placeToEdit: MapPlaceRecord?
     @State private var placeToMove: MapPlaceRecord?
     @State private var placeToDelete: MapPlaceRecord?
     @State private var mutationErrorMessage: String?
+    @State private var selectedTask: Tasks?
 
     private var folder: MapFolderRecord? {
         store.folder(id: folderID)
@@ -92,7 +94,7 @@ struct MapFolderDetailView: View {
                 placeToDelete = nil
             }
         } message: {
-            Text("This action cannot be undone.")
+            Text(placeDeleteMessage)
         }
         .alert(
             "Place action failed",
@@ -106,6 +108,9 @@ struct MapFolderDetailView: View {
             }
         } message: {
             Text(mutationErrorMessage ?? "Please try again.")
+        }
+        .sheet(item: $selectedTask) { task in
+            IndividualTodoView(task: task)
         }
     }
 
@@ -134,7 +139,9 @@ struct MapFolderDetailView: View {
                         } label: {
                             MapPlaceRow(
                                 place: place,
-                                currentLocation: locationService.currentLocation
+                                currentLocation: locationService.currentLocation,
+                                taskLinks: place.remoteID.map { store.taskLinks(forPlaceID: $0) } ?? [],
+                                onSelectTask: selectTask
                             )
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -191,13 +198,16 @@ struct MapFolderDetailView: View {
                             MapRouteDetailView(
                                 route: route,
                                 waypoints: store.waypoints(for: route.id),
-                                locationService: locationService
+                                locationService: locationService,
+                                store: store
                             )
                         } label: {
                             MapRouteRow(
                                 route: route,
                                 firstWaypoint: store.waypoints(for: route.id).first,
-                                currentLocation: locationService.currentLocation
+                                currentLocation: locationService.currentLocation,
+                                taskLinks: store.taskLinks(forRouteID: route.id),
+                                onSelectTask: selectTask
                             )
                         }
                     }
@@ -212,11 +222,27 @@ struct MapFolderDetailView: View {
             locationService.requestFreshLocation()
         }
     }
+
+    private var placeDeleteMessage: String {
+        guard let place = placeToDelete else { return "This action cannot be undone." }
+        let links = store.taskLinks(forPlaceID: place.id)
+        guard !links.isEmpty else { return "This action cannot be undone." }
+        if links.count == 1, let link = links.first {
+            return "This place belongs to \(link.task_title) and will be removed from that task."
+        }
+        return "This place will be removed from \(links.count) linked tasks."
+    }
+
+    private func selectTask(_ taskID: Int64) {
+        selectedTask = model.getTask(by: taskID)
+    }
 }
 
 private struct MapPlaceRow: View {
     let place: MapPlaceItem
     let currentLocation: CLLocation?
+    let taskLinks: [TaskMapLinkSummary]
+    let onSelectTask: (Int64) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -234,6 +260,8 @@ private struct MapPlaceRow: View {
             .font(.system(.subheadline, design: .rounded))
             .foregroundStyle(AppTheme.textSecondary)
             .lineLimit(2)
+
+            TaskMapLinkBadge(links: taskLinks, onSelectTask: onSelectTask)
         }
         .padding(.vertical, 5)
         .accessibilityElement(children: .combine)
@@ -244,6 +272,8 @@ private struct MapRouteRow: View {
     let route: MapRouteRecord
     let firstWaypoint: MapRouteWaypointRecord?
     let currentLocation: CLLocation?
+    let taskLinks: [TaskMapLinkSummary]
+    let onSelectTask: (Int64) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -263,6 +293,8 @@ private struct MapRouteRow: View {
                 .font(.system(.subheadline, design: .rounded))
                 .foregroundStyle(AppTheme.textSecondary)
             }
+
+            TaskMapLinkBadge(links: taskLinks, onSelectTask: onSelectTask)
         }
         .padding(.vertical, 5)
         .accessibilityElement(children: .combine)

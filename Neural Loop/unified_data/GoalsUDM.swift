@@ -135,6 +135,7 @@ extension  UnifiedDataModel {
             goals.removeAll { $0.id == goalId }
             goalTracking.removeAll { $0.goal_id == goalId }
             removeGoalsFromLongTermBuckets(goalIds: [goalId])
+            await mapsStore.refresh()
         }
         catch {
             print("Error deleting goal: \(error)")
@@ -169,6 +170,7 @@ extension  UnifiedDataModel {
             tasks.removeAll { removedTaskIdSet.contains($0.id ?? -1) }
             habits.removeAll { removedHabitIdSet.contains($0.id ?? -1) }
             removeGoalsFromLongTermBuckets(goalIds: removedGoalIds)
+            await mapsStore.refresh()
         }
         catch {
             print("Error deleting life area: \(error)")

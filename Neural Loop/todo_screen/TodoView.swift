@@ -27,9 +27,13 @@ final class TodoViewModel: ObservableObject {
     @Published var selectedTaskForEdit: Tasks? = nil
     @Published var selectedTaskForViewer: Tasks? = nil
     @Published var editTaskAttachments: [ImageAttachment] = []
+    @Published var editTaskMapAttachments: [TaskMapAttachment] = []
     
     @Published var showDeleteConfirmation: Bool = false
     @Published var selectedTaskForDelete: Tasks? = nil
+    @Published var taskMapDeleteImpact: TaskMapDeleteImpact?
+    @Published var showTaskMapDeleteReview = false
+    @Published var deleteErrorMessage: String?
 
     @Published var initializationTiming: TaskTiming = .init(
         start: Date(),
@@ -202,8 +206,10 @@ struct TodoView: View {
                     Task {
                         if let taskId = task.id {
                             vm.editTaskAttachments = await model.fetchImageAttachments(forTaskId: taskId)
+                            vm.editTaskMapAttachments = await model.fetchTaskMapAttachments(taskID: taskId)
                         } else {
                             vm.editTaskAttachments = []
+                            vm.editTaskMapAttachments = []
                         }
                         vm.selectedTaskForEdit = task
                     }
@@ -212,8 +218,15 @@ struct TodoView: View {
                 }
                 
                 Button(role: .destructive) {
-                    vm.showDeleteConfirmation = true
                     vm.selectedTaskForDelete = task
+                    Task {
+                        if let taskID = task.id {
+                            vm.taskMapDeleteImpact = await model.fetchTaskMapDeleteImpact(taskID: taskID)
+                        } else {
+                            vm.taskMapDeleteImpact = nil
+                        }
+                        vm.showDeleteConfirmation = true
+                    }
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
@@ -223,20 +236,35 @@ struct TodoView: View {
                 isPresented: $vm.showDeleteConfirmation,
                 titleVisibility: .visible
             ) {
-                Button("Delete Task", role: .destructive) {
+                Button(
+                    vm.taskMapDeleteImpact?.hasOwnedPlaces == true
+                        ? "Delete Task & Map Items"
+                        : "Delete Task",
+                    role: .destructive
+                ) {
                     guard let task = vm.selectedTaskForDelete else { return }
 
                     Task {
-                        await model.deleteTask(task: task, context: context)
-                        vm.selectedTaskForDelete = nil
+                        do {
+                            _ = try await model.deleteTaskForEditor(task: task, context: context)
+                            clearTaskDeleteState()
+                        } catch {
+                            vm.deleteErrorMessage = error.localizedDescription
+                        }
+                    }
+                }
+
+                if vm.taskMapDeleteImpact?.hasOwnedPlaces == true {
+                    Button("Review Map Items") {
+                        vm.showTaskMapDeleteReview = true
                     }
                 }
 
                 Button("Cancel", role: .cancel) {
-                    vm.selectedTaskForDelete = nil
+                    clearTaskDeleteState()
                 }
             } message: {
-                Text("This action cannot be undone.")
+                Text(taskDeleteConfirmationMessage)
             }
     }
     
@@ -759,28 +787,86 @@ struct TodoView: View {
             AddEditTodoView(
                 task: nil, initialTiming: vm.initializationTiming
             ) { newTask, attachments in
-                Task {
-                    guard let saved = await model.saveTask(newTask),
-                          let taskId = saved.id else { return }
-                    if !attachments.isEmpty {
-                        await model.saveImageAttachments(attachments, forTaskId: taskId)
+                let saved: Tasks
+                if let taskID = newTask.id, let existing = model.getTask(by: taskID) {
+                    saved = try await model.updateTaskForEditor(task: existing, modifiedTask: newTask)
+                    await model.replaceImageAttachments(attachments, forTaskId: taskID)
+                } else {
+                    saved = try await model.saveTaskForEditor(newTask)
+                    if let taskID = saved.id, !attachments.isEmpty {
+                        await model.saveImageAttachments(attachments, forTaskId: taskID)
                     }
                 }
+                return saved
             }
         }
         .sheet(item: $vm.selectedTaskForEdit) { task in
-            AddEditTodoView(task: task, existingAttachments: vm.editTaskAttachments) { modified_task, attachments in
-                Task {
-                    await model.updateTask(task: task, modified_task: modified_task)
-                    if let taskId = modified_task.id ?? task.id {
-                        await model.replaceImageAttachments(attachments, forTaskId: taskId)
-                    }
+            AddEditTodoView(
+                task: task,
+                existingAttachments: vm.editTaskAttachments,
+                existingMapAttachments: vm.editTaskMapAttachments
+            ) { modifiedTask, attachments in
+                let current = modifiedTask.id.flatMap { model.getTask(by: $0) } ?? task
+                let saved = try await model.updateTaskForEditor(task: current, modifiedTask: modifiedTask)
+                if let taskID = saved.id {
+                    await model.replaceImageAttachments(attachments, forTaskId: taskID)
                 }
+                return saved
             }
         }
         .sheet(item: $vm.selectedTaskForViewer) { task in
             IndividualTodoView(task: task)
         }
+        .sheet(isPresented: $vm.showTaskMapDeleteReview) {
+            if let impact = vm.taskMapDeleteImpact,
+               let task = vm.selectedTaskForDelete {
+                TaskMapDeleteReviewSheet(
+                    impact: impact,
+                    folders: model.mapsStore.sortedFolders
+                ) { preservedPlaces in
+                    _ = try await model.deleteTaskForEditor(
+                        task: task,
+                        preservedPlaces: preservedPlaces,
+                        context: context
+                    )
+                    clearTaskDeleteState()
+                }
+            }
+        }
+        .alert(
+            "Task could not be deleted",
+            isPresented: Binding(
+                get: { vm.deleteErrorMessage != nil },
+                set: { if !$0 { vm.deleteErrorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { vm.deleteErrorMessage = nil }
+        } message: {
+            Text(vm.deleteErrorMessage ?? "Please try again.")
+        }
+    }
+
+    private var taskDeleteConfirmationMessage: String {
+        guard let impact = vm.taskMapDeleteImpact else {
+            return "This action cannot be undone."
+        }
+
+        if impact.hasOwnedPlaces {
+            return "\(impact.owned_place_count) task-owned place(s) will be deleted. \(impact.referenceCount) saved link(s) will be removed while their map items survive."
+        }
+
+        if impact.referenceCount > 0 {
+            return "\(impact.referenceCount) map link(s) will be removed. The saved places and routes will survive."
+        }
+
+        return "This action cannot be undone."
+    }
+
+    private func clearTaskDeleteState() {
+        vm.showDeleteConfirmation = false
+        vm.showTaskMapDeleteReview = false
+        vm.selectedTaskForDelete = nil
+        vm.taskMapDeleteImpact = nil
     }
 
     private func presentAddTaskIfNeeded(_ link: AppDeepLink?) {

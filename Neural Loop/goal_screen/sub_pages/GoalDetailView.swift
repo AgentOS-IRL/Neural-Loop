@@ -43,6 +43,7 @@ struct GoalDetailView: View {
     
     @State private var taskToEdit: Tasks?
     @State private var editTaskAttachments: [ImageAttachment] = []
+    @State private var editTaskMapAttachments: [TaskMapAttachment] = []
     
     @State private var taskDateBuckets: [DateBucket] = buildShortRangeDateBuckets()
     @State private var goalDateBuckets: [DateBucket] = buildLongRangeDateBuckets()
@@ -231,8 +232,10 @@ struct GoalDetailView: View {
                                             Task {
                                                 if let taskId = task.id {
                                                     editTaskAttachments = await model.fetchImageAttachments(forTaskId: taskId)
+                                                    editTaskMapAttachments = await model.fetchTaskMapAttachments(taskID: taskId)
                                                 } else {
                                                     editTaskAttachments = []
+                                                    editTaskMapAttachments = []
                                                 }
                                                 taskToEdit = task
                                             }
@@ -245,22 +248,31 @@ struct GoalDetailView: View {
                     
                     .sheet(isPresented: $showAddTask) {
                         AddEditTodoView(task: nil, initialTiming: initializationTiming, goalId: goal.id) { newTask, attachments in
-                            Task {
-                                guard let saved = await model.saveTask(newTask), let taskId = saved.id else { return }
-                                if !attachments.isEmpty {
-                                    await model.saveImageAttachments(attachments, forTaskId: taskId)
+                            let saved: Tasks
+                            if let taskID = newTask.id, let existing = model.getTask(by: taskID) {
+                                saved = try await model.updateTaskForEditor(task: existing, modifiedTask: newTask)
+                                await model.replaceImageAttachments(attachments, forTaskId: taskID)
+                            } else {
+                                saved = try await model.saveTaskForEditor(newTask)
+                                if let taskID = saved.id, !attachments.isEmpty {
+                                    await model.saveImageAttachments(attachments, forTaskId: taskID)
                                 }
                             }
+                            return saved
                         }
                     }
                     .sheet(item: $taskToEdit) { task in
-                        AddEditTodoView(task: task, existingAttachments: editTaskAttachments) { modifiedTask, attachments in
-                            Task {
-                                await model.updateTask(task: task, modified_task: modifiedTask)
-                                if let taskId = modifiedTask.id ?? task.id {
-                                    await model.replaceImageAttachments(attachments, forTaskId: taskId)
-                                }
+                        AddEditTodoView(
+                            task: task,
+                            existingAttachments: editTaskAttachments,
+                            existingMapAttachments: editTaskMapAttachments
+                        ) { modifiedTask, attachments in
+                            let current = modifiedTask.id.flatMap { model.getTask(by: $0) } ?? task
+                            let saved = try await model.updateTaskForEditor(task: current, modifiedTask: modifiedTask)
+                            if let taskID = saved.id {
+                                await model.replaceImageAttachments(attachments, forTaskId: taskID)
                             }
+                            return saved
                         }
                     }
                     
@@ -683,8 +695,10 @@ struct GoalDetailView: View {
                                         Task {
                                             if let taskId = task.id {
                                                 editTaskAttachments = await model.fetchImageAttachments(forTaskId: taskId)
+                                                editTaskMapAttachments = await model.fetchTaskMapAttachments(taskID: taskId)
                                             } else {
                                                 editTaskAttachments = []
+                                                editTaskMapAttachments = []
                                             }
                                             taskToEdit = task
                                         }

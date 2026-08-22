@@ -110,6 +110,38 @@ nonisolated struct MapsSnapshot: Codable, Equatable, Sendable {
     var places: [MapPlaceRecord]
     var routes: [MapRouteRecord]
     var route_waypoints: [MapRouteWaypointRecord]
+    var task_links: [TaskMapLinkSummary]
+
+    private enum CodingKeys: String, CodingKey {
+        case folders
+        case places
+        case routes
+        case route_waypoints
+        case task_links
+    }
+
+    init(
+        folders: [MapFolderRecord],
+        places: [MapPlaceRecord],
+        routes: [MapRouteRecord],
+        route_waypoints: [MapRouteWaypointRecord],
+        task_links: [TaskMapLinkSummary] = []
+    ) {
+        self.folders = folders
+        self.places = places
+        self.routes = routes
+        self.route_waypoints = route_waypoints
+        self.task_links = task_links
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        folders = try container.decode([MapFolderRecord].self, forKey: .folders)
+        places = try container.decode([MapPlaceRecord].self, forKey: .places)
+        routes = try container.decode([MapRouteRecord].self, forKey: .routes)
+        route_waypoints = try container.decode([MapRouteWaypointRecord].self, forKey: .route_waypoints)
+        task_links = try container.decodeIfPresent([TaskMapLinkSummary].self, forKey: .task_links) ?? []
+    }
 }
 
 nonisolated struct CreateMapFolderRequest: Codable, Equatable, Sendable {

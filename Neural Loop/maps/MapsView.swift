@@ -250,6 +250,26 @@ struct MapsView: View {
                 .listRowSeparator(.hidden)
             }
 
+            if store.hasTaskLinkedItems {
+                NavigationLink {
+                    TaskLinkedMapsView(
+                        store: store,
+                        coordinator: coordinator,
+                        locationService: locationService
+                    )
+                } label: {
+                    HStack {
+                        Label("Task-linked", systemImage: "checklist")
+                            .font(.system(.headline, design: .rounded, weight: .bold))
+                        Spacer()
+                        Text("\(store.taskLinkSummaries.count)")
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                    .padding(.vertical, 8)
+                }
+                .listRowBackground(AppTheme.cardGradient)
+            }
+
             if store.sortedFolders.isEmpty {
                 ContentUnavailableView(
                     "No folders",

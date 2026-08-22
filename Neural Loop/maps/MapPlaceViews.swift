@@ -217,15 +217,28 @@ struct MapPlaceDetailView: View {
     @ObservedObject var store: MapsStore
     @ObservedObject var coordinator: ParkingDetectionCoordinator
     @ObservedObject var locationService: MapsLocationService
+    @EnvironmentObject private var model: UnifiedDataModel
 
     @State private var isOpenPlacePresented = false
     @State private var onboardingProvider: ExternalMapProvider?
     @State private var isSavePermanentlyPresented = false
     @State private var isDeleteConfirmationPresented = false
     @State private var actionErrorMessage: String?
+    @State private var selectedTask: Tasks?
+    @State private var isSaveTaskOwnedPresented = false
+    @State private var isDeleteTaskOwnedPresented = false
 
     private var place: MapPlaceItem? {
         store.place(reference: placeReference)
+    }
+
+    private var taskLinks: [TaskMapLinkSummary] {
+        guard let placeID = place?.remoteID else { return [] }
+        return store.taskLinks(forPlaceID: placeID)
+    }
+
+    private var ownerLink: TaskMapLinkSummary? {
+        taskLinks.first { $0.relationship == .owner }
     }
 
     var body: some View {
@@ -278,6 +291,13 @@ struct MapPlaceDetailView: View {
                             }
                         }
 
+                        TaskMapLinkBadge(
+                            links: taskLinks,
+                            onSelectTask: { taskID in
+                                selectedTask = model.getTask(by: taskID)
+                            }
+                        )
+
                         Button {
                             isOpenPlacePresented = true
                         } label: {
@@ -298,6 +318,20 @@ struct MapPlaceDetailView: View {
 
                                 Button("Delete", role: .destructive) {
                                     isDeleteConfirmationPresented = true
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        } else if ownerLink != nil {
+                            HStack {
+                                Button("Save Permanently") {
+                                    isSaveTaskOwnedPresented = true
+                                }
+                                .buttonStyle(.bordered)
+
+                                Spacer()
+
+                                Button("Delete", role: .destructive) {
+                                    isDeleteTaskOwnedPresented = true
                                 }
                                 .buttonStyle(.bordered)
                             }
@@ -368,6 +402,25 @@ struct MapPlaceDetailView: View {
                 )
             }
         }
+        .sheet(isPresented: $isSaveTaskOwnedPresented) {
+            if let placeID = place?.remoteID,
+               let record = store.snapshot?.places.first(where: { $0.id == placeID }),
+               let ownerLink,
+               let initialFolderID = store.unfiledFolder?.id {
+                SaveTaskOwnedPlaceSheet(
+                    place: record,
+                    folders: store.sortedFolders,
+                    initialFolderID: initialFolderID
+                ) { folderID, name in
+                    try await store.saveTaskOwnedPlace(
+                        taskID: ownerLink.task_id,
+                        placeID: placeID,
+                        folderID: folderID,
+                        name: name
+                    )
+                }
+            }
+        }
         .confirmationDialog(
             "Delete this parking location?",
             isPresented: $isDeleteConfirmationPresented,
@@ -385,6 +438,28 @@ struct MapPlaceDetailView: View {
         } message: {
             Text("It will be removed locally now and deleted from Supabase when synchronization succeeds.")
         }
+        .confirmationDialog(
+            "Delete this task-owned place?",
+            isPresented: $isDeleteTaskOwnedPresented,
+            titleVisibility: .visible
+        ) {
+            Button("Delete Place", role: .destructive) {
+                guard let placeID = place?.remoteID, let ownerLink else { return }
+                Task {
+                    do {
+                        try await store.deleteTaskOwnedPlace(
+                            taskID: ownerLink.task_id,
+                            placeID: placeID
+                        )
+                    } catch {
+                        actionErrorMessage = error.localizedDescription
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The place will be permanently deleted and removed from \(ownerLink?.task_title ?? "the task").")
+        }
         .alert(
             "Parking action failed",
             isPresented: Binding(
@@ -395,6 +470,9 @@ struct MapPlaceDetailView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(actionErrorMessage ?? "Please try again.")
+        }
+        .sheet(item: $selectedTask) { task in
+            IndividualTodoView(task: task)
         }
     }
 

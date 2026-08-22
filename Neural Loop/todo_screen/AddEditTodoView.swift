@@ -10,7 +10,7 @@ import RRuleKit
 
 struct AddEditTodoView: View {
     let task: Tasks?
-    let onSave: (Tasks, [ImageAttachment]) -> Void
+    let onSave: (Tasks, [ImageAttachment]) async throws -> Tasks
 
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var model: UnifiedDataModel
@@ -30,14 +30,40 @@ struct AddEditTodoView: View {
     @State private var showScheduleSheet = false
 
     @State private var attachments: [ImageAttachment] = []
+    @State private var existingMapAttachments: [TaskMapAttachment]
+    @State private var selectedMapTargets: [TaskMapTarget]
+    @State private var ownedPlaceDrafts: [TaskOwnedPlaceDraft] = []
+    @State private var showMapPicker = false
+    @State private var showAddTaskPlace = false
+    @State private var isSaving = false
+    @State private var saveErrorMessage: String?
+    @State private var persistedTask: Tasks?
     
     @State private var showUnsetConfirmation = false
 
 
-    init(task: Tasks?, initialTiming: TaskTiming? = nil, goalId: Int64? = nil, lifeAreaId: Int64? = nil, existingAttachments: [ImageAttachment] = [], onSave: @escaping (Tasks, [ImageAttachment]) -> Void) {
+    init(
+        task: Tasks?,
+        initialTiming: TaskTiming? = nil,
+        goalId: Int64? = nil,
+        lifeAreaId: Int64? = nil,
+        existingAttachments: [ImageAttachment] = [],
+        existingMapAttachments: [TaskMapAttachment] = [],
+        onSave: @escaping (Tasks, [ImageAttachment]) async throws -> Tasks
+    ) {
         self.task = task
         self.onSave = onSave
+        _persistedTask = State(initialValue: task)
         _attachments = State(initialValue: existingAttachments)
+        let sortedMapAttachments = existingMapAttachments.sorted {
+            $0.position == $1.position ? $0.id < $1.id : $0.position < $1.position
+        }
+        _existingMapAttachments = State(initialValue: sortedMapAttachments)
+        _selectedMapTargets = State(
+            initialValue: sortedMapAttachments.compactMap { attachment in
+                attachment.relationship == .reference ? attachment.target : nil
+            }
+        )
         _title = State(initialValue: task?.title ?? "")
         _description = State(initialValue: task?.description ?? "")
         _priority = State(initialValue: task?.priority ?? 0)
@@ -242,6 +268,8 @@ struct AddEditTodoView: View {
                             }
                         }
 
+                        mapAttachmentsSection
+
                         // MARK: Attachments
                         VStack(alignment: .leading, spacing: 4) {
                             themedSectionHeader("Attachments")
@@ -260,7 +288,7 @@ struct AddEditTodoView: View {
                 // Close
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        dismiss()
+                        if !isSaving { dismiss() }
                     } label: {
                         Image(systemName: "xmark")
                             .foregroundColor(AppTheme.textPrimary)
@@ -270,11 +298,11 @@ struct AddEditTodoView: View {
                 // Save
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(task == nil ? "Save" : "Update") {
-                        saveTask()
+                        Task { await saveTask() }
                     }
                     .font(.body.weight(.bold))
                     .foregroundColor(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? AppTheme.textSecondary : AppTheme.accentColor)
-                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving)
                 }
             }
             .sheet(isPresented: $showScheduleSheet) {
@@ -313,7 +341,45 @@ struct AddEditTodoView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showMapPicker) {
+                TaskMapReferencePicker(
+                    store: model.mapsStore,
+                    initialSelection: selectedMapTargets
+                ) { selection in
+                    selectedMapTargets = selection
+                }
+            }
+            .sheet(isPresented: $showAddTaskPlace) {
+                if let unfiled = model.mapsStore.unfiledFolder {
+                    AddMapPlaceSheet(
+                        folders: [unfiled],
+                        initialFolderID: unfiled.id
+                    ) { request in
+                        ownedPlaceDrafts.append(
+                            TaskOwnedPlaceDraft(
+                                name: request.name,
+                                latitude: request.latitude,
+                                longitude: request.longitude,
+                                address: request.address
+                            )
+                        )
+                    }
+                }
+            }
+            .alert(
+                "Task could not be saved",
+                isPresented: Binding(
+                    get: { saveErrorMessage != nil },
+                    set: { if !$0 { saveErrorMessage = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) { saveErrorMessage = nil }
+            } message: {
+                Text(saveErrorMessage ?? "Please try again.")
+            }
+            .interactiveDismissDisabled(isSaving)
             .task {
+                await model.mapsStore.loadIfNeeded()
                 GoalOrLifeAreadName = await model.getGoalName(goal_id: goalId)
                 if GoalOrLifeAreadName == nil {
                     GoalOrLifeAreadName = await model.getLifeAreaName(lifeArea_id: lifeAreaId)
@@ -322,7 +388,121 @@ struct AddEditTodoView: View {
         }
     }
     
-    private func saveTask() {
+    @ViewBuilder
+    private var mapAttachmentsSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            themedSectionHeader("Map Attachments")
+            ThemedCard {
+                let ownedAttachments = existingMapAttachments.filter { $0.relationship == .owner }
+                if ownedAttachments.isEmpty && selectedMapTargets.isEmpty && ownedPlaceDrafts.isEmpty {
+                    Text("No places or routes linked")
+                        .font(.system(.subheadline, design: .rounded))
+                        .foregroundStyle(AppTheme.textSecondary)
+                } else {
+                    ForEach(ownedAttachments) { attachment in
+                        mapAttachmentRow(
+                            title: attachment.displayName,
+                            subtitle: "Task-owned",
+                            systemImage: "mappin.and.ellipse",
+                            remove: nil
+                        )
+                        Divider()
+                    }
+
+                    ForEach(selectedMapTargets) { target in
+                        mapAttachmentRow(
+                            title: mapTargetName(target),
+                            subtitle: "Linked reference",
+                            systemImage: targetSystemImage(target),
+                            remove: {
+                                selectedMapTargets.removeAll { $0 == target }
+                            }
+                        )
+                        Divider()
+                    }
+
+                    ForEach(ownedPlaceDrafts) { draft in
+                        mapAttachmentRow(
+                            title: draft.name,
+                            subtitle: "New task-owned place",
+                            systemImage: "mappin.and.ellipse",
+                            remove: {
+                                ownedPlaceDrafts.removeAll { $0.id == draft.id }
+                            }
+                        )
+                        Divider()
+                    }
+                }
+
+                HStack {
+                    Button {
+                        showMapPicker = true
+                    } label: {
+                        Label("Link Existing", systemImage: "link.badge.plus")
+                    }
+
+                    Spacer()
+
+                    Button {
+                        showAddTaskPlace = true
+                    } label: {
+                        Label("Create Place", systemImage: "mappin.and.ellipse")
+                    }
+                    .disabled(model.mapsStore.unfiledFolder == nil)
+                }
+                .font(.system(.caption, design: .rounded, weight: .bold))
+            }
+        }
+    }
+
+    private func mapAttachmentRow(
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        remove: (() -> Void)?
+    ) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .foregroundStyle(AppTheme.accentColor)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .foregroundStyle(AppTheme.textPrimary)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+            Spacer()
+            if let remove {
+                Button(role: .destructive, action: remove) {
+                    Image(systemName: "minus.circle")
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func mapTargetName(_ target: TaskMapTarget) -> String {
+        switch target {
+        case .place(let id):
+            return model.mapsStore.snapshot?.places.first { $0.id == id }?.name
+                ?? existingMapAttachments.first { $0.place_id == id }?.displayName
+                ?? "Place"
+        case .route(let id):
+            return model.mapsStore.snapshot?.routes.first { $0.id == id }?.name
+                ?? existingMapAttachments.first { $0.route_id == id }?.displayName
+                ?? "Route"
+        }
+    }
+
+    private func targetSystemImage(_ target: TaskMapTarget) -> String {
+        switch target {
+        case .place: "mappin"
+        case .route: "point.topleft.down.to.point.bottomright.curvepath"
+        }
+    }
+
+    private func saveTask() async {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedDesc = description.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -332,7 +512,7 @@ struct AddEditTodoView: View {
         }
 
         let updatedTask = Tasks(
-            id: task?.id ?? nil,
+            id: persistedTask?.id ?? task?.id,
             title: trimmedTitle,
             description: trimmedDesc,
             priority: priority,
@@ -346,8 +526,161 @@ struct AddEditTodoView: View {
             duration: scheduleDraft.timing?.duration ?? nil
         )
 
-        onSave(updatedTask, attachments)
-        dismiss()
+        isSaving = true
+        saveErrorMessage = nil
+        defer { isSaving = false }
+
+        do {
+            let savedTask = try await onSave(updatedTask, attachments)
+            persistedTask = savedTask
+
+            guard let taskID = savedTask.id else {
+                throw TaskMapEditorError.savedTaskHasNoID
+            }
+
+            _ = try await model.applyTaskMapBundle(
+                taskID: taskID,
+                draft: TaskMapBundleDraft(
+                    referenceTargets: selectedMapTargets,
+                    ownedPlaces: ownedPlaceDrafts
+                )
+            )
+            dismiss()
+        } catch {
+            saveErrorMessage = error.localizedDescription
+        }
     }
     
+}
+
+private enum TaskMapEditorError: LocalizedError {
+    case savedTaskHasNoID
+
+    var errorDescription: String? {
+        "The task was saved without a database ID. Please try again."
+    }
+}
+
+private struct TaskMapReferencePicker: View {
+    private enum Segment: String, CaseIterable, Identifiable {
+        case places = "Places"
+        case routes = "Routes"
+
+        var id: String { rawValue }
+    }
+
+    @ObservedObject var store: MapsStore
+    let onDone: ([TaskMapTarget]) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var segment: Segment = .places
+    @State private var searchText = ""
+    @State private var selection: [TaskMapTarget]
+
+    init(
+        store: MapsStore,
+        initialSelection: [TaskMapTarget],
+        onDone: @escaping ([TaskMapTarget]) -> Void
+    ) {
+        self.store = store
+        self.onDone = onDone
+        _selection = State(initialValue: initialSelection)
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Picker("Map type", selection: $segment) {
+                    ForEach(Segment.allCases) { segment in
+                        Text(segment.rawValue).tag(segment)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                if segment == .places {
+                    ForEach(filteredPlaces) { place in
+                        selectionRow(
+                            title: place.name,
+                            subtitle: store.folder(id: place.folder_id)?.name,
+                            target: .place(place.id),
+                            systemImage: "mappin"
+                        )
+                    }
+                } else {
+                    ForEach(filteredRoutes) { route in
+                        selectionRow(
+                            title: route.name,
+                            subtitle: store.folder(id: route.folder_id)?.name,
+                            target: .route(route.id),
+                            systemImage: "point.topleft.down.to.point.bottomright.curvepath"
+                        )
+                    }
+                }
+            }
+            .navigationTitle("Link Existing")
+            .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $searchText, prompt: "Search Maps")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        onDone(selection)
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    private var filteredPlaces: [MapPlaceRecord] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (store.snapshot?.places ?? [])
+            .filter { place in
+                place.kind == .saved &&
+                !store.isTaskOwned(placeID: place.id) &&
+                (query.isEmpty || place.name.localizedCaseInsensitiveContains(query))
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private var filteredRoutes: [MapRouteRecord] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (store.snapshot?.routes ?? [])
+            .filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private func selectionRow(
+        title: String,
+        subtitle: String?,
+        target: TaskMapTarget,
+        systemImage: String
+    ) -> some View {
+        Button {
+            if selection.contains(target) {
+                selection.removeAll { $0 == target }
+            } else {
+                selection.append(target)
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .foregroundStyle(AppTheme.accentColor)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).foregroundStyle(AppTheme.textPrimary)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                }
+                Spacer()
+                Image(systemName: selection.contains(target) ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(selection.contains(target) ? AppTheme.accentColor : AppTheme.textSecondary)
+            }
+        }
+        .buttonStyle(.plain)
+    }
 }

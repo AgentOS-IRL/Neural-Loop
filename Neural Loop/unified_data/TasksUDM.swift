@@ -85,57 +85,115 @@ extension  UnifiedDataModel {
         
     }
     
-    func deleteTask(task: Tasks, context: ModelContext) async {
-        guard let id = task.id else { return }
+    func deleteTask(
+        task: Tasks,
+        preservedPlaces: [PreservedTaskPlaceInput] = [],
+        context: ModelContext
+    ) async {
         do {
-            try await manager.deleteTask(id: id)
-            
-            if let index = tasks.firstIndex(where: { $0.id == id }) {
-                tasks.remove(at: index)
-            }
-            taskNoteCounts.removeValue(forKey: id)
-
-            await notificationScheduler.clearTaskNotifications(taskId: id)
-
-            do {
-                try deleteRecurringTaskCompletions(taskId: id, context: context)
-            } catch {
-                print("Error deleting local recurring task completions", error)
-            }
-            
+            _ = try await deleteTaskForEditor(
+                task: task,
+                preservedPlaces: preservedPlaces,
+                context: context
+            )
         } catch {
             print("Error deleting task", error)
-            
         }
+    }
+
+    @discardableResult
+    func deleteTaskForEditor(
+        task: Tasks,
+        preservedPlaces: [PreservedTaskPlaceInput] = [],
+        context: ModelContext
+    ) async throws -> DeleteTaskMapReceipt {
+        guard let id = task.id else {
+            throw TaskMapMutationError.missingTaskID
+        }
+
+        let receipt = try await manager.deleteTask(id: id, preservedPlaces: preservedPlaces)
+
+        tasks.removeAll { $0.id == id }
+        taskNoteCounts.removeValue(forKey: id)
+        await notificationScheduler.clearTaskNotifications(taskId: id)
+
+        do {
+            try deleteRecurringTaskCompletions(taskId: id, context: context)
+        } catch {
+            print("Error deleting local recurring task completions", error)
+        }
+
+        await mapsStore.refresh()
+        return receipt
     }
     
     func saveTask(_ task: Tasks) async -> Tasks? {
         do {
-            let newTask = try await manager.addTask(task)
-            tasks.append(newTask)
-            await refreshTaskNotifications(for: newTask)
-            return newTask
+            return try await saveTaskForEditor(task)
         }
         catch {
             print("Error saving task", error)
             return nil
         }
     }
+
+    func saveTaskForEditor(_ task: Tasks) async throws -> Tasks {
+        let newTask = try await manager.addTask(task)
+        tasks.append(newTask)
+        await refreshTaskNotifications(for: newTask)
+        return newTask
+    }
     
     func updateTask(task: Tasks, modified_task: Tasks) async {
         do {
-            if task != modified_task {
-                let savedTask = try await manager.updateTask(modified_task)
-                if let index = tasks.firstIndex(where: { $0.id == task.id }) {
-                    tasks.remove(at: index)
-                    tasks.append(savedTask)
-                }
-                await refreshTaskNotifications(for: savedTask)
-            }
+            _ = try await updateTaskForEditor(task: task, modifiedTask: modified_task)
         }
         catch {
             print("Error updating task", error)
         }
+    }
+
+    @discardableResult
+    func updateTaskForEditor(task: Tasks, modifiedTask: Tasks) async throws -> Tasks {
+        guard task != modifiedTask else { return task }
+
+        let savedTask = try await manager.updateTask(modifiedTask)
+        if let index = tasks.firstIndex(where: { $0.id == task.id }) {
+            tasks[index] = savedTask
+        } else {
+            tasks.append(savedTask)
+        }
+        await refreshTaskNotifications(for: savedTask)
+        if let taskID = savedTask.id,
+           mapsStore.taskLinkSummaries.contains(where: { $0.task_id == taskID }) {
+            await mapsStore.refresh()
+        }
+        return savedTask
+    }
+
+    func fetchTaskMapAttachments(taskID: Int64) async -> [TaskMapAttachment] {
+        do {
+            return try await manager.fetchTaskMapAttachments(taskID: taskID)
+        } catch {
+            print("Error fetching task map attachments", error)
+            return []
+        }
+    }
+
+    func fetchTaskMapDeleteImpact(taskID: Int64) async -> TaskMapDeleteImpact? {
+        do {
+            return try await manager.fetchTaskMapDeleteImpact(taskID: taskID)
+        } catch {
+            print("Error fetching task map delete impact", error)
+            return nil
+        }
+    }
+
+    @discardableResult
+    func applyTaskMapBundle(taskID: Int64, draft: TaskMapBundleDraft) async throws -> [TaskMapAttachment] {
+        let attachments = try await manager.applyTaskMapBundle(taskID: taskID, draft: draft)
+        await mapsStore.refresh()
+        return attachments
     }
 
     func setTaskCompleted(taskId: Int64, completed: Bool) async -> Tasks? {
@@ -366,6 +424,14 @@ extension  UnifiedDataModel {
             print("Error fetching task image attachments", error)
             return []
         }
+    }
+}
+
+private enum TaskMapMutationError: LocalizedError {
+    case missingTaskID
+
+    var errorDescription: String? {
+        "This task does not have a database ID."
     }
 }
 

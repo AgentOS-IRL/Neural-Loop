@@ -54,13 +54,33 @@ final class MapsStore: ObservableObject {
         snapshot?.folders.first(where: \.is_default)
     }
 
+    var hasTaskLinkedItems: Bool {
+        !(snapshot?.task_links.isEmpty ?? true)
+    }
+
+    var taskOwnedPlaceIDs: Set<Int64> {
+        Set((snapshot?.task_links ?? []).compactMap { link in
+            guard link.relationship == .owner else { return nil }
+            return link.place_id
+        })
+    }
+
+    var taskLinkSummaries: [TaskMapLinkSummary] {
+        snapshot?.task_links ?? []
+    }
+
     func folder(id: Int64) -> MapFolderRecord? {
         snapshot?.folders.first { $0.id == id }
     }
 
     func places(in folderID: Int64) -> [MapPlaceRecord] {
-        (snapshot?.places ?? [])
-            .filter { $0.folder_id == folderID && $0.kind == .saved }
+        let ownedPlaceIDs = taskOwnedPlaceIDs
+        return (snapshot?.places ?? [])
+            .filter {
+                $0.folder_id == folderID &&
+                $0.kind == .saved &&
+                !ownedPlaceIDs.contains($0.id)
+            }
             .sorted { lhs, rhs in
                 let comparison = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
                 return comparison == .orderedSame ? lhs.id < rhs.id : comparison == .orderedAscending
@@ -68,8 +88,13 @@ final class MapsStore: ObservableObject {
     }
 
     func savedPlaceItems(in folderID: Int64) -> [MapPlaceItem] {
-        allPlaceItems
-            .filter { $0.kind == .saved && $0.folderID == folderID }
+        let ownedPlaceIDs = taskOwnedPlaceIDs
+        return allPlaceItems
+            .filter {
+                $0.kind == .saved &&
+                $0.folderID == folderID &&
+                !($0.remoteID.map(ownedPlaceIDs.contains) ?? false)
+            }
             .sorted { lhs, rhs in
                 let comparison = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
                 if comparison != .orderedSame { return comparison == .orderedAscending }
@@ -82,6 +107,29 @@ final class MapsStore: ObservableObject {
             record.id == item.remoteID ||
             (item.clientEventID != nil && record.client_event_id == item.clientEventID)
         }
+    }
+
+    func isTaskOwned(placeID: Int64) -> Bool {
+        taskOwnedPlaceIDs.contains(placeID)
+    }
+
+    func taskLinks(forPlaceID placeID: Int64) -> [TaskMapLinkSummary] {
+        taskLinkSummaries
+            .filter { $0.place_id == placeID }
+            .sorted { lhs, rhs in
+                if lhs.relationship != rhs.relationship { return lhs.relationship == .owner }
+                let comparison = lhs.task_title.localizedCaseInsensitiveCompare(rhs.task_title)
+                return comparison == .orderedSame ? lhs.task_id < rhs.task_id : comparison == .orderedAscending
+            }
+    }
+
+    func taskLinks(forRouteID routeID: Int64) -> [TaskMapLinkSummary] {
+        taskLinkSummaries
+            .filter { $0.route_id == routeID }
+            .sorted { lhs, rhs in
+                let comparison = lhs.task_title.localizedCaseInsensitiveCompare(rhs.task_title)
+                return comparison == .orderedSame ? lhs.task_id < rhs.task_id : comparison == .orderedAscending
+            }
     }
 
     var allPlaceItems: [MapPlaceItem] {
@@ -290,6 +338,41 @@ final class MapsStore: ObservableObject {
 
         let deleted = try await manager.deleteMapPlace(id: place.id)
         snapshot?.places.removeAll { $0.id == deleted.id }
+        snapshot?.task_links.removeAll { $0.place_id == deleted.id }
+    }
+
+    func saveTaskOwnedPlace(
+        taskID: Int64,
+        placeID: Int64,
+        folderID: Int64,
+        name: String?
+    ) async throws {
+        try beginMutation()
+        defer { isMutating = false }
+
+        _ = try await manager.saveTaskOwnedPlace(
+            taskID: taskID,
+            placeID: placeID,
+            folderID: folderID,
+            name: name
+        )
+        try await reloadSnapshotAfterMutation()
+    }
+
+    func deleteTaskOwnedPlace(taskID: Int64, placeID: Int64) async throws {
+        try beginMutation()
+        defer { isMutating = false }
+
+        _ = try await manager.deleteTaskOwnedPlace(taskID: taskID, placeID: placeID)
+        try await reloadSnapshotAfterMutation()
+    }
+
+    func removeTaskMapReference(taskID: Int64, target: TaskMapTarget) async throws {
+        try beginMutation()
+        defer { isMutating = false }
+
+        _ = try await manager.removeTaskMapReference(taskID: taskID, target: target)
+        try await reloadSnapshotAfterMutation()
     }
 
     private func loadSnapshot(showInitialLoading: Bool) async {
@@ -317,6 +400,16 @@ final class MapsStore: ObservableObject {
                 refreshErrorMessage = error.localizedDescription
             }
         }
+    }
+
+    private func reloadSnapshotAfterMutation() async throws {
+        let fetched = try await manager.fetchMapsSnapshot()
+        snapshot = fetched
+        for clientEventID in fetched.places.compactMap(\.client_event_id) {
+            syncedParkingCache.removeValue(forKey: clientEventID)
+        }
+        loadState = .loaded
+        refreshErrorMessage = nil
     }
 
     private func beginMutation() throws {

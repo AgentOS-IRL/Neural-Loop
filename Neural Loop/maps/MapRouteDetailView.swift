@@ -6,20 +6,25 @@ struct MapRouteDetailView: View {
     let route: MapRouteRecord
     let waypoints: [MapRouteWaypointRecord]
     @ObservedObject var locationService: MapsLocationService
+    @ObservedObject var store: MapsStore
+    @EnvironmentObject private var model: UnifiedDataModel
 
     @State private var routeLegs: [MKRoute] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var position: MapCameraPosition
+    @State private var selectedTask: Tasks?
 
     init(
         route: MapRouteRecord,
         waypoints: [MapRouteWaypointRecord],
-        locationService: MapsLocationService
+        locationService: MapsLocationService,
+        store: MapsStore
     ) {
         self.route = route
         self.waypoints = waypoints
         self.locationService = locationService
+        self.store = store
         _position = State(initialValue: .rect(Self.mapRect(for: waypoints)))
     }
 
@@ -84,11 +89,25 @@ struct MapRouteDetailView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 100)
             }
+
+            VStack {
+                TaskMapLinkBadge(
+                    links: store.taskLinks(forRouteID: route.id),
+                    onSelectTask: { taskID in
+                        selectedTask = model.getTask(by: taskID)
+                    }
+                )
+                .padding(.top, 12)
+                Spacer()
+            }
         }
         .navigationTitle(route.name)
         .navigationBarTitleDisplayMode(.inline)
         .task(id: route.id) {
             await loadRoutePreview()
+        }
+        .sheet(item: $selectedTask) { task in
+            IndividualTodoView(task: task)
         }
     }
 

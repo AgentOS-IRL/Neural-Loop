@@ -19,6 +19,10 @@ struct IndividualTodoView: View {
     @State private var selectedNoteForDelete: FleetingNote?
     @State private var showAllNotes = false
     @State private var isMutatingNote = false
+    @State private var mapAttachments: [TaskMapAttachment] = []
+    @State private var ownedPlaceToSave: TaskMapAttachment?
+    @State private var ownedPlaceToDelete: TaskMapAttachment?
+    @StateObject private var mapsLocationService = MapsLocationService()
 
     var body: some View {
         NavigationStack {
@@ -29,6 +33,7 @@ struct IndividualTodoView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: AppTheme.Metrics.sectionSpacing) {
                         overviewSection
+                        mapAttachmentsSection
                         notesSection
                         subtasksSection
                     }
@@ -70,6 +75,52 @@ struct IndividualTodoView: View {
                 }
             } message: {
                 Text("The note and its attachments will be permanently removed.")
+            }
+            .sheet(item: $ownedPlaceToSave) { attachment in
+                if let place = attachment.place,
+                   let initialFolderID = model.mapsStore.unfiledFolder?.id {
+                    SaveTaskOwnedPlaceSheet(
+                        place: place,
+                        folders: model.mapsStore.sortedFolders,
+                        initialFolderID: initialFolderID
+                    ) { folderID, name in
+                        try await model.mapsStore.saveTaskOwnedPlace(
+                            taskID: attachment.task_id,
+                            placeID: place.id,
+                            folderID: folderID,
+                            name: name
+                        )
+                        await loadMapAttachments()
+                    }
+                }
+            }
+            .confirmationDialog(
+                ownedPlaceToDelete.map { "Delete \($0.displayName)?" } ?? "Delete task-owned place?",
+                isPresented: Binding(
+                    get: { ownedPlaceToDelete != nil },
+                    set: { if !$0 { ownedPlaceToDelete = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Delete Place", role: .destructive) {
+                    guard let attachment = ownedPlaceToDelete,
+                          let placeID = attachment.place_id else { return }
+                    Task {
+                        do {
+                            try await model.mapsStore.deleteTaskOwnedPlace(
+                                taskID: attachment.task_id,
+                                placeID: placeID
+                            )
+                            await loadMapAttachments()
+                        } catch {
+                            viewModel.alertMessage = error.localizedDescription
+                        }
+                        ownedPlaceToDelete = nil
+                    }
+                }
+                Button("Cancel", role: .cancel) { ownedPlaceToDelete = nil }
+            } message: {
+                Text("This place will be permanently deleted from Maps and removed from the task.")
             }
             .alert(
                 "Task Detail",
@@ -199,6 +250,94 @@ struct IndividualTodoView: View {
                 }
             }
         }
+    }
+
+    private var mapAttachmentsSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            themedSectionHeader("Maps")
+
+            ThemedCard {
+                if mapAttachments.isEmpty {
+                    Text("No places or routes linked")
+                        .font(.system(.subheadline, design: .rounded, weight: .medium))
+                        .foregroundStyle(AppTheme.textSecondary)
+                } else {
+                    ForEach(Array(mapAttachments.enumerated()), id: \.element.id) { index, attachment in
+                        if index > 0 { Divider() }
+
+                        mapAttachmentDestination(attachment)
+                            .contextMenu {
+                                if attachment.relationship == .owner {
+                                    Button("Save Permanently", systemImage: "folder.badge.plus") {
+                                        ownedPlaceToSave = attachment
+                                    }
+                                    Button(role: .destructive) {
+                                        ownedPlaceToDelete = attachment
+                                    } label: {
+                                        Label("Delete Place", systemImage: "trash")
+                                    }
+                                } else if let target = attachment.target {
+                                    Button("Remove from Task", systemImage: "link.badge.minus") {
+                                        Task { await removeReference(target) }
+                                    }
+                                }
+                            }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func mapAttachmentDestination(_ attachment: TaskMapAttachment) -> some View {
+        if let place = attachment.place {
+            NavigationLink {
+                MapPlaceDetailView(
+                    placeReference: .remote(place.id),
+                    store: model.mapsStore,
+                    coordinator: model.parkingCoordinator,
+                    locationService: mapsLocationService
+                )
+            } label: {
+                taskMapAttachmentLabel(attachment, systemImage: "mappin")
+            }
+        } else if let route = attachment.route {
+            NavigationLink {
+                MapRouteDetailView(
+                    route: route,
+                    waypoints: attachment.route_waypoints,
+                    locationService: mapsLocationService,
+                    store: model.mapsStore
+                )
+            } label: {
+                taskMapAttachmentLabel(
+                    attachment,
+                    systemImage: "point.topleft.down.to.point.bottomright.curvepath"
+                )
+            }
+        }
+    }
+
+    private func taskMapAttachmentLabel(
+        _ attachment: TaskMapAttachment,
+        systemImage: String
+    ) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .foregroundStyle(AppTheme.accentColor)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(attachment.displayName)
+                    .foregroundStyle(AppTheme.textPrimary)
+                Text(attachment.relationship == .owner ? "Task-owned" : "Linked reference")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption.bold())
+                .foregroundStyle(AppTheme.textSecondary)
+        }
+        .padding(.vertical, 5)
     }
 
     private var subtasksSection: some View {
@@ -380,8 +519,30 @@ struct IndividualTodoView: View {
 
     @MainActor
     private func loadDetail() async {
+        await model.mapsStore.loadIfNeeded()
         await viewModel.loadSubTasks(from: model, taskId: task.id)
         await viewModel.loadNotes(from: model, taskId: task.id)
+        await loadMapAttachments()
+    }
+
+    @MainActor
+    private func loadMapAttachments() async {
+        guard let taskID = task.id else {
+            mapAttachments = []
+            return
+        }
+        mapAttachments = await model.fetchTaskMapAttachments(taskID: taskID)
+    }
+
+    @MainActor
+    private func removeReference(_ target: TaskMapTarget) async {
+        guard let taskID = task.id else { return }
+        do {
+            try await model.mapsStore.removeTaskMapReference(taskID: taskID, target: target)
+            await loadMapAttachments()
+        } catch {
+            viewModel.alertMessage = error.localizedDescription
+        }
     }
 
     @MainActor
